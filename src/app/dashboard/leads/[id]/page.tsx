@@ -1,0 +1,1398 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
+import toast from "react-hot-toast";
+import DashboardNavbar from "@/components/DashboardNavbar";
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: "admin" | "employee" | "meeting";
+}
+
+interface HistoryEntry {
+  action: string;
+  performedBy: number;
+  performedByName: string;
+  timestamp: string;
+  previousAssignee?: number;
+  previousAssigneeName?: string;
+  newAssignee?: number;
+  newAssigneeName?: string;
+  assignedTo?: number;
+  assignedToName?: string;
+  details?: string;
+}
+
+interface Lead {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  state?: string;
+  city?: string;
+  age?: number;
+  passportType?: string;
+  leadSource?: string;
+  jobApplied?: string;
+  status: string;
+  dueDate?: string;
+
+  assignedTo: number | null;
+  assignedToName?: string;
+  assignedToEmail?: string;
+  assignedToRole?: string;
+
+  assignedBy?: number;
+  assignedByName?: string;
+  assignedByRole?: string;
+
+  createdBy: number;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+  history: HistoryEntry[];
+}
+
+
+
+export default function LeadDetailPage() {
+  const params = useParams();
+  const leadId = params.id as string;
+  const [user, setUser] = useState<User | null>(null);
+  const [lead, setLead] = useState<Lead | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [note, setNote] = useState("");
+  const [addingNote, setAddingNote] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [movingToAdmin, setMovingToAdmin] = useState(false);
+
+  const [adminUsers, setAdminUsers] = useState<{ id: number; name: string }[]>(
+    [],
+  );
+
+  const [meetingUsers, setMeetingUsers] = useState<User[]>([]);
+  const [employeeUsers, setEmployeeUsers] = useState<User[]>([]);
+
+  const [selectedMeeting, setSelectedMeeting] = useState("");
+  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedAdminUser, setSelectedAdminUser] = useState("");
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    dueDate: "",
+    state: "",
+    city: "",
+    age: "",
+    passportType: "",
+    leadSource: "",
+    jobApplied: "",
+    status: "",
+  });
+
+  const isReadOnly = user?.role !== "admin" && lead?.assignedTo !== user?.id;
+
+  const [updating, setUpdating] = useState(false);
+  const router = useRouter();
+  const toastShownRef = useRef(false);
+
+  useEffect(() => {
+    checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchLead();
+      fetchAdminUsers();
+      fetchMeetingUsers();
+      fetchEmployeeUsers();
+    }
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) {
+        if (!toastShownRef.current) {
+          toast.error("Please login first");
+          toastShownRef.current = true;
+        }
+        router.push("/");
+        return;
+      }
+      const data = await res.json();
+      setUser(data);
+    } catch (err) {
+      console.error(err);
+      if (!toastShownRef.current) {
+        toast.error("Something went wrong");
+        toastShownRef.current = true;
+      }
+      router.push("/");
+    }
+  };
+
+  const fetchAdminUsers = async () => {
+    try {
+      const res = await fetch("/api/users/by-role?role=admin");
+
+      const data = await res.json();
+
+      setAdminUsers(data.users || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchMeetingUsers = async () => {
+    try {
+      const response = await fetch("/api/users/by-role?role=meeting");
+      const data = await response.json();
+
+      if (response.ok) {
+        setMeetingUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchEmployeeUsers = async () => {
+    try {
+      const response = await fetch("/api/users/by-role?role=employee");
+      const data = await response.json();
+
+      if (response.ok) {
+        setEmployeeUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const fetchLead = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/leads/${leadId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLead(data.lead);
+        setSelectedStatus(data.lead.status || "");
+        // Initialize edit form with lead data
+        const dueDateValue = data.lead.dueDate
+          ? new Date(data.lead.dueDate).toISOString().split("T")[0]
+          : "";
+        setEditForm({
+          name: data.lead.name || "",
+          phone: data.lead.phone || "",
+          dueDate: dueDateValue,
+          state: data.lead.state || "",
+          city: data.lead.city || "",
+          age: data.lead.age ? String(data.lead.age) : "",
+          passportType: data.lead.passportType || "",
+          leadSource: data.lead.leadSource || "",
+          jobApplied: data.lead.jobApplied || "",
+          status: data.lead.status || "",
+        });
+      } else if (res.status === 403) {
+        // toast.error("You don't have permission to view this lead");
+        router.push("/dashboard/leads");
+      } else if (res.status === 404) {
+        toast.error("Lead not found");
+        router.push("/dashboard/leads");
+      } else {
+        toast.error("Failed to fetch lead");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addNoteOnly = async () => {
+    if (user?.role !== "admin" && lead?.assignedTo !== user?.id) {
+      toast.error("Read Only Lead");
+      return;
+    }
+    if (!note.trim()) {
+      toast.error("Note cannot be empty");
+      return;
+    }
+
+    setAddingNote(true);
+
+    try {
+      const res = await fetch(`/api/leads/${leadId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ note }),
+      });
+
+      if (res.ok) {
+        toast.success("Note added successfully");
+        setNote("");
+        fetchLead();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to add note");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  // const handleAddNote = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   await addNoteOnly();
+  // };
+
+  const handleStatusUpdate = async (newStatus: string) => {
+    if (isReadOnly) {
+      toast.error("Read Only Lead");
+      return;
+    }
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (res.ok) {
+        toast.success("Status updated successfully");
+        fetchLead();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to update status");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleEditClick = () => {
+    if (isReadOnly) {
+      toast.error("Read Only Lead");
+      return;
+    }
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    // Reset form to current lead data
+    if (lead) {
+      const dueDateValue = lead.dueDate
+        ? new Date(lead.dueDate).toISOString().split("T")[0]
+        : "";
+      setEditForm({
+        name: lead.name || "",
+        phone: lead.phone || "",
+        dueDate: dueDateValue,
+        state: lead.state || "",
+        city: lead.city || "",
+        age: lead.age ? String(lead.age) : "",
+        passportType: lead.passportType || "",
+        leadSource: lead.leadSource || "",
+        jobApplied: lead.jobApplied || "",
+        status: lead.status || "",
+      });
+    }
+  };
+
+  const handleUpdateLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (user?.role !== "admin" && lead?.assignedTo !== user?.id) {
+      toast.error("Read Only Lead");
+      return;
+    }
+
+    if (!editForm.phone.trim()) {
+      toast.error("Phone is required");
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/update`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+
+      if (res.ok) {
+        toast.success("Lead updated successfully");
+        setIsEditing(false);
+        fetchLead();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to update lead");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleDeleteLead = async () => {
+    if (user?.role !== "admin") {
+      toast.error("Only admin can delete leads");
+      return;
+    }
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this lead? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/leads/${leadId}/delete`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        toast.success("Lead deleted successfully");
+        router.push("/dashboard/leads");
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to delete lead");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    }
+  };
+
+  const handleMoveToAdmin = async () => {
+    if (isReadOnly) {
+      toast.error("Read Only Lead");
+      return;
+    }
+    if (adminUsers.length === 0) {
+      toast.error("No admin users available");
+      return;
+    }
+
+    if (
+      !window.confirm(
+        "Are you sure you want to move this lead to admin? The lead will be assigned to an admin user.",
+      )
+    ) {
+      return;
+    }
+
+    setMovingToAdmin(true);
+    try {
+      // Assign to the first admin user
+      const adminId = adminUsers[0].id;
+
+      const res = await fetch("/api/leads/assign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: parseInt(leadId),
+          assignedTo: adminId,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success("Lead moved to admin successfully");
+        fetchLead();
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to move lead to admin");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setMovingToAdmin(false);
+    }
+  };
+
+  const handleAssignToMeeting = async () => {
+    if (isReadOnly) {
+      toast.error("Read Only Lead");
+      return;
+    }
+    if (!lead) {
+      toast.error("Lead not found");
+      return;
+    }
+    if (!selectedMeeting) {
+      toast.error("Please select a meeting user");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/leads/assign", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          leadId: lead.id,
+          assignedTo: Number(selectedMeeting),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message);
+      }
+
+      toast.success("Assigned to meeting");
+      setSelectedMeeting("");
+      fetchLead();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const handleAssignToEmployee = async () => {
+    if (isReadOnly) {
+      toast.error("Read Only Lead");
+      return;
+    }
+    if (!lead) {
+      toast.error("Lead not found");
+      return;
+    }
+    if (!selectedEmployee) {
+      toast.error("Please select an employee");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/leads/assign", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          leadId: lead.id,
+          assignedTo: Number(selectedEmployee),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message);
+      }
+
+      toast.success("Assigned to employee");
+      setSelectedEmployee("");
+      fetchLead();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "new-lead":
+        return "bg-blue-100 text-blue-800";
+
+      case "call-back":
+        return "bg-yellow-100 text-yellow-800";
+
+      case "not-answering":
+        return "bg-orange-100 text-orange-800";
+
+      case "meeting-scheduled":
+        return "bg-purple-100 text-purple-800";
+
+      case "not-interested":
+        return "bg-red-100 text-red-800";
+
+      case "wrong-number":
+        return "bg-pink-100 text-pink-800";
+
+      case "document-pending":
+        return "bg-indigo-100 text-indigo-800";
+
+      case "payment-pending":
+        return "bg-amber-100 text-amber-800";
+
+      case "sales":
+        return "bg-green-100 text-green-800";
+
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const formatHistoryAction = (entry: HistoryEntry) => {
+    switch (entry.action) {
+      case "created":
+        if (entry.assignedToName) {
+          return `Created and assigned to ${entry.assignedToName}`;
+        }
+        return "Created";
+      case "assigned":
+        // Use the details field which contains the assigned person's name
+        return entry.details || "Lead assigned";
+      case "unassigned":
+        return entry.details || "Lead unassigned";
+      case "note_added":
+        return `Added note: "${entry.details}"`;
+      case "status_updated":
+        return entry.details || "Status updated";
+      case "lead_updated":
+        return entry.details || "Lead details updated";
+      default:
+        return entry.action;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <DashboardNavbar user={user} />
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+          <div className="px-4 py-6 sm:px-0">
+            <p className="text-gray-600 dark:text-gray-400">
+              Loading lead details...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!lead) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <DashboardNavbar user={user} />
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          {/* Back button */}
+          <button
+            onClick={() => router.push("/dashboard/leads")}
+            className="mb-6 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 font-medium transition"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 19l-7-7 7-7"
+              />
+            </svg>
+            Back to Leads
+          </button>
+
+          {/* Lead Details Card */}
+          <div className="bg-white shadow-lg rounded-xl p-8 mb-6 border border-gray-100">
+            {!isEditing ? (
+              <>
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                      {lead.name}
+                    </h1>
+                    {user.role !== "admin" && lead.assignedTo !== user.id && (
+                      <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3">
+                        <p className="text-red-700 text-sm font-medium">
+                          Read Only Lead - You can view this lead but cannot
+                          modify it.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 flex-wrap">
+                    {/* Status Badge */}
+                    <span
+                      className={`px-4 py-2 text-sm font-bold rounded-full uppercase tracking-wide ${getStatusBadgeColor(lead.status)}`}
+                    >
+                      {lead.status}
+                    </span>
+
+                    {/* Edit Button */}
+                    {(user.role === "admin" ||
+                      ((user.role === "employee" || user.role === "meeting") &&
+                        lead.assignedTo === user.id)) && (
+                      <button
+                        onClick={handleEditClick}
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium flex items-center gap-2"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                        Edit
+                      </button>
+                    )}
+
+                    {/* Delete Button — Admin only */}
+                    {user.role === "admin" && (
+                      <button
+                        onClick={handleDeleteLead}
+                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-medium flex items-center gap-2"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                        Delete
+                      </button>
+                    )}
+
+                    {/* Move To Admin — Non-admin only */}
+                    {user.role !== "admin" && lead.assignedTo === user.id && (
+                      <div className="relative group">
+                        <button
+                          onClick={handleMoveToAdmin}
+                          disabled={
+                            movingToAdmin || lead.assignedToRole === "admin"
+                          }
+                          className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                            />
+                          </svg>
+                          {movingToAdmin ? "Moving..." : "Move To Admin"}
+                        </button>
+
+                        {/* Tooltip */}
+                        {lead.assignedToRole === "admin" && (
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            Already assigned to admin
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Employee → Assign To Meeting */}
+                    {user.role === "employee" &&
+                      lead.assignedTo === user.id && (
+                        <>
+                          <select
+                            value={selectedMeeting}
+                            onChange={(e) => setSelectedMeeting(e.target.value)}
+                            className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:border-blue-500"
+                          >
+                            <option value="">Select Meeting User</option>
+                            {meetingUsers.map((meeting) => (
+                              <option key={meeting.id} value={meeting.id}>
+                                {meeting.name}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={handleAssignToMeeting}
+                            className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700"
+                          >
+                            Assign To Meeting
+                          </button>
+                        </>
+                      )}
+
+                    {/* Meeting → Assign Back To Employee */}
+                    {user.role === "meeting" && lead.assignedTo === user.id && (
+                      <>
+                        <select
+                          value={selectedEmployee}
+                          onChange={(e) => setSelectedEmployee(e.target.value)}
+                          className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:border-green-500"
+                        >
+                          <option value="">Select Employee</option>
+                          {employeeUsers.map((employee) => (
+                            <option key={employee.id} value={employee.id}>
+                              {employee.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={handleAssignToEmployee}
+                          className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
+                        >
+                          Assign Back To Employee
+                        </button>
+                      </>
+                    )}
+
+                    {/* Admin → Assign To Employee / Meeting */}
+                    {user.role === "admin" && (
+                      <>
+                        <select
+                          value={selectedAdminUser}
+                          onChange={(e) => setSelectedAdminUser(e.target.value)}
+                          className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:border-green-500"
+                        >
+                          <option value="">
+                            Select Employee / Meeting User
+                          </option>
+                          {employeeUsers.map((employee) => (
+                            <option key={employee.id} value={employee.id}>
+                              Employee - {employee.name}
+                            </option>
+                          ))}
+                          {meetingUsers.map((meeting) => (
+                            <option key={meeting.id} value={meeting.id}>
+                              Meeting - {meeting.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!lead) return;
+                            if (!selectedAdminUser) {
+                              toast.error("Select a user");
+                              return;
+                            }
+                            try {
+                              const response = await fetch(
+                                "/api/leads/assign",
+                                {
+                                  method: "PUT",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    leadId: lead.id,
+                                    assignedTo: Number(selectedAdminUser),
+                                  }),
+                                },
+                              );
+                              const data = await response.json();
+                              if (!response.ok) throw new Error(data.message);
+                              toast.success("Lead assigned successfully");
+                              fetchLead();
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Assignment failed",
+                              );
+                            }
+                          }}
+                          className="bg-indigo-600 text-white px-3 py-2 rounded hover:bg-indigo-700"
+                        >
+                          Assign User
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Phone
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.phone || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      State
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.state || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      City
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.city || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Age
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.age || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Passport Type
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.passportType || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Lead Source
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.leadSource || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Job Applied
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.jobApplied || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Due Date
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.dueDate
+                        ? new Date(lead.dueDate).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Assigned To
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.assignedToName || "Unassigned"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Created By
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {lead.createdByName || "Unknown"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Created At
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {formatDate(lead.createdAt)}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
+                      Last Updated
+                    </p>
+                    <p className="text-gray-900 font-medium text-lg">
+                      {formatDate(lead.updatedAt)}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <form onSubmit={handleUpdateLead}>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Edit Lead Details
+                  </h2>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={updating}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {updating ? "Saving..." : "Save Changes"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, name: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone <span className="text-red-500">*</span>
+                      {(user.role === "employee" ||
+                        user.role === "meeting") && (
+                        <span className="text-xs text-gray-500 ml-2">
+                          (Read-only)
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="tel"
+                      value={editForm.phone}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/\D/g, "");
+                        setEditForm({ ...editForm, phone: value });
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      required
+                      disabled={
+                        user.role === "employee" || user.role === "meeting"
+                      }
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.state}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, state: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.city}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, city: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Age
+                    </label>
+                    <input
+                      type="number"
+                      value={editForm.age}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, age: e.target.value })
+                      }
+                      min="1"
+                      max="120"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Passport Type
+                    </label>
+                    <select
+                      value={editForm.passportType}
+                      onChange={(e) =>
+                        setEditForm({
+                          ...editForm,
+                          passportType: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    >
+                      <option value="">Select passport type</option>
+                      <option value="ECR">ECR</option>
+                      <option value="NECR">NECR</option>
+                      <option value="NA">NA</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Lead Source
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.leadSource}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, leadSource: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="Enter lead source"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Job Applied
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.jobApplied}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, jobApplied: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      placeholder="Enter job applied"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Lead Status
+                    </label>
+                    <select
+                      value={editForm.status}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, status: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    >
+                      <option value="new-lead">🆕 New Lead</option>
+                      <option value="call-back">📞 Call Back</option>
+                      <option value="not-answering">📵 Not Answering</option>
+                      <option value="meeting-scheduled">
+                        📋 Meeting Scheduled
+                      </option>
+                      <option value="not-interested">❌ Not Interested</option>
+                      <option value="wrong-number">📱 Wrong Number</option>
+                      <option value="document-pending">
+                        📄 Document Pending
+                      </option>
+                      <option value="payment-pending">
+                        💰 Payment Pending
+                      </option>
+                      <option value="sales">🎉 Sales</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={editForm.dueDate}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, dueDate: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <svg
+                      className="w-5 h-5 text-blue-600 mt-0.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium mb-1">System Information:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Status: {lead.status}</li>
+                        <li>
+                          Assigned To: {lead.assignedToName || "Unassigned"}
+                        </li>
+                        <li>Created By: {lead.createdByName || "Unknown"}</li>
+                        <li>Created At: {formatDate(lead.createdAt)}</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Update Status Section - For admins and employees with assigned leads */}
+
+          {/* Lead Status + Notes */}
+          {!isEditing &&
+            (user.role === "admin" ||
+              ((user.role === "employee" || user.role === "meeting") &&
+                lead.assignedTo === user.id)) && (
+              <div className="bg-white shadow-lg rounded-xl p-8 mb-6 border border-gray-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <svg
+                    className="w-6 h-6 text-green-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    Update Lead
+                  </h2>
+                </div>
+
+                {/* Current Status Badge */}
+                <div className="mb-6">
+                  <span
+                    className={`inline-flex px-4 py-2 rounded-full text-sm font-semibold ${
+                      selectedStatus === "new-lead"
+                        ? "bg-blue-100 text-blue-700"
+                        : selectedStatus === "call-back"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : selectedStatus === "not-answering"
+                            ? "bg-orange-100 text-orange-700"
+                            : selectedStatus === "meeting-scheduled"
+                              ? "bg-purple-100 text-purple-700"
+                              : selectedStatus === "not-interested"
+                                ? "bg-red-100 text-red-700"
+                                : selectedStatus === "wrong-number"
+                                  ? "bg-pink-100 text-pink-700"
+                                  : selectedStatus === "document-pending"
+                                    ? "bg-indigo-100 text-indigo-700"
+                                    : selectedStatus === "payment-pending"
+                                      ? "bg-amber-100 text-amber-700"
+                                      : selectedStatus === "sales"
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {selectedStatus === "new-lead" && "🆕 New Lead"}
+                    {selectedStatus === "call-back" && "📞 Call Back"}
+                    {selectedStatus === "not-answering" && "📵 Not Answering"}
+                    {selectedStatus === "meeting-scheduled" &&
+                      "📋 Meeting Scheduled"}
+                    {selectedStatus === "not-interested" && "❌ Not Interested"}
+                    {selectedStatus === "wrong-number" && "📱 Wrong Number"}
+                    {selectedStatus === "document-pending" &&
+                      "📄 Document Pending"}
+                    {selectedStatus === "payment-pending" &&
+                      "💰 Payment Pending"}
+                    {selectedStatus === "sales" && "🎉 Sales"}
+                  </span>
+                </div>
+
+                {/* Status Dropdown */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Lead Status
+                  </label>
+
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="new-lead">🆕 New Lead</option>
+                    <option value="call-back">📞 Call Back</option>
+                    <option value="not-answering">📵 Not Answering</option>
+                    <option value="meeting-scheduled">
+                      📋 Meeting Scheduled
+                    </option>
+                    <option value="not-interested">❌ Not Interested</option>
+                    <option value="wrong-number">📱 Wrong Number</option>
+                    <option value="document-pending">
+                      📄 Document Pending
+                    </option>
+                    <option value="payment-pending">💰 Payment Pending</option>
+                    <option value="sales">🎉 Sales</option>
+                  </select>
+                </div>
+
+                {/* Notes */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Add Note
+                  </label>
+
+                  <textarea
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    rows={5}
+                    placeholder="Enter note here..."
+                    style={{
+                      color: "#111827",
+                      backgroundColor: "#ffffff",
+                    }}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none"
+                  />
+                </div>
+
+                {/* Single Submit Button */}
+                <button
+                  type="button"
+                  disabled={updatingStatus || addingNote}
+                  onClick={async () => {
+                    if (selectedStatus !== lead.status) {
+                      await handleStatusUpdate(selectedStatus);
+                    }
+
+                    if (note.trim()) {
+                      await addNoteOnly();
+                    }
+                    // router.push("/dashboard/leads");
+                    await fetchLead();
+                  }}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {updatingStatus || addingNote ? "Processing..." : "Submit"}
+                </button>
+              </div>
+            )}
+
+          {/* History Section */}
+          <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
+            <div className="flex items-center gap-3 mb-6">
+              <svg
+                className="w-6 h-6 text-purple-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <h2 className="text-2xl font-bold text-gray-900">History</h2>
+            </div>
+            {lead.history && lead.history.length > 0 ? (
+              <div className="space-y-3">
+                {lead.history
+                  .slice()
+                  .reverse()
+                  .map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className="relative pl-8 pb-6 border-l-2 border-gray-200 last:border-l-0 last:pb-0"
+                    >
+                      <div className="absolute left-0 top-1 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-600 border-4 border-white shadow"></div>
+                      <div className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition">
+                        <div className="flex justify-between items-start gap-4">
+                          <div className="flex-1">
+                            <p className="text-gray-900 font-semibold text-lg mb-1">
+                              {formatHistoryAction(entry)}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              by{" "}
+                              <span className="font-medium">
+                                {entry.performedByName}
+                              </span>
+                            </p>
+                          </div>
+                          <p className="text-sm text-gray-500 whitespace-nowrap">
+                            {formatDate(entry.timestamp)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No history available</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
