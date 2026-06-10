@@ -24,9 +24,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const { searchParams } = new URL(req.url);
+
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const skip = (page - 1) * limit;
+
     const { db } = await connectToDatabase();
 
-    let filter: any = {
+    let filter: Record<string, any> = {
       meetingDetails: { $ne: null },
     };
 
@@ -38,6 +44,10 @@ export async function GET(req: NextRequest) {
     if (payload.role === "employee") {
       filter.assignedTo = payload.id;
     }
+
+    const total = await db
+      .collection("leads")
+      .countDocuments(filter);
 
     const meetings = await db
       .collection("leads")
@@ -52,13 +62,21 @@ export async function GET(req: NextRequest) {
         meetingDetails: 1,
       })
       .sort({
-  "meetingDetails.meetingDate": -1,
-  "meetingDetails.startTime": -1,
-})
+        "meetingDetails.meetingDate": -1,
+        "meetingDetails.startTime": -1,
+      })
+      .skip(skip)
+      .limit(limit)
       .toArray();
 
     return NextResponse.json({
       meetings,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
   } catch (err) {
     console.error(err);

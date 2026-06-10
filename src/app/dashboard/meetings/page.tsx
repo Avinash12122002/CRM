@@ -32,17 +32,29 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
+  const [page, setPage] = useState(1);
+const [pagination, setPagination] = useState<any>(null);
+
   const fetchMeetings = async () => {
     try {
-      const res = await fetch("/api/meetings");
-      if (res.ok) {
-        const data = await res.json();
-        setMeetings(data.meetings || []);
-      }
+      const res = await fetch(
+  `/api/meetings?page=${page}&limit=10`
+      );
+      
+     if (res.ok) {
+  const data = await res.json();
+
+  setMeetings(data.meetings || []);
+  setPagination(data.pagination);
+}
     } catch (err) {
       console.error(err);
     }
   };
+
+     useEffect(() => {
+  fetchMeetings();
+      }, [page]);
 
   useEffect(() => {
     async function loadData() {
@@ -51,7 +63,6 @@ export default function MeetingsPage() {
         if (!meRes.ok) return;
         const me = await meRes.json();
         setUser(me);
-        await fetchMeetings();
       } catch (err) {
         console.error(err);
       } finally {
@@ -293,6 +304,28 @@ export default function MeetingsPage() {
                 )}
               </tbody>
             </table>
+
+            <div className="flex items-center justify-end gap-2 p-4 border-t dark:border-zinc-700">
+              <button
+                disabled={page === 1}
+                onClick={() => setPage((prev) => prev - 1)}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm">
+                Page {pagination?.page || 1} of {pagination?.totalPages || 1}
+              </span>
+
+              <button
+                disabled={page >= (pagination?.totalPages || 1)}
+                onClick={() => setPage((prev) => prev + 1)}
+                className="px-3 py-1 border rounded disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
         </div>
 
