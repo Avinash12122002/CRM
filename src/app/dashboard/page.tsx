@@ -15,7 +15,12 @@ type MeResponse = {
 type LeadStats = {
   dueToday: number;
   newAssigned: number;
-  pendingFollowUps: number;
+};
+
+type MeetingStats = {
+  todayMeetingSlots: number;
+  completedMeetings: number;
+  cancelledMeetings: number;
 };
 
 type EmployeePerformance = {
@@ -43,6 +48,7 @@ type AdminStats = {
   leadsWorkedToday: number;
   assignedLeads: number;
   unassignedLeads: number;
+
   employeePerformance: EmployeePerformance[];
   statusBreakdown: {
     "new-lead": number;
@@ -64,9 +70,15 @@ export default function DashboardPage() {
   const [leadStats, setLeadStats] = useState<LeadStats>({
     dueToday: 0,
     newAssigned: 0,
-    pendingFollowUps: 0,
+  });
+
+  const [meetingStats, setMeetingStats] = useState<MeetingStats>({
+    todayMeetingSlots: 0,
+    completedMeetings: 0,
+    cancelledMeetings: 0,
   });
   const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingMeetingStats, setLoadingMeetingStats] = useState(false);
   const [workHours, setWorkHours] = useState({
     today: 0,
     thisWeek: 0,
@@ -123,6 +135,24 @@ export default function DashboardPage() {
       console.error("Failed to fetch user stats:", err);
     } finally {
       setLoadingStats(false);
+    }
+  };
+
+  const fetchMeetingStats = async () => {
+    setLoadingMeetingStats(true);
+
+    try {
+      const res = await fetch("/api/dashboard/meeting-stats");
+
+      if (res.ok) {
+        const data = await res.json();
+
+        setMeetingStats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch meeting stats:", err);
+    } finally {
+      setLoadingMeetingStats(false);
     }
   };
 
@@ -246,8 +276,14 @@ export default function DashboardPage() {
         setUser(data);
 
         // Fetch lead stats for employees
-        if (data.role === "employee" || data.role === "meeting") {
+        if (data.role === "employee") {
           fetchUserStats();
+          fetchWorkHours();
+        }
+
+        if (data.role === "meeting") {
+          fetchUserStats();
+          fetchMeetingStats();
           fetchWorkHours();
         }
 
@@ -684,114 +720,165 @@ export default function DashboardPage() {
               {/* Lead Statistics */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                  Lead Overview
+                  {user?.role === "meeting"
+                    ? "Meeting Overview"
+                    : "Lead Overview"}
                 </h3>
 
-                {loadingStats ? (
+                {loadingStats || loadingMeetingStats ? (
                   <div className="flex justify-center py-8">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Leads Due Today */}
-                    <button
-                      onClick={() => router.push("/dashboard/leads")}
-                      className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="bg-red-100 dark:bg-red-900/40 rounded-full p-2">
-                          <svg
-                            className="w-5 h-5 text-red-600 dark:text-red-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                          </svg>
-                        </div>
-                        <span className="text-2xl font-bold text-red-600 dark:text-red-400">
-                          {leadStats.dueToday}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-red-900 dark:text-red-200">
-                        Leads Due Today
-                      </p>
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
-                        Requires immediate attention
-                      </p>
-                    </button>
+                  <>
+                    {/* Employee Dashboard Cards */}
+                    {user?.role === "employee" && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Leads Due Today */}
+                        <button
+                          onClick={() => router.push("/dashboard/leads")}
+                          className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="bg-red-100 dark:bg-red-900/40 rounded-full p-2">
+                              <svg
+                                className="w-5 h-5 text-red-600 dark:text-red-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                            </div>
 
-                    {/* New Leads Assigned */}
-                    <button
-                      onClick={() => router.push("/dashboard/leads")}
-                      className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2">
-                          <svg
-                            className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                            />
-                          </svg>
-                        </div>
-                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {leadStats.newAssigned}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
-                        New Leads Assigned
-                      </p>
-                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                        Last 7 days
-                      </p>
-                    </button>
+                            <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                              {leadStats.dueToday}
+                            </span>
+                          </div>
 
-                    {/* Pending Follow-ups */}
-                    <button
-                      onClick={() => router.push("/dashboard/leads")}
-                      className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="bg-yellow-100 dark:bg-yellow-900/40 rounded-full p-2">
-                          <svg
-                            className="w-5 h-5 text-yellow-600 dark:text-yellow-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                            />
-                          </svg>
-                        </div>
-                        <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                          {leadStats.pendingFollowUps}
-                        </span>
+                          <p className="text-sm font-medium text-red-900 dark:text-red-200">
+                            Leads Due Today
+                          </p>
+
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                            Requires immediate attention
+                          </p>
+                        </button>
+
+                        {/* New Leads Assigned */}
+                        <button
+                          onClick={() => router.push("/dashboard/leads")}
+                          className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2">
+                              <svg
+                                className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
+                                />
+                              </svg>
+                            </div>
+
+                            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                              {leadStats.newAssigned}
+                            </span>
+                          </div>
+
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                            New Leads Assigned
+                          </p>
+
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            Last 7 days
+                          </p>
+                        </button>
                       </div>
-                      <p className="text-sm font-medium text-yellow-900 dark:text-yellow-200">
-                        Pending Follow-ups
-                      </p>
-                      <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                        Action required
-                      </p>
-                    </button>
-                  </div>
+                    )}
+
+                    {/* Meeting Dashboard Cards */}
+                    {user?.role === "meeting" && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Today's Meetings */}
+                        <button
+                          onClick={() => router.push("/dashboard/meetings")}
+                          className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-2xl">📅</span>
+
+                            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                              {meetingStats.todayMeetingSlots}
+                            </span>
+                          </div>
+
+                          <p className="text-sm font-medium text-purple-900 dark:text-purple-200">
+                            Today's Meetings
+                          </p>
+
+                          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                            Scheduled for today
+                          </p>
+                        </button>
+
+                        {/* Completed Meetings */}
+                        <button
+                          onClick={() => router.push("/dashboard/meetings")}
+                          className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-2xl">✅</span>
+
+                            <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                              {meetingStats.completedMeetings}
+                            </span>
+                          </div>
+
+                          <p className="text-sm font-medium text-green-900 dark:text-green-200">
+                            Completed Meetings
+                          </p>
+
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                            Successfully completed
+                          </p>
+                        </button>
+
+                        {/* Cancelled Meetings */}
+                        <button
+                          onClick={() => router.push("/dashboard/meetings")}
+                          className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-2xl">❌</span>
+
+                            <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                              {meetingStats.cancelledMeetings}
+                            </span>
+                          </div>
+
+                          <p className="text-sm font-medium text-red-900 dark:text-red-200">
+                            Cancelled Meetings
+                          </p>
+
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                            Cancelled or rejected
+                          </p>
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 

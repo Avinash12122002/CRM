@@ -18,6 +18,7 @@
     "@tiptap/pm": "^3.10.7",
     "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.2.0",
+    "axios": "^1.17.0",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.0",
     "lexical": "^0.38.2",

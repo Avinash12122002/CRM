@@ -32,15 +32,23 @@ export default function AssignLeadModal({
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [meetingDate, setMeetingDate] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [availableSlots, setAvailableSlots] = useState<
+    { startTime: string; available: boolean }[]
+  >([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setAssignedTo(currentAssigneeId);
+      setAssignedTo(null);
       fetchUsers();
       setSearchTerm("");
       setShowDropdown(false);
+      setMeetingDate("");
+      setStartTime("");
+      setAvailableSlots([]);
     }
   }, [isOpen, currentAssigneeId]);
 
@@ -76,22 +84,57 @@ export default function AssignLeadModal({
     }
   };
 
-  const filteredUsers = users.filter((emp) =>
+const filteredUsers = users.filter(
+  (emp) =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()),
-  );
+);
 
   const selectedUser = users.find((emp) => emp.id === assignedTo);
+  const isMeetingUser = selectedUser?.role === "meeting";
+
+useEffect(() => {
+  setStartTime("");
+  setAvailableSlots([]);
+
+  if (assignedTo && meetingDate && isMeetingUser) {
+    fetchAvailableSlots(assignedTo, meetingDate);
+  }
+}, [assignedTo, meetingDate, isMeetingUser]);
 
   const handleSelectUser = (userId: number) => {
     setAssignedTo(userId);
     setShowDropdown(false);
     const selected = users.find((e) => e.id === userId);
     setSearchTerm(selected ? selected.name : "");
+    if (selected?.role !== "meeting") {
+      setMeetingDate("");
+      setStartTime("");
+      setAvailableSlots([]);
+    }
   };
 
   const handleClearSelection = () => {
     setAssignedTo(null);
     setSearchTerm("");
+    setMeetingDate("");
+setStartTime("");
+setAvailableSlots([]);
+  };
+
+  const fetchAvailableSlots = async (userId: number, date: string) => {
+    try {
+      const res = await fetch(
+        `/api/meetings/available-slots?meetingUserId=${userId}&meetingDate=${date}`,
+      );
+
+      if (res.ok) {
+        const data = await res.json();
+
+        setAvailableSlots(data.slots.filter((slot: any) => slot.available));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,6 +148,11 @@ export default function AssignLeadModal({
     const selectedUser = users.find((emp) => emp.id === assignedTo);
     const userName = selectedUser?.name || "Unknown";
 
+    if (isMeetingUser && (!meetingDate || !startTime)) {
+      toast.error("Please select meeting date and slot");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/leads/assign", {
@@ -113,6 +161,8 @@ export default function AssignLeadModal({
         body: JSON.stringify({
           leadId,
           assignedTo,
+          meetingDate,
+          startTime,
         }),
       });
 
@@ -259,6 +309,52 @@ export default function AssignLeadModal({
                 </div>
               )}
             </div>
+
+            {/* Meeting Date */}
+            {isMeetingUser && (
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Meeting Date
+                </label>
+
+                <input
+                  type="date"
+                  value={meetingDate}
+                  min={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => {
+                    setMeetingDate(e.target.value);
+                    setStartTime("");
+                  }}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+            )}
+
+            {/* Available Slots */}
+            {isMeetingUser && meetingDate && (
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Available Slot
+                </label>
+
+                <select
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                >
+                  <option value="">Select Slot</option>
+                  {availableSlots.length === 0 && (
+                    <option disabled>No slots available</option>
+                  )}
+
+                  {availableSlots.map((slot) => (
+                    <option key={slot.startTime} value={slot.startTime}>
+                      {slot.startTime}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="flex gap-3 pt-6 border-t border-gray-200">
               <button

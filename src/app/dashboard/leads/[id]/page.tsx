@@ -17,15 +17,23 @@ interface HistoryEntry {
   performedBy: number;
   performedByName: string;
   timestamp: string;
+
   previousAssignee?: number;
   previousAssigneeName?: string;
+
   newAssignee?: number;
   newAssigneeName?: string;
+
   assignedTo?: number;
   assignedToName?: string;
-  details?: string;
-}
 
+  details?: string;
+
+  oldStatus?: string;
+  newStatus?: string;
+
+  performedByRole?: string;
+}
 interface Lead {
   id: number;
   name: string;
@@ -50,14 +58,23 @@ interface Lead {
   assignedByName?: string;
   assignedByRole?: string;
 
+  meetingStatus?: string;
+
+  meetingDetails?: {
+    meetingUserId?: number;
+    meetingUserName?: string;
+    meetingDate?: string;
+    startTime?: string;
+    endTime?: string;
+    status?: string;
+  };
+
   createdBy: number;
   createdByName?: string;
   createdAt: string;
   updatedAt: string;
   history: HistoryEntry[];
 }
-
-
 
 export default function LeadDetailPage() {
   const params = useParams();
@@ -74,11 +91,26 @@ export default function LeadDetailPage() {
   const [adminUsers, setAdminUsers] = useState<{ id: number; name: string }[]>(
     [],
   );
+  const showAssignSection =
+    user &&
+    lead &&
+    (user.role === "employee" || user.role === "meeting") &&
+    lead.assignedTo === user.id;
 
   const [meetingUsers, setMeetingUsers] = useState<User[]>([]);
   const [employeeUsers, setEmployeeUsers] = useState<User[]>([]);
 
-  const [selectedMeeting, setSelectedMeeting] = useState("");
+  // const [selectedMeeting, setSelectedMeeting] = useState("");
+  const [selectedMeetingDate, setSelectedMeetingDate] = useState("");
+
+  const [selectedSlot, setSelectedSlot] = useState("");
+
+  const [availableSlots, setAvailableSlots] = useState<
+    { startTime: string; available: boolean }[]
+  >([]);
+
+  const [selectedTransferMeeting, setSelectedTransferMeeting] = useState("");
+  const [showReschedule, setShowReschedule] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedAdminUser, setSelectedAdminUser] = useState("");
 
@@ -102,6 +134,8 @@ export default function LeadDetailPage() {
   const router = useRouter();
   const toastShownRef = useRef(false);
 
+  
+
   useEffect(() => {
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,6 +151,42 @@ export default function LeadDetailPage() {
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  useEffect(() => {
+    setSelectedSlot("");
+    setAvailableSlots([]);
+
+    const isMeetingUser = meetingUsers.some(
+      (m) => String(m.id) === String(selectedEmployee),
+    );
+
+    if (isMeetingUser && selectedEmployee && selectedMeetingDate) {
+      fetchAvailableSlots(selectedEmployee, selectedMeetingDate);
+    }
+  }, [selectedEmployee, selectedMeetingDate, meetingUsers]);
+
+  useEffect(() => {
+    const isMeetingUser = meetingUsers.some(
+      (m) => String(m.id) === String(selectedAdminUser),
+    );
+
+    if (isMeetingUser && selectedAdminUser && selectedMeetingDate) {
+      fetchAvailableSlots(selectedAdminUser, selectedMeetingDate);
+    }
+  }, [selectedAdminUser, selectedMeetingDate, meetingUsers]);
+
+  useEffect(() => {
+    if (
+      showReschedule &&
+      lead?.meetingDetails?.meetingUserId &&
+      selectedMeetingDate
+    ) {
+      fetchAvailableSlots(
+        String(lead.meetingDetails.meetingUserId),
+        selectedMeetingDate,
+      );
+    }
+  }, [showReschedule, selectedMeetingDate, lead]);
 
   const checkAuth = async () => {
     try {
@@ -181,16 +251,30 @@ export default function LeadDetailPage() {
 
   const fetchLead = async () => {
     setLoading(true);
+
+    
+
     try {
       const res = await fetch(`/api/leads/${leadId}`);
+
       if (res.ok) {
         const data = await res.json();
         setLead(data.lead);
         setSelectedStatus(data.lead.status || "");
-        // Initialize edit form with lead data
+
+        
+
+        // Don't overwrite user selections
+        // if (!selectedMeeting) {
+        //   setSelectedMeeting(
+        //     String(data.lead.meetingDetails?.meetingUserId || ""),
+        //   );
+        // }
+
         const dueDateValue = data.lead.dueDate
           ? new Date(data.lead.dueDate).toISOString().split("T")[0]
           : "";
+
         setEditForm({
           name: data.lead.name || "",
           phone: data.lead.phone || "",
@@ -204,7 +288,6 @@ export default function LeadDetailPage() {
           status: data.lead.status || "",
         });
       } else if (res.status === 403) {
-        // toast.error("You don't have permission to view this lead");
         router.push("/dashboard/leads");
       } else if (res.status === 404) {
         toast.error("Lead not found");
@@ -217,6 +300,32 @@ export default function LeadDetailPage() {
       toast.error("Something went wrong");
     } finally {
       setLoading(false);
+    }
+  };
+  const fetchAvailableSlots = async (
+    meetingUserId: string,
+    meetingDate: string,
+  ) => {
+    if (!meetingUserId || !meetingDate) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `/api/meetings/available-slots?meetingUserId=${meetingUserId}&meetingDate=${meetingDate}`,
+      );
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setAvailableSlots(data.slots || []);
+      } else {
+        setAvailableSlots([]);
+      }
+    } catch (err) {
+      console.error(err);
+      setAvailableSlots([]);
     }
   };
 
@@ -254,11 +363,6 @@ export default function LeadDetailPage() {
       setAddingNote(false);
     }
   };
-
-  // const handleAddNote = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   await addNoteOnly();
-  // };
 
   const handleStatusUpdate = async (newStatus: string) => {
     if (isReadOnly) {
@@ -432,83 +536,391 @@ export default function LeadDetailPage() {
     }
   };
 
-  const handleAssignToMeeting = async () => {
+  //   const handleAssignToMeeting = async () => {
+  //   if (isReadOnly) {
+  //     toast.error("Read Only Lead");
+  //     return;
+  //   }
+
+  //   if (!lead) {
+  //     toast.error("Lead not found");
+  //     return;
+  //   }
+
+  //   if (!selectedEmployee) {
+  //     toast.error("Please select a meeting user");
+  //     return;
+  //   }
+
+  //   if (!selectedMeetingDate) {
+  //     toast.error("Please select meeting date");
+  //     return;
+  //   }
+
+  //   if (!selectedSlot) {
+  //     toast.error("Please select time slot");
+  //     return;
+  //   }
+
+  //   try {
+  //     const response = await fetch("/api/meetings/book", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         leadId: lead.id,
+  //         meetingUserId: Number(selectedEmployee),
+  //         meetingDate: selectedMeetingDate,
+  //         startTime: selectedSlot,
+  //       }),
+  //     });
+
+  //     const data = await response.json();
+
+  //     if (!response.ok) {
+  //       throw new Error(data.message);
+  //     }
+
+  //     toast.success("Meeting booked successfully");
+
+  //     setSelectedEmployee("");
+  //     setSelectedMeetingDate("");
+  //     setSelectedSlot("");
+  //     setAvailableSlots([]);
+
+  //     fetchLead();
+  //   } catch (err) {
+  //     toast.error(
+  //       err instanceof Error ? err.message : "Failed to book meeting",
+  //     );
+  //   }
+  // };
+  //   const handleAssignToEmployee = async () => {
+  //     if (isReadOnly) {
+  //       toast.error("Read Only Lead");
+  //       return;
+  //     }
+
+  //     if (!lead) {
+  //       toast.error("Lead not found");
+  //       return;
+  //     }
+
+  //     if (!selectedEmployee || selectedEmployee === "") {
+  //       toast.error("Please select a user");
+  //       return;
+  //     }
+
+  //     const isMeetingUser = meetingUsers.some(
+  //       (m) => String(m.id) === String(selectedEmployee),
+  //     );
+
+  //     try {
+  //       // Meeting User Selected
+  //       if (isMeetingUser) {
+  //         if (!selectedMeetingDate) {
+  //           toast.error("Please select meeting date");
+  //           return;
+  //         }
+
+  //         if (!selectedSlot) {
+  //           toast.error("Please select time slot");
+  //           return;
+  //         }
+
+  //         const response = await fetch("/api/meetings/reschedule", {
+  //           method: "POST",
+  //           headers: {
+  //             "Content-Type": "application/json",
+  //           },
+  //           body: JSON.stringify({
+  //             leadId: lead.id,
+  //             meetingUserId: Number(selectedEmployee),
+  //             meetingDate: selectedMeetingDate,
+  //             startTime: selectedSlot,
+  //           }),
+  //         });
+
+  //         const data = await response.json();
+
+  //         if (!response.ok) {
+  //           throw new Error(data.message);
+  //         }
+
+  //         toast.success("Meeting transferred successfully");
+  //       } else {
+  //         // Employee Selected
+  //         const response = await fetch("/api/leads/assign", {
+  //           method: "PUT",
+  //           headers: {
+  //             "Content-Type": "application/json",
+  //           },
+  //           body: JSON.stringify({
+  //             leadId: lead.id,
+  //             assignedTo: Number(selectedEmployee),
+  //           }),
+  //         });
+
+  //         const data = await response.json();
+
+  //         if (!response.ok) {
+  //           throw new Error(data.message);
+  //         }
+
+  //         toast.success("Lead assigned successfully");
+  //       }
+
+  //       setSelectedEmployee("");
+  //       setSelectedMeetingDate("");
+  //       setSelectedSlot("");
+  //       setAvailableSlots([]);
+
+  //       fetchLead();
+  //     } catch (err) {
+  //       toast.error(err instanceof Error ? err.message : "Assignment failed");
+  //     }
+  //   };
+  //   const handleCancelMeeting = async () => {
+  //     if (!lead) return;
+
+  //     if (!window.confirm("Are you sure you want to cancel this meeting?")) {
+  //       return;
+  //     }
+
+  //     try {
+  //       const res = await fetch("/api/meetings/cancel", {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //         },
+  //         body: JSON.stringify({
+  //           leadId: lead.id,
+  //         }),
+  //       });
+
+  //       const data = await res.json();
+
+  //       if (!res.ok) {
+  //         throw new Error(data.message);
+  //       }
+
+  //       toast.success("Meeting cancelled");
+  //       fetchLead();
+  //     } catch (err) {
+  //       toast.error(
+  //         err instanceof Error ? err.message : "Failed to cancel meeting",
+  //       );
+  //     }
+  //   };
+
+  const handleAssignUser = async () => {
     if (isReadOnly) {
       toast.error("Read Only Lead");
       return;
     }
+
     if (!lead) {
       toast.error("Lead not found");
       return;
     }
-    if (!selectedMeeting) {
-      toast.error("Please select a meeting user");
+
+    if (!selectedEmployee) {
+      toast.error("Please select a user");
       return;
     }
 
+    const isMeetingUser = meetingUsers.some(
+      (m) => String(m.id) === String(selectedEmployee),
+    );
+
     try {
-      const response = await fetch("/api/leads/assign", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          leadId: lead.id,
-          assignedTo: Number(selectedMeeting),
-        }),
-      });
+      if (isMeetingUser) {
+        if (!selectedMeetingDate) {
+          toast.error("Please select meeting date");
+          return;
+        }
 
-      const data = await response.json();
+        if (!selectedSlot) {
+          toast.error("Please select time slot");
+          return;
+        }
 
-      if (!response.ok) {
-        throw new Error(data.message);
+        const response = await fetch("/api/meetings/book", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            leadId: lead.id,
+            meetingUserId: Number(selectedEmployee),
+            meetingDate: selectedMeetingDate,
+            startTime: selectedSlot,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message);
+        }
+
+        toast.success("Meeting booked successfully");
+      } else {
+        const response = await fetch("/api/leads/assign", {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            leadId: lead.id,
+            assignedTo: Number(selectedEmployee),
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.message);
+        }
+
+        toast.success("Lead assigned successfully");
       }
 
-      toast.success("Assigned to meeting");
-      setSelectedMeeting("");
+      setSelectedEmployee("");
+      setSelectedMeetingDate("");
+      setSelectedSlot("");
+      setAvailableSlots([]);
+
       fetchLead();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      toast.error(err instanceof Error ? err.message : "Operation failed");
     }
   };
 
-  const handleAssignToEmployee = async () => {
-    if (isReadOnly) {
-      toast.error("Read Only Lead");
-      return;
-    }
-    if (!lead) {
-      toast.error("Lead not found");
-      return;
-    }
-    if (!selectedEmployee) {
-      toast.error("Please select an employee");
+  const handleCompleteMeeting = async () => {
+    if (!lead) return;
+
+    if (
+      !window.confirm(
+        "Are you sure you want to mark this meeting as completed?",
+      )
+    ) {
       return;
     }
 
     try {
-      const response = await fetch("/api/leads/assign", {
-        method: "PUT",
+      const res = await fetch("/api/meetings/complete", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           leadId: lead.id,
-          assignedTo: Number(selectedEmployee),
         }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
+      if (!res.ok) {
         throw new Error(data.message);
       }
 
-      toast.success("Assigned to employee");
-      setSelectedEmployee("");
+      toast.success("Meeting completed");
       fetchLead();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to complete meeting",
+      );
+    }
+  };
+
+  const handleRescheduleMeeting = async () => {
+    if (!lead) return;
+
+    const meetingUserId =
+      selectedEmployee || String(lead.meetingDetails?.meetingUserId || "");
+
+    if (!meetingUserId) {
+      toast.error("Select meeting user");
+      return;
+    }
+
+    if (!selectedMeetingDate) {
+      toast.error("Select meeting date");
+      return;
+    }
+
+    if (!selectedSlot) {
+      toast.error("Select meeting slot");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/meetings/reschedule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          leadId: lead.id,
+          meetingUserId: Number(meetingUserId),
+          meetingDate: selectedMeetingDate,
+          startTime: selectedSlot,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message);
+      }
+
+      toast.success("Meeting rescheduled");
+
+      setSelectedEmployee("");
+      setSelectedMeetingDate("");
+      setSelectedSlot("");
+      setAvailableSlots([]);
+
+      fetchLead();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to reschedule meeting",
+      );
+    }
+  };
+
+  const handleCancelMeeting = async () => {
+    if (!lead) return;
+
+    if (!window.confirm("Are you sure you want to cancel this meeting?")) {
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/meetings/cancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          leadId: lead.id,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message);
+      }
+
+      toast.success("Meeting cancelled");
+      fetchLead();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to cancel meeting",
+      );
     }
   };
 
@@ -564,6 +976,17 @@ export default function LeadDetailPage() {
         return entry.details || "Status updated";
       case "lead_updated":
         return entry.details || "Lead details updated";
+      case "meeting_booked":
+        return entry.details || "Meeting booked";
+
+      case "meeting_rescheduled":
+        return entry.details || "Meeting rescheduled";
+
+      case "meeting_cancelled":
+        return entry.details || "Meeting cancelled";
+
+      case "meeting_completed":
+        return entry.details || "Meeting completed";
       default:
         return entry.action;
     }
@@ -744,55 +1167,243 @@ export default function LeadDetailPage() {
                       </div>
                     )}
 
-                    {/* Employee → Assign To Meeting */}
-                    {user.role === "employee" &&
-                      lead.assignedTo === user.id && (
-                        <>
-                          <select
-                            value={selectedMeeting}
-                            onChange={(e) => setSelectedMeeting(e.target.value)}
-                            className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:border-blue-500"
-                          >
-                            <option value="">Select Meeting User</option>
-                            {meetingUsers.map((meeting) => (
-                              <option key={meeting.id} value={meeting.id}>
-                                {meeting.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={handleAssignToMeeting}
-                            className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700"
-                          >
-                            Assign To Meeting
-                          </button>
-                        </>
-                      )}
-
-                    {/* Meeting → Assign Back To Employee */}
-                    {user.role === "meeting" && lead.assignedTo === user.id && (
+                    {showAssignSection && (
                       <>
                         <select
                           value={selectedEmployee}
-                          onChange={(e) => setSelectedEmployee(e.target.value)}
-                          className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:border-green-500"
+                          onChange={(e) => {
+                            setSelectedEmployee(e.target.value);
+                            setSelectedMeetingDate("");
+                            setSelectedSlot("");
+                            setAvailableSlots([]);
+                          }}
+                          className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white"
                         >
-                          <option value="">Select Employee</option>
-                          {employeeUsers.map((employee) => (
-                            <option key={employee.id} value={employee.id}>
-                              {employee.name}
-                            </option>
-                          ))}
+                          <option value="">Select User</option>
+
+                          {employeeUsers
+                            .filter(
+                              (employee) => employee.id !== lead.assignedTo,
+                            )
+                            .map((employee) => (
+                              <option key={employee.id} value={employee.id}>
+                                👨‍💼 Employee - {employee.name}
+                              </option>
+                            ))}
+
+                          {meetingUsers
+                            .filter((meeting) => meeting.id !== lead.assignedTo)
+                            .map((meeting) => (
+                              <option key={meeting.id} value={meeting.id}>
+                                📅 Meeting - {meeting.name}
+                              </option>
+                            ))}
                         </select>
-                        <button
-                          type="button"
-                          onClick={handleAssignToEmployee}
-                          className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
-                        >
-                          Assign Back To Employee
-                        </button>
+
+                        {meetingUsers.some(
+                          (m) => String(m.id) === String(selectedEmployee),
+                        ) && (
+                          <>
+                            <input
+                              type="date"
+                              value={selectedMeetingDate}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={(e) => {
+                                setSelectedMeetingDate(e.target.value);
+                                setSelectedSlot("");
+                              }}
+                              className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900"
+                            />
+
+                            {selectedMeetingDate && (
+                              <select
+                                value={selectedSlot}
+                                onChange={(e) =>
+                                  setSelectedSlot(e.target.value)
+                                }
+                                className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900"
+                              >
+                                <option value="">Select Time Slot</option>
+
+                                {availableSlots
+                                  .filter((slot) => slot.available)
+                                  .map((slot) => (
+                                    <option
+                                      key={slot.startTime}
+                                      value={slot.startTime}
+                                    >
+                                      {slot.startTime}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
+
+                            {selectedSlot && (
+                              <button
+                                type="button"
+                                onClick={handleAssignUser}
+                                className="bg-blue-600 text-white px-3 py-2 rounded hover:bg-blue-700"
+                              >
+                                {user.role === "meeting"
+                                  ? "Transfer Meeting"
+                                  : "Book Meeting"}
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {!meetingUsers.some(
+                          (m) => String(m.id) === String(selectedEmployee),
+                        ) &&
+                          selectedEmployee && (
+                            <button
+                              type="button"
+                              onClick={handleAssignUser}
+                              className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
+                            >
+                              Assign User
+                            </button>
+                          )}
                       </>
+                    )}
+                    {/* Meeting Details */}
+                    {lead.meetingDetails &&
+                      (user.role === "admin" ||
+                        lead.assignedTo === user.id ||
+                        lead.createdBy === user.id) && (
+                        <div className="mt-6 rounded-xl border border-purple-200 bg-purple-50 p-4">
+                          <h3 className="font-bold text-purple-800 mb-3">
+                            Meeting Details
+                          </h3>
+
+                          <div className="grid grid-cols-2 gap-3 text-base text-gray-900">
+                            <div>
+                              <strong>User:</strong>{" "}
+                              {lead.meetingDetails.meetingUserName}
+                            </div>
+
+                            <div>
+                              <strong>Status:</strong>{" "}
+                              <span className="capitalize">
+                                {lead.meetingDetails.status}
+                              </span>
+                            </div>
+
+                            <div>
+                              <strong>Date:</strong>{" "}
+                              {lead.meetingDetails.meetingDate}
+                            </div>
+
+                            <div>
+                              <strong>Time:</strong>{" "}
+                              {lead.meetingDetails.startTime} -{" "}
+                              {lead.meetingDetails.endTime}
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 mt-4 flex-wrap">
+                            {(user.role === "admin" ||
+                              (user.role === "meeting" &&
+                                user.id ===
+                                  lead.meetingDetails?.meetingUserId)) && (
+                              <>
+                                {lead.meetingDetails.status !== "completed" && (
+                                  <button
+                                    onClick={() => {
+                                      setShowReschedule(true);
+
+                                      setSelectedEmployee(
+                                        String(
+                                          lead.meetingDetails?.meetingUserId ||
+                                            "",
+                                        ),
+                                      );
+
+                                      setSelectedMeetingDate(
+                                        lead.meetingDetails?.meetingDate || "",
+                                      );
+
+                                      setSelectedSlot("");
+
+                                      fetchAvailableSlots(
+                                        String(
+                                          lead.meetingDetails?.meetingUserId,
+                                        ),
+                                        lead.meetingDetails?.meetingDate || "",
+                                      );
+                                    }}
+                                    className="bg-yellow-500 text-white px-3 py-2 rounded hover:bg-yellow-600"
+                                  >
+                                    Reschedule
+                                  </button>
+                                )}
+
+                                {lead.meetingDetails.status !== "cancelled" && (
+                                  <button
+                                    onClick={handleCancelMeeting}
+                                    className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                )}
+
+                                {lead.meetingDetails.status !== "completed" && (
+                                  <button
+                                    onClick={handleCompleteMeeting}
+                                    className="bg-green-600 text-white px-3 py-2 rounded hover:bg-green-700"
+                                  >
+                                    Complete
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    {showReschedule && (
+                      <div className="mt-4 flex gap-2 flex-wrap">
+                        <input
+                          type="date"
+                          value={selectedMeetingDate}
+                          min={new Date().toISOString().split("T")[0]}
+                          onChange={(e) => {
+                            setSelectedMeetingDate(e.target.value);
+                            setSelectedSlot("");
+                          }}
+                          className="border rounded px-3 py-2"
+                        />
+
+                        {selectedMeetingDate && (
+                          <select
+                            value={selectedSlot}
+                            onChange={(e) => setSelectedSlot(e.target.value)}
+                            className="border rounded px-3 py-2"
+                          >
+                            <option value="">Select Slot</option>
+
+                            {availableSlots
+                              .filter((slot) => slot.available)
+                              .map((slot) => (
+                                <option
+                                  key={slot.startTime}
+                                  value={slot.startTime}
+                                >
+                                  {slot.startTime}
+                                </option>
+                              ))}
+                          </select>
+                        )}
+
+                        {selectedSlot && (
+                          <button
+                            onClick={handleRescheduleMeeting}
+                            className="bg-blue-600 text-white px-3 py-2 rounded"
+                          >
+                            Confirm Reschedule
+                          </button>
+                        )}
+                      </div>
                     )}
 
                     {/* Admin → Assign To Employee / Meeting */}
@@ -800,61 +1411,186 @@ export default function LeadDetailPage() {
                       <>
                         <select
                           value={selectedAdminUser}
-                          onChange={(e) => setSelectedAdminUser(e.target.value)}
-                          className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-700 bg-white focus:outline-none focus:border-green-500"
-                        >
-                          <option value="">
-                            Select Employee / Meeting User
-                          </option>
-                          {employeeUsers.map((employee) => (
-                            <option key={employee.id} value={employee.id}>
-                              Employee - {employee.name}
-                            </option>
-                          ))}
-                          {meetingUsers.map((meeting) => (
-                            <option key={meeting.id} value={meeting.id}>
-                              Meeting - {meeting.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            if (!lead) return;
-                            if (!selectedAdminUser) {
-                              toast.error("Select a user");
-                              return;
-                            }
-                            try {
-                              const response = await fetch(
-                                "/api/leads/assign",
-                                {
-                                  method: "PUT",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    leadId: lead.id,
-                                    assignedTo: Number(selectedAdminUser),
-                                  }),
-                                },
-                              );
-                              const data = await response.json();
-                              if (!response.ok) throw new Error(data.message);
-                              toast.success("Lead assigned successfully");
-                              fetchLead();
-                            } catch (err) {
-                              toast.error(
-                                err instanceof Error
-                                  ? err.message
-                                  : "Assignment failed",
-                              );
-                            }
+                          onChange={(e) => {
+                            setSelectedAdminUser(e.target.value);
+
+                            setSelectedMeetingDate("");
+                            setSelectedSlot("");
+                            setAvailableSlots([]);
                           }}
-                          className="bg-indigo-600 text-white px-3 py-2 rounded hover:bg-indigo-700"
+                          className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white focus:outline-none focus:border-green-500"
                         >
-                          Assign User
-                        </button>
+                          <option value="">Select User</option>
+
+                          {employeeUsers
+                            .filter(
+                              (employee) => employee.id !== lead.assignedTo,
+                            )
+                            .map((employee) => (
+                              <option key={employee.id} value={employee.id}>
+                                👨‍💼 Employee - {employee.name}
+                              </option>
+                            ))}
+
+                          {meetingUsers
+                            .filter((meeting) => meeting.id !== lead.assignedTo)
+                            .map((meeting) => (
+                              <option key={meeting.id} value={meeting.id}>
+                                📅 Meeting - {meeting.name}
+                              </option>
+                            ))}
+                        </select>
+
+                        {/* If Meeting User Selected → Show Meeting Booking */}
+                        {selectedAdminUser &&
+                          meetingUsers.find(
+                            (m) => m.id === Number(selectedAdminUser),
+                          ) && (
+                            <>
+                              <input
+                                type="date"
+                                value={selectedMeetingDate}
+                                min={new Date().toISOString().split("T")[0]}
+                                onChange={(e) => {
+                                  setSelectedMeetingDate(e.target.value);
+                                  setSelectedSlot("");
+                                }}
+                                className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white"
+                              />
+
+                              {selectedMeetingDate && (
+                                <select
+                                  value={selectedSlot}
+                                  onChange={(e) =>
+                                    setSelectedSlot(e.target.value)
+                                  }
+                                  className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white"
+                                >
+                                  <option value="">Select Time Slot</option>
+
+                                  {availableSlots
+                                    .filter((slot) => slot.available)
+                                    .map((slot) => (
+                                      <option
+                                        key={slot.startTime}
+                                        value={slot.startTime}
+                                      >
+                                        {slot.startTime}
+                                      </option>
+                                    ))}
+                                </select>
+                              )}
+
+                              {selectedSlot && (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (!lead) return;
+
+                                    try {
+                                      const response = await fetch(
+                                        "/api/meetings/book",
+                                        {
+                                          method: "POST",
+                                          headers: {
+                                            "Content-Type": "application/json",
+                                          },
+                                          body: JSON.stringify({
+                                            leadId: lead.id,
+                                            meetingUserId:
+                                              Number(selectedAdminUser),
+                                            meetingDate: selectedMeetingDate,
+                                            startTime: selectedSlot,
+                                          }),
+                                        },
+                                      );
+
+                                      const data = await response.json();
+
+                                      if (!response.ok) {
+                                        throw new Error(
+                                          data.message ||
+                                            "Failed to book meeting",
+                                        );
+                                      }
+
+                                      toast.success(
+                                        "Meeting booked successfully",
+                                      );
+
+                                      fetchLead();
+
+                                      setSelectedAdminUser("");
+                                      setSelectedMeetingDate("");
+                                      setSelectedSlot("");
+                                      setAvailableSlots([]);
+                                    } catch (err) {
+                                      toast.error(
+                                        err instanceof Error
+                                          ? err.message
+                                          : "Booking failed",
+                                      );
+                                    }
+                                  }}
+                                  className="bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700"
+                                >
+                                  Book Meeting
+                                </button>
+                              )}
+                            </>
+                          )}
+
+                        {/* If Employee Selected → Normal Assignment */}
+                        {selectedAdminUser &&
+                          !meetingUsers.find(
+                            (m) => m.id === Number(selectedAdminUser),
+                          ) && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!lead) return;
+
+                                try {
+                                  const response = await fetch(
+                                    "/api/leads/assign",
+                                    {
+                                      method: "PUT",
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                      },
+                                      body: JSON.stringify({
+                                        leadId: lead.id,
+                                        assignedTo: Number(selectedAdminUser),
+                                      }),
+                                    },
+                                  );
+
+                                  const data = await response.json();
+
+                                  if (!response.ok) {
+                                    throw new Error(
+                                      data.message || "Assignment failed",
+                                    );
+                                  }
+
+                                  toast.success("Lead assigned successfully");
+
+                                  fetchLead();
+
+                                  setSelectedAdminUser("");
+                                } catch (err) {
+                                  toast.error(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Assignment failed",
+                                  );
+                                }
+                              }}
+                              className="bg-indigo-600 text-white px-3 py-2 rounded hover:bg-indigo-700"
+                            >
+                              Assign User
+                            </button>
+                          )}
                       </>
                     )}
                   </div>
@@ -938,6 +1674,32 @@ export default function LeadDetailPage() {
                       {lead.assignedToName || "Unassigned"}
                     </p>
                   </div>
+
+                  {lead.meetingDetails && (
+                    <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
+                      <p className="text-xs uppercase tracking-wide text-purple-600 font-semibold mb-1">
+                        Meeting
+                      </p>
+
+                      <p className="text-gray-900 font-medium">
+                        {lead.meetingDetails.meetingUserName}
+                      </p>
+
+                      <p className="text-sm text-gray-600 mt-1">
+                        {lead.meetingDetails.meetingDate}
+                      </p>
+
+                      <p className="text-sm text-gray-600">
+                        {lead.meetingDetails.startTime} -{" "}
+                        {lead.meetingDetails.endTime}
+                      </p>
+
+                      <span className="inline-block mt-2 px-2 py-1 text-xs rounded bg-purple-100 text-purple-700">
+                        {lead.meetingDetails.status}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">
                       Created By

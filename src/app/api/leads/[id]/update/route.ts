@@ -42,7 +42,7 @@ export async function PUT(
       jobApplied,
     } = body;
 
-    if (!phone) {
+    if (!phone?.trim()) {
       return NextResponse.json(
         { message: "Phone is required" },
         { status: 400 },

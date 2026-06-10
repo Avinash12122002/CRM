@@ -45,6 +45,23 @@ export async function POST(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
+    // Normalize phone number
+const cleanPhone = String(phone).trim();
+
+// Check if phone already exists
+const existingLead = await db.collection("leads").findOne({
+  phone: cleanPhone,
+});
+
+if (existingLead) {
+  return NextResponse.json(
+    {
+      message: "Phone number already exists",
+    },
+    { status: 400 }
+  );
+}
+
     // Employee & Meeting users auto-assign to themselves
     const finalAssignedTo =
       payload.role === "employee" || payload.role === "meeting"
@@ -72,7 +89,7 @@ export async function POST(req: NextRequest) {
     const lead: Record<string, any> = {
       id,
       name: name || null,
-      phone,
+      phone: cleanPhone,
       state: state || null,
       city: city || null,
       age: age ? parseInt(age) : null,
@@ -96,6 +113,10 @@ export async function POST(req: NextRequest) {
       participants: [payload.id],
       createdAt: now,
       updatedAt: now,
+      meetingDetails: null,
+      meetingStatus: null,
+meetingCompletedAt: null,
+meetingCancelledAt: null,
 
       history: [],
       notes: note?.trim()
@@ -123,7 +144,7 @@ export async function POST(req: NextRequest) {
         performedBy: payload.id,
         performedByName: payload.name,
         timestamp: now,
-        details: note,
+        details: note.trim(),
       });
     }
 

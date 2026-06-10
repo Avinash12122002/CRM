@@ -52,6 +52,7 @@ interface Pagination {
 // Local storage key
 const FILTER_STORAGE_KEY = "leads_filters";
 
+
 // Interface for stored filters
 interface StoredFilters {
   searchQuery: string;
@@ -107,8 +108,10 @@ export default function LeadsPage() {
 
   // Load filters from localStorage on mount
   useEffect(() => {
+   
     if (typeof window !== "undefined" && !filtersLoadedRef.current) {
       const savedFilters = localStorage.getItem(FILTER_STORAGE_KEY);
+      
       if (savedFilters) {
         try {
           const filters: StoredFilters = JSON.parse(savedFilters);
@@ -130,6 +133,8 @@ export default function LeadsPage() {
           console.error("Error loading filters from localStorage:", error);
         }
       }
+
+    
       filtersLoadedRef.current = true;
     }
   }, []);
@@ -262,7 +267,10 @@ export default function LeadsPage() {
       if (res.ok) {
         const data = await res.json();
         setLeads(data.leads);
-        setPagination(data.pagination);
+        setPagination((prev) => ({
+  ...data.pagination,
+  page: pageToUse,
+}));
         if (
           data.pagination.page > data.pagination.totalPages &&
           data.pagination.totalPages > 0
@@ -283,14 +291,18 @@ export default function LeadsPage() {
     }
   };
 
-  const handlePageChange = (newPage: number) => {
-    if (newPage < 1 || newPage > pagination.totalPages) {
-      return;
-    }
-    setPagination((prev) => ({ ...prev, page: newPage }));
-    fetchLeads(newPage);
-  };
+const handlePageChange = (newPage: number) => {
+  if (newPage < 1 || newPage > pagination.totalPages) {
+    return;
+  }
 
+  setPagination((prev) => ({
+    ...prev,
+    page: newPage,
+  }));
+
+  fetchLeads(newPage);
+};
   const fetchUsers = async () => {
     try {
       const res = await fetch("/api/auth/users");

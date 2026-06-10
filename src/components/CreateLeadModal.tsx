@@ -47,6 +47,17 @@ export default function CreateLeadModal({
       fetchUsers();
       setSearchTerm("");
       setShowDropdown(false);
+      setName("");
+      setPhone("");
+      setDueDate("");
+      setState("");
+      setCity("");
+      setAge("");
+      setPassportType("");
+      setLeadSource("");
+      setJobApplied("");
+      setNote("");
+      setStatus("new-lead");
     }
   }, [isOpen]);
 

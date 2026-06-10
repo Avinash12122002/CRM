@@ -18,28 +18,28 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-const handleSignOut = async () => {
-  const loadingToast = toast.loading("Signing out...");
+  const handleSignOut = async () => {
+    const loadingToast = toast.loading("Signing out...");
 
-  try {
-    const res = await fetch("/api/auth/logout", {
-      method: "POST",
-    });
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
 
-    toast.dismiss(loadingToast);
+      toast.dismiss(loadingToast);
 
-    if (res.ok) {
-      toast.success("Signed out successfully");
-      router.push("/");
-    } else {
+      if (res.ok) {
+        toast.success("Signed out successfully");
+        router.push("/");
+      } else {
+        toast.error("Failed to sign out");
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error(error);
       toast.error("Failed to sign out");
     }
-  } catch (error) {
-    toast.dismiss(loadingToast);
-    console.error(error);
-    toast.error("Failed to sign out");
-  }
-};
+  };
 
   const isActive = (path: string) => pathname === path;
 
@@ -114,6 +114,23 @@ const handleSignOut = async () => {
               >
                 Vacancies
               </Link>
+
+              {user.role === "meeting" && (
+                <Link
+                  href="/dashboard/meetings"
+                  className={`${
+                    isActive("/dashboard/meetings")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/dashboard/meetings")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Meetings
+                </Link>
+              )}
               {user.role === "admin" && (
                 <Link
                   href="/dashboard/users"

@@ -88,6 +88,11 @@ export async function GET(
             createdAt: 1,
             updatedAt: 1,
             history: 1,
+            meetingDetails: 1,
+            meetingStatus: 1,
+            meetingCompletedAt: 1,
+            meetingCancelledAt: 1,
+            notes: 1,
           },
         },
       ])
@@ -143,7 +148,7 @@ export async function PUT(
     const body = await req.json();
     const { note } = body;
 
-    if (!note) {
+    if (!note?.trim()) {
       return NextResponse.json(
         { message: "Note is required" },
         { status: 400 },
@@ -159,11 +164,11 @@ export async function PUT(
 
     // Check permissions
     if (
-  (payload.role === "employee" || payload.role === "meeting") &&
-  lead.assignedTo !== payload.id
-) {
-  return NextResponse.json({ message: "Forbidden" }, { status: 403 });
-}
+      (payload.role === "employee" || payload.role === "meeting") &&
+      lead.assignedTo !== payload.id
+    ) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
 
     const now = new Date();
     const historyEntry = {
@@ -171,14 +176,25 @@ export async function PUT(
       performedBy: payload.id,
       performedByName: payload.name,
       timestamp: now,
-      details: note,
+      details: note.trim(),
     };
 
     await db.collection("leads").updateOne(
       { id: leadId },
       {
-        $set: { updatedAt: now },
-        $push: { history: historyEntry },
+        $set: {
+          updatedAt: now,
+        },
+        $push: {
+          history: historyEntry,
+
+          notes: {
+            text: note.trim(),
+            createdAt: now,
+            createdBy: payload.id,
+            createdByName: payload.name,
+          },
+        },
       },
     );
 

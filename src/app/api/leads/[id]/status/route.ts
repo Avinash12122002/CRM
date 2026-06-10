@@ -17,6 +17,7 @@ export async function PUT(
     }
 
     const payload = verifyToken(token);
+
     if (!payload) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
@@ -31,7 +32,6 @@ export async function PUT(
     const body = await req.json();
     const { status } = body;
 
-    // Validate status
     const validStatuses = [
       "new-lead",
       "call-back",
@@ -43,6 +43,7 @@ export async function PUT(
       "payment-pending",
       "sales",
     ];
+
     if (!status || !validStatuses.includes(status)) {
       return NextResponse.json(
         {
@@ -55,33 +56,78 @@ export async function PUT(
 
     const { db } = await connectToDatabase();
 
-    // Find the lead
-    const lead = await db.collection("leads").findOne({ id: leadId });
+    const lead = await db.collection("leads").findOne({
+      id: leadId,
+    });
 
     if (!lead) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
-    // Admins can update any lead status, employees can only update leads assigned to them
     if (
-      (payload.role === "employee" || payload.role === "meeting") && lead.assignedTo !== payload.id){
+      (payload.role === "employee" || payload.role === "meeting") &&
+      lead.assignedTo !== payload.id
+    ) {
       return NextResponse.json(
-        { message: "You can only update status of leads assigned to you" },
+        {
+          message: "You can only update status of leads assigned to you",
+        },
         { status: 403 },
       );
     }
-    // Admins have no restrictions - they can update any lead status
 
     const now = new Date();
     const oldStatus = lead.status;
 
-    // Update the lead status
+    let meetingStatusUpdate = {};
+
+    // Sales = Meeting Completed
+    if (status === "sales") {
+      await db.collection("meetingSlots").updateMany(
+        {
+          leadId,
+          status: "scheduled",
+        },
+        {
+          $set: {
+            status: "completed",
+            updatedAt: now,
+          },
+        },
+      );
+
+      meetingStatusUpdate = {
+        "meetingDetails.status": "completed",
+      };
+    }
+
+    // Not Interested / Wrong Number = Meeting Cancelled
+    if (status === "not-interested" || status === "wrong-number") {
+      await db.collection("meetingSlots").updateMany(
+        {
+          leadId,
+          status: "scheduled",
+        },
+        {
+          $set: {
+            status: "cancelled",
+            updatedAt: now,
+          },
+        },
+      );
+
+      meetingStatusUpdate = {
+        "meetingDetails.status": "cancelled",
+      };
+    }
+
     await db.collection("leads").updateOne(
       { id: leadId },
       {
         $set: {
           status,
           updatedAt: now,
+          ...meetingStatusUpdate,
         },
         $push: {
           history: {
@@ -105,9 +151,14 @@ export async function PUT(
     );
   } catch (err) {
     console.error(err);
+
     const errorMessage = err instanceof Error ? err.message : String(err);
+
     return NextResponse.json(
-      { message: "Server error", error: errorMessage },
+      {
+        message: "Server error",
+        error: errorMessage,
+      },
       { status: 500 },
     );
   }

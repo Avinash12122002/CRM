@@ -20,7 +20,7 @@ async function handleAssign(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { leadId, assignedTo } = body;
+    const { leadId, assignedTo, meetingDate, startTime } = body;
 
     if (!leadId) {
       return NextResponse.json(
@@ -54,6 +54,15 @@ async function handleAssign(req: NextRequest) {
       }
     }
 
+    if (assignedUser?.role === "meeting" && (!meetingDate || !startTime)) {
+      return NextResponse.json(
+        {
+          message: "Meeting date and slot are required for meeting users",
+        },
+        { status: 400 },
+      );
+    }
+
     // =========================
     // ROLE PERMISSIONS
     // =========================
@@ -70,30 +79,16 @@ async function handleAssign(req: NextRequest) {
       }
 
       // Employee -> Admin or Meeting
-      if (
-        payload.role === "employee" &&
-        assignedUser &&
-        !["admin", "meeting", "employee"].includes(assignedUser.role)
-      ) {
-        return NextResponse.json(
-          {
-            message:
-              "Employees can only assign leads to Admin or Meeting users",
-          },
-          { status: 403 },
-        );
-      }
+      const allowedRoles = ["admin", "employee", "meeting"];
 
-      // Meeting -> Admin or Employee
       if (
-        payload.role === "meeting" &&
+        payload.role !== "admin" &&
         assignedUser &&
-        !["admin", "meeting", "employee"].includes(assignedUser.role)
+        !allowedRoles.includes(assignedUser.role)
       ) {
         return NextResponse.json(
           {
-            message:
-              "Meeting users can only assign leads to Admin or Employee users",
+            message: "Invalid assignment target",
           },
           { status: 403 },
         );
@@ -110,10 +105,15 @@ async function handleAssign(req: NextRequest) {
       performedByRole: payload.role,
 
       timestamp: now,
+      meetingDate,
+      startTime,
 
-      details: assignedTo
-        ? `Lead assigned to ${assignedUser?.name} (${assignedUser?.role})`
-        : "Lead unassigned",
+      details:
+        assignedUser?.role === "meeting"
+          ? `Meeting booked with ${assignedUser?.name} on ${meetingDate} at ${startTime}`
+          : assignedTo
+            ? `Lead assigned to ${assignedUser?.name} (${assignedUser?.role})`
+            : "Lead unassigned",
 
       previousAssignee: lead.assignedTo || null,
       previousAssigneeName: lead.assignedToName || null,
@@ -124,6 +124,74 @@ async function handleAssign(req: NextRequest) {
       newAssigneeRole: assignedUser?.role || null,
     };
 
+    let meetingDetails = null;
+
+    if (assignedUser && assignedUser.role === "meeting") {
+      const existingSlot = await db.collection("meetingSlots").findOne({
+        meetingUserId: assignedUser.id,
+        meetingDate,
+        startTime,
+        status: "scheduled",
+      });
+
+      if (existingSlot) {
+        return NextResponse.json(
+          {
+            message: "Selected meeting slot is already booked",
+          },
+          { status: 400 },
+        );
+      }
+
+      // Remove previous slot only after validation succeeds
+      await db.collection("meetingSlots").deleteMany({
+        leadId,
+      });
+
+      const [hours, minutes] = startTime.split(":");
+
+      const endDate = new Date();
+      endDate.setHours(Number(hours), Number(minutes) + 30, 0, 0);
+
+      const endTime = `${String(endDate.getHours()).padStart(
+        2,
+        "0",
+      )}:${String(endDate.getMinutes()).padStart(2, "0")}`;
+
+      meetingDetails = {
+        meetingUserId: assignedUser.id,
+        meetingUserName: assignedUser.name,
+        meetingDate,
+        startTime,
+        endTime,
+        status: "scheduled",
+      };
+
+      await db.collection("meetingSlots").insertOne({
+        leadId,
+
+        meetingUserId: assignedUser.id,
+        meetingUserName: assignedUser.name,
+
+        meetingDate,
+        startTime,
+        endTime,
+
+        bookedBy: payload.id,
+        bookedByName: payload.name,
+
+        status: "scheduled",
+
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      // If assigned to Admin/Employee/unassigned
+      await db.collection("meetingSlots").deleteMany({
+        leadId,
+      });
+    }
+
     await db.collection("leads").updateOne(
       { id: leadId },
       {
@@ -132,20 +200,33 @@ async function handleAssign(req: NextRequest) {
           assignedToName: assignedUser?.name || null,
           assignedToRole: assignedUser?.role || null,
 
+          meetingDetails,
+
+          meetingStatus: assignedUser?.role === "meeting" ? "scheduled" : null,
+
+          meetingCompletedAt: null,
+          meetingCancelledAt: null,
+
+          status:
+            assignedUser?.role === "meeting"
+              ? "meeting-scheduled"
+              : lead.status,
+
           assignedBy: payload.id,
           assignedByName: payload.name,
           assignedByRole: payload.role,
 
           updatedAt: now,
         },
-
         $push: {
           history: historyEntry,
         },
 
         $addToSet: {
           participants: {
-            $each: assignedTo ? [payload.id, assignedTo] : [payload.id],
+            $each: assignedTo
+              ? [payload.id, assignedTo, lead.assignedTo].filter(Boolean)
+              : [payload.id],
           },
         },
       },

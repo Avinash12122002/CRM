@@ -103,6 +103,14 @@ export async function GET(req: NextRequest) {
       $or: [{ assignedTo: null }, { assignedTo: { $exists: false } }],
     });
 
+    const totalMeetings = await db.collection("meetingSlots").countDocuments({
+      status: "scheduled",
+    });
+
+    const todayMeetings = await db.collection("meetingSlots").countDocuments({
+      meetingDate: today.toISOString().split("T")[0],
+      status: "scheduled",
+    });
     // 4. // Get employee & meeting performance metrics
     const employeePerformance = await db
       .collection("leads")
@@ -130,6 +138,7 @@ export async function GET(req: NextRequest) {
             },
           },
         },
+
         {
           $group: {
             _id: "$assignedTo",
@@ -137,6 +146,18 @@ export async function GET(req: NextRequest) {
             employeeUsername: { $first: "$user.username" },
             userRole: { $first: "$user.role" },
             totalLeads: { $sum: 1 },
+
+            scheduledMeetings: {
+              $sum: {
+                $cond: [
+                  {
+                    $eq: ["$meetingStatus", "scheduled"],
+                  },
+                  1,
+                  0,
+                ],
+              },
+            },
 
             newLeads: {
               $sum: { $cond: [{ $eq: ["$status", "new-lead"] }, 1, 0] },
@@ -189,6 +210,7 @@ export async function GET(req: NextRequest) {
             callBack: 1,
             notAnswering: 1,
             meetingScheduled: 1,
+            scheduledMeetings: 1,
             notInterested: 1,
             wrongNumber: 1,
             documentPending: 1,
@@ -235,11 +257,18 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       employeesOnline: onlineUsers || 0,
+
       leadsCreatedToday,
       leadsWorkedToday: leadsWorkedTodayCount,
+
       assignedLeads: assignedLeadsCount,
       unassignedLeads,
+
+      totalMeetings,
+      todayMeetings,
+
       employeePerformance,
+
       statusBreakdown: statusMap,
     });
   } catch (error) {

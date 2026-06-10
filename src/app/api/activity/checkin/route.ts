@@ -31,17 +31,50 @@ export async function POST(req: NextRequest) {
     const today = now.toISOString().split("T")[0];
 
     // Already checked in
-    const activeCheckIn = await db.collection("activities").findOne({
-      userId: payload.id,
-      checkOut: null,
-    });
+   const activeCheckIn = await db.collection("activities").findOne({
+  userId: payload.id,
+  checkOut: null,
+});
 
-    if (activeCheckIn) {
-      return NextResponse.json(
-        { message: "Already checked in" },
-        { status: 400 }
+if (activeCheckIn) {
+  const activeDate = activeCheckIn.date;
+
+  if (activeDate !== today) {
+    // Auto checkout at end of previous day
+    const autoCheckout = new Date(
+  `${activeDate}T23:59:59.999Z`
+);
+
+    let totalWorkSeconds =
+  activeCheckIn.workSeconds || 0;
+
+    if (activeCheckIn.status === "working") {
+      totalWorkSeconds += Math.floor(
+        (
+          autoCheckout.getTime() -
+          new Date(activeCheckIn.checkIn).getTime()
+        ) / 1000
       );
     }
+
+    await db.collection("activities").updateOne(
+      { _id: activeCheckIn._id },
+      {
+        $set: {
+          checkOut: autoCheckout,
+          workSeconds: totalWorkSeconds,
+          status: "completed",
+          updatedAt: now,
+        },
+      }
+    );
+  } else {
+    return NextResponse.json(
+      { message: "Already checked in" },
+      { status: 400 }
+    );
+  }
+}
 
     // Existing record for today
     const todayActivity = await db.collection("activities").findOne({

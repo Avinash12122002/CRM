@@ -9,38 +9,62 @@ export async function GET(req: NextRequest) {
     const token = matches ? matches[2] : null;
 
     if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const payload = verifyToken(token);
+
     if (!payload) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 },
+      );
     }
 
     const { role, id: userId } = payload;
 
-    // Only employees should access this endpoint
+    // Employees and Meeting users can access this endpoint
     if (role !== "employee" && role !== "meeting") {
       return NextResponse.json(
         { error: "Access denied." },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     const { db } = await connectToDatabase();
+
     const leadsCollection = db.collection("leads");
 
-    // Get current date range for "today"
+    const todayString = new Date()
+      .toISOString()
+      .split("T")[0];
+
+    // Date range for today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Get date for "new leads" (assigned in last 7 days)
+    // Last 7 days
     const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    sevenDaysAgo.setDate(
+      sevenDaysAgo.getDate() - 7,
+    );
 
-    // Aggregate all stats in one query
+    // Today's scheduled meetings
+    const todayMeetingSlots =
+      await leadsCollection.countDocuments({
+        assignedTo: userId,
+        assignedToRole: "meeting",
+        meetingStatus: "scheduled",
+        "meetingDetails.meetingDate":
+          todayString,
+      });
+
     const stats = await leadsCollection
       .aggregate([
         {
@@ -59,41 +83,98 @@ export async function GET(req: NextRequest) {
                   },
                 },
               },
-              { $count: "count" },
+              {
+                $count: "count",
+              },
             ],
+
             newAssigned: [
               {
                 $match: {
-                  createdAt: { $gte: sevenDaysAgo },
+                  createdAt: {
+                    $gte: sevenDaysAgo,
+                  },
                 },
               },
-              { $count: "count" },
+              {
+                $count: "count",
+              },
             ],
-           pendingMeetings:[
+
+            upcomingMeetings: [
               {
                 $match: {
-                  status: "meeting-scheduled",
+                  meetingStatus: "scheduled",
                 },
               },
-              { $count: "count" },
+              {
+                $count: "count",
+              },
+            ],
+
+            completedMeetings: [
+              {
+                $match: {
+                  meetingStatus: "completed",
+                },
+              },
+              {
+                $count: "count",
+              },
+            ],
+
+            cancelledMeetings: [
+              {
+                $match: {
+                  meetingStatus: "cancelled",
+                },
+              },
+              {
+                $count: "count",
+              },
             ],
           },
         },
       ])
       .toArray();
 
-    const result = stats[0];
+    const result = stats[0] || {};
 
     return NextResponse.json({
-      dueToday: result.dueToday[0]?.count || 0,
-      newAssigned: result.newAssigned[0]?.count || 0,
-      pendingMeetings: result.pendingMeetings[0]?.count || 0,
+      dueToday:
+        result.dueToday?.[0]?.count || 0,
+
+      newAssigned:
+        result.newAssigned?.[0]?.count || 0,
+
+      upcomingMeetings:
+        result.upcomingMeetings?.[0]
+          ?.count || 0,
+
+      completedMeetings:
+        result.completedMeetings?.[0]
+          ?.count || 0,
+
+      cancelledMeetings:
+        result.cancelledMeetings?.[0]
+          ?.count || 0,
+
+      todayMeetingSlots,
     });
   } catch (error) {
-    console.error("Error fetching employee stats:", error);
+    console.error(
+      "Error fetching employee statistics:",
+      error,
+    );
+
     return NextResponse.json(
-      { error: "Failed to fetch employee statistics" },
-      { status: 500 }
+      {
+        error:
+          "Failed to fetch employee statistics",
+      },
+      {
+        status: 500,
+      },
     );
   }
 }

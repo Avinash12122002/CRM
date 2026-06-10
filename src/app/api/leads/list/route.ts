@@ -29,6 +29,11 @@ export async function GET(req: NextRequest) {
     const assignedTo = searchParams.get("assignedTo") || "";
     const month = searchParams.get("month") || "";
     const year = searchParams.get("year") || "";
+    const meetingUserId = searchParams.get("meetingUserId") || "";
+
+    const meetingStatus = searchParams.get("meetingStatus") || "";
+
+    const meetingDate = searchParams.get("meetingDate") || "";
 
     const { db } = await connectToDatabase();
 
@@ -61,6 +66,17 @@ export async function GET(req: NextRequest) {
       filter.assignedTo = parseInt(assignedTo);
     }
 
+    if (meetingUserId) {
+      filter["meetingDetails.meetingUserId"] = parseInt(meetingUserId);
+    }
+
+    if (meetingStatus) {
+      filter.meetingStatus = meetingStatus;
+    }
+
+    if (meetingDate) {
+      filter["meetingDetails.meetingDate"] = meetingDate;
+    }
     // Apply month and year filters
     if (month || year) {
       const dateFilter: { $gte?: Date; $lte?: Date } = {};
@@ -92,6 +108,8 @@ export async function GET(req: NextRequest) {
 
     // Get total count
     const total = await db.collection("leads").countDocuments(filter);
+
+    
 
     // Get paginated leads with assigned user data
     const leads = await db
@@ -139,10 +157,20 @@ export async function GET(req: NextRequest) {
             dueDate: 1,
 
             assignedTo: 1,
-            assignedToName: "$assignedUser.name",
+            assignedToName: {
+  $ifNull: [
+    "$assignedUser.name",
+    "$assignedToName"
+  ]
+},
             assignedToEmail: "$assignedUser.email",
             assignedToUsername: "$assignedUser.username",
-            assignedToRole: "$assignedUser.role",
+            assignedToRole: {
+  $ifNull: [
+    "$assignedUser.role",
+    "$assignedToRole"
+  ]
+},
 
             assignedBy: 1,
             assignedByName: 1,
@@ -154,6 +182,10 @@ export async function GET(req: NextRequest) {
             createdAt: 1,
             updatedAt: 1,
             history: 1,
+            meetingDetails: 1,
+            meetingStatus: 1,
+            meetingCompletedAt: 1,
+            meetingCancelledAt: 1,
           },
         },
         {
@@ -171,6 +203,12 @@ export async function GET(req: NextRequest) {
                 -1,
               ],
             },
+          },
+        },
+        {
+          $sort: {
+            lastNoteAddedByAdmin: -1,
+            createdAt: -1,
           },
         },
         {
@@ -199,12 +237,6 @@ export async function GET(req: NextRequest) {
           },
         },
         {
-          $sort: {
-            lastNoteAddedByAdmin: -1, // Admin notes first
-            createdAt: -1, // Then by creation date
-          },
-        },
-        {
           $project: {
             id: 1,
             name: 1,
@@ -226,6 +258,14 @@ export async function GET(req: NextRequest) {
             createdByName: 1,
             createdAt: 1,
             updatedAt: 1,
+            meetingDetails: 1,
+            meetingDate: "$meetingDetails.meetingDate",
+            startTime: "$meetingDetails.startTime",
+            endTime: "$meetingDetails.endTime",
+            meetingUserName: "$meetingDetails.meetingUserName",
+            meetingStatus: 1,
+            meetingCompletedAt: 1,
+            meetingCancelledAt: 1,
             lastNoteAddedByAdmin: 1,
             lastNote: {
               $cond: {
