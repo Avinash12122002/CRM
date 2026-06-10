@@ -32,7 +32,12 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  const [page, setPage] = useState(1);
+ const [page, setPage] = useState(() => {
+  if (typeof window !== "undefined") {
+    return Number(localStorage.getItem("meetingPage")) || 1;
+  }
+  return 1;
+});
 const [pagination, setPagination] = useState<any>(null);
 
   const fetchMeetings = async () => {
@@ -54,8 +59,21 @@ const [pagination, setPagination] = useState<any>(null);
 
      useEffect(() => {
   fetchMeetings();
-      }, [page]);
+     }, [page]);
+  
+useEffect(() => {
+  localStorage.setItem("meetingPage", String(page));
+}, [page]);
 
+useEffect(() => {
+  if (
+    pagination &&
+    page > pagination.totalPages &&
+    pagination.totalPages > 0
+  ) {
+    setPage(pagination.totalPages);
+  }
+}, [pagination]);
   useEffect(() => {
     async function loadData() {
       try {
