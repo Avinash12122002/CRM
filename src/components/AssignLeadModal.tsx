@@ -26,9 +26,7 @@ export default function AssignLeadModal({
   leadId,
   currentAssigneeId,
 }: AssignLeadModalProps) {
-  const [assignedTo, setAssignedTo] = useState<number | null>(
-    currentAssigneeId,
-  );
+  const [assignedTo, setAssignedTo] = useState<number | null>(currentAssigneeId);
   const [loading, setLoading] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,17 +50,12 @@ export default function AssignLeadModal({
     }
   }, [isOpen, currentAssigneeId]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -72,11 +65,9 @@ export default function AssignLeadModal({
       const res = await fetch("/api/auth/users");
       if (res.ok) {
         const data = await res.json();
-        // Filter to users
         const allUsers = (data.users || []).filter((user: User) =>
           ["admin", "employee", "meeting"].includes(user.role),
         );
-
         setUsers(allUsers);
       }
     } catch (err) {
@@ -84,22 +75,20 @@ export default function AssignLeadModal({
     }
   };
 
-const filteredUsers = users.filter(
-  (emp) =>
+  const filteredUsers = users.filter((emp) =>
     emp.name.toLowerCase().includes(searchTerm.toLowerCase()),
-);
+  );
 
   const selectedUser = users.find((emp) => emp.id === assignedTo);
   const isMeetingUser = selectedUser?.role === "meeting";
 
-useEffect(() => {
-  setStartTime("");
-  setAvailableSlots([]);
-
-  if (assignedTo && meetingDate && isMeetingUser) {
-    fetchAvailableSlots(assignedTo, meetingDate);
-  }
-}, [assignedTo, meetingDate, isMeetingUser]);
+  useEffect(() => {
+    setStartTime("");
+    setAvailableSlots([]);
+    if (assignedTo && meetingDate && isMeetingUser) {
+      fetchAvailableSlots(assignedTo, meetingDate);
+    }
+  }, [assignedTo, meetingDate, isMeetingUser]);
 
   const handleSelectUser = (userId: number) => {
     setAssignedTo(userId);
@@ -117,8 +106,8 @@ useEffect(() => {
     setAssignedTo(null);
     setSearchTerm("");
     setMeetingDate("");
-setStartTime("");
-setAvailableSlots([]);
+    setStartTime("");
+    setAvailableSlots([]);
   };
 
   const fetchAvailableSlots = async (userId: number, date: string) => {
@@ -126,10 +115,8 @@ setAvailableSlots([]);
       const res = await fetch(
         `/api/meetings/available-slots?meetingUserId=${userId}&meetingDate=${date}`,
       );
-
       if (res.ok) {
         const data = await res.json();
-
         setAvailableSlots(data.slots.filter((slot: any) => slot.available));
       }
     } catch (err) {
@@ -158,12 +145,7 @@ setAvailableSlots([]);
       const res = await fetch("/api/leads/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leadId,
-          assignedTo,
-          meetingDate,
-          startTime,
-        }),
+        body: JSON.stringify({ leadId, assignedTo, meetingDate, startTime }),
       });
 
       const data = await res.json();
@@ -186,195 +168,197 @@ setAvailableSlots([]);
 
   if (!isOpen) return null;
 
+  const roleBadgeClass = (role: string) => {
+    switch (role) {
+      case "admin":   return "bg-red-100 text-red-700";
+      case "meeting": return "bg-purple-100 text-purple-700";
+      default:        return "bg-blue-100 text-blue-700";
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">
               {currentAssigneeId ? "Reassign Lead" : "Assign Lead"}
             </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-3xl leading-none transition"
-              aria-label="Close"
-            >
-              &times;
-            </button>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Select a user to assign this lead to
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-5">
+
+          {/* Assign To */}
+          <div className="relative" ref={dropdownRef}>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              Assign To <span className="text-red-500">*</span>
+              <span className="text-gray-400 font-normal text-xs ml-1">
+                (Admin / Employee / Meeting)
+              </span>
+            </label>
+
+            <div className="relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setShowDropdown(true);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                placeholder="Search users..."
+                className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition text-gray-900 bg-white placeholder:text-gray-400 pr-10"
+              />
+              {assignedTo ? (
+                <button
+                  type="button"
+                  onClick={handleClearSelection}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              ) : (
+                <svg
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              )}
+            </div>
+
+            {/* Dropdown */}
+            {showDropdown && filteredUsers.length > 0 && (
+              <div className="absolute z-20 w-full mt-1 bg-white border-2 border-gray-100 rounded-xl shadow-xl max-h-60 overflow-y-auto">
+                {filteredUsers.map((emp) => (
+                  <button
+                    key={emp.id}
+                    type="button"
+                    onClick={() => handleSelectUser(emp.id)}
+                    className={`w-full text-left px-4 py-3 hover:bg-blue-50 transition border-b border-gray-50 last:border-b-0 ${
+                      assignedTo === emp.id ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 truncate">
+                          {emp.name}
+                        </div>
+                        {emp.email && (
+                          <div className="text-xs text-gray-500 truncate">{emp.email}</div>
+                        )}
+                      </div>
+                      <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${roleBadgeClass(emp.role)}`}>
+                        {emp.role}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {showDropdown && searchTerm && filteredUsers.length === 0 && (
+              <div className="absolute z-20 w-full mt-1 bg-white border-2 border-gray-100 rounded-xl shadow-xl p-4 text-center">
+                <p className="text-sm text-gray-500">No users found</p>
+              </div>
+            )}
+
+            {/* Selected user chip */}
+            {selectedUser && !showDropdown && (
+              <div className="mt-2 px-4 py-3 bg-blue-50 rounded-xl border-2 border-blue-100 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-900">{selectedUser.name}</div>
+                  {selectedUser.email && (
+                    <div className="text-xs text-gray-500 truncate">{selectedUser.email}</div>
+                  )}
+                </div>
+                <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${roleBadgeClass(selectedUser.role)}`}>
+                  {selectedUser.role}
+                </span>
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="relative" ref={dropdownRef}>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Assign To <span className="text-red-500">*</span>
-                <span className="text-gray-500 font-normal text-xs ml-1">
-                  (Admin / Employee / Meeting)
-                </span>
+          {/* Meeting Date — only for meeting users */}
+          {isMeetingUser && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Meeting Date <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setShowDropdown(true);
-                  }}
-                  onFocus={() => setShowDropdown(true)}
-                  placeholder="Search users..."
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-900 placeholder:text-gray-400 pr-10"
-                />
-                {assignedTo && (
-                  <button
-                    type="button"
-                    onClick={handleClearSelection}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+              <input
+                type="date"
+                value={meetingDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => {
+                  setMeetingDate(e.target.value);
+                  setStartTime("");
+                }}
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 bg-white text-gray-900 focus:outline-none focus:border-blue-500 transition"
+              />
+            </div>
+          )}
+
+          {/* Available Slots — only when meeting user + date selected */}
+          {isMeetingUser && meetingDate && (
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Available Slot <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 bg-white text-gray-900 focus:outline-none focus:border-blue-500 transition"
+              >
+                <option value="">Select a time slot</option>
+                {availableSlots.length === 0 && (
+                  <option disabled>No slots available</option>
                 )}
-              </div>
-
-              {showDropdown && filteredUsers.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-96 overflow-y-auto ">
-                  {filteredUsers.map((emp) => (
-                    <button
-                      key={emp.id}
-                      type="button"
-                      onClick={() => handleSelectUser(emp.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-blue-50 transition border-b border-gray-100 last:border-b-0 ${
-                        assignedTo === emp.id ? "bg-blue-50" : ""
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-gray-900">
-                            {emp.name}
-                          </div>
-
-                          <div className="text-sm text-gray-600">
-                            {emp.email}
-                          </div>
-                        </div>
-
-                        <span
-                          className={`text-xs px-2 py-1 rounded font-medium ${
-                            emp.role === "admin"
-                              ? "bg-red-100 text-red-700"
-                              : emp.role === "meeting"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-blue-100 text-blue-700"
-                          }`}
-                        >
-                          {emp.role}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {showDropdown && searchTerm && filteredUsers.length === 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4">
-                  <p className="text-gray-500 text-center">No users found</p>
-                </div>
-              )}
-
-              {selectedUser && !showDropdown && (
-                <div className="mt-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {selectedUser.name}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {selectedUser.email}
-                      </div>
-                      <div className="text-xs text-blue-600 font-medium capitalize">
-                        {selectedUser.role}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+                {availableSlots.map((slot) => (
+                  <option key={slot.startTime} value={slot.startTime}>
+                    {slot.startTime}
+                  </option>
+                ))}
+              </select>
             </div>
+          )}
 
-            {/* Meeting Date */}
-            {isMeetingUser && (
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Meeting Date
-                </label>
-
-                <input
-                  type="date"
-                  value={meetingDate}
-                  min={new Date().toISOString().split("T")[0]}
-                  onChange={(e) => {
-                    setMeetingDate(e.target.value);
-                    setStartTime("");
-                  }}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-            )}
-
-            {/* Available Slots */}
-            {isMeetingUser && meetingDate && (
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Available Slot
-                </label>
-
-                <select
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                >
-                  <option value="">Select Slot</option>
-                  {availableSlots.length === 0 && (
-                    <option disabled>No slots available</option>
-                  )}
-
-                  {availableSlots.map((slot) => (
-                    <option key={slot.startTime} value={slot.startTime}>
-                      {slot.startTime}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="flex gap-3 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 px-5 py-2.5 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition"
-                disabled={loading}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              >
-                {loading ? "Assigning..." : "Assign"}
-              </button>
-            </div>
-          </form>
-        </div>
+          {/* Footer buttons */}
+          <div className="flex gap-3 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="flex-1 px-5 py-2.5 border-2 border-gray-200 rounded-xl text-sm text-gray-700 font-semibold hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-1 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            >
+              {loading ? "Assigning..." : currentAssigneeId ? "Reassign" : "Assign"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

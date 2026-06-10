@@ -113,7 +113,7 @@ export default function LeadDetailPage() {
     status: "",
   });
 
-  const isReadOnly = user?.role !== "admin" && lead?.assignedTo !== user?.id;
+ 
   const [updating, setUpdating] = useState(false);
   const router = useRouter();
   const toastShownRef = useRef(false);
@@ -277,10 +277,7 @@ export default function LeadDetailPage() {
   };
 
   const addNoteOnly = async () => {
-    if (user?.role !== "admin" && lead?.assignedTo !== user?.id) {
-      toast.error("Read Only Lead");
-      return;
-    }
+    
     if (!note.trim()) {
       toast.error("Note cannot be empty");
       return;
@@ -295,7 +292,7 @@ export default function LeadDetailPage() {
       if (res.ok) {
         toast.success("Note added successfully");
         setNote("");
-        fetchLead();
+        await fetchLead();
       } else {
         const data = await res.json();
         toast.error(data.message || "Failed to add note");
@@ -309,10 +306,6 @@ export default function LeadDetailPage() {
   };
 
   const handleStatusUpdate = async (newStatus: string) => {
-    if (isReadOnly) {
-      toast.error("Read Only Lead");
-      return;
-    }
     setUpdatingStatus(true);
     try {
       const res = await fetch(`/api/leads/${leadId}/status`, {
@@ -322,7 +315,7 @@ export default function LeadDetailPage() {
       });
       if (res.ok) {
         toast.success("Status updated successfully");
-        fetchLead();
+        await fetchLead();
       } else {
         const data = await res.json();
         toast.error(data.message || "Failed to update status");
@@ -336,7 +329,6 @@ export default function LeadDetailPage() {
   };
 
   const handleEditClick = () => {
-    if (isReadOnly) { toast.error("Read Only Lead"); return; }
     setIsEditing(true);
   };
 
@@ -363,10 +355,6 @@ export default function LeadDetailPage() {
 
   const handleUpdateLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (user?.role !== "admin" && lead?.assignedTo !== user?.id) {
-      toast.error("Read Only Lead");
-      return;
-    }
     if (!editForm.phone.trim()) {
       toast.error("Phone is required");
       return;
@@ -381,7 +369,7 @@ export default function LeadDetailPage() {
       if (res.ok) {
         toast.success("Lead updated successfully");
         setIsEditing(false);
-        fetchLead();
+        router.push("/dashboard/leads");
       } else {
         const data = await res.json();
         toast.error(data.message || "Failed to update lead");
@@ -416,7 +404,6 @@ export default function LeadDetailPage() {
   };
 
   const handleMoveToAdmin = async () => {
-    if (isReadOnly) { toast.error("Read Only Lead"); return; }
     if (adminUsers.length === 0) { toast.error("No admin users available"); return; }
     if (!window.confirm("Are you sure you want to move this lead to admin?")) return;
     setMovingToAdmin(true);
@@ -429,7 +416,7 @@ export default function LeadDetailPage() {
       });
       if (res.ok) {
         toast.success("Lead moved to admin successfully");
-        fetchLead();
+        router.push("/dashboard/leads");
       } else {
         const data = await res.json();
         toast.error(data.message || "Failed to move lead to admin");
@@ -443,7 +430,6 @@ export default function LeadDetailPage() {
   };
 
   const handleAssignUser = async () => {
-    if (isReadOnly) { toast.error("Read Only Lead"); return; }
     if (!lead) { toast.error("Lead not found"); return; }
     if (!selectedEmployee) { toast.error("Please select a user"); return; }
 
@@ -482,7 +468,7 @@ export default function LeadDetailPage() {
       setSelectedMeetingDate("");
       setSelectedSlot("");
       setAvailableSlots([]);
-      fetchLead();
+      router.push("/dashboard/leads");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Operation failed");
     }
@@ -500,7 +486,7 @@ export default function LeadDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       toast.success("Meeting completed");
-      fetchLead();
+      router.push("/dashboard/leads");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to complete meeting");
     }
@@ -532,7 +518,7 @@ export default function LeadDetailPage() {
       setSelectedSlot("");
       setAvailableSlots([]);
       setShowReschedule(false);
-      fetchLead();
+      router.push("/dashboard/leads");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reschedule meeting");
     }
@@ -550,7 +536,7 @@ export default function LeadDetailPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       toast.success("Meeting cancelled");
-      fetchLead();
+      router.push("/dashboard/leads");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to cancel meeting");
     }
@@ -648,13 +634,6 @@ export default function LeadDetailPage() {
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <h1 className="text-4xl font-bold text-gray-900 mb-2">{lead.name}</h1>
-                    {user.role !== "admin" && lead.assignedTo !== user.id && (
-                      <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3">
-                        <p className="text-red-700 text-sm font-medium">
-                          Read Only Lead — You can view this lead but cannot modify it.
-                        </p>
-                      </div>
-                    )}
                   </div>
 
                   {/* Action buttons — status badge, edit, delete, move-to-admin ONLY */}
@@ -889,7 +868,7 @@ export default function LeadDetailPage() {
                                     setSelectedMeetingDate("");
                                     setSelectedSlot("");
                                     setAvailableSlots([]);
-                                    fetchLead();
+                                    router.push("/dashboard/leads");
                                   } catch (err) {
                                     toast.error(err instanceof Error ? err.message : "Booking failed");
                                   }
@@ -921,7 +900,7 @@ export default function LeadDetailPage() {
                                 if (!response.ok) throw new Error(data.message || "Assignment failed");
                                 toast.success("Lead assigned successfully");
                                 setSelectedAdminUser("");
-                                fetchLead();
+                                router.push("/dashboard/leads");
                               } catch (err) {
                                 toast.error(err instanceof Error ? err.message : "Assignment failed");
                               }
@@ -1367,7 +1346,9 @@ export default function LeadDetailPage() {
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Add Note</label>
                   <textarea
-                    value={note}
+                  value={note}
+                  required
+                  
                     onChange={(e) => setNote(e.target.value)}
                     rows={5}
                     placeholder="Enter note here..."
@@ -1378,16 +1359,19 @@ export default function LeadDetailPage() {
 
                 <button
                   type="button"
-                  disabled={updatingStatus || addingNote}
-                  onClick={async () => {
-                    if (selectedStatus !== lead.status) {
-                      await handleStatusUpdate(selectedStatus);
+                  disabled={
+                      updatingStatus ||
+                      addingNote ||
+                      !note.trim()
                     }
-                    if (note.trim()) {
+                    onClick={async () => {
+                      if (selectedStatus !== lead.status) {
+                        await handleStatusUpdate(selectedStatus);
+                      }
+
                       await addNoteOnly();
-                    }
-                    await fetchLead();
-                  }}
+                      await fetchLead();
+                    }}
                   className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
                 >
                   {updatingStatus || addingNote ? "Processing..." : "Submit"}

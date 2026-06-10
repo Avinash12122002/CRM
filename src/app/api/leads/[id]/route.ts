@@ -109,11 +109,10 @@ export async function GET(
 
     if (
       (payload.role === "employee" || payload.role === "meeting") &&
-      !lead.participants?.includes(payload.id)
+      lead.assignedTo !== payload.id
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
-
     return NextResponse.json({ lead });
   } catch (err) {
     console.error(err);

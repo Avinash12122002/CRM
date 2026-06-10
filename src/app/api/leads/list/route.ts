@@ -40,12 +40,11 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let filter: Record<string, any> = {};
 
-    // Employees and Meeting users can only see their own leads
     if (payload.role === "employee" || payload.role === "meeting") {
-      filter = {
-        participants: payload.id,
-      };
-    }
+  filter = {
+    assignedTo: payload.id,
+  };
+}
     // Admins can see all leads
 
     // Apply search filter (name or phone)
@@ -109,179 +108,199 @@ export async function GET(req: NextRequest) {
     // Get total count
     const total = await db.collection("leads").countDocuments(filter);
 
-    
-
     // Get paginated leads with assigned user data
     const leads = await db
-      .collection("leads")
-      .aggregate([
-        { $match: filter },
-        { $skip: skip },
-        { $limit: limit },
-        {
-          $lookup: {
-            from: "users",
-            localField: "assignedTo",
-            foreignField: "id",
-            as: "assignedUser",
-          },
-        },
-        {
-          $unwind: {
-            path: "$assignedUser",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $lookup: {
-            from: "users",
-            localField: "createdBy",
-            foreignField: "id",
-            as: "creator",
-          },
-        },
-        {
-          $unwind: {
-            path: "$creator",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $project: {
-            id: 1,
-            name: 1,
-            email: 1,
-            phone: 1,
-            company: 1,
-            status: 1,
-            dueDate: 1,
+  .collection("leads")
+  .aggregate([
+    { $match: filter },
 
-            assignedTo: 1,
-            assignedToName: {
-  $ifNull: [
-    "$assignedUser.name",
-    "$assignedToName"
-  ]
-},
-            assignedToEmail: "$assignedUser.email",
-            assignedToUsername: "$assignedUser.username",
-            assignedToRole: {
-  $ifNull: [
-    "$assignedUser.role",
-    "$assignedToRole"
-  ]
-},
+    {
+      $lookup: {
+        from: "users",
+        localField: "assignedTo",
+        foreignField: "id",
+        as: "assignedUser",
+      },
+    },
+    {
+      $unwind: {
+        path: "$assignedUser",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
 
-            assignedBy: 1,
-            assignedByName: 1,
-            assignedByRole: 1,
-            participants: 1,
+    {
+      $lookup: {
+        from: "users",
+        localField: "createdBy",
+        foreignField: "id",
+        as: "creator",
+      },
+    },
+    {
+      $unwind: {
+        path: "$creator",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
 
-            createdBy: 1,
-            createdByName: "$creator.name",
-            createdAt: 1,
-            updatedAt: 1,
-            history: 1,
-            meetingDetails: 1,
-            meetingStatus: 1,
-            meetingCompletedAt: 1,
-            meetingCancelledAt: 1,
-          },
+    {
+      $project: {
+        id: 1,
+        name: 1,
+        email: 1,
+        phone: 1,
+        company: 1,
+        status: 1,
+        dueDate: 1,
+
+        assignedTo: 1,
+        assignedToName: {
+          $ifNull: ["$assignedUser.name", "$assignedToName"],
         },
-        {
-          $addFields: {
-            // Get the last note from history
-            lastNote: {
-              $arrayElemAt: [
-                {
-                  $filter: {
-                    input: "$history",
-                    as: "item",
-                    cond: { $eq: ["$$item.action", "note_added"] },
-                  },
+        assignedToEmail: "$assignedUser.email",
+        assignedToUsername: "$assignedUser.username",
+        assignedToRole: {
+          $ifNull: ["$assignedUser.role", "$assignedToRole"],
+        },
+
+        assignedBy: 1,
+        assignedByName: 1,
+        assignedByRole: 1,
+
+        participants: 1,
+
+        createdBy: 1,
+        createdByName: "$creator.name",
+
+        createdAt: 1,
+        updatedAt: 1,
+
+        history: 1,
+
+        meetingDetails: 1,
+        meetingStatus: 1,
+        meetingCompletedAt: 1,
+        meetingCancelledAt: 1,
+      },
+    },
+
+    {
+      $addFields: {
+        lastNote: {
+          $arrayElemAt: [
+            {
+              $filter: {
+                input: "$history",
+                as: "item",
+                cond: {
+                  $eq: ["$$item.action", "note_added"],
                 },
-                -1,
-              ],
-            },
-          },
-        },
-        {
-          $sort: {
-            lastNoteAddedByAdmin: -1,
-            createdAt: -1,
-          },
-        },
-        {
-          $lookup: {
-            from: "users",
-            localField: "lastNote.performedBy",
-            foreignField: "id",
-            as: "lastNoteUser",
-          },
-        },
-        {
-          $unwind: {
-            path: "$lastNoteUser",
-            preserveNullAndEmptyArrays: true,
-          },
-        },
-        {
-          $addFields: {
-            lastNoteAddedByAdmin: {
-              $cond: {
-                if: { $eq: ["$lastNoteUser.role", "admin"] },
-                then: true,
-                else: false,
               },
             },
-          },
+            -1,
+          ],
         },
-        {
-          $project: {
-            id: 1,
-            name: 1,
-            email: 1,
-            phone: 1,
-            company: 1,
-            status: 1,
-            dueDate: 1,
-            assignedTo: 1,
-            assignedToName: 1,
-            assignedToEmail: 1,
-            assignedToUsername: 1,
-            assignedToRole: 1,
-            assignedBy: 1,
-            assignedByName: 1,
-            assignedByRole: 1,
-            participants: 1,
-            createdBy: 1,
-            createdByName: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            meetingDetails: 1,
-            meetingDate: "$meetingDetails.meetingDate",
-            startTime: "$meetingDetails.startTime",
-            endTime: "$meetingDetails.endTime",
-            meetingUserName: "$meetingDetails.meetingUserName",
-            meetingStatus: 1,
-            meetingCompletedAt: 1,
-            meetingCancelledAt: 1,
-            lastNoteAddedByAdmin: 1,
-            lastNote: {
-              $cond: {
-                if: { $gt: ["$lastNote", null] },
-                then: {
-                  note: "$lastNote.details",
-                  timestamp: "$lastNote.timestamp",
-                  performedByName: "$lastNoteUser.name",
-                },
-                else: null,
-              },
+      },
+    },
+
+    {
+      $lookup: {
+        from: "users",
+        localField: "lastNote.performedBy",
+        foreignField: "id",
+        as: "lastNoteUser",
+      },
+    },
+
+    {
+      $unwind: {
+        path: "$lastNoteUser",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+
+    {
+      $addFields: {
+        lastNoteAddedByAdmin: {
+          $eq: ["$lastNoteUser.role", "admin"],
+        },
+
+        assignedByAdmin: {
+          $eq: ["$assignedByRole", "admin"],
+        },
+      },
+    },
+
+    // IMPORTANT: SORT BEFORE PAGINATION
+    {
+      $sort: {
+        lastNoteAddedByAdmin: -1,
+        assignedByAdmin: -1,
+        updatedAt: 1,
+      },
+    },
+
+    // PAGINATION AFTER SORT
+    { $skip: skip },
+    { $limit: limit },
+
+    {
+      $project: {
+        id: 1,
+        name: 1,
+        email: 1,
+        phone: 1,
+        company: 1,
+        status: 1,
+        dueDate: 1,
+
+        assignedTo: 1,
+        assignedToName: 1,
+        assignedToEmail: 1,
+        assignedToUsername: 1,
+        assignedToRole: 1,
+
+        assignedBy: 1,
+        assignedByName: 1,
+        assignedByRole: 1,
+
+        participants: 1,
+
+        createdBy: 1,
+        createdByName: 1,
+
+        createdAt: 1,
+        updatedAt: 1,
+
+        meetingDetails: 1,
+        meetingDate: "$meetingDetails.meetingDate",
+        startTime: "$meetingDetails.startTime",
+        endTime: "$meetingDetails.endTime",
+        meetingUserName: "$meetingDetails.meetingUserName",
+
+        meetingStatus: 1,
+        meetingCompletedAt: 1,
+        meetingCancelledAt: 1,
+
+        lastNoteAddedByAdmin: 1,
+        assignedByAdmin: 1,
+
+        lastNote: {
+          $cond: {
+            if: { $gt: ["$lastNote", null] },
+            then: {
+              note: "$lastNote.details",
+              timestamp: "$lastNote.timestamp",
+              performedByName: "$lastNoteUser.name",
             },
+            else: null,
           },
         },
-      ])
-      .toArray();
+      },
+    },
+  ])
+  .toArray();
 
     return NextResponse.json({
       leads,
