@@ -357,14 +357,14 @@ const cancelled = stats.cancelled;
               </button>
 
               <span className="text-sm">
+                Page {pagination?.page || 1} of {pagination?.totalPages || 1}
+              </span>
+
+              <button
                 disabled={
   pageLoading ||
   page >= (pagination?.totalPages || 1)
 }
-              </span>
-
-              <button
-                disabled={page >= (pagination?.totalPages || 1)}
                 onClick={() => setPage((prev) => prev + 1)}
                 className="px-3 py-1 border rounded disabled:opacity-50"
               >
