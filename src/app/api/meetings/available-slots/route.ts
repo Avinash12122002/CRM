@@ -33,7 +33,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const indiaTime = new Date(
+      new Date().toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+      }),
+    );
+
+    const today =
+      indiaTime.getFullYear() +
+      "-" +
+      String(indiaTime.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(indiaTime.getDate()).padStart(2, "0");
 
     if (meetingDate < today) {
       return NextResponse.json(
@@ -47,14 +58,14 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
 
     const bookedSlots = await db
-  .collection("meetingSlots")
-  .find({
-    meetingUserId,
-    meetingDate,
-    status: {
-      $in: ["scheduled", "completed"],
-    },
-  })
+      .collection("meetingSlots")
+      .find({
+        meetingUserId,
+        meetingDate,
+        status: {
+          $in: ["scheduled", "completed"],
+        },
+      })
       .project({
         _id: 0,
         startTime: 1,
@@ -74,11 +85,10 @@ export async function GET(req: NextRequest) {
         "0",
       )}:${String(minute).padStart(2, "0")}`;
 
-      const now = new Date();
-
-      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
-        now.getMinutes(),
-      ).padStart(2, "0")}`;
+      const currentTime = `${String(indiaTime.getHours()).padStart(
+        2,
+        "0",
+      )}:${String(indiaTime.getMinutes()).padStart(2, "0")}`;
 
       const isPastSlot = meetingDate === today && startTime <= currentTime;
 
