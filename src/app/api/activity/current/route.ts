@@ -39,6 +39,54 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const now = new Date();
+
+    let workSeconds = activeActivity.workSeconds || 0;
+    let breakSeconds = activeActivity.breakSeconds || 0;
+    let trainingSeconds = activeActivity.trainingSeconds || 0;
+
+    // Running Work Time
+    if (activeActivity.status === "working") {
+      workSeconds += Math.max(
+        0,
+        Math.floor(
+          (now.getTime() -
+            new Date(activeActivity.checkIn).getTime()) /
+            1000
+        )
+      );
+    }
+
+    // Running Break Time
+    if (
+      activeActivity.status === "break" &&
+      activeActivity.breakStart
+    ) {
+      breakSeconds += Math.max(
+        0,
+        Math.floor(
+          (now.getTime() -
+            new Date(activeActivity.breakStart).getTime()) /
+            1000
+        )
+      );
+    }
+
+    // Running Training Time
+    if (
+      activeActivity.status === "training" &&
+      activeActivity.trainingStart
+    ) {
+      trainingSeconds += Math.max(
+        0,
+        Math.floor(
+          (now.getTime() -
+            new Date(activeActivity.trainingStart).getTime()) /
+            1000
+        )
+      );
+    }
+
     return NextResponse.json({
       isCheckedIn: true,
 
@@ -47,27 +95,34 @@ export async function GET(req: NextRequest) {
 
         userId: activeActivity.userId,
 
-        firstCheckIn: activeActivity.firstCheckIn || activeActivity.checkIn,
+        firstCheckIn:
+          activeActivity.firstCheckIn ||
+          activeActivity.checkIn,
 
         checkIn: activeActivity.checkIn,
 
         checkOut: activeActivity.checkOut,
 
-        lastCheckOut: activeActivity.lastCheckOut || null,
+        lastCheckOut:
+          activeActivity.lastCheckOut || null,
 
-        status: activeActivity.status || "working",
+        status:
+          activeActivity.status || "working",
 
-        workSeconds: activeActivity.workSeconds || 0,
+        workSeconds,
 
-        breakSeconds: activeActivity.breakSeconds || 0,
+        breakSeconds,
 
-        trainingSeconds: activeActivity.trainingSeconds || 0,
+        trainingSeconds,
 
-        breakStart: activeActivity.breakStart || null,
+        breakStart:
+          activeActivity.breakStart || null,
 
-        trainingStart: activeActivity.trainingStart || null,
+        trainingStart:
+          activeActivity.trainingStart || null,
 
-        sessions: activeActivity.sessions || 1,
+        sessions:
+          activeActivity.sessions || 1,
 
         date: activeActivity.date,
       },

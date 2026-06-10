@@ -78,8 +78,7 @@ export async function PUT(
 
     const now = new Date();
     const oldStatus = lead.status;
-
-    let meetingStatusUpdate = {};
+    let meetingStatusUpdate: Record<string, any> = {};
 
     // Sales = Meeting Completed
     if (status === "sales") {
@@ -96,9 +95,13 @@ export async function PUT(
         },
       );
 
-      meetingStatusUpdate = {
-        "meetingDetails.status": "completed",
-      };
+      if (lead.meetingDetails) {
+        meetingStatusUpdate = {
+          meetingStatus: "completed",
+          "meetingDetails.status": "completed",
+          meetingCompletedAt: now,
+        };
+      }
     }
 
     // Not Interested / Wrong Number = Meeting Cancelled
@@ -116,16 +119,42 @@ export async function PUT(
         },
       );
 
-      meetingStatusUpdate = {
-        "meetingDetails.status": "cancelled",
-      };
+      if (lead.meetingDetails) {
+        meetingStatusUpdate = {
+          meetingStatus: "cancelled",
+          "meetingDetails.status": "cancelled",
+          meetingCancelledAt: now,
+        };
+      }
     }
+    const shouldReturnToAdmin =
+      payload.role !== "admin" &&
+      ["wrong-number", "not-interested", "sales"].includes(status);
+
+    const adminUser = shouldReturnToAdmin
+      ? await db.collection("users").findOne({
+          role: "admin",
+        })
+      : null;
 
     await db.collection("leads").updateOne(
       { id: leadId },
       {
         $set: {
           status,
+
+          ...(shouldReturnToAdmin
+            ? {
+                assignedTo: adminUser?.id || null,
+                assignedToName: adminUser?.name || null,
+                assignedToRole: adminUser?.role || "admin",
+
+                assignedBy: payload.id,
+                assignedByName: payload.name,
+                assignedByRole: payload.role,
+              }
+            : {}),
+
           updatedAt: now,
           ...meetingStatusUpdate,
         },
@@ -135,7 +164,9 @@ export async function PUT(
             performedBy: payload.id,
             performedByName: payload.name,
             timestamp: now,
-            details: `Status changed from "${oldStatus}" to "${status}"`,
+            details: shouldReturnToAdmin
+              ? `Status changed from "${oldStatus}" to "${status}"f and reassigned to Admin`
+              : `Status changed from "${oldStatus}" to "${status}"`,
             oldStatus,
             newStatus: status,
           },
@@ -150,7 +181,7 @@ export async function PUT(
       { status: 200 },
     );
   } catch (err) {
-    console.error(err);
+    console.error("STATUS UPDATE ERROR:", err);
 
     const errorMessage = err instanceof Error ? err.message : String(err);
 

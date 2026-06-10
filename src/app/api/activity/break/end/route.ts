@@ -42,12 +42,15 @@ export async function POST(req: NextRequest) {
     const now = new Date();
 
     const breakSeconds =
-      (activity.breakSeconds || 0) +
-      Math.floor(
-        (now.getTime() -
-          new Date(activity.breakStart).getTime()) /
-          1000
-      );
+  (activity.breakSeconds || 0) +
+  Math.max(
+    0,
+    Math.floor(
+      (now.getTime() -
+        new Date(activity.breakStart).getTime()) /
+        1000
+    )
+  );
 
     await db.collection("activities").updateOne(
       { _id: activity._id },

@@ -10,19 +10,13 @@ export async function POST(req: NextRequest) {
     const token = matches ? matches[2] : null;
 
     if (!token) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const payload = verifyToken(token);
 
     if (!payload) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const { db } = await connectToDatabase();
@@ -35,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!activeActivity) {
       return NextResponse.json(
         { message: "No active check-in found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -47,48 +41,41 @@ export async function POST(req: NextRequest) {
 
     // User currently working
     if (activeActivity.status === "working") {
-      totalWorkSeconds += Math.floor(
-        (now.getTime() -
-          new Date(activeActivity.checkIn).getTime()) /
-          1000
+      totalWorkSeconds += Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(activeActivity.checkIn).getTime()) / 1000,
+        ),
       );
     }
 
     // User currently on break
-    if (
-      activeActivity.status === "break" &&
-      activeActivity.breakStart
-    ) {
-      totalBreakSeconds += Math.floor(
-        (now.getTime() -
-          new Date(activeActivity.breakStart).getTime()) /
-          1000
+    if (activeActivity.status === "break" && activeActivity.breakStart) {
+      totalBreakSeconds += Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(activeActivity.breakStart).getTime()) /
+            1000,
+        ),
       );
     }
 
     // User currently in training
-    if (
-      activeActivity.status === "training" &&
-      activeActivity.trainingStart
-    ) {
-      totalTrainingSeconds += Math.floor(
-        (now.getTime() -
-          new Date(activeActivity.trainingStart).getTime()) /
-          1000
+    if (activeActivity.status === "training" && activeActivity.trainingStart) {
+      totalTrainingSeconds += Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(activeActivity.trainingStart).getTime()) /
+            1000,
+        ),
       );
     }
 
-    const totalWorkHours = Number(
-      (totalWorkSeconds / 3600).toFixed(2)
-    );
+    const totalWorkHours = Number((totalWorkSeconds / 3600).toFixed(2));
 
-    const totalBreakHours = Number(
-      (totalBreakSeconds / 3600).toFixed(2)
-    );
+    const totalBreakHours = Number((totalBreakSeconds / 3600).toFixed(2));
 
-    const totalTrainingHours = Number(
-      (totalTrainingSeconds / 3600).toFixed(2)
-    );
+    const totalTrainingHours = Number((totalTrainingSeconds / 3600).toFixed(2));
 
     await db.collection("activities").updateOne(
       { _id: activeActivity._id },
@@ -107,7 +94,7 @@ export async function POST(req: NextRequest) {
 
           updatedAt: now,
         },
-      }
+      },
     );
 
     return NextResponse.json(
@@ -122,20 +109,19 @@ export async function POST(req: NextRequest) {
         breakSeconds: totalBreakSeconds,
         trainingSeconds: totalTrainingSeconds,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (err) {
     console.error(err);
 
-    const errorMessage =
-      err instanceof Error ? err.message : String(err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
 
     return NextResponse.json(
       {
         message: "Server error",
         error: errorMessage,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

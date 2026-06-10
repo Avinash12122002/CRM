@@ -40,9 +40,16 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let filter: Record<string, any> = {};
 
-    if (payload.role === "employee" || payload.role === "meeting") {
+ if (payload.role === "employee" || payload.role === "meeting") {
   filter = {
     assignedTo: payload.id,
+    status: {
+      $nin: [
+        "wrong-number",
+        "not-interested",
+        "sales",
+      ],
+    },
   };
 }
     // Admins can see all leads
@@ -237,7 +244,7 @@ export async function GET(req: NextRequest) {
       $sort: {
         lastNoteAddedByAdmin: -1,
         assignedByAdmin: -1,
-        updatedAt: 1,
+        createdAt: -1,
       },
     },
 

@@ -10,19 +10,13 @@ export async function POST(req: NextRequest) {
     const token = matches ? matches[2] : null;
 
     if (!token) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const payload = verifyToken(token);
 
     if (!payload) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const { db } = await connectToDatabase();
@@ -35,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!activity || activity.status !== "training") {
       return NextResponse.json(
         { message: "No active training found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -43,10 +37,11 @@ export async function POST(req: NextRequest) {
 
     const trainingSeconds =
       (activity.trainingSeconds || 0) +
-      Math.floor(
-        (now.getTime() -
-          new Date(activity.trainingStart).getTime()) /
-          1000
+      Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(activity.trainingStart).getTime()) / 1000,
+        ),
       );
 
     await db.collection("activities").updateOne(
@@ -59,7 +54,7 @@ export async function POST(req: NextRequest) {
           trainingSeconds,
           updatedAt: now,
         },
-      }
+      },
     );
 
     return NextResponse.json({
@@ -67,9 +62,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     console.error(err);
-    return NextResponse.json(
-      { message: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
   }
 }

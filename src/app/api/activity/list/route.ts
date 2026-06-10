@@ -10,19 +10,13 @@ export async function GET(req: NextRequest) {
     const token = matches ? matches[2] : null;
 
     if (!token) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const payload = verifyToken(token);
 
     if (!payload) {
-      return NextResponse.json(
-        { message: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -38,10 +32,7 @@ export async function GET(req: NextRequest) {
 
     const matchFilter: Record<string, any> = {};
 
-    if (
-      payload.role === "employee" ||
-      payload.role === "meeting"
-    ) {
+    if (payload.role === "employee" || payload.role === "meeting") {
       matchFilter.userId = payload.id;
     } else if (userIdFilter) {
       matchFilter.userId = parseInt(userIdFilter);
@@ -51,9 +42,7 @@ export async function GET(req: NextRequest) {
       matchFilter.date = dateFilter;
     }
 
-    const total = await db
-      .collection("activities")
-      .countDocuments(matchFilter);
+    const total = await db.collection("activities").countDocuments(matchFilter);
 
     const activities = await db
       .collection("activities")
@@ -108,6 +97,9 @@ export async function GET(req: NextRequest) {
             firstCheckIn: 1,
             lastCheckOut: 1,
 
+            breakStart: 1,
+            trainingStart: 1,
+
             status: 1,
 
             workSeconds: {
@@ -131,38 +123,72 @@ export async function GET(req: NextRequest) {
       .toArray();
 
     const formattedActivities = activities.map((activity) => {
-      const workHours = Number(
-        ((activity.workSeconds || 0) / 3600).toFixed(2)
-      );
+      const now = new Date();
 
-      const breakHours = Number(
-        ((activity.breakSeconds || 0) / 3600).toFixed(2)
-      );
+      let workSeconds = activity.workSeconds || 0;
+      let breakSeconds = activity.breakSeconds || 0;
+      let trainingSeconds = activity.trainingSeconds || 0;
 
-      const trainingHours = Number(
-        ((activity.trainingSeconds || 0) / 3600).toFixed(2)
-      );
+      // Running Work Time
+      if (
+        activity.status === "working" &&
+        !activity.checkOut &&
+        activity.checkIn
+      ) {
+        workSeconds += Math.max(
+          0,
+          Math.floor(
+            (now.getTime() - new Date(activity.checkIn).getTime()) / 1000,
+          ),
+        );
+      }
+
+      // Running Break Time
+      if (activity.status === "break" && activity.breakStart) {
+        breakSeconds += Math.max(
+          0,
+          Math.floor(
+            (now.getTime() - new Date(activity.breakStart).getTime()) / 1000,
+          ),
+        );
+      }
+
+      // Running Training Time
+      if (activity.status === "training" && activity.trainingStart) {
+        trainingSeconds += Math.max(
+          0,
+          Math.floor(
+            (now.getTime() - new Date(activity.trainingStart).getTime()) / 1000,
+          ),
+        );
+      }
+
+      const workHours = Number((workSeconds / 3600).toFixed(2));
+
+      const breakHours = Number((breakSeconds / 3600).toFixed(2));
+
+      const trainingHours = Number((trainingSeconds / 3600).toFixed(2));
 
       const totalWorkingDay = Number(
-        (
-          (activity.workSeconds + activity.trainingSeconds) /
-          3600
-        ).toFixed(2)
+        ((workSeconds + trainingSeconds) / 3600).toFixed(2),
       );
 
       let lateMinutes = 0;
 
       if (activity.checkIn) {
-        const actual = new Date(activity.checkIn);
+        const checkInIST = new Date(
+          new Date(activity.checkIn).toLocaleString("en-US", {
+            timeZone: "Asia/Kolkata",
+          }),
+        );
 
-        const expected = new Date(actual);
+        const expectedIST = new Date(checkInIST);
 
-        expected.setHours(10, 0, 0, 0);
+        expectedIST.setHours(10, 0, 0, 0);
 
-        if (actual > expected) {
+        if (checkInIST > expectedIST) {
           lateMinutes = Math.floor(
-            (actual.getTime() - expected.getTime()) /
-              (1000 * 60)
+            (checkInIST.getTime() - expectedIST.getTime()) / (1000 * 60),
           );
         }
       }
@@ -174,18 +200,16 @@ export async function GET(req: NextRequest) {
 
         userId: activity.userId,
 
-        userName:
-          activity.userName || "Unknown User",
+        userName: activity.userName || "Unknown User",
 
-        userUsername:
-          activity.userUsername || "N/A",
+        userUsername: activity.userUsername || "N/A",
 
         checkIn: activity.checkIn,
 
         checkOut: activity.checkOut,
 
         firstCheckIn: activity.firstCheckIn,
-        
+
         lastCheckOut: activity.lastCheckOut,
 
         status: activity.status,
@@ -217,15 +241,14 @@ export async function GET(req: NextRequest) {
   } catch (err) {
     console.error(err);
 
-    const errorMessage =
-      err instanceof Error ? err.message : String(err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
 
     return NextResponse.json(
       {
         message: "Server error",
         error: errorMessage,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

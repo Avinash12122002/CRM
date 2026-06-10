@@ -305,28 +305,50 @@ export default function LeadDetailPage() {
     }
   };
 
-  const handleStatusUpdate = async (newStatus: string) => {
-    setUpdatingStatus(true);
-    try {
-      const res = await fetch(`/api/leads/${leadId}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (res.ok) {
-        toast.success("Status updated successfully");
-        await fetchLead();
-      } else {
-        const data = await res.json();
-        toast.error(data.message || "Failed to update status");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong");
-    } finally {
-      setUpdatingStatus(false);
+  const handleStatusUpdate = async (newStatus:string) => {
+  setUpdatingStatus(true);
+
+  try {
+    const res = await fetch(`/api/leads/${leadId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        status: newStatus,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      toast.success("Status updated successfully");
+
+      // Employee/Meeting -> Lead moved to Admin
+      if (
+          user?.role !== "admin" &&
+          ["wrong-number", "not-interested", "sales"].includes(newStatus)
+        ) {
+          toast.success("Lead returned to Admin");
+
+          window.location.href = "/dashboard/leads";
+
+          return;
+        }
+
+      await fetchLead();
+    } else {
+      toast.error(
+        data.message || "Failed to update status"
+      );
     }
-  };
+  } catch (err) {
+    console.error(err);
+    toast.error("Something went wrong");
+  } finally {
+    setUpdatingStatus(false);
+  }
+};
 
   const handleEditClick = () => {
     setIsEditing(true);
@@ -369,7 +391,7 @@ export default function LeadDetailPage() {
       if (res.ok) {
         toast.success("Lead updated successfully");
         setIsEditing(false);
-        router.push("/dashboard/leads");
+        await fetchLead();
       } else {
         const data = await res.json();
         toast.error(data.message || "Failed to update lead");
@@ -1367,9 +1389,19 @@ export default function LeadDetailPage() {
                     onClick={async () => {
                       if (selectedStatus !== lead.status) {
                         await handleStatusUpdate(selectedStatus);
+
+                        if (
+                          user?.role !== "admin" &&
+                          ["wrong-number", "not-interested", "sales"].includes(selectedStatus)
+                        ) {
+                          return;
+                        }
                       }
 
-                      await addNoteOnly();
+                      if (note.trim()) {
+                        await addNoteOnly();
+                      }
+
                       await fetchLead();
                     }}
                   className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
