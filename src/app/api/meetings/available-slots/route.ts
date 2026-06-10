@@ -33,18 +33,18 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const indiaTime = new Date(
+    const nowIST = new Date(
       new Date().toLocaleString("en-US", {
         timeZone: "Asia/Kolkata",
       }),
     );
 
     const today =
-      indiaTime.getFullYear() +
+      nowIST.getFullYear() +
       "-" +
-      String(indiaTime.getMonth() + 1).padStart(2, "0") +
+      String(nowIST.getMonth() + 1).padStart(2, "0") +
       "-" +
-      String(indiaTime.getDate()).padStart(2, "0");
+      String(nowIST.getDate()).padStart(2, "0");
 
     if (meetingDate < today) {
       return NextResponse.json(
@@ -85,13 +85,11 @@ export async function GET(req: NextRequest) {
         "0",
       )}:${String(minute).padStart(2, "0")}`;
 
-      const currentTime = `${String(indiaTime.getHours()).padStart(
-        2,
-        "0",
-      )}:${String(indiaTime.getMinutes()).padStart(2, "0")}`;
+      const now = new Date();
 
-      const isPastSlot = meetingDate === today && startTime <= currentTime;
+      const slotDateTime = new Date(`${meetingDate}T${startTime}:00+05:30`);
 
+      const isPastSlot = slotDateTime <= now;
       slots.push({
         startTime,
         available: !bookedTimes.includes(startTime) && !isPastSlot,
