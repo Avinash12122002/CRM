@@ -32,16 +32,14 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    let filter: Record<string, any> = {
+    const filter: Record<string, any> = {
       meetingDetails: { $ne: null },
     };
 
-    // Meeting user sees only their meetings
     if (payload.role === "meeting") {
       filter["meetingDetails.meetingUserId"] = payload.id;
     }
 
-    // Employee sees only assigned meetings
     if (payload.role === "employee") {
       filter.assignedTo = payload.id;
     }
@@ -49,30 +47,6 @@ export async function GET(req: NextRequest) {
     const total = await db
       .collection("leads")
       .countDocuments(filter);
-
-    const scheduled = await db
-      .collection("leads")
-      .countDocuments({
-        ...filter,
-        $or: [
-          { meetingStatus: "scheduled" },
-          { meetingStatus: null },
-        ],
-      });
-
-    const completed = await db
-      .collection("leads")
-      .countDocuments({
-        ...filter,
-        meetingStatus: "completed",
-      });
-
-    const cancelled = await db
-      .collection("leads")
-      .countDocuments({
-        ...filter,
-        meetingStatus: "cancelled",
-      });
 
     const meetings = await db
       .collection("leads")
@@ -94,6 +68,39 @@ export async function GET(req: NextRequest) {
       .limit(limit)
       .toArray();
 
+    let stats = null;
+
+    // Only calculate stats on first page
+    if (page === 1) {
+      const [scheduled, completed, cancelled] =
+        await Promise.all([
+          db.collection("leads").countDocuments({
+            ...filter,
+            $or: [
+              { meetingStatus: "scheduled" },
+              { meetingStatus: null },
+            ],
+          }),
+
+          db.collection("leads").countDocuments({
+            ...filter,
+            meetingStatus: "completed",
+          }),
+
+          db.collection("leads").countDocuments({
+            ...filter,
+            meetingStatus: "cancelled",
+          }),
+        ]);
+
+      stats = {
+        total,
+        scheduled,
+        completed,
+        cancelled,
+      };
+    }
+
     return NextResponse.json({
       meetings,
 
@@ -104,12 +111,7 @@ export async function GET(req: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
 
-      stats: {
-        total,
-        scheduled,
-        completed,
-        cancelled,
-      },
+      stats,
     });
   } catch (err) {
     console.error(err);

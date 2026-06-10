@@ -76,7 +76,9 @@ const fetchMeetings = async () => {
 
       setMeetings(data.meetings || []);
       setPagination(data.pagination);
-      setStats(data.stats);
+      if (data.stats) {
+  setStats(data.stats);
+}
     }
   } catch (err) {
     console.error(err);
