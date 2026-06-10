@@ -32,34 +32,58 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
- const [page, setPage] = useState(() => {
-  if (typeof window !== "undefined") {
-    return Number(localStorage.getItem("meetingPage")) || 1;
-  }
-  return 1;
+  const [pageLoading, setPageLoading] = useState(false);
+
+const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<any>(null);
+  
+  const [stats, setStats] = useState({
+  total: 0,
+  scheduled: 0,
+  completed: 0,
+  cancelled: 0,
 });
-const [pagination, setPagination] = useState<any>(null);
 
-  const fetchMeetings = async () => {
-    try {
-      const res = await fetch(
-  `/api/meetings?page=${page}&limit=10`
-      );
-      
-     if (res.ok) {
-  const data = await res.json();
+  const [pageReady, setPageReady] = useState(false);
 
-  setMeetings(data.meetings || []);
-  setPagination(data.pagination);
-}
-    } catch (err) {
-      console.error(err);
+useEffect(() => {
+  const savedPage = Number(
+    localStorage.getItem("meetingPage")
+  );
+
+  if (savedPage > 0) {
+    setPage(savedPage);
+  }
+
+  setPageReady(true);
+}, []);
+
+useEffect(() => {
+  if (pageReady) {
+    fetchMeetings();
+  }
+}, [page, pageReady]);
+const fetchMeetings = async () => {
+  try {
+    setPageLoading(true);
+
+    const res = await fetch(
+      `/api/meetings?page=${page}&limit=10`
+    );
+
+    if (res.ok) {
+      const data = await res.json();
+
+      setMeetings(data.meetings || []);
+      setPagination(data.pagination);
+      setStats(data.stats);
     }
-  };
-
-     useEffect(() => {
-  fetchMeetings();
-     }, [page]);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    setPageLoading(false);
+  }
+};
   
 useEffect(() => {
   localStorage.setItem("meetingPage", String(page));
@@ -102,7 +126,7 @@ useEffect(() => {
       const data = await res.json();
       if (res.ok) {
         toast.success("Meeting marked as completed");
-        fetchMeetings();
+        await fetchMeetings();
       } else {
         toast.error(data.message || "Failed to complete meeting");
       }
@@ -126,7 +150,7 @@ useEffect(() => {
       const data = await res.json();
       if (res.ok) {
         toast.success("Meeting cancelled");
-        fetchMeetings();
+        await fetchMeetings();
       } else {
         toast.error(data.message || "Failed to cancel meeting");
       }
@@ -139,10 +163,10 @@ useEffect(() => {
   };
 
   // Derived counts for summary cards
-  const total      = meetings.length;
-  const scheduled  = meetings.filter((m) => !m.meetingStatus || m.meetingStatus === "scheduled").length;
-  const completed  = meetings.filter((m) => m.meetingStatus === "completed").length;
-  const cancelled  = meetings.filter((m) => m.meetingStatus === "cancelled").length;
+const total = stats.total;
+const scheduled = stats.scheduled;
+const completed = stats.completed;
+const cancelled = stats.cancelled;
 
   const statusBadge = (status?: string) => {
     switch (status) {
@@ -325,7 +349,7 @@ useEffect(() => {
 
             <div className="flex items-center justify-end gap-2 p-4 border-t dark:border-zinc-700">
               <button
-                disabled={page === 1}
+                disabled={pageLoading || page === 1}
                 onClick={() => setPage((prev) => prev - 1)}
                 className="px-3 py-1 border rounded disabled:opacity-50"
               >
@@ -333,7 +357,10 @@ useEffect(() => {
               </button>
 
               <span className="text-sm">
-                Page {pagination?.page || 1} of {pagination?.totalPages || 1}
+                disabled={
+  pageLoading ||
+  page >= (pagination?.totalPages || 1)
+}
               </span>
 
               <button

@@ -36,11 +36,12 @@ export async function GET(req: NextRequest) {
       meetingDetails: { $ne: null },
     };
 
-    // Admin sees all meetings
+    // Meeting user sees only their meetings
     if (payload.role === "meeting") {
       filter["meetingDetails.meetingUserId"] = payload.id;
     }
 
+    // Employee sees only assigned meetings
     if (payload.role === "employee") {
       filter.assignedTo = payload.id;
     }
@@ -48,6 +49,30 @@ export async function GET(req: NextRequest) {
     const total = await db
       .collection("leads")
       .countDocuments(filter);
+
+    const scheduled = await db
+      .collection("leads")
+      .countDocuments({
+        ...filter,
+        $or: [
+          { meetingStatus: "scheduled" },
+          { meetingStatus: null },
+        ],
+      });
+
+    const completed = await db
+      .collection("leads")
+      .countDocuments({
+        ...filter,
+        meetingStatus: "completed",
+      });
+
+    const cancelled = await db
+      .collection("leads")
+      .countDocuments({
+        ...filter,
+        meetingStatus: "cancelled",
+      });
 
     const meetings = await db
       .collection("leads")
@@ -71,11 +96,19 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       meetings,
+
       pagination: {
         page,
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+
+      stats: {
+        total,
+        scheduled,
+        completed,
+        cancelled,
       },
     });
   } catch (err) {
