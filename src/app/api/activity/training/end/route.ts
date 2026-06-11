@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       {
         $set: {
           status: "working",
-          // checkIn: now,
+          checkIn: now,
           trainingStart: null,
           trainingSeconds,
           updatedAt: now,

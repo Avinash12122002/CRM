@@ -176,7 +176,7 @@ export async function GET(req: NextRequest) {
      let lateMinutes = 0;
 
 const firstCheckIn =
-  activity.firstCheckIn || activity.checkIn;
+  activity.firstCheckIn;
 
 if (firstCheckIn) {
   const checkInIST = new Date(
