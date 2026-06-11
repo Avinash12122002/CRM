@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 
@@ -26,86 +26,60 @@ type User = {
   role: "admin" | "employee" | "meeting";
 };
 
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+type Stats = {
+  total: number;
+  scheduled: number;
+  completed: number;
+  cancelled: number;
+};
+
 export default function MeetingsPage() {
-  const [user, setUser] = useState<User | null>(null);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]           = useState<User | null>(null);
+  const [meetings, setMeetings]   = useState<Meeting[]>([]);
+  const [loading, setLoading]     = useState(true);       // initial auth+data load
+  const [pageLoading, setPageLoading] = useState(false);  // subsequent page changes
   const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  const [pageLoading, setPageLoading] = useState(false);
-
-const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState<any>(null);
-  
-  const [stats, setStats] = useState({
-  total: 0,
-  scheduled: 0,
-  completed: 0,
-  cancelled: 0,
-});
-
-  const [pageReady, setPageReady] = useState(false);
-
-useEffect(() => {
-  const savedPage = Number(
-    localStorage.getItem("meetingPage")
-  );
-
-  if (savedPage > 0) {
-    setPage(savedPage);
-  }
-
-  setPageReady(true);
-}, []);
-
-useEffect(() => {
-  if (pageReady) {
-    fetchMeetings();
-  }
-}, [page, pageReady]);
-const fetchMeetings = async () => {
-  try {
-    setPageLoading(true);
-
-    const res = await fetch(
-      `/api/meetings?page=${page}&limit=10`
-    );
-
-    if (res.ok) {
-      const data = await res.json();
-
-      setMeetings(data.meetings || []);
-      setPagination(data.pagination);
-      if (data.stats) {
-  setStats(data.stats);
-}
+  // ── Lazy init from localStorage — NO extra render cycle / useEffect chain ──
+  const [page, setPage] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = Number(localStorage.getItem("meetingPage"));
+      return saved > 0 ? saved : 1;
     }
-  } catch (err) {
-    console.error(err);
-  } finally {
-    setPageLoading(false);
-  }
-};
-  
-useEffect(() => {
-  localStorage.setItem("meetingPage", String(page));
-}, [page]);
+    return 1;
+  });
 
-useEffect(() => {
-  if (
-    pagination &&
-    page > pagination.totalPages &&
-    pagination.totalPages > 0
-  ) {
-    setPage(pagination.totalPages);
-  }
-}, [pagination]);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const [stats, setStats] = useState<Stats>({
+    total: 0, scheduled: 0, completed: 0, cancelled: 0,
+  });
+
+  // Persist page to localStorage whenever it changes
   useEffect(() => {
-    async function loadData() {
+    localStorage.setItem("meetingPage", String(page));
+  }, [page]);
+
+  // Guard against page going out of bounds after data loads
+  useEffect(() => {
+    if (pagination && page > pagination.totalPages && pagination.totalPages > 0) {
+      setPage(pagination.totalPages);
+    }
+  }, [pagination]);
+
+  // ── Auth: runs once ──────────────────────────────────────────────────────
+  useEffect(() => {
+    async function loadUser() {
       try {
-        const meRes = await fetch("/api/auth/me");
-        if (!meRes.ok) return;
-        const me = await meRes.json();
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) return;
+        const me = await res.json();
         setUser(me);
       } catch (err) {
         console.error(err);
@@ -113,8 +87,32 @@ useEffect(() => {
         setLoading(false);
       }
     }
-    loadData();
+    loadUser();
   }, []);
+
+  // ── Fetch meetings whenever page changes (or on initial mount) ───────────
+  useEffect(() => {
+    fetchMeetings(page);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
+
+  async function fetchMeetings(targetPage: number) {
+    setPageLoading(true);
+    try {
+      const res = await fetch(`/api/meetings?page=${targetPage}&limit=10`);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setMeetings(data.meetings || []);
+      setPagination(data.pagination);
+      // Stats come on every request now (API optimized to always include them)
+      if (data.stats) setStats(data.stats);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load meetings");
+    } finally {
+      setPageLoading(false);
+    }
+  }
 
   const completeMeeting = async (leadId: number) => {
     if (!window.confirm("Mark this meeting as completed?")) return;
@@ -126,18 +124,10 @@ useEffect(() => {
         body: JSON.stringify({ leadId }),
       });
       const data = await res.json();
-      if (res.ok) {
-        toast.success("Meeting marked as completed");
-        await fetchMeetings();
-      } else {
-        toast.error(data.message || "Failed to complete meeting");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong");
-    } finally {
-      setActionLoading(null);
-    }
+      if (res.ok) { toast.success("Meeting marked as completed"); fetchMeetings(page); }
+      else toast.error(data.message || "Failed to complete meeting");
+    } catch { toast.error("Something went wrong"); }
+    finally { setActionLoading(null); }
   };
 
   const cancelMeeting = async (leadId: number) => {
@@ -150,34 +140,17 @@ useEffect(() => {
         body: JSON.stringify({ leadId }),
       });
       const data = await res.json();
-      if (res.ok) {
-        toast.success("Meeting cancelled");
-        await fetchMeetings();
-      } else {
-        toast.error(data.message || "Failed to cancel meeting");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Something went wrong");
-    } finally {
-      setActionLoading(null);
-    }
+      if (res.ok) { toast.success("Meeting cancelled"); fetchMeetings(page); }
+      else toast.error(data.message || "Failed to cancel meeting");
+    } catch { toast.error("Something went wrong"); }
+    finally { setActionLoading(null); }
   };
-
-  // Derived counts for summary cards
-const total = stats.total;
-const scheduled = stats.scheduled;
-const completed = stats.completed;
-const cancelled = stats.cancelled;
 
   const statusBadge = (status?: string) => {
     switch (status) {
-      case "completed":
-        return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
-      case "cancelled":
-        return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
-      default:
-        return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
+      case "completed": return "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300";
+      case "cancelled": return "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300";
+      default:          return "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300";
     }
   };
 
@@ -189,6 +162,7 @@ const cancelled = stats.cancelled;
     }
   };
 
+  // ── Initial full-page load ───────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
@@ -203,14 +177,16 @@ const cancelled = stats.cancelled;
     );
   }
 
+  const totalPages = pagination?.totalPages ?? 1;
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-900">
       {user && <DashboardNavbar user={user} />}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
-        {/* Page header */}
-        <div className="mb-6">
+        {/* Header */}
+        <div className="mb-5">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Meetings</h1>
           <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
             Manage all scheduled meetings
@@ -218,12 +194,12 @@ const cancelled = stats.cancelled;
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
           {[
-            { label: "Total",     value: total,     color: "bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700",          text: "text-gray-900 dark:text-gray-100" },
-            { label: "Scheduled", value: scheduled,  color: "bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800",      text: "text-blue-700 dark:text-blue-300" },
-            { label: "Completed", value: completed,  color: "bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800",  text: "text-green-700 dark:text-green-300" },
-            { label: "Cancelled", value: cancelled,  color: "bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800",          text: "text-red-700 dark:text-red-300" },
+            { label: "Total",     value: stats.total,     color: "bg-white dark:bg-zinc-800 border border-gray-100 dark:border-zinc-700",         text: "text-gray-900 dark:text-gray-100" },
+            { label: "Scheduled", value: stats.scheduled, color: "bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800",     text: "text-blue-700 dark:text-blue-300" },
+            { label: "Completed", value: stats.completed, color: "bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800", text: "text-green-700 dark:text-green-300" },
+            { label: "Cancelled", value: stats.cancelled, color: "bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800",         text: "text-red-700 dark:text-red-300" },
           ].map((card) => (
             <div key={card.label} className={`rounded-xl px-4 py-3 ${card.color}`}>
               <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{card.label}</p>
@@ -232,20 +208,28 @@ const cancelled = stats.cancelled;
           ))}
         </div>
 
-        {/* Table */}
-        <div className="bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-700 overflow-hidden">
+        {/* Table — wrapper is relative so we can overlay the loading state */}
+        <div className="relative bg-white dark:bg-zinc-800 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-700 overflow-hidden">
+
+          {/* ── Loading overlay: keeps existing rows visible during pagination ── */}
+          {pageLoading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-zinc-800/60 backdrop-blur-[2px] rounded-xl">
+              <div className="flex flex-col items-center gap-2">
+                <svg className="w-7 h-7 animate-spin text-blue-500" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <p className="text-xs text-zinc-500">Loading page {page}...</p>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-700">
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
-                  {[
-                    "Lead", "Phone", "Meeting Date",
-                    "Start", "End", "Meeting User", "Status", "Actions",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide whitespace-nowrap"
-                    >
+                  {["Lead","Phone","Meeting Date","Start","End","Meeting User","Status","Actions"].map((h) => (
+                    <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
                   ))}
@@ -253,7 +237,7 @@ const cancelled = stats.cancelled;
               </thead>
 
               <tbody className="divide-y divide-gray-100 dark:divide-zinc-700">
-                {meetings.length === 0 ? (
+                {meetings.length === 0 && !pageLoading ? (
                   <tr>
                     <td colSpan={8} className="text-center py-16">
                       <svg className="w-10 h-10 mx-auto text-gray-300 dark:text-zinc-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -264,113 +248,141 @@ const cancelled = stats.cancelled;
                   </tr>
                 ) : (
                   meetings.map((meeting) => {
-                    const isFinished =
-                      meeting.meetingStatus === "completed" ||
-                      meeting.meetingStatus === "cancelled";
+                    const isFinished  = meeting.meetingStatus === "completed" || meeting.meetingStatus === "cancelled";
                     const isActioning = actionLoading === meeting.id;
-
                     return (
                       <tr key={meeting.id} className={`transition-colors ${rowBg(meeting.meetingStatus)}`}>
 
                         <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">
-                            {meeting.name}
-                          </span>
+                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{meeting.name}</span>
                         </td>
-
                         <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">
-                            {meeting.phone}
-                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.phone}</span>
                         </td>
-
                         <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">
-                            {meeting.meetingDetails?.meetingDate || "—"}
-                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.meetingDate || "—"}</span>
                         </td>
-
                         <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">
-                            {meeting.meetingDetails?.startTime || "—"}
-                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.startTime || "—"}</span>
                         </td>
-
                         <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">
-                            {meeting.meetingDetails?.endTime || "—"}
-                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.endTime || "—"}</span>
                         </td>
-
                         <td className="px-4 py-2.5 whitespace-nowrap">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">
-                            {meeting.meetingDetails?.meetingUserName || "—"}
-                          </span>
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.meetingUserName || "—"}</span>
                         </td>
-
                         <td className="px-4 py-2.5 whitespace-nowrap">
                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${statusBadge(meeting.meetingStatus)}`}>
                             {meeting.meetingStatus || "scheduled"}
                           </span>
                         </td>
-
                         <td className="px-4 py-2.5 whitespace-nowrap">
                           <div className="flex gap-1.5">
                             <button
                               disabled={isFinished || isActioning}
                               onClick={() => completeMeeting(meeting.id)}
-                              className={`px-2.5 py-1 text-[11px] font-medium rounded-lg text-white transition ${
+                              className={`px-2.5 py-1 text-[11px] font-medium rounded-lg transition ${
                                 isFinished || isActioning
-                                  ? "bg-gray-200 dark:bg-zinc-600 text-gray-400 dark:text-zinc-500 cursor-not-allowed"
-                                  : "bg-green-600 hover:bg-green-700"
+                                  ? "bg-gray-100 dark:bg-zinc-700 text-gray-400 dark:text-zinc-500 cursor-not-allowed"
+                                  : "bg-green-600 hover:bg-green-700 text-white"
                               }`}
                             >
-                              {isActioning ? "..." : "Complete"}
+                              {isActioning ? (
+                                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                                </svg>
+                              ) : "Complete"}
                             </button>
-
                             <button
                               disabled={isFinished || isActioning}
                               onClick={() => cancelMeeting(meeting.id)}
-                              className={`px-2.5 py-1 text-[11px] font-medium rounded-lg text-white transition ${
+                              className={`px-2.5 py-1 text-[11px] font-medium rounded-lg transition ${
                                 isFinished || isActioning
-                                  ? "bg-gray-200 dark:bg-zinc-600 text-gray-400 dark:text-zinc-500 cursor-not-allowed"
-                                  : "bg-red-500 hover:bg-red-600"
+                                  ? "bg-gray-100 dark:bg-zinc-700 text-gray-400 dark:text-zinc-500 cursor-not-allowed"
+                                  : "bg-red-500 hover:bg-red-600 text-white"
                               }`}
                             >
-                              {isActioning ? "..." : "Cancel"}
+                              {isActioning ? (
+                                <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                                </svg>
+                              ) : "Cancel"}
                             </button>
                           </div>
                         </td>
-
                       </tr>
                     );
                   })
                 )}
               </tbody>
             </table>
+          </div>
 
-            <div className="flex items-center justify-end gap-2 p-4 border-t dark:border-zinc-700">
+          {/* Pagination */}
+          <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-gray-100 dark:border-zinc-700">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {pagination ? (
+                <>
+                  Showing{" "}
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {(page - 1) * 10 + 1}
+                  </span>
+                  {" – "}
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {Math.min(page * 10, pagination.total)}
+                  </span>
+                  {" of "}
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {pagination.total}
+                  </span>
+                </>
+              ) : "—"}
+            </p>
+
+            <div className="flex items-center gap-1">
               <button
-                disabled={pageLoading || page === 1}
-                onClick={() => setPage((prev) => prev - 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
+                disabled={pageLoading || page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+                className="px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
-                Previous
+                ← Prev
               </button>
 
-              <span className="text-sm">
-                Page {pagination?.page || 1} of {pagination?.totalPages || 1}
-              </span>
+              {/* Page number pills */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => p === 1 || p === totalPages || (p >= page - 1 && p <= page + 1))
+                  .flatMap((p, idx, arr) => {
+                    const els = [];
+                    if (idx > 0 && p - arr[idx - 1] > 1) {
+                      els.push(<span key={`dots-${p}`} className="px-1 text-xs text-zinc-400">…</span>);
+                    }
+                    els.push(
+                      <button
+                        key={p}
+                        onClick={() => setPage(p)}
+                        disabled={pageLoading}
+                        className={`w-7 h-7 text-xs rounded-lg font-medium transition ${
+                          p === page
+                            ? "bg-blue-600 text-white"
+                            : "bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                    return els;
+                  })}
+              </div>
 
               <button
-                disabled={
-  pageLoading ||
-  page >= (pagination?.totalPages || 1)
-}
-                onClick={() => setPage((prev) => prev + 1)}
-                className="px-3 py-1 border rounded disabled:opacity-50"
+                disabled={pageLoading || page >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 text-xs border border-zinc-200 dark:border-zinc-700 rounded-lg bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed transition"
               >
-                Next
+                Next →
               </button>
             </div>
           </div>

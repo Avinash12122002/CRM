@@ -173,25 +173,29 @@ export async function GET(req: NextRequest) {
         ((workSeconds + trainingSeconds) / 3600).toFixed(2),
       );
 
-      let lateMinutes = 0;
+     let lateMinutes = 0;
 
-      if (activity.checkIn) {
-        const checkInIST = new Date(
-          new Date(activity.checkIn).toLocaleString("en-US", {
-            timeZone: "Asia/Kolkata",
-          }),
-        );
+const firstCheckIn =
+  activity.firstCheckIn || activity.checkIn;
 
-        const expectedIST = new Date(checkInIST);
+if (firstCheckIn) {
+  const checkInIST = new Date(
+    new Date(firstCheckIn).toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata",
+    }),
+  );
 
-        expectedIST.setHours(10, 0, 0, 0);
+  const expectedIST = new Date(checkInIST);
 
-        if (checkInIST > expectedIST) {
-          lateMinutes = Math.floor(
-            (checkInIST.getTime() - expectedIST.getTime()) / (1000 * 60),
-          );
-        }
-      }
+  expectedIST.setHours(10, 0, 0, 0);
+
+  if (checkInIST > expectedIST) {
+    lateMinutes = Math.floor(
+      (checkInIST.getTime() - expectedIST.getTime()) /
+        (1000 * 60),
+    );
+  }
+}
 
       return {
         id: activity.id,
