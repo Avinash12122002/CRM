@@ -315,7 +315,10 @@ export default function CheckInOutCard() {
           <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-2">
             Checked in at{" "}
             {currentActivity &&
-              new Date(currentActivity.checkIn).toLocaleTimeString()}
+              new Date(
+  currentActivity.firstCheckIn ||
+  currentActivity.checkIn
+).toLocaleTimeString()}
           </p>
         </div>
       )}
