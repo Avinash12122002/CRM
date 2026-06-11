@@ -39,13 +39,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (activity.status === "break") {
-      return NextResponse.json(
-        { message: "Already on break" },
-        { status: 400 }
-      );
-    }
+  if (activity.status === "break") {
+  return NextResponse.json(
+    { message: "Already on break" },
+    { status: 400 }
+  );
+}
 
+if (activity.status === "training") {
+  return NextResponse.json(
+    { message: "End training first" },
+    { status: 400 }
+  );
+}
     const now = new Date();
 
     let workSeconds = activity.workSeconds || 0;

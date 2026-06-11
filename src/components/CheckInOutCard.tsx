@@ -49,63 +49,15 @@ export default function CheckInOutCard() {
     fetchCurrentActivity();
   }, []);
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
+ useEffect(() => {
+  if (!isCheckedIn) return;
 
-    if (isCheckedIn && currentActivity) {
-      interval = setInterval(() => {
-        const now = new Date();
+  const interval = setInterval(() => {
+    fetchCurrentActivity();
+  }, 5000);
 
-        let workSeconds = currentActivity.workSeconds || 0;
-        let breakSeconds = currentActivity.breakSeconds || 0;
-        let trainingSeconds = currentActivity.trainingSeconds || 0;
-
-        if (currentActivity.status === "working") {
-          workSeconds += Math.floor(
-            (now.getTime() - new Date(currentActivity.checkIn).getTime()) /
-              1000,
-          );
-        }
-
-        if (currentActivity.status === "break" && currentActivity.breakStart) {
-          breakSeconds += Math.floor(
-            (now.getTime() - new Date(currentActivity.breakStart).getTime()) /
-              1000,
-          );
-        }
-
-        if (
-          currentActivity.status === "training" &&
-          currentActivity.trainingStart
-        ) {
-          trainingSeconds += Math.floor(
-            (now.getTime() -
-              new Date(currentActivity.trainingStart).getTime()) /
-              1000,
-          );
-        }
-
-        const formatTime = (seconds: number) => {
-          const h = Math.floor(seconds / 3600);
-          const m = Math.floor((seconds % 3600) / 60);
-          const s = seconds % 60;
-
-          return `${String(h).padStart(2, "0")}:${String(m).padStart(
-            2,
-            "0",
-          )}:${String(s).padStart(2, "0")}`;
-        };
-
-        setWorkTime(formatTime(workSeconds));
-        setBreakTime(formatTime(breakSeconds));
-        setTrainingTime(formatTime(trainingSeconds));
-      }, 1000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isCheckedIn, currentActivity]);
+  return () => clearInterval(interval);
+}, [isCheckedIn]);
 
   async function fetchCurrentActivity() {
     try {
