@@ -729,17 +729,26 @@ export default function LeadsPage() {
                                   <svg className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 cursor-help flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                                   </svg>
-                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 w-56 p-2.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg">
+                                 <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 min-w-[250px] max-w-[600px] w-max p-3 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg">
+
                                     <div className="font-semibold mb-1">
-                                      Last Note by {lead.lastNote.performedByName}{" "}
+                                      Last Note by {lead.lastNote.performedByName}
                                       <span className="text-gray-300 dark:text-gray-400">
+                                        {" "}
                                         ({new Date(lead.lastNote.timestamp).toLocaleString("en-US", {
-                                          year: "numeric", month: "short", day: "numeric",
-                                          hour: "2-digit", minute: "2-digit",
+                                          year: "numeric",
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
                                         })})
                                       </span>
                                     </div>
-                                    <div className="text-white">Note — {lead.lastNote.note}</div>
+
+                                    <div className="text-white break-words whitespace-pre-wrap">
+                                      Note — {lead.lastNote.note}
+                                    </div>
+
                                     <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
                                   </div>
                                 </div>

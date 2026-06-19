@@ -165,7 +165,7 @@ export async function PUT(
             performedByName: payload.name,
             timestamp: now,
             details: shouldReturnToAdmin
-              ? `Status changed from "${oldStatus}" to "${status}"f and reassigned to Admin`
+              ? `Status changed from "${oldStatus}" to "${status}" and reassigned to Admin`
               : `Status changed from "${oldStatus}" to "${status}"`,
             oldStatus,
             newStatus: status,

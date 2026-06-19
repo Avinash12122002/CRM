@@ -45,22 +45,29 @@ export default function Home() {
     setIsLoading(true);
     const loadingToast = toast.loading("Signing in...");
 
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
 
-    toast.dismiss(loadingToast);
-    setIsLoading(false);
+      toast.dismiss(loadingToast);
 
-    if (res.ok) {
-      toast.success("Login successful!");
-      router.push("/dashboard");
-    } else {
-      const data = await res.json();
-      const errorMsg = data?.message || "Login failed";
-      toast.error(errorMsg);
+      if (res.ok) {
+        toast.success("Login successful!");
+        router.push("/dashboard");
+      } else {
+        const data = await res.json();
+        const errorMsg = data?.message || "Login failed";
+        toast.error(errorMsg);
+      }
+    } catch (err) {
+      toast.dismiss(loadingToast);
+      console.error(err);
+      toast.error("Unable to reach the server. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   }
 

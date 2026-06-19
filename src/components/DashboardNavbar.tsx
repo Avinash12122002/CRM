@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
+import NotificationBell from "@/components/chat/NotificationBell";
 
 type DashboardNavbarProps = {
   user: {
@@ -17,6 +19,35 @@ type DashboardNavbarProps = {
 export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
+
+  const [unreadCount, setUnreadCount] =
+  useState(0);
+
+useEffect(() => {
+  loadUnreadCount();
+
+  const interval = setInterval(() => {
+    loadUnreadCount();
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, []);
+
+const loadUnreadCount = async () => {
+  try {
+    const res = await fetch(
+      "/api/chat/unread"
+    );
+
+    const data = await res.json();
+
+    setUnreadCount(
+      data.unreadCount || 0
+    );
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const handleSignOut = async () => {
     const loadingToast = toast.loading("Signing out...");
@@ -147,6 +178,41 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Users
                 </Link>
               )}
+
+              <Link
+  href="/dashboard/chat"
+  className={`${
+    isActive("/dashboard/chat") ||
+    pathname.startsWith("/dashboard/chat/")
+      ? "border-b-2 border-foreground"
+      : "border-transparent hover:border-zinc-300 border-b-2"
+  } inline-flex items-center gap-2 px-1 pt-1 text-sm font-medium ${
+    isActive("/dashboard/chat") ||
+    pathname.startsWith("/dashboard/chat/")
+      ? ""
+      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+  }`}
+>
+  Chat
+
+  {unreadCount > 0 && (
+    <span
+      className="
+        bg-red-500
+        text-white
+        text-xs
+        min-w-[18px]
+        h-[18px]
+        rounded-full
+        flex
+        items-center
+        justify-center
+      "
+    >
+      {unreadCount}
+    </span>
+  )}
+</Link>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -185,6 +251,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 </svg>
               )}
             </button> */}
+            <NotificationBell />
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               {user.name} <span className="text-xs">({user.role})</span>
             </span>

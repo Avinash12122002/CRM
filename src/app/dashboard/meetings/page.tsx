@@ -16,6 +16,7 @@ type Meeting = {
     endTime: string;
     meetingUserName: string;
     status: string;
+    bookedByName: string;
   };
 };
 
@@ -228,7 +229,7 @@ export default function MeetingsPage() {
             <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-700">
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
-                  {["Lead","Phone","Meeting Date","Start","End","Meeting User","Status","Actions"].map((h) => (
+                  {["Lead","Phone","Meeting Date","Start","End","Meeting User","Booked By","Status","Actions"].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide whitespace-nowrap">
                       {h}
                     </th>
@@ -268,8 +269,11 @@ export default function MeetingsPage() {
                         <td className="px-4 py-2.5 whitespace-nowrap">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.endTime || "—"}</span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                         <td className="px-4 py-2.5 whitespace-nowrap">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.meetingUserName || "—"}</span>
+                        </td>
+                        <td className="px-4 py-2.5 whitespace-nowrap">
+                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.bookedByName || "—"}</span>
                         </td>
                         <td className="px-4 py-2.5 whitespace-nowrap">
                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${statusBadge(meeting.meetingStatus)}`}>

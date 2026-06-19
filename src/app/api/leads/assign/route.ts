@@ -98,7 +98,12 @@ async function handleAssign(req: NextRequest) {
     const now = new Date();
 
     const historyEntry = {
-      action: assignedTo ? "assigned" : "unassigned",
+      action:
+  assignedUser?.role === "meeting"
+    ? "meeting_scheduled"
+    : assignedTo
+      ? "assigned"
+      : "unassigned",
 
       performedBy: payload.id,
       performedByName: payload.name,
@@ -132,6 +137,7 @@ async function handleAssign(req: NextRequest) {
         meetingDate,
         startTime,
         status: "scheduled",
+        leadId: { $ne: leadId },
       });
 
       if (existingSlot) {
@@ -161,6 +167,8 @@ async function handleAssign(req: NextRequest) {
       meetingDetails = {
         meetingUserId: assignedUser.id,
         meetingUserName: assignedUser.name,
+         bookedBy: lead.meetingDetails?.bookedBy || payload.id,
+  bookedByName: lead.meetingDetails?.bookedByName || payload.name,
         meetingDate,
         startTime,
         endTime,
@@ -177,8 +185,8 @@ async function handleAssign(req: NextRequest) {
         startTime,
         endTime,
 
-        bookedBy: payload.id,
-        bookedByName: payload.name,
+        bookedBy: lead.meetingDetails?.bookedBy || payload.id,
+  bookedByName: lead.meetingDetails?.bookedByName || payload.name,
 
         status: "scheduled",
 

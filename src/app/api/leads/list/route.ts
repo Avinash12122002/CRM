@@ -63,9 +63,16 @@ export async function GET(req: NextRequest) {
     }
 
     // Apply status filter
-    if (status) {
-      filter.status = status;
-    }
+   if (status) {
+  filter.status = status;
+} else if (
+  payload.role === "employee" ||
+  payload.role === "meeting"
+) {
+  filter.status = {
+    $nin: ["wrong-number", "not-interested", "sales"],
+  };
+}
 
     // Apply assignedTo filter (admin only)
     if (assignedTo && payload.role === "admin") {
@@ -285,6 +292,8 @@ export async function GET(req: NextRequest) {
         startTime: "$meetingDetails.startTime",
         endTime: "$meetingDetails.endTime",
         meetingUserName: "$meetingDetails.meetingUserName",
+        bookedBy: "$meetingDetails.bookedBy",
+        bookedByName: "$meetingDetails.bookedByName",
 
         meetingStatus: 1,
         meetingCompletedAt: 1,

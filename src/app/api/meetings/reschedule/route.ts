@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
       startTime,
       endTime,
 
-      bookedBy: payload.id,
-      bookedByName: payload.name,
+      bookedBy: lead.meetingDetails?.bookedBy || payload.id,
+      bookedByName: lead.meetingDetails?.bookedByName || payload.name,
 
       status: "scheduled",
 
@@ -144,6 +144,9 @@ export async function POST(req: NextRequest) {
             meetingUserId,
             meetingUserName: meetingUser.name,
 
+            bookedBy: lead.meetingDetails?.bookedBy || payload.id,
+            bookedByName: lead.meetingDetails?.bookedByName || payload.name,
+
             meetingDate,
             startTime,
             endTime,
@@ -162,7 +165,9 @@ export async function POST(req: NextRequest) {
 
         $push: {
           history: {
-            action: "meeting_rescheduled",
+            action: oldMeeting
+  ? "meeting_rescheduled"
+  : "meeting_booked",
 
             performedBy: payload.id,
             performedByName: payload.name,
@@ -190,7 +195,9 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({
-      message: "Meeting rescheduled successfully",
+      message: oldMeeting
+  ? "Meeting rescheduled successfully"
+  : "Meeting booked successfully",
     });
   } catch (err) {
     console.error(err);

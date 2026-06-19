@@ -122,8 +122,8 @@ export async function POST(req: NextRequest) {
       meetingUserId,
       meetingUserName: meetingUser.name,
 
-      bookedBy: payload.id,
-      bookedByName: payload.name,
+      bookedBy: lead.meetingDetails?.bookedBy || payload.id,
+      bookedByName: lead.meetingDetails?.bookedByName || payload.name,
 
       meetingDate,
 
@@ -162,6 +162,8 @@ export async function POST(req: NextRequest) {
       meetingDetails: {
         meetingUserId,
         meetingUserName: meetingUser.name,
+        bookedBy: lead.meetingDetails?.bookedBy || payload.id,
+        bookedByName: lead.meetingDetails?.bookedByName || payload.name,
 
         meetingDate,
 
@@ -176,7 +178,9 @@ export async function POST(req: NextRequest) {
 
     $push: {
       history: {
-        action: "meeting_booked",
+        action: lead.meetingDetails
+  ? "meeting_rescheduled"
+  : "meeting_booked",
         performedBy: payload.id,
         performedByName: payload.name,
         performedByRole: payload.role,
@@ -193,7 +197,9 @@ export async function POST(req: NextRequest) {
         newAssigneeName: meetingUser.name,
         newAssigneeRole: "meeting",
 
-        details: `Meeting booked and assigned to ${meetingUser.name} on ${meetingDate} at ${startTime}`,
+        details: lead.meetingDetails
+  ? `Meeting reassigned to ${meetingUser.name} on ${meetingDate} at ${startTime}`
+  : `Meeting booked and assigned to ${meetingUser.name} on ${meetingDate} at ${startTime}`,
       },
     },
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -55,6 +54,8 @@ interface Lead {
   meetingDetails?: {
     meetingUserId?: number;
     meetingUserName?: string;
+    bookedBy?: number;
+    bookedByName?: string;
     meetingDate?: string;
     startTime?: string;
     endTime?: string;
@@ -80,24 +81,22 @@ export default function LeadDetailPage() {
   const [movingToAdmin, setMovingToAdmin] = useState(false);
 
   const [adminUsers, setAdminUsers] = useState<{ id: number; name: string }[]>([]);
-  const showAssignSection =
-    user &&
-    lead &&
-    (user.role === "employee" || user.role === "meeting") &&
-    lead.assignedTo === user.id;
 
   const [meetingUsers, setMeetingUsers] = useState<User[]>([]);
   const [employeeUsers, setEmployeeUsers] = useState<User[]>([]);
 
-  const [selectedMeetingDate, setSelectedMeetingDate] = useState("");
-  const [selectedSlot, setSelectedSlot] = useState("");
-  const [availableSlots, setAvailableSlots] = useState<
-    { startTime: string; available: boolean }[]
-  >([]);
-
-  const [showReschedule, setShowReschedule] = useState(false);
+  // ── Assign / book-new-meeting state ──
   const [selectedEmployee, setSelectedEmployee] = useState("");
   const [selectedAdminUser, setSelectedAdminUser] = useState("");
+  const [selectedMeetingDate, setSelectedMeetingDate] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [availableSlots, setAvailableSlots] = useState<{ startTime: string; available: boolean }[]>([]);
+
+  // ── Reschedule-specific state (completely separate) ──
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleSlot, setRescheduleSlot] = useState("");
+  const [rescheduleSlots, setRescheduleSlots] = useState<{ startTime: string; available: boolean }[]>([]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -113,11 +112,45 @@ export default function LeadDetailPage() {
     status: "",
   });
 
- 
   const [updating, setUpdating] = useState(false);
   const router = useRouter();
   const toastShownRef = useRef(false);
 
+  // ─── Derived helpers (stable, no conditional hook calls) ───────────────────
+  // These are computed at render time, not used as hooks
+  const activeUserSelector = user?.role === "admin" ? selectedAdminUser : selectedEmployee;
+
+  const setActiveUserSelector = (val: string) => {
+    if (user?.role === "admin") {
+      setSelectedAdminUser(val);
+    } else {
+      setSelectedEmployee(val);
+    }
+  };
+
+  const isSelectedMeetingUser = meetingUsers.some(
+    (m) => String(m.id) === String(activeUserSelector),
+  );
+
+  // Employee/meeting user can see the assign section only if the lead is assigned to them
+  const showAssignSection =
+    user &&
+    lead &&
+    (user.role === "employee" || user.role === "meeting") &&
+    lead.assignedTo === user.id;
+
+  // Meeting card visible to admin, assignee, or creator
+  const canSeeMeeting =
+    lead?.meetingDetails &&
+    user &&
+    (user.role === "admin" || lead.assignedTo === user.id || lead.createdBy === user.id);
+
+  // Only the assigned meeting user can act on the meeting
+  const canManageMeeting =
+    user?.role === "meeting" &&
+    lead?.meetingDetails?.meetingUserId === user?.id;
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     checkAuth();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -133,58 +166,52 @@ export default function LeadDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // ── Slots: assign/book via employee selector ──────────────────────────────
   useEffect(() => {
     setSelectedSlot("");
     setAvailableSlots([]);
-    const isMeetingUser = meetingUsers.some(
-      (m) => String(m.id) === String(selectedEmployee),
-    );
-    if (isMeetingUser && selectedEmployee && selectedMeetingDate) {
-      fetchAvailableSlots(selectedEmployee, selectedMeetingDate);
+    const isMeeting = meetingUsers.some((m) => String(m.id) === String(selectedEmployee));
+    if (isMeeting && selectedEmployee && selectedMeetingDate) {
+      fetchAvailableSlots(selectedEmployee, selectedMeetingDate, setAvailableSlots);
     }
   }, [selectedEmployee, selectedMeetingDate, meetingUsers]);
 
+  // ── Slots: assign/book via admin selector ─────────────────────────────────
   useEffect(() => {
-    const isMeetingUser = meetingUsers.some(
-      (m) => String(m.id) === String(selectedAdminUser),
-    );
-    if (isMeetingUser && selectedAdminUser && selectedMeetingDate) {
-      fetchAvailableSlots(selectedAdminUser, selectedMeetingDate);
+    setSelectedSlot("");
+    setAvailableSlots([]);
+    const isMeeting = meetingUsers.some((m) => String(m.id) === String(selectedAdminUser));
+    if (isMeeting && selectedAdminUser && selectedMeetingDate) {
+      fetchAvailableSlots(selectedAdminUser, selectedMeetingDate, setAvailableSlots);
     }
   }, [selectedAdminUser, selectedMeetingDate, meetingUsers]);
 
+  // ── Slots: reschedule (fully separate state) ──────────────────────────────
   useEffect(() => {
-    if (
-      showReschedule &&
-      lead?.meetingDetails?.meetingUserId &&
-      selectedMeetingDate
-    ) {
+    setRescheduleSlot("");
+    setRescheduleSlots([]);
+    if (showReschedule && lead?.meetingDetails?.meetingUserId && rescheduleDate) {
       fetchAvailableSlots(
         String(lead.meetingDetails.meetingUserId),
-        selectedMeetingDate,
+        rescheduleDate,
+        setRescheduleSlots,
       );
     }
-  }, [showReschedule, selectedMeetingDate, lead]);
+  }, [showReschedule, rescheduleDate, lead]);
 
+  // ── API helpers ────────────────────────────────────────────────────────────
   const checkAuth = async () => {
     try {
       const res = await fetch("/api/auth/me");
       if (!res.ok) {
-        if (!toastShownRef.current) {
-          toast.error("Please login first");
-          toastShownRef.current = true;
-        }
+        if (!toastShownRef.current) { toast.error("Please login first"); toastShownRef.current = true; }
         router.push("/");
         return;
       }
-      const data = await res.json();
-      setUser(data);
+      setUser(await res.json());
     } catch (err) {
       console.error(err);
-      if (!toastShownRef.current) {
-        toast.error("Something went wrong");
-        toastShownRef.current = true;
-      }
+      if (!toastShownRef.current) { toast.error("Something went wrong"); toastShownRef.current = true; }
       router.push("/");
     }
   };
@@ -194,29 +221,23 @@ export default function LeadDetailPage() {
       const res = await fetch("/api/users/by-role?role=admin");
       const data = await res.json();
       setAdminUsers(data.users || []);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const fetchMeetingUsers = async () => {
     try {
-      const response = await fetch("/api/users/by-role?role=meeting");
-      const data = await response.json();
-      if (response.ok) setMeetingUsers(data.users || []);
-    } catch (error) {
-      console.error(error);
-    }
+      const res = await fetch("/api/users/by-role?role=meeting");
+      const data = await res.json();
+      if (res.ok) setMeetingUsers(data.users || []);
+    } catch (err) { console.error(err); }
   };
 
   const fetchEmployeeUsers = async () => {
     try {
-      const response = await fetch("/api/users/by-role?role=employee");
-      const data = await response.json();
-      if (response.ok) setEmployeeUsers(data.users || []);
-    } catch (error) {
-      console.error(error);
-    }
+      const res = await fetch("/api/users/by-role?role=employee");
+      const data = await res.json();
+      if (res.ok) setEmployeeUsers(data.users || []);
+    } catch (err) { console.error(err); }
   };
 
   const fetchLead = async () => {
@@ -258,30 +279,28 @@ export default function LeadDetailPage() {
     }
   };
 
-  const fetchAvailableSlots = async (meetingUserId: string, meetingDate: string) => {
-    if (!meetingUserId || !meetingDate) {
-      setAvailableSlots([]);
-      return;
-    }
+  // Generic slot fetcher — caller passes its own setter so assign and reschedule never share state
+  const fetchAvailableSlots = async (
+    meetingUserId: string,
+    meetingDate: string,
+    setter: React.Dispatch<React.SetStateAction<{ startTime: string; available: boolean }[]>>,
+  ) => {
+    if (!meetingUserId || !meetingDate) { setter([]); return; }
     try {
       const res = await fetch(
         `/api/meetings/available-slots?meetingUserId=${meetingUserId}&meetingDate=${meetingDate}`,
       );
       const data = await res.json();
-      if (res.ok) setAvailableSlots(data.slots || []);
-      else setAvailableSlots([]);
+      setter(res.ok ? data.slots || [] : []);
     } catch (err) {
       console.error(err);
-      setAvailableSlots([]);
+      setter([]);
     }
   };
 
-  const addNoteOnly = async () => {
-    
-    if (!note.trim()) {
-      toast.error("Note cannot be empty");
-      return;
-    }
+  // Returns true and shows toast on error, returns false on success
+  const addNoteOnly = async (): Promise<boolean> => {
+    if (!note.trim()) { toast.error("Note cannot be empty"); return false; }
     setAddingNote(true);
     try {
       const res = await fetch(`/api/leads/${leadId}`, {
@@ -292,67 +311,54 @@ export default function LeadDetailPage() {
       if (res.ok) {
         toast.success("Note added successfully");
         setNote("");
-        await fetchLead();
+        return true;
       } else {
         const data = await res.json();
         toast.error(data.message || "Failed to add note");
+        return false;
       }
     } catch (err) {
       console.error(err);
       toast.error("Something went wrong");
+      return false;
     } finally {
       setAddingNote(false);
     }
   };
 
-  const handleStatusUpdate = async (newStatus:string) => {
-  setUpdatingStatus(true);
-
-  try {
-    const res = await fetch(`/api/leads/${leadId}/status`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        status: newStatus,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (res.ok) {
-      toast.success("Status updated successfully");
-
-      // Employee/Meeting -> Lead moved to Admin
-      if (
+  // Returns true if the page will redirect (terminal status for non-admin), false otherwise
+  const handleStatusUpdate = async (newStatus: string): Promise<boolean> => {
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Status updated successfully");
+        if (
           user?.role !== "admin" &&
           ["wrong-number", "not-interested", "sales"].includes(newStatus)
         ) {
           toast.success("Lead returned to Admin");
-
           window.location.href = "/dashboard/leads";
-
-          return;
+          return true; // will redirect — caller must stop
         }
-
-      await fetchLead();
-    } else {
-      toast.error(
-        data.message || "Failed to update status"
-      );
+      } else {
+        toast.error(data.message || "Failed to update status");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setUpdatingStatus(false);
     }
-  } catch (err) {
-    console.error(err);
-    toast.error("Something went wrong");
-  } finally {
-    setUpdatingStatus(false);
-  }
-};
-
-  const handleEditClick = () => {
-    setIsEditing(true);
+    return false;
   };
+
+  const handleEditClick = () => setIsEditing(true);
 
   const handleCancelEdit = () => {
     setIsEditing(false);
@@ -377,10 +383,7 @@ export default function LeadDetailPage() {
 
   const handleUpdateLead = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editForm.phone.trim()) {
-      toast.error("Phone is required");
-      return;
-    }
+    if (!editForm.phone.trim()) { toast.error("Phone is required"); return; }
     setUpdating(true);
     try {
       const res = await fetch(`/api/leads/${leadId}/update`, {
@@ -405,10 +408,7 @@ export default function LeadDetailPage() {
   };
 
   const handleDeleteLead = async () => {
-    if (user?.role !== "admin") {
-      toast.error("Only admin can delete leads");
-      return;
-    }
+    if (user?.role !== "admin") { toast.error("Only admin can delete leads"); return; }
     if (!window.confirm("Are you sure you want to delete this lead? This action cannot be undone.")) return;
     try {
       const res = await fetch(`/api/leads/${leadId}/delete`, { method: "DELETE" });
@@ -432,7 +432,7 @@ export default function LeadDetailPage() {
     try {
       const adminId = adminUsers[0].id;
       const res = await fetch("/api/leads/assign", {
-        method: "POST",
+        method: "POST",                          // original used POST here
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ leadId: parseInt(leadId), assignedTo: adminId }),
       });
@@ -451,49 +451,45 @@ export default function LeadDetailPage() {
     }
   };
 
+  // Called only from Submit — handles assign or meeting booking
   const handleAssignUser = async () => {
     if (!lead) { toast.error("Lead not found"); return; }
-    if (!selectedEmployee) { toast.error("Please select a user"); return; }
+    const targetUser = activeUserSelector;
+    if (!targetUser) return;
 
-    const isMeetingUser = meetingUsers.some(
-      (m) => String(m.id) === String(selectedEmployee),
-    );
-
-    try {
-      if (isMeetingUser) {
-        if (!selectedMeetingDate) { toast.error("Please select meeting date"); return; }
-        if (!selectedSlot) { toast.error("Please select time slot"); return; }
-        const response = await fetch("/api/meetings/book", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            leadId: lead.id,
-            meetingUserId: Number(selectedEmployee),
-            meetingDate: selectedMeetingDate,
-            startTime: selectedSlot,
-          }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
-        toast.success("Meeting booked successfully");
-      } else {
-        const response = await fetch("/api/leads/assign", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadId: lead.id, assignedTo: Number(selectedEmployee) }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
-        toast.success("Lead assigned successfully");
-      }
-      setSelectedEmployee("");
-      setSelectedMeetingDate("");
-      setSelectedSlot("");
-      setAvailableSlots([]);
-      router.push("/dashboard/leads");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Operation failed");
+    const isMeetingUser = meetingUsers.some((m) => String(m.id) === String(targetUser));
+    if (isMeetingUser) {
+      if (!selectedMeetingDate) { toast.error("Please select meeting date"); return; }
+      if (!selectedSlot) { toast.error("Please select time slot"); return; }
+      const res = await fetch("/api/meetings/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: lead.id,
+          meetingUserId: Number(targetUser),
+          meetingDate: selectedMeetingDate,
+          startTime: selectedSlot,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast.success("Meeting booked successfully");
+    } else {
+      const res = await fetch("/api/leads/assign", {
+        method: "PUT",                           // original used PUT for regular assign
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: lead.id, assignedTo: Number(targetUser) }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast.success("Lead assigned successfully");
     }
+
+    setSelectedEmployee("");
+    setSelectedAdminUser("");
+    setSelectedMeetingDate("");
+    setSelectedSlot("");
+    setAvailableSlots([]);
   };
 
   const handleCompleteMeeting = async () => {
@@ -516,11 +512,10 @@ export default function LeadDetailPage() {
 
   const handleRescheduleMeeting = async () => {
     if (!lead) return;
-    const meetingUserId =
-      selectedEmployee || String(lead.meetingDetails?.meetingUserId || "");
-    if (!meetingUserId) { toast.error("Select meeting user"); return; }
-    if (!selectedMeetingDate) { toast.error("Select meeting date"); return; }
-    if (!selectedSlot) { toast.error("Select meeting slot"); return; }
+    const meetingUserId = String(lead.meetingDetails?.meetingUserId || "");
+    if (!meetingUserId) { toast.error("No meeting user found"); return; }
+    if (!rescheduleDate) { toast.error("Select meeting date"); return; }
+    if (!rescheduleSlot) { toast.error("Select meeting slot"); return; }
     try {
       const res = await fetch("/api/meetings/reschedule", {
         method: "POST",
@@ -528,18 +523,17 @@ export default function LeadDetailPage() {
         body: JSON.stringify({
           leadId: lead.id,
           meetingUserId: Number(meetingUserId),
-          meetingDate: selectedMeetingDate,
-          startTime: selectedSlot,
+          meetingDate: rescheduleDate,
+          startTime: rescheduleSlot,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message);
       toast.success("Meeting rescheduled");
-      setSelectedEmployee("");
-      setSelectedMeetingDate("");
-      setSelectedSlot("");
-      setAvailableSlots([]);
       setShowReschedule(false);
+      setRescheduleDate("");
+      setRescheduleSlot("");
+      setRescheduleSlots([]);
       router.push("/dashboard/leads");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to reschedule meeting");
@@ -564,50 +558,75 @@ export default function LeadDetailPage() {
     }
   };
 
+  // ── Formatting helpers ─────────────────────────────────────────────────────
   const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case "new-lead": return "bg-blue-100 text-blue-800";
-      case "call-back": return "bg-yellow-100 text-yellow-800";
-      case "not-answering": return "bg-orange-100 text-orange-800";
+      case "new-lead":          return "bg-blue-100 text-blue-800";
+      case "call-back":         return "bg-yellow-100 text-yellow-800";
+      case "not-answering":     return "bg-orange-100 text-orange-800";
       case "meeting-scheduled": return "bg-purple-100 text-purple-800";
-      case "not-interested": return "bg-red-100 text-red-800";
-      case "wrong-number": return "bg-pink-100 text-pink-800";
-      case "document-pending": return "bg-indigo-100 text-indigo-800";
-      case "payment-pending": return "bg-amber-100 text-amber-800";
-      case "sales": return "bg-green-100 text-green-800";
-      default: return "bg-gray-100 text-gray-800";
+      case "not-interested":    return "bg-red-100 text-red-800";
+      case "wrong-number":      return "bg-pink-100 text-pink-800";
+      case "document-pending":  return "bg-indigo-100 text-indigo-800";
+      case "payment-pending":   return "bg-amber-100 text-amber-800";
+      case "sales":             return "bg-green-100 text-green-800";
+      default:                  return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case "new-lead":          return "🆕 New Lead";
+      case "call-back":         return "📞 Call Back";
+      case "not-answering":     return "📵 Not Answering";
+      case "meeting-scheduled": return "📋 Meeting Scheduled";
+      case "not-interested":    return "❌ Not Interested";
+      case "wrong-number":      return "📱 Wrong Number";
+      case "document-pending":  return "📄 Document Pending";
+      case "payment-pending":   return "💰 Payment Pending";
+      case "sales":             return "🎉 Sales";
+      default:                  return status;
+    }
+  };
+
+  const getStatusSelectColor = (status: string) => {
+    switch (status) {
+      case "new-lead":          return "bg-blue-100 text-blue-700";
+      case "call-back":         return "bg-yellow-100 text-yellow-700";
+      case "not-answering":     return "bg-orange-100 text-orange-700";
+      case "meeting-scheduled": return "bg-purple-100 text-purple-700";
+      case "not-interested":    return "bg-red-100 text-red-700";
+      case "wrong-number":      return "bg-pink-100 text-pink-700";
+      case "document-pending":  return "bg-indigo-100 text-indigo-700";
+      case "payment-pending":   return "bg-amber-100 text-amber-700";
+      case "sales":             return "bg-emerald-100 text-emerald-700";
+      default:                  return "bg-gray-100 text-gray-700";
     }
   };
 
   const formatHistoryAction = (entry: HistoryEntry) => {
     switch (entry.action) {
       case "created":
-        return entry.assignedToName
-          ? `Created and assigned to ${entry.assignedToName}`
-          : "Created";
-      case "assigned": return entry.details || "Lead assigned";
-      case "unassigned": return entry.details || "Lead unassigned";
-      case "note_added": return `Added note: "${entry.details}"`;
-      case "status_updated": return entry.details || "Status updated";
-      case "lead_updated": return entry.details || "Lead details updated";
-      case "meeting_booked": return entry.details || "Meeting booked";
+        return entry.assignedToName ? `Created and assigned to ${entry.assignedToName}` : "Created";
+      case "assigned":            return entry.details || "Lead assigned";
+      case "unassigned":          return entry.details || "Lead unassigned";
+      case "note_added":          return `Added note: "${entry.details}"`;
+      case "status_updated":      return entry.details || "Status updated";
+      case "lead_updated":        return entry.details || "Lead details updated";
+      case "meeting_booked":      return entry.details || "Meeting booked";
       case "meeting_rescheduled": return entry.details || "Meeting rescheduled";
-      case "meeting_cancelled": return entry.details || "Meeting cancelled";
-      case "meeting_completed": return entry.details || "Meeting completed";
-      default: return entry.action;
+      case "meeting_cancelled":   return entry.details || "Meeting cancelled";
+      case "meeting_completed":   return entry.details || "Meeting completed";
+      default:                    return entry.action;
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleString("en-US", {
+      year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
     });
-  };
 
+  // ── Loading / auth guards ──────────────────────────────────────────────────
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -620,16 +639,20 @@ export default function LeadDetailPage() {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <DashboardNavbar user={user} />
-        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <p className="text-gray-600 dark:text-gray-400">Loading lead details...</p>
-          </div>
+        <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 px-4">
+          <p className="text-gray-600 dark:text-gray-400 py-6">Loading lead details...</p>
         </div>
       </div>
     );
   }
 
   if (!lead) return null;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  const statusOptions = [
+    "new-lead", "call-back", "not-answering", "meeting-scheduled",
+    "not-interested", "wrong-number", "document-pending", "payment-pending", "sales",
+  ] as const;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -640,7 +663,7 @@ export default function LeadDetailPage() {
           {/* Back button */}
           <button
             onClick={() => router.push("/dashboard/leads")}
-            className="mb-6 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 font-medium transition"
+            className="mb-6 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 font-medium transition cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -648,21 +671,17 @@ export default function LeadDetailPage() {
             Back to Leads
           </button>
 
-          {/* Lead Details Card */}
+          {/* ═══════════════════════════════════════
+              LEAD DETAILS CARD
+          ═══════════════════════════════════════ */}
           <div className="bg-white shadow-lg rounded-xl p-8 mb-6 border border-gray-100">
             {!isEditing ? (
               <>
-                {/* ─── HEADER: name + action buttons ONLY ─── */}
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2">{lead.name}</h1>
-                  </div>
-
-                  {/* Action buttons — status badge, edit, delete, move-to-admin ONLY */}
+                {/* ─── Header ─── */}
+                <div className="flex justify-between items-start mb-6 flex-wrap gap-4">
+                  <h1 className="text-4xl font-bold text-gray-900">{lead.name}</h1>
                   <div className="flex items-center gap-3 flex-wrap">
-                    <span
-                      className={`px-4 py-2 text-sm font-bold rounded-full uppercase tracking-wide ${getStatusBadgeColor(lead.status)}`}
-                    >
+                    <span className={`px-4 py-2 text-sm font-bold rounded-full uppercase tracking-wide ${getStatusBadgeColor(lead.status)}`}>
                       {lead.status}
                     </span>
 
@@ -671,7 +690,7 @@ export default function LeadDetailPage() {
                         lead.assignedTo === user.id)) && (
                       <button
                         onClick={handleEditClick}
-                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium flex items-center gap-2"
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium flex items-center gap-2 cursor-pointer"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -683,7 +702,7 @@ export default function LeadDetailPage() {
                     {user.role === "admin" && (
                       <button
                         onClick={handleDeleteLead}
-                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-medium flex items-center gap-2"
+                        className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition font-medium flex items-center gap-2 cursor-pointer"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -697,7 +716,7 @@ export default function LeadDetailPage() {
                         <button
                           onClick={handleMoveToAdmin}
                           disabled={movingToAdmin || lead.assignedToRole === "admin"}
-                          className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -705,452 +724,78 @@ export default function LeadDetailPage() {
                           {movingToAdmin ? "Moving..." : "Move To Admin"}
                         </button>
                         {lead.assignedToRole === "admin" && (
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                             Already assigned to admin
-                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900" />
                           </div>
                         )}
                       </div>
                     )}
                   </div>
                 </div>
-                {/* ─── END HEADER ─── */}
 
-                {/* ─── EMPLOYEE / MEETING: Assign User Section ─── */}
-                {showAssignSection && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Assign / Transfer</h3>
-                    <div className="flex flex-wrap gap-3 items-end">
-                      <select
-                        value={selectedEmployee}
-                        onChange={(e) => {
-                          setSelectedEmployee(e.target.value);
-                          setSelectedMeetingDate("");
-                          setSelectedSlot("");
-                          setAvailableSlots([]);
-                        }}
-                        className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white focus:outline-none focus:border-blue-500"
-                      >
-                        <option value="">Select User</option>
-                        {employeeUsers
-                          .filter((e) => e.id !== lead.assignedTo)
-                          .map((employee) => (
-                            <option key={employee.id} value={employee.id}>
-                              👨‍💼 Employee — {employee.name}
-                            </option>
-                          ))}
-                        {meetingUsers
-                          .filter((m) => m.id !== lead.assignedTo)
-                          .map((meeting) => (
-                            <option key={meeting.id} value={meeting.id}>
-                              📅 Meeting — {meeting.name}
-                            </option>
-                          ))}
-                      </select>
-
-                      {meetingUsers.some((m) => String(m.id) === String(selectedEmployee)) && (
-                        <>
-                          <input
-                            type="date"
-                            value={selectedMeetingDate}
-                            min={new Date().toISOString().split("T")[0]}
-                            onChange={(e) => {
-                              setSelectedMeetingDate(e.target.value);
-                              setSelectedSlot("");
-                            }}
-                            className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-blue-500"
-                          />
-
-                          {selectedMeetingDate && (
-                            <select
-                              value={selectedSlot}
-                              onChange={(e) => setSelectedSlot(e.target.value)}
-                              className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-blue-500"
-                            >
-                              <option value="">Select Time Slot</option>
-                              {availableSlots
-                                .filter((slot) => slot.available)
-                                .map((slot) => (
-                                  <option key={slot.startTime} value={slot.startTime}>
-                                    {slot.startTime}
-                                  </option>
-                                ))}
-                            </select>
-                          )}
-
-                          {selectedMeetingDate && selectedSlot && (
-                            <button
-                              type="button"
-                              onClick={handleAssignUser}
-                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-                            >
-                              {user.role === "meeting" ? "Transfer Meeting" : "Book Meeting"}
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {!meetingUsers.some((m) => String(m.id) === String(selectedEmployee)) &&
-                        selectedEmployee && (
-                          <button
-                            type="button"
-                            onClick={handleAssignUser}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium"
-                          >
-                            Assign User
-                          </button>
-                        )}
-                    </div>
-                  </div>
-                )}
-
-                {/* ─── ADMIN: Assign User Section ─── */}
-                {user.role === "admin" && (
-                  <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Assign Lead</h3>
-                    <div className="flex flex-wrap gap-3 items-end">
-                      <select
-                        value={selectedAdminUser}
-                        onChange={(e) => {
-                          setSelectedAdminUser(e.target.value);
-                          setSelectedMeetingDate("");
-                          setSelectedSlot("");
-                          setAvailableSlots([]);
-                        }}
-                        className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white focus:outline-none focus:border-green-500"
-                      >
-                        <option value="">Select User</option>
-                        {employeeUsers
-                          .filter((e) => e.id !== lead.assignedTo)
-                          .map((employee) => (
-                            <option key={employee.id} value={employee.id}>
-                              👨‍💼 Employee — {employee.name}
-                            </option>
-                          ))}
-                        {meetingUsers
-                          .filter((m) => m.id !== lead.assignedTo)
-                          .map((meeting) => (
-                            <option key={meeting.id} value={meeting.id}>
-                              📅 Meeting — {meeting.name}
-                            </option>
-                          ))}
-                      </select>
-
-                      {selectedAdminUser &&
-                        meetingUsers.find((m) => m.id === Number(selectedAdminUser)) && (
-                          <>
-                            <input
-                              type="date"
-                              value={selectedMeetingDate}
-                              min={new Date().toISOString().split("T")[0]}
-                              onChange={(e) => {
-                                setSelectedMeetingDate(e.target.value);
-                                setSelectedSlot("");
-                              }}
-                              className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white focus:outline-none focus:border-green-500"
-                            />
-
-                            {selectedMeetingDate && (
-                              <select
-                                value={selectedSlot}
-                                onChange={(e) => setSelectedSlot(e.target.value)}
-                                className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white focus:outline-none focus:border-green-500"
-                              >
-                                <option value="">Select Time Slot</option>
-                                {availableSlots
-                                  .filter((slot) => slot.available)
-                                  .map((slot) => (
-                                    <option key={slot.startTime} value={slot.startTime}>
-                                      {slot.startTime}
-                                    </option>
-                                  ))}
-                              </select>
-                            )}
-
-                            {selectedMeetingDate && selectedSlot && (
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  if (!lead) return;
-                                  try {
-                                    const response = await fetch("/api/meetings/book", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({
-                                        leadId: lead.id,
-                                        meetingUserId: Number(selectedAdminUser),
-                                        meetingDate: selectedMeetingDate,
-                                        startTime: selectedSlot,
-                                      }),
-                                    });
-                                    const data = await response.json();
-                                    if (!response.ok) throw new Error(data.message || "Failed to book meeting");
-                                    toast.success("Meeting booked successfully");
-                                    setSelectedAdminUser("");
-                                    setSelectedMeetingDate("");
-                                    setSelectedSlot("");
-                                    setAvailableSlots([]);
-                                    router.push("/dashboard/leads");
-                                  } catch (err) {
-                                    toast.error(err instanceof Error ? err.message : "Booking failed");
-                                  }
-                                }}
-                                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-medium"
-                              >
-                                Book Meeting
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                      {selectedAdminUser &&
-                        !meetingUsers.find((m) => m.id === Number(selectedAdminUser)) && (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!lead) return;
-                              try {
-                                const response = await fetch("/api/leads/assign", {
-                                  method: "PUT",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    leadId: lead.id,
-                                    assignedTo: Number(selectedAdminUser),
-                                  }),
-                                });
-                                const data = await response.json();
-                                if (!response.ok) throw new Error(data.message || "Assignment failed");
-                                toast.success("Lead assigned successfully");
-                                setSelectedAdminUser("");
-                                router.push("/dashboard/leads");
-                              } catch (err) {
-                                toast.error(err instanceof Error ? err.message : "Assignment failed");
-                              }
-                            }}
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium"
-                          >
-                            Assign User
-                          </button>
-                        )}
-                    </div>
-                  </div>
-                )}
-
-                {/* ─── MEETING DETAILS CARD ─── */}
-                {lead.meetingDetails &&
-                  (user.role === "admin" ||
-                    lead.assignedTo === user.id ||
-                    lead.createdBy === user.id) && (
-                    <div className="mb-6 rounded-xl border border-purple-200 bg-purple-50 p-4">
-                      <h3 className="font-bold text-purple-800 mb-3">Meeting Details</h3>
-                      <div className="grid grid-cols-2 gap-3 text-base text-gray-900">
-                        <div><strong>User:</strong> {lead.meetingDetails.meetingUserName}</div>
-                        <div>
-                          <strong>Status:</strong>{" "}
-                          <span className="capitalize">{lead.meetingDetails.status}</span>
-                        </div>
-                        <div><strong>Date:</strong> {lead.meetingDetails.meetingDate}</div>
-                        <div>
-                          <strong>Time:</strong> {lead.meetingDetails.startTime} — {lead.meetingDetails.endTime}
-                        </div>
-                      </div>
-
-                      {((user.role === "meeting" &&
-                          user.id === lead.meetingDetails?.meetingUserId)) && (
-                        <div className="flex gap-2 mt-4 flex-wrap">
-                          {lead.meetingDetails.status !== "completed" && (
-                            <button
-                              onClick={() => {
-                                setShowReschedule(true);
-                                setSelectedEmployee(
-                                  String(lead.meetingDetails?.meetingUserId || ""),
-                                );
-                                setSelectedMeetingDate(
-                                  lead.meetingDetails?.meetingDate || "",
-                                );
-                                setSelectedSlot("");
-                                fetchAvailableSlots(
-                                  String(lead.meetingDetails?.meetingUserId),
-                                  lead.meetingDetails?.meetingDate || "",
-                                );
-                              }}
-                              className="bg-yellow-500 text-white px-3 py-2 rounded-lg hover:bg-yellow-600 font-medium"
-                            >
-                              Reschedule
-                            </button>
-                          )}
-                          {lead.meetingDetails.status !== "cancelled" && (
-                            <button
-                              onClick={handleCancelMeeting}
-                              className="bg-red-500 text-white px-3 py-2 rounded-lg hover:bg-red-600 font-medium"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                          {lead.meetingDetails.status !== "completed" && (
-                            <button
-                              onClick={handleCompleteMeeting}
-                              className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 font-medium"
-                            >
-                              Complete
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                {/* ─── RESCHEDULE FORM (shown below meeting details) ─── */}
-                {showReschedule && (
-                  <div className="mb-6 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                    <h3 className="text-sm font-semibold text-yellow-800 mb-3">Reschedule Meeting</h3>
-                    <div className="flex flex-wrap gap-3 items-end">
-                      <input
-                        type="date"
-                        value={selectedMeetingDate}
-                        min={new Date().toISOString().split("T")[0]}
-                        onChange={(e) => {
-                          setSelectedMeetingDate(e.target.value);
-                          setSelectedSlot("");
-                        }}
-                        className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-yellow-500"
-                      />
-
-                      {selectedMeetingDate && (
-                        <select
-                          value={selectedSlot}
-                          onChange={(e) => setSelectedSlot(e.target.value)}
-                          className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-yellow-500"
-                        >
-                          <option value="">Select Slot</option>
-                          {availableSlots
-                            .filter((slot) => slot.available)
-                            .map((slot) => (
-                              <option key={slot.startTime} value={slot.startTime}>
-                                {slot.startTime}
-                              </option>
-                            ))}
-                        </select>
-                      )}
-
-                      {selectedMeetingDate && selectedSlot && (
-                        <button
-                          onClick={handleRescheduleMeeting}
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
-                        >
-                          Confirm Reschedule
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => {
-                          setShowReschedule(false);
-                          setSelectedMeetingDate("");
-                          setSelectedSlot("");
-                          setAvailableSlots([]);
-                        }}
-                        className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 font-medium"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ─── LEAD INFO GRID ─── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Phone</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.phone || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">State</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.state || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">City</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.city || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Age</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.age || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Passport Type</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.passportType || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Lead Source</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.leadSource || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Job Applied</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.jobApplied || "N/A"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Due Date</p>
-                    <p className="text-gray-900 font-medium text-lg">
-                      {lead.dueDate
+                {/* ─── Lead info grid ─── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                  {[
+                    { label: "Phone",        value: lead.phone },
+                    { label: "State",        value: lead.state },
+                    { label: "City",         value: lead.city },
+                    { label: "Age",          value: lead.age },
+                    { label: "Passport Type",value: lead.passportType },
+                    { label: "Lead Source",  value: lead.leadSource },
+                    { label: "Job Applied",  value: lead.jobApplied },
+                    {
+                      label: "Due Date",
+                      value: lead.dueDate
                         ? new Date(lead.dueDate).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
+                            year: "numeric", month: "short", day: "numeric",
                           })
-                        : "N/A"}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Assigned To</p>
-                    <p className="text-gray-900 font-medium text-lg">
-                      {lead.assignedToName || "Unassigned"}
-                    </p>
-                  </div>
+                        : null,
+                    },
+                    { label: "Assigned To",  value: lead.assignedToName || "Unassigned" },
+                    { label: "Created By",   value: lead.createdByName || "Unknown" },
+                    { label: "Created At",   value: formatDate(lead.createdAt) },
+                    { label: "Last Updated", value: formatDate(lead.updatedAt) },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-gray-50 rounded-lg p-4">
+                      <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">{label}</p>
+                      <p className="text-gray-900 font-medium text-lg">{value ?? "N/A"}</p>
+                    </div>
+                  ))}
 
                   {lead.meetingDetails && (
                     <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
                       <p className="text-xs uppercase tracking-wide text-purple-600 font-semibold mb-1">Meeting</p>
                       <p className="text-gray-900 font-medium">{lead.meetingDetails.meetingUserName}</p>
+                      <p className="text-gray-600 text-sm">{lead.meetingDetails.bookedByName}</p>
                       <p className="text-sm text-gray-600 mt-1">{lead.meetingDetails.meetingDate}</p>
                       <p className="text-sm text-gray-600">
                         {lead.meetingDetails.startTime} — {lead.meetingDetails.endTime}
                       </p>
-                      <span className="inline-block mt-2 px-2 py-1 text-xs rounded bg-purple-100 text-purple-700">
+                      <span className="inline-block mt-2 px-2 py-1 text-xs rounded bg-purple-100 text-purple-700 capitalize">
                         {lead.meetingDetails.status}
                       </span>
                     </div>
                   )}
-
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Created By</p>
-                    <p className="text-gray-900 font-medium text-lg">{lead.createdByName || "Unknown"}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Created At</p>
-                    <p className="text-gray-900 font-medium text-lg">{formatDate(lead.createdAt)}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold mb-1">Last Updated</p>
-                    <p className="text-gray-900 font-medium text-lg">{formatDate(lead.updatedAt)}</p>
-                  </div>
                 </div>
               </>
             ) : (
-              /* ─── EDIT FORM ─── */
+              /* ─── Edit form ─── */
               <form onSubmit={handleUpdateLead}>
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6 flex-wrap gap-3">
                   <h2 className="text-2xl font-bold text-gray-900">Edit Lead Details</h2>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={handleCancelEdit}
-                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium cursor-pointer"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={updating}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {updating ? "Saving..." : "Save Changes"}
                     </button>
@@ -1160,14 +805,11 @@ export default function LeadDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
-                    <input
-                      type="text"
-                      value={editForm.name}
+                    <input type="text" value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phone <span className="text-red-500">*</span>
@@ -1175,57 +817,38 @@ export default function LeadDetailPage() {
                         <span className="text-xs text-gray-500 ml-2">(Read-only)</span>
                       )}
                     </label>
-                    <input
-                      type="tel"
-                      value={editForm.phone}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, "");
-                        setEditForm({ ...editForm, phone: value });
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                      required
+                    <input type="tel" value={editForm.phone} required
+                      onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/\D/g, "") })}
                       disabled={user.role === "employee" || user.role === "meeting"}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed cursor-text"
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-                    <input
-                      type="text"
-                      value={editForm.state}
+                    <input type="text" value={editForm.state}
                       onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                    <input
-                      type="text"
-                      value={editForm.city}
+                    <input type="text" value={editForm.city}
                       onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Age</label>
-                    <input
-                      type="number"
-                      value={editForm.age}
+                    <input type="number" value={editForm.age} min="1" max="120"
                       onChange={(e) => setEditForm({ ...editForm, age: e.target.value })}
-                      min="1"
-                      max="120"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Passport Type</label>
-                    <select
-                      value={editForm.passportType}
+                    <select value={editForm.passportType}
                       onChange={(e) => setEditForm({ ...editForm, passportType: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-pointer"
                     >
                       <option value="">Select passport type</option>
                       <option value="ECR">ECR</option>
@@ -1233,62 +856,43 @@ export default function LeadDetailPage() {
                       <option value="NA">NA</option>
                     </select>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Lead Source</label>
-                    <input
-                      type="text"
-                      value={editForm.leadSource}
+                    <input type="text" value={editForm.leadSource} placeholder="Enter lead source"
                       onChange={(e) => setEditForm({ ...editForm, leadSource: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="Enter lead source"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Job Applied</label>
-                    <input
-                      type="text"
-                      value={editForm.jobApplied}
+                    <input type="text" value={editForm.jobApplied} placeholder="Enter job applied"
                       onChange={(e) => setEditForm({ ...editForm, jobApplied: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
-                      placeholder="Enter job applied"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Lead Status</label>
-                    <select
-                      value={editForm.status}
+                    <select value={editForm.status}
                       onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-pointer"
                     >
-                      <option value="new-lead">🆕 New Lead</option>
-                      <option value="call-back">📞 Call Back</option>
-                      <option value="not-answering">📵 Not Answering</option>
-                      <option value="meeting-scheduled">📋 Meeting Scheduled</option>
-                      <option value="not-interested">❌ Not Interested</option>
-                      <option value="wrong-number">📱 Wrong Number</option>
-                      <option value="document-pending">📄 Document Pending</option>
-                      <option value="payment-pending">💰 Payment Pending</option>
-                      <option value="sales">🎉 Sales</option>
+                      {statusOptions.map((s) => (
+                        <option key={s} value={s}>{getStatusLabel(s)}</option>
+                      ))}
                     </select>
                   </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
-                    <input
-                      type="date"
-                      value={editForm.dueDate}
+                    <input type="date" value={editForm.dueDate}
                       onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-pointer"
                     />
                   </div>
                 </div>
 
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                   <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="text-sm text-blue-800">
@@ -1306,7 +910,9 @@ export default function LeadDetailPage() {
             )}
           </div>
 
-          {/* ─── UPDATE STATUS + NOTES SECTION ─── */}
+          {/* ═══════════════════════════════════════
+              UPDATE LEAD SECTION
+          ═══════════════════════════════════════ */}
           {!isEditing &&
             (user.role === "admin" ||
               ((user.role === "employee" || user.role === "meeting") &&
@@ -1319,99 +925,287 @@ export default function LeadDetailPage() {
                   <h2 className="text-2xl font-bold text-gray-900">Update Lead</h2>
                 </div>
 
-                <div className="mb-6">
-                  <span
-                    className={`inline-flex px-4 py-2 rounded-full text-sm font-semibold ${
-                      selectedStatus === "new-lead" ? "bg-blue-100 text-blue-700"
-                      : selectedStatus === "call-back" ? "bg-yellow-100 text-yellow-700"
-                      : selectedStatus === "not-answering" ? "bg-orange-100 text-orange-700"
-                      : selectedStatus === "meeting-scheduled" ? "bg-purple-100 text-purple-700"
-                      : selectedStatus === "not-interested" ? "bg-red-100 text-red-700"
-                      : selectedStatus === "wrong-number" ? "bg-pink-100 text-pink-700"
-                      : selectedStatus === "document-pending" ? "bg-indigo-100 text-indigo-700"
-                      : selectedStatus === "payment-pending" ? "bg-amber-100 text-amber-700"
-                      : selectedStatus === "sales" ? "bg-emerald-100 text-emerald-700"
-                      : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {selectedStatus === "new-lead" && "🆕 New Lead"}
-                    {selectedStatus === "call-back" && "📞 Call Back"}
-                    {selectedStatus === "not-answering" && "📵 Not Answering"}
-                    {selectedStatus === "meeting-scheduled" && "📋 Meeting Scheduled"}
-                    {selectedStatus === "not-interested" && "❌ Not Interested"}
-                    {selectedStatus === "wrong-number" && "📱 Wrong Number"}
-                    {selectedStatus === "document-pending" && "📄 Document Pending"}
-                    {selectedStatus === "payment-pending" && "💰 Payment Pending"}
-                    {selectedStatus === "sales" && "🎉 Sales"}
+                {/* ── Current status badge ── */}
+                <div className="mb-4">
+                  <span className={`inline-flex px-4 py-2 rounded-full text-sm font-semibold ${getStatusSelectColor(selectedStatus)}`}>
+                    {getStatusLabel(selectedStatus)}
                   </span>
                 </div>
 
+                {/* ── Status select ── */}
                 <div className="mb-6">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Lead Status</label>
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
                   >
-                    <option value="new-lead">🆕 New Lead</option>
-                    <option value="call-back">📞 Call Back</option>
-                    <option value="not-answering">📵 Not Answering</option>
-                    <option value="meeting-scheduled">📋 Meeting Scheduled</option>
-                    <option value="not-interested">❌ Not Interested</option>
-                    <option value="wrong-number">📱 Wrong Number</option>
-                    <option value="document-pending">📄 Document Pending</option>
-                    <option value="payment-pending">💰 Payment Pending</option>
-                    <option value="sales">🎉 Sales</option>
+                    {statusOptions.map((s) => (
+                      <option key={s} value={s}>{getStatusLabel(s)}</option>
+                    ))}
                   </select>
                 </div>
 
+                {/* ── Assign / Transfer (admin or employee/meeting on their own leads) ── */}
+                {(user.role === "admin" || showAssignSection) && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                      {user.role === "admin" ? "Assign Lead (optional)" : "Assign / Transfer (optional)"}
+                    </h3>
+                    <div className="flex flex-wrap gap-3 items-end">
+                      <select
+                        value={activeUserSelector}
+                        onChange={(e) => {
+                          setActiveUserSelector(e.target.value);
+                          setSelectedMeetingDate("");
+                          setSelectedSlot("");
+                          setAvailableSlots([]);
+                        }}
+                        className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                      >
+                        <option value="">Select User</option>
+                        {employeeUsers
+                          .filter((e) => e.id !== lead.assignedTo)
+                          .map((emp) => (
+                            <option key={emp.id} value={emp.id}>👨‍💼 Employee — {emp.name}</option>
+                          ))}
+                        {meetingUsers
+                          .filter((m) => m.id !== lead.assignedTo)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>📅 Meeting — {m.name}</option>
+                          ))}
+                      </select>
+
+                      {isSelectedMeetingUser && activeUserSelector && (
+                        <>
+                          <input
+                            type="date"
+                            value={selectedMeetingDate}
+                            min={new Date().toISOString().split("T")[0]}
+                            onChange={(e) => { setSelectedMeetingDate(e.target.value); setSelectedSlot(""); }}
+                            className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-blue-500 cursor-pointer"
+                          />
+                          {selectedMeetingDate && (
+                            <select
+                              value={selectedSlot}
+                              onChange={(e) => setSelectedSlot(e.target.value)}
+                              className="border-2 border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-blue-500 cursor-pointer"
+                            >
+                              <option value="">Select Time Slot</option>
+                              {availableSlots.filter((s) => s.available).map((s) => (
+                                <option key={s.startTime} value={s.startTime}>{s.startTime}</option>
+                              ))}
+                            </select>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    {isSelectedMeetingUser && activeUserSelector && (!selectedMeetingDate || !selectedSlot) && (
+                      <p className="mt-2 text-xs text-amber-600">
+                        Select a meeting date and time slot — they will be booked on Submit.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Meeting Details Card + Actions (inside Update Lead) ── */}
+                {canSeeMeeting && (
+                  <div className="mb-6 rounded-xl border border-purple-200 bg-purple-50 p-5">
+                    <h3 className="font-bold text-purple-800 mb-4 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      Meeting Details
+                    </h3>
+
+                    {/* Info grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm text-gray-800 mb-4">
+                      {[
+                        { label: "Meeting User", value: lead.meetingDetails!.meetingUserName },
+                        { label: "Booked By",    value: lead.meetingDetails!.bookedByName },
+                        { label: "Date",         value: lead.meetingDetails!.meetingDate },
+                        { label: "Start Time",   value: lead.meetingDetails!.startTime },
+                        { label: "End Time",     value: lead.meetingDetails!.endTime },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-white rounded-lg p-3 border border-purple-100">
+                          <p className="text-xs text-purple-500 font-semibold uppercase mb-1">{label}</p>
+                          <p className="font-medium">{value || "—"}</p>
+                        </div>
+                      ))}
+                      {/* Status cell with coloured badge */}
+                      <div className="bg-white rounded-lg p-3 border border-purple-100">
+                        <p className="text-xs text-purple-500 font-semibold uppercase mb-1">Status</p>
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold capitalize ${
+                          lead.meetingDetails!.status === "completed" ? "bg-green-100 text-green-700"
+                          : lead.meetingDetails!.status === "cancelled"  ? "bg-red-100 text-red-700"
+                          : "bg-purple-100 text-purple-700"
+                        }`}>
+                          {lead.meetingDetails!.status || "—"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action buttons — only for the assigned meeting user */}
+                    {canManageMeeting && (
+                      <div className="flex gap-2 flex-wrap">
+                        {lead.meetingDetails!.status !== "completed" &&
+                          lead.meetingDetails!.status !== "cancelled" && (
+                          <button
+                            onClick={() => {
+                              setShowReschedule((prev) => !prev);
+                              setRescheduleDate("");
+                              setRescheduleSlot("");
+                              setRescheduleSlots([]);
+                            }}
+                            className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 font-medium text-sm cursor-pointer transition"
+                          >
+                            {showReschedule ? "Close Reschedule" : "Reschedule"}
+                          </button>
+                        )}
+                        {lead.meetingDetails!.status !== "cancelled" &&
+                          lead.meetingDetails!.status !== "completed" && (
+                          <button
+                            onClick={handleCancelMeeting}
+                            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 font-medium text-sm cursor-pointer transition"
+                          >
+                            Cancel Meeting
+                          </button>
+                        )}
+                        {/* Complete is available unless already completed */}
+                        {lead.meetingDetails!.status !== "completed" && (
+                          <button
+                            onClick={handleCompleteMeeting}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium text-sm cursor-pointer transition"
+                          >
+                            Mark Complete
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* ── Reschedule inline form ── */}
+                    {showReschedule && canManageMeeting && (
+                      <div className="mt-4 p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                        <h4 className="text-sm font-semibold text-yellow-800 mb-3">Pick New Date &amp; Slot</h4>
+                        <div className="flex flex-wrap gap-3 items-end">
+                          <div>
+                            <label className="block text-xs text-yellow-700 font-medium mb-1">New Date</label>
+                            <input
+                              type="date"
+                              value={rescheduleDate}
+                              min={new Date().toISOString().split("T")[0]}
+                              onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlot(""); }}
+                              className="border-2 border-yellow-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-yellow-500 cursor-pointer"
+                            />
+                          </div>
+                          {rescheduleDate && (
+                            <div>
+                              <label className="block text-xs text-yellow-700 font-medium mb-1">Time Slot</label>
+                              <select
+                                value={rescheduleSlot}
+                                onChange={(e) => setRescheduleSlot(e.target.value)}
+                                className="border-2 border-yellow-300 rounded-lg px-3 py-2 bg-white text-gray-900 focus:outline-none focus:border-yellow-500 cursor-pointer"
+                              >
+                                <option value="">Select Slot</option>
+                                {rescheduleSlots.filter((s) => s.available).map((s) => (
+                                  <option key={s.startTime} value={s.startTime}>{s.startTime}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                          {rescheduleDate && rescheduleSlot && (
+                            <button
+                              onClick={handleRescheduleMeeting}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium text-sm cursor-pointer transition self-end"
+                            >
+                              Confirm Reschedule
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setShowReschedule(false);
+                              setRescheduleDate("");
+                              setRescheduleSlot("");
+                              setRescheduleSlots([]);
+                            }}
+                            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 font-medium text-sm cursor-pointer transition self-end"
+                          >
+                            Discard
+                          </button>
+                        </div>
+                        {rescheduleDate && rescheduleSlots.length === 0 && (
+                          <p className="mt-2 text-xs text-gray-500">No available slots for this date.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Note — always required ── */}
                 <div className="mb-6">
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Add Note</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Add Note <span className="text-red-500">*</span>
+                  </label>
                   <textarea
-                  value={note}
-                  required
-                  
+                    value={note}
                     onChange={(e) => setNote(e.target.value)}
                     rows={5}
-                    placeholder="Enter note here..."
+                    placeholder="Enter note here... (required)"
                     style={{ color: "#111827", backgroundColor: "#ffffff" }}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-text"
                   />
                 </div>
 
+                {/* ── Submit ── */}
                 <button
                   type="button"
-                  disabled={
-                      updatingStatus ||
-                      addingNote ||
-                      !note.trim()
-                    }
-                    onClick={async () => {
+                  disabled={updatingStatus || addingNote || !note.trim()}
+                  onClick={async () => {
+                    try {
+                      if (!note.trim()) {
+                        toast.error("Please add a note before submitting.");
+                        return;
+                      }
+
+                      // Validate meeting fields upfront if a meeting user is selected
+                      if (isSelectedMeetingUser && activeUserSelector) {
+                        if (!selectedMeetingDate) { toast.error("Please select a meeting date."); return; }
+                        if (!selectedSlot) { toast.error("Please select a meeting time slot."); return; }
+                      }
+
+                       // 1. Add note (does NOT call fetchLead internally any more — we call it at the end)
+                      const noteAdded = await addNoteOnly();
+                      if (!noteAdded) return; // note failed — stop
+
+                      // 2. Update status if changed (returns true if page will redirect)
                       if (selectedStatus !== lead.status) {
-                        await handleStatusUpdate(selectedStatus);
-
-                        if (
-                          user?.role !== "admin" &&
-                          ["wrong-number", "not-interested", "sales"].includes(selectedStatus)
-                        ) {
-                          return;
-                        }
+                        const willRedirect = await handleStatusUpdate(selectedStatus);
+                        if (willRedirect) return;
+                      }
+                      // 3. Assign user / book meeting if selected
+                      if (activeUserSelector) {
+                        await handleAssignUser();
+                        router.push("/dashboard/leads");
+                        return;
                       }
 
-                      if (note.trim()) {
-                        await addNoteOnly();
-                      }
-
+                      // 4. Refresh UI
                       await fetchLead();
-                    }}
-                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50"
+                    } catch (error) {
+                      console.error(error);
+                      toast.error("Something went wrong");
+                    }
+                  }}
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {updatingStatus || addingNote ? "Processing..." : "Submit"}
                 </button>
               </div>
             )}
 
-          {/* ─── HISTORY SECTION ─── */}
+          {/* ═══════════════════════════════════════
+              HISTORY SECTION
+          ═══════════════════════════════════════ */}
           <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
             <div className="flex items-center gap-3 mb-6">
               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1425,12 +1219,9 @@ export default function LeadDetailPage() {
                   .slice()
                   .reverse()
                   .map((entry, idx) => (
-                    <div
-                      key={idx}
-                      className="relative pl-8 pb-6 border-l-2 border-gray-200 last:border-l-0 last:pb-0"
-                    >
-                      <div className="absolute left-0 top-1 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-600 border-4 border-white shadow"></div>
-                      <div className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition">
+                    <div key={idx} className="relative pl-8 pb-6 border-l-2 border-gray-200 last:border-l-0 last:pb-0">
+                      <div className="absolute left-0 top-1 -translate-x-1/2 w-4 h-4 rounded-full bg-blue-600 border-4 border-white shadow" />
+                      <div className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition cursor-default">
                         <div className="flex justify-between items-start gap-4">
                           <div className="flex-1">
                             <p className="text-gray-900 font-semibold text-lg mb-1">
