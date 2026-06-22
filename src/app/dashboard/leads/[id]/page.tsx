@@ -969,11 +969,12 @@ export default function LeadDetailPage() {
                           .map((emp) => (
                             <option key={emp.id} value={emp.id}>👨‍💼 Employee — {emp.name}</option>
                           ))}
-                        {meetingUsers
-                          .filter((m) => m.id !== lead.assignedTo)
-                          .map((m) => (
-                            <option key={m.id} value={m.id}>📅 Meeting — {m.name}</option>
-                          ))}
+                        {meetingUsers.map((m) => (
+  <option key={m.id} value={m.id}>
+    📅 Meeting — {m.name}
+    {m.id === user?.id ? " (Me)" : ""}
+  </option>
+))}
                       </select>
 
                       {isSelectedMeetingUser && activeUserSelector && (
@@ -1045,6 +1046,7 @@ export default function LeadDetailPage() {
                       </div>
                     </div>
 
+                  
                     {/* Action buttons — only for the assigned meeting user */}
                     {canManageMeeting && (
                       <div className="flex gap-2 flex-wrap">
