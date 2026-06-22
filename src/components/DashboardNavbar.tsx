@@ -20,34 +20,33 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [unreadCount, setUnreadCount] =
-  useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-useEffect(() => {
-  loadUnreadCount();
-
-  const interval = setInterval(() => {
+  useEffect(() => {
     loadUnreadCount();
-  }, 5000);
 
-  return () => clearInterval(interval);
-}, []);
+    const interval = setInterval(() => {
+      loadUnreadCount();
+    }, 5000);
 
-const loadUnreadCount = async () => {
-  try {
-    const res = await fetch(
-      "/api/chat/unread"
-    );
+    return () => clearInterval(interval);
+  }, []);
 
-    const data = await res.json();
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
-    setUnreadCount(
-      data.unreadCount || 0
-    );
-  } catch (err) {
-    console.error(err);
-  }
-};
+  const loadUnreadCount = async () => {
+    try {
+      const res = await fetch("/api/chat/unread");
+      const data = await res.json();
+      setUnreadCount(data.unreadCount || 0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleSignOut = async () => {
     const loadingToast = toast.loading("Signing out...");
@@ -74,10 +73,18 @@ const loadUnreadCount = async () => {
 
   const isActive = (path: string) => pathname === path;
 
+  const navLinkClass = (active: boolean) =>
+    `block px-4 py-3 text-sm font-medium border-l-2 transition-colors ${
+      active
+        ? "border-foreground text-foreground bg-zinc-50 dark:bg-zinc-800"
+        : "border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+    }`;
+
   return (
     <nav className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
+          {/* Logo */}
           <div className="flex">
             <div className="shrink-0 flex items-center">
               <div className="flex items-center gap-2">
@@ -86,6 +93,8 @@ const loadUnreadCount = async () => {
                 </div>
               </div>
             </div>
+
+            {/* Desktop nav links */}
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
                 href="/dashboard"
@@ -180,90 +189,168 @@ const loadUnreadCount = async () => {
               )}
 
               <Link
-  href="/dashboard/chat"
-  className={`${
-    isActive("/dashboard/chat") ||
-    pathname.startsWith("/dashboard/chat/")
-      ? "border-b-2 border-foreground"
-      : "border-transparent hover:border-zinc-300 border-b-2"
-  } inline-flex items-center gap-2 px-1 pt-1 text-sm font-medium ${
-    isActive("/dashboard/chat") ||
-    pathname.startsWith("/dashboard/chat/")
-      ? ""
-      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-  }`}
->
-  Chat
-
-  {unreadCount > 0 && (
-    <span
-      className="
-        bg-red-500
-        text-white
-        text-xs
-        min-w-[18px]
-        h-[18px]
-        rounded-full
-        flex
-        items-center
-        justify-center
-      "
-    >
-      {unreadCount}
-    </span>
-  )}
-</Link>
+                href="/dashboard/chat"
+                className={`${
+                  isActive("/dashboard/chat") ||
+                  pathname.startsWith("/dashboard/chat/")
+                    ? "border-b-2 border-foreground"
+                    : "border-transparent hover:border-zinc-300 border-b-2"
+                } inline-flex items-center gap-2 px-1 pt-1 text-sm font-medium ${
+                  isActive("/dashboard/chat") ||
+                  pathname.startsWith("/dashboard/chat/")
+                    ? ""
+                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                }`}
+              >
+                Chat
+                {unreadCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </Link>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {/* <button
-              onClick={toggleTheme}
-              className="p-2 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              aria-label="Toggle theme"
-            >
-              {theme === "dark" ? (
-                <svg
-                  className="w-5 h-5 text-yellow-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                  />
-                </svg>
-              ) : (
-                <svg
-                  className="w-5 h-5 text-zinc-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
-                  />
-                </svg>
-              )}
-            </button> */}
+
+          {/* Right side: notification + user + sign out + hamburger */}
+          <div className="flex items-center gap-3">
             <NotificationBell />
-            <span className="text-sm text-zinc-600 dark:text-zinc-400">
+            <span className="hidden sm:block text-sm text-zinc-600 dark:text-zinc-400">
               {user.name} <span className="text-xs">({user.role})</span>
             </span>
             <button
               onClick={handleSignOut}
-              className="rounded bg-foreground px-4 py-2 text-sm text-background hover:opacity-90"
+              className="hidden sm:block rounded bg-foreground px-4 py-2 text-sm text-background hover:opacity-90"
+            >
+              Sign out
+            </button>
+
+            {/* Hamburger button — mobile only */}
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="sm:hidden p-2 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              aria-label="Toggle menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? (
+                /* X icon */
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              ) : (
+                /* Hamburger icon with optional unread dot */
+                <span className="relative">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          {/* User info */}
+          <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              {user.name}
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 capitalize">
+              {user.role}
+            </p>
+          </div>
+
+          {/* Nav links */}
+          <div className="py-1">
+            <Link href="/dashboard" className={navLinkClass(isActive("/dashboard"))}>
+              Dashboard
+            </Link>
+            <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
+              Leads
+            </Link>
+            <Link href="/dashboard/activity" className={navLinkClass(isActive("/dashboard/activity"))}>
+              Activity
+            </Link>
+            <Link
+              href="/dashboard/vacancies"
+              className={navLinkClass(
+                isActive("/dashboard/vacancies") ||
+                  pathname.startsWith("/dashboard/vacancies/")
+              )}
+            >
+              Vacancies
+            </Link>
+
+            {user.role === "meeting" && (
+              <Link
+                href="/dashboard/meetings"
+                className={navLinkClass(isActive("/dashboard/meetings"))}
+              >
+                Meetings
+              </Link>
+            )}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/users"
+                className={navLinkClass(isActive("/dashboard/users"))}
+              >
+                Users
+              </Link>
+            )}
+
+            <Link
+              href="/dashboard/chat"
+              className={`${navLinkClass(
+                isActive("/dashboard/chat") ||
+                  pathname.startsWith("/dashboard/chat/")
+              )} flex items-center justify-between pr-4`}
+            >
+              <span>Chat</span>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
+          </div>
+
+          {/* Sign out */}
+          <div className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800">
+            <button
+              onClick={handleSignOut}
+              className="w-full rounded bg-foreground px-4 py-2 text-sm text-background hover:opacity-90"
             >
               Sign out
             </button>
           </div>
         </div>
-      </div>
+      )}
     </nav>
   );
 }
