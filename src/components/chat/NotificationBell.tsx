@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Bell } from "lucide-react";
 import NotificationsPanel from "./NotificationsPanel";
 
 export default function NotificationBell() {
@@ -15,26 +16,18 @@ export default function NotificationBell() {
 
   useEffect(() => {
     loadCounts();
-
     const interval = setInterval(loadCounts, 5000);
-
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        wrapperRef.current &&
-        !wrapperRef.current.contains(e.target as Node)
-      ) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-
-    return () =>
-      document.removeEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const loadCounts = async () => {
@@ -44,7 +37,6 @@ export default function NotificationBell() {
         fetch("/api/chat/unread"),
         fetch("/api/chat/global-chat/unread"),
       ]);
-
       const notifData = await notifRes.json();
       const chatData = await chatRes.json();
       const globalData = await globalRes.json();
@@ -70,50 +62,20 @@ export default function NotificationBell() {
     <div ref={wrapperRef} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="relative"
+        aria-label="Notifications"
+        className="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
       >
-        <span className="text-xl">🔔</span>
+        <Bell size={20} />
 
         {total > 0 && (
-          <span
-            className="
-              absolute
-              -top-2
-              -right-2
-              bg-red-500
-              text-white
-              text-xs
-              rounded-full
-              min-w-[18px]
-              h-[18px]
-              px-1
-              flex
-              items-center
-              justify-center
-            "
-          >
+          <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center leading-none">
             {total > 99 ? "99+" : total}
           </span>
         )}
       </button>
 
       {open && (
-        <div
-          className="
-            absolute
-            right-0
-            mt-2
-            w-80
-            max-h-[70vh]
-            overflow-y-auto
-            bg-white
-            dark:bg-zinc-900
-            border
-            rounded-lg
-            shadow-lg
-            z-50
-          "
-        >
+        <div className="absolute right-0 mt-2 w-80 max-h-[70vh] overflow-y-auto bg-white dark:bg-zinc-900 border rounded-xl shadow-xl z-50">
           <div className="p-3">
             <NotificationsPanel />
           </div>
@@ -121,19 +83,13 @@ export default function NotificationBell() {
           {(chatCount > 0 || globalCount > 0) && (
             <button
               onClick={goToChat}
-              className="
-                w-full
-                text-left
-                px-4
-                py-3
-                text-sm
-                border-t
-                hover:bg-zinc-100
-                dark:hover:bg-zinc-800
-              "
+              className="w-full text-left px-4 py-3 text-sm border-t hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
             >
-              💬 {chatCount + globalCount} unread message
-              {chatCount + globalCount > 1 ? "s" : ""} — go to chat
+              <span className="text-base">💬</span>
+              <span>
+                {chatCount + globalCount} unread message
+                {chatCount + globalCount > 1 ? "s" : ""} — go to chat
+              </span>
             </button>
           )}
         </div>

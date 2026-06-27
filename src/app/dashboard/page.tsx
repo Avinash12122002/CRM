@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import CheckInOutCard from "@/components/CheckInOutCard";
 import AnnouncementBanner from "@/components/chat/AnnouncementBanner";
-import BroadcastPanel from "@/components/chat/BroadcastPanel";
-import OnlineUsers from "@/components/chat/OnlineUsers";
+// import BroadcastPanel from "@/components/chat/BroadcastPanel";
+// import OnlineUsers from "@/components/chat/OnlineUsers";
 
 type MeResponse = {
   id: number;
@@ -544,12 +544,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-
-                {/* ── Broadcasts + Online Users ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <BroadcastPanel userRole={user.role} />
-                  <OnlineUsers />
-                </div>
+               
               </>
             )}
           </div>
@@ -664,9 +659,6 @@ export default function DashboardPage() {
                   ))}
                 </div>
               </div>
-
-              {/* Broadcasts (read-only for employee/meeting) */}
-              <BroadcastPanel userRole={user.role} />
             </div>
 
             {/* Check-in/Check-out */}

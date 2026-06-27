@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
-import NotificationBell from "@/components/chat/NotificationBell";
 
 type DashboardNavbarProps = {
   user: {
@@ -187,34 +186,11 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Users
                 </Link>
               )}
-
-              <Link
-                href="/dashboard/chat"
-                className={`${
-                  isActive("/dashboard/chat") ||
-                  pathname.startsWith("/dashboard/chat/")
-                    ? "border-b-2 border-foreground"
-                    : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center gap-2 px-1 pt-1 text-sm font-medium ${
-                  isActive("/dashboard/chat") ||
-                  pathname.startsWith("/dashboard/chat/")
-                    ? ""
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                }`}
-              >
-                Chat
-                {unreadCount > 0 && (
-                  <span className="bg-red-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
-                    {unreadCount}
-                  </span>
-                )}
-              </Link>
             </div>
           </div>
 
           {/* Right side: notification + user + sign out + hamburger */}
           <div className="flex items-center gap-3">
-            <NotificationBell />
             <span className="hidden sm:block text-sm text-zinc-600 dark:text-zinc-400">
               {user.name} <span className="text-xs">({user.role})</span>
             </span>

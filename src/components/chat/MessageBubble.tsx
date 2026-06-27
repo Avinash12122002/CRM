@@ -170,7 +170,15 @@ export default function MessageBubble({
           ) : (
             <>
               {message.message && (
-                <div>{message.message}</div>
+                <div
+                  style={{
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {message.message}
+                </div>
               )}
 
               {message.type === "file" && fileUrl && (
