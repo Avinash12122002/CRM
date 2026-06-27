@@ -43,7 +43,7 @@ export default function FloatingChatButton() {
         transition-all
         duration-300
         hover:scale-105
-        z-[9999]
+        z-9999
       "
     >
       {isOpen ? <X size={22} /> : <MessageCircle size={24} />}
@@ -54,8 +54,8 @@ export default function FloatingChatButton() {
             absolute
             -top-1
             -right-1
-            min-w-[20px]
-            h-[20px]
+            min-w-5
+            h-5
             px-1
             rounded-full
             bg-red-500

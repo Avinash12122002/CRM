@@ -442,7 +442,7 @@ export default function ConversationPage({
         </div>
 
         {/* ── Typing indicator ────────────────────────────────────── */}
-        <div className="px-4 shrink-0 min-h-[28px] flex items-center">
+        <div className="px-4 shrink-0 min-h-7 flex items-center">
           <TypingIndicator
             conversationId={Number(conversationId)}
             currentUserId={currentUserId ?? 0}

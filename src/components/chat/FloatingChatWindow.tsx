@@ -20,7 +20,7 @@ export default function FloatingChatWindow() {
         rounded-xl
         shadow-2xl
         border
-        z-[9998]
+        z-9998
         overflow-hidden
         flex
         flex-col

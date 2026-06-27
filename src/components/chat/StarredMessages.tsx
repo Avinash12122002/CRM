@@ -8,6 +8,7 @@ type StarredItem = {
   userId: number;
   messageId: number;
   starredAt: string;
+
   message: {
     id: number;
     conversationId: number;
@@ -34,6 +35,7 @@ export default function StarredMessages() {
     try {
       const res = await fetch("/api/chat/starred");
       const data = await res.json();
+
       setStarred(data.starred || []);
     } catch {
       toast.error("Failed to load starred messages");
@@ -46,8 +48,12 @@ export default function StarredMessages() {
     try {
       await fetch("/api/chat/starred", {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messageId,
+        }),
       });
 
       toast.success("Removed from starred");
@@ -59,11 +65,22 @@ export default function StarredMessages() {
   };
 
   const goToConversation = (conversationId: number) => {
-    router.push(`/dashboard/chat/${conversationId}`);
+    // Store the selected conversation
+    localStorage.setItem(
+      "selectedConversation",
+      conversationId.toString()
+    );
+
+    // Open the chat page
+    router.push("/dashboard/chat");
   };
 
   if (loading) {
-    return <p className="text-zinc-400">Loading...</p>;
+    return (
+      <p className="text-zinc-400 text-center py-8">
+        Loading...
+      </p>
+    );
   }
 
   if (starred.length === 0) {
@@ -75,7 +92,7 @@ export default function StarredMessages() {
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {starred.map((item) => (
         <div
           key={item.messageId}
@@ -86,19 +103,22 @@ export default function StarredMessages() {
             flex
             items-start
             justify-between
-            gap-2
+            gap-3
             border
-            rounded-lg
-            p-3
+            rounded-xl
+            p-4
             cursor-pointer
-            hover:bg-zinc-50
+            transition
+            hover:bg-zinc-100
             dark:hover:bg-zinc-800
           "
         >
           <div className="flex-1">
-            <div className="text-xs font-medium text-zinc-500 mb-1">
-              {item.message.senderName} ·{" "}
-              {new Date(item.message.createdAt).toLocaleString()}
+            <div className="text-xs font-medium text-zinc-500 mb-2">
+              {item.message.senderName} •{" "}
+              {new Date(
+                item.message.createdAt
+              ).toLocaleString()}
             </div>
 
             <div className="text-sm">
@@ -107,8 +127,8 @@ export default function StarredMessages() {
                 : item.message.message}
             </div>
 
-            <div className="text-xs text-blue-500 mt-1">
-              Conversation #{item.message.conversationId} — click to open
+            <div className="text-xs text-blue-500 mt-2 font-medium">
+              Chat with {item.message.senderName} →
             </div>
           </div>
 
@@ -117,7 +137,12 @@ export default function StarredMessages() {
               e.stopPropagation();
               unstar(item.messageId);
             }}
-            className="text-xs text-zinc-400 hover:text-red-500 shrink-0"
+            className="
+              text-sm
+              text-zinc-400
+              hover:text-red-500
+              shrink-0
+            "
           >
             ✕ Unstar
           </button>
