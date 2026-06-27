@@ -59,7 +59,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
       loadOnlineUsers();
       loadGlobalUnread();
       loadConversations();
-    }, 3000);
+    }, 1000);
 
     return () => clearInterval(interval);
   }, []);
