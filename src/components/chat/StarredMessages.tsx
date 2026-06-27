@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
+import { useChat } from "@/contexts/ChatContext";
 
 type StarredItem = {
   userId: number;
@@ -25,7 +25,10 @@ export default function StarredMessages() {
   const [starred, setStarred] = useState<StarredItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const router = useRouter();
+  const {
+    setIsOpen,
+    setSelectedConversation,
+  } = useChat();
 
   useEffect(() => {
     loadStarred();
@@ -46,7 +49,7 @@ export default function StarredMessages() {
 
   const unstar = async (messageId: number) => {
     try {
-      await fetch("/api/chat/starred", {
+      const res = await fetch("/api/chat/starred", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -56,28 +59,31 @@ export default function StarredMessages() {
         }),
       });
 
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || "Failed to remove");
+        return;
+      }
+
       toast.success("Removed from starred");
 
-      loadStarred();
+      setStarred((prev) =>
+        prev.filter((item) => item.messageId !== messageId)
+      );
     } catch {
       toast.error("Failed to remove");
     }
   };
 
   const goToConversation = (conversationId: number) => {
-    // Store the selected conversation
-    localStorage.setItem(
-      "selectedConversation",
-      conversationId.toString()
-    );
-
-    // Open the chat page
-    router.push("/dashboard/chat");
+    setSelectedConversation(conversationId);
+    setIsOpen(true);
   };
 
   if (loading) {
     return (
-      <p className="text-zinc-400 text-center py-8">
+      <p className="text-center py-8 text-zinc-500">
         Loading...
       </p>
     );
@@ -85,7 +91,7 @@ export default function StarredMessages() {
 
   if (starred.length === 0) {
     return (
-      <p className="text-zinc-400 text-center py-8">
+      <p className="text-center py-8 text-zinc-500">
         No starred messages yet
       </p>
     );
@@ -104,9 +110,9 @@ export default function StarredMessages() {
             items-start
             justify-between
             gap-3
+            p-4
             border
             rounded-xl
-            p-4
             cursor-pointer
             transition
             hover:bg-zinc-100
@@ -114,20 +120,18 @@ export default function StarredMessages() {
           "
         >
           <div className="flex-1">
-            <div className="text-xs font-medium text-zinc-500 mb-2">
+            <div className="text-xs text-zinc-500 font-medium mb-2">
               {item.message.senderName} •{" "}
-              {new Date(
-                item.message.createdAt
-              ).toLocaleString()}
+              {new Date(item.message.createdAt).toLocaleString()}
             </div>
 
-            <div className="text-sm">
+            <div className="text-sm break-words">
               {item.message.type === "file"
                 ? `📎 ${item.message.fileName}`
                 : item.message.message}
             </div>
 
-            <div className="text-xs text-blue-500 mt-2 font-medium">
+            <div className="mt-2 text-xs font-medium text-blue-500 hover:underline">
               Chat with {item.message.senderName} →
             </div>
           </div>
@@ -138,10 +142,10 @@ export default function StarredMessages() {
               unstar(item.messageId);
             }}
             className="
+              shrink-0
               text-sm
               text-zinc-400
               hover:text-red-500
-              shrink-0
             "
           >
             ✕ Unstar

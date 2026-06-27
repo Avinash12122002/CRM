@@ -2,9 +2,14 @@
 
 import { useChat } from "@/contexts/ChatContext";
 import ChatPage from "@/components/chat/ChatPage";
+import ConversationPage from "@/components/chat/ConversationPage";
 
 export default function FloatingChatWindow() {
-  const { isOpen } = useChat();
+  const {
+    isOpen,
+    selectedConversation,
+    setSelectedConversation,
+  } = useChat();
 
   if (!isOpen) return null;
 
@@ -26,20 +31,17 @@ export default function FloatingChatWindow() {
         flex-col
       "
       style={{
-        /*
-         * BUG FIX: Previously h-[680px] at bottom-24 = 776px total.
-         * On any viewport shorter than 776px the window clips at the top,
-         * hiding the tab bar and conversation header.
-         *
-         * Fix: height = min(680px, 100vh - 8rem)
-         *   bottom-24 = 6rem (96px) from bottom
-         *   We reserve 8rem (128px) total = 96px button gap + 32px breathing room at top
-         *   So the window top is always ≥ 32px from the viewport top.
-         */
         height: "min(680px, calc(100vh - 8rem))",
       }}
     >
-      <ChatPage compact={true} />
+      {selectedConversation ? (
+        <ConversationPage
+          conversationId={selectedConversation}
+          onClose={() => setSelectedConversation(null)}
+        />
+      ) : (
+        <ChatPage compact={true} />
+      )}
     </div>
   );
 }
