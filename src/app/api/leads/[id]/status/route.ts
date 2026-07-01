@@ -136,43 +136,49 @@ export async function PUT(
           role: "admin",
         })
       : null;
+await db.collection("leads").updateOne(
+  { id: leadId },
+  {
+    $set: {
+      status,
 
-    await db.collection("leads").updateOne(
-      { id: leadId },
-      {
-        $set: {
-          status,
+      ...(shouldReturnToAdmin
+        ? {
+            assignedTo: adminUser?.id || null,
+            assignedToName: adminUser?.name || null,
+            assignedToRole: adminUser?.role || "admin",
 
-          ...(shouldReturnToAdmin
-            ? {
-                assignedTo: adminUser?.id || null,
-                assignedToName: adminUser?.name || null,
-                assignedToRole: adminUser?.role || "admin",
+            assignedBy: payload.id,
+            assignedByName: payload.name,
+            assignedByRole: payload.role,
+          }
+        : {}),
 
-                assignedBy: payload.id,
-                assignedByName: payload.name,
-                assignedByRole: payload.role,
-              }
-            : {}),
+      updatedAt: now,
+      ...meetingStatusUpdate,
+    },
 
-          updatedAt: now,
-          ...meetingStatusUpdate,
-        },
-        $push: {
-          history: {
-            action: "status_updated",
-            performedBy: payload.id,
-            performedByName: payload.name,
-            timestamp: now,
-            details: shouldReturnToAdmin
-              ? `Status changed from "${oldStatus}" to "${status}" and reassigned to Admin`
-              : `Status changed from "${oldStatus}" to "${status}"`,
-            oldStatus,
-            newStatus: status,
-          },
-        },
+    $push: {
+      history: {
+        action: "status_updated",
+        performedBy: payload.id,
+        performedByName: payload.name,
+        timestamp: now,
+        details: shouldReturnToAdmin
+          ? `Status changed from "${oldStatus}" to "${status}" and reassigned to Admin`
+          : `Status changed from "${oldStatus}" to "${status}"`,
+        oldStatus,
+        newStatus: status,
       },
-    );
+    },
+
+    $addToSet: shouldReturnToAdmin
+      ? {
+          visibleTo: payload.id,
+        }
+      : {},
+  },
+);
 
     return NextResponse.json(
       {

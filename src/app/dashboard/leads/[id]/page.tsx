@@ -66,6 +66,7 @@ interface Lead {
   createdAt: string;
   updatedAt: string;
   history: HistoryEntry[];
+  isOwner: boolean;
 }
 
 export default function LeadDetailPage() {
@@ -133,22 +134,25 @@ export default function LeadDetailPage() {
   );
 
   // Employee/meeting user can see the assign section only if the lead is assigned to them
-  const showAssignSection =
-    user &&
-    lead &&
-    (user.role === "employee" || user.role === "meeting") &&
-    lead.assignedTo === user.id;
+const showAssignSection =
+  user &&
+  lead &&
+  (user.role === "employee" || user.role === "meeting") &&
+  lead.isOwner;
 
   // Meeting card visible to admin, assignee, or creator
-  const canSeeMeeting =
-    lead?.meetingDetails &&
-    user &&
-    (user.role === "admin" || lead.assignedTo === user.id || lead.createdBy === user.id);
+ const canSeeMeeting =
+  lead?.meetingDetails &&
+  user &&
+  (user.role === "admin" ||
+   lead.isOwner ||
+   lead.createdBy === user.id);
 
   // Only the assigned meeting user can act on the meeting
-  const canManageMeeting =
-    user?.role === "meeting" &&
-    lead?.meetingDetails?.meetingUserId === user?.id;
+const canManageMeeting =
+  user?.role === "meeting" &&
+  lead?.isOwner &&
+  lead?.meetingDetails?.meetingUserId === user?.id;
 
   // ── Auth ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -685,9 +689,7 @@ export default function LeadDetailPage() {
                       {lead.status}
                     </span>
 
-                    {(user.role === "admin" ||
-                      ((user.role === "employee" || user.role === "meeting") &&
-                        lead.assignedTo === user.id)) && (
+                    {(user.role === "admin" || lead.isOwner) && (
                       <button
                         onClick={handleEditClick}
                         className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium flex items-center gap-2 cursor-pointer"
@@ -711,7 +713,7 @@ export default function LeadDetailPage() {
                       </button>
                     )}
 
-                    {user.role !== "admin" && lead.assignedTo === user.id && (
+                    {user.role !== "admin" && lead.isOwner && (
                       <div className="relative group">
                         <button
                           onClick={handleMoveToAdmin}
@@ -914,9 +916,7 @@ export default function LeadDetailPage() {
               UPDATE LEAD SECTION
           ═══════════════════════════════════════ */}
           {!isEditing &&
-            (user.role === "admin" ||
-              ((user.role === "employee" || user.role === "meeting") &&
-                lead.assignedTo === user.id)) && (
+            (user.role === "admin" || lead.isOwner) && (
               <div className="bg-white shadow-lg rounded-xl p-8 mb-6 border border-gray-100">
                 <div className="flex items-center gap-3 mb-6">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

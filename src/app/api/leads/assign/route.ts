@@ -236,6 +236,11 @@ async function handleAssign(req: NextRequest) {
               ? [payload.id, assignedTo, lead.assignedTo].filter(Boolean)
               : [payload.id],
           },
+          visibleTo: {
+            $each: assignedTo
+              ? [payload.id, assignedTo, lead.assignedTo].filter(Boolean)
+              : [payload.id],
+          },
         },
       },
     );

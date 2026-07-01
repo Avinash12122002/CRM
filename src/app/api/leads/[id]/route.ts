@@ -83,6 +83,7 @@ export async function GET(
             assignedByName: 1,
             assignedByRole: 1,
             participants: 1,
+            visibleTo: 1,
             createdBy: 1,
             createdByName: "$creator.name",
             createdAt: 1,
@@ -103,6 +104,7 @@ export async function GET(
     }
 
     const lead = leads[0];
+    lead.isOwner = lead.assignedTo === payload.id;
 
     // Check if employee can access this lead
     // Check if employee/meeting can access this lead

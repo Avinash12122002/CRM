@@ -25,16 +25,17 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: string;
+  assignedToRole?: "admin" | "employee" | "meeting";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: string;
+  assignedByRole?: "admin" | "employee" | "meeting";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
   createdAt: string;
   updatedAt: string;
   lastNoteAddedByAdmin?: boolean;
+  isOwner: boolean;
   lastNote?: {
     note: string;
     timestamp: string;
@@ -705,20 +706,26 @@ export default function LeadsPage() {
                                   : lead.assignedToRole === "employee"
                                     ? "bg-green-100 dark:bg-green-900/20"
                                     : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                              : lead.assignedTo !== user.id
-                                ? "bg-red-100 dark:bg-red-900/20"
+                              : !lead.isOwner
+                                ? "bg-red-100 dark:bg-red-900/20 opacity-50"
                                 : "hover:bg-gray-50 dark:hover:bg-gray-700"
                           }`}
                         >
                           {/* Name */}
                           <td className="px-3 py-2 whitespace-nowrap max-w-[160px]">
                             <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
-                                className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left truncate max-w-[110px]"
-                              >
-                                {lead.name || "-"}
-                              </button>
+                              {user.role === "admin" || lead.isOwner ? (
+  <button
+    onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+    className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left truncate max-w-[110px]"
+  >
+    {lead.name || "-"}
+  </button>
+) : (
+  <span className="text-xs font-medium text-gray-500 dark:text-gray-400 cursor-not-allowed truncate max-w-[110px]">
+    {lead.name || "-"}
+  </span>
+)}
                               {lead.lastNoteAddedByAdmin && (
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 whitespace-nowrap">
                                   Admin
@@ -758,12 +765,18 @@ export default function LeadsPage() {
 
                           {/* Phone */}
                           <td className="px-3 py-2 whitespace-nowrap">
-                            <button
-                              onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
-                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer"
-                            >
-                              {lead.phone || "-"}
-                            </button>
+                            {user.role === "admin" || lead.isOwner ? (
+  <button
+    onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+    className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline"
+  >
+    {lead.phone || "-"}
+  </button>
+) : (
+  <span className="text-xs text-gray-500 dark:text-gray-400 cursor-not-allowed">
+    {lead.phone || "-"}
+  </span>
+)}
                           </td>
 
                           {/* Created At */}
@@ -849,7 +862,7 @@ export default function LeadsPage() {
                           {/* Actions */}
                           <td className="px-3 py-2 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              {(user.role === "admin" || lead.assignedTo === user.id) && (
+                              {(user.role === "admin" || lead.isOwner) && (
                                 <button
                                   onClick={() => handleAssign(lead.id, lead.assignedTo)}
                                   className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline"
@@ -857,12 +870,18 @@ export default function LeadsPage() {
                                   {lead.assignedTo ? "Reassign" : "Assign"}
                                 </button>
                               )}
-                              <button
-                                onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
-                                className="text-[11px] text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 hover:underline"
-                              >
-                                View
-                              </button>
+                              {user.role === "admin" || lead.isOwner ? (
+  <button
+    onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+    className="text-[11px] text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 hover:underline"
+  >
+    View
+  </button>
+) : (
+  <span className="text-[11px] text-orange-600 dark:text-orange-400 cursor-not-allowed">
+    Read Only
+  </span>
+)}
                               {user.role === "admin" && (
                                 <button
                                   onClick={() => handleDeleteLead(lead.id)}

@@ -111,6 +111,7 @@ if (existingLead) {
 
       createdBy: payload.id,
       participants: [payload.id],
+      visibleTo: [payload.id],
       createdAt: now,
       updatedAt: now,
       meetingDetails: null,
@@ -157,11 +158,15 @@ meetingCancelledAt: null,
         details: `Lead assigned to ${assignedUser?.name || "Unknown"}`,
         newAssignee: finalAssignedTo,
         newAssigneeName: assignedUser?.name,
+        newAssigneeRole: assignedUser?.role,
       });
     }
 
     if (finalAssignedTo && !lead.participants.includes(finalAssignedTo)) {
       lead.participants.push(finalAssignedTo);
+    }
+    if (finalAssignedTo && !lead.visibleTo.includes(finalAssignedTo)) {
+      lead.visibleTo.push(finalAssignedTo);
     }
 
     await db.collection("leads").insertOne(lead);

@@ -39,19 +39,21 @@ export async function GET(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let filter: Record<string, any> = {};
-
- if (payload.role === "employee" || payload.role === "meeting") {
-  filter = {
-    assignedTo: payload.id,
-    status: {
-      $nin: [
-        "wrong-number",
-        "not-interested",
-        "sales",
-      ],
-    },
-  };
-}
+      if (payload.role === "employee" || payload.role === "meeting") {
+        filter = {
+          $or: [
+            { assignedTo: payload.id },
+            { visibleTo: payload.id },
+          ],
+          status: {
+            $nin: [
+              "wrong-number",
+              "not-interested",
+              "sales",
+            ],
+          },
+        };
+      }
     // Admins can see all leads
 
     // Apply search filter (name or phone)
@@ -183,6 +185,7 @@ export async function GET(req: NextRequest) {
         assignedByRole: 1,
 
         participants: 1,
+        visibleTo: 1,
 
         createdBy: 1,
         createdByName: "$creator.name",
@@ -201,6 +204,9 @@ export async function GET(req: NextRequest) {
 
     {
       $addFields: {
+        isOwner: {
+          $eq: ["$assignedTo", payload.id],
+        },
         lastNote: {
           $arrayElemAt: [
             {
@@ -301,6 +307,8 @@ export async function GET(req: NextRequest) {
 
         lastNoteAddedByAdmin: 1,
         assignedByAdmin: 1,
+        visibleTo: 1,
+        isOwner: 1,
 
         lastNote: {
           $cond: {
