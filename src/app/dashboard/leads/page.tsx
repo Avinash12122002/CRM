@@ -216,6 +216,38 @@ export default function LeadsPage() {
       if (res.ok) {
         const data = await res.json();
         setLeads(data.leads);
+        const selectedLeadId = sessionStorage.getItem("selectedLeadId");
+
+if (selectedLeadId) {
+  setTimeout(() => {
+    const row = document.getElementById(`lead-${selectedLeadId}`);
+
+if (row) {
+  row.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+
+  // Highlight the row
+  row.classList.add(
+    "bg-yellow-200",
+    "dark:bg-yellow-700",
+    "transition-colors",
+    "duration-700"
+  );
+
+  // Remove highlight after 2 seconds
+  setTimeout(() => {
+    row.classList.remove(
+      "bg-yellow-200",
+      "dark:bg-yellow-700"
+    );
+
+    sessionStorage.removeItem("selectedLeadId");
+  }, 2000);
+}
+  }, 100);
+}
         setPagination((prev) => ({ ...data.pagination, page: pageToUse }));
         if (
           data.pagination.page > data.pagination.totalPages &&
@@ -696,8 +728,9 @@ export default function LeadsPage() {
                     <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                       {leads.map((lead) => (
                         <tr
+                          id={`lead-${lead.id}`}
                           key={lead.id}
-                          className={`${
+                          className={`transition-colors duration-700 ${
                             user.role === "admin"
                               ? lead.assignedToRole === "admin"
                                 ? "bg-red-100 dark:bg-red-900/20"
@@ -716,7 +749,10 @@ export default function LeadsPage() {
                             <div className="flex items-center gap-1.5">
                               {user.role === "admin" || lead.isOwner ? (
   <button
-    onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+    onClick={() => {
+  sessionStorage.setItem("selectedLeadId", String(lead.id));
+router.push(`/dashboard/leads/${lead.id}`);
+}}
     className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left truncate max-w-[110px]"
   >
     {lead.name || "-"}
@@ -767,7 +803,10 @@ export default function LeadsPage() {
                           <td className="px-3 py-2 whitespace-nowrap">
                             {user.role === "admin" || lead.isOwner ? (
   <button
-    onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+   onClick={() => {
+sessionStorage.setItem("selectedLeadId", String(lead.id));
+router.push(`/dashboard/leads/${lead.id}`);
+}}
     className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline"
   >
     {lead.phone || "-"}
@@ -872,7 +911,10 @@ export default function LeadsPage() {
                               )}
                               {user.role === "admin" || lead.isOwner ? (
   <button
-    onClick={() => router.push(`/dashboard/leads/${lead.id}`)}
+   onClick={() => {
+  sessionStorage.setItem("selectedLeadId", String(lead.id));
+router.push(`/dashboard/leads/${lead.id}`);
+}}
     className="text-[11px] text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 hover:underline"
   >
     View

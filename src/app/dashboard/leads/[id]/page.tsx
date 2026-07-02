@@ -666,7 +666,7 @@ const canManageMeeting =
 
           {/* Back button */}
           <button
-            onClick={() => router.push("/dashboard/leads")}
+             onClick={() => router.back()}
             className="mb-6 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 font-medium transition cursor-pointer"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
