@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const selectedDate = new Date(callbackDate + "T00:00:00");
+      const selectedDate = new Date(callbackDate + "T00:00:00+05:30");
 
       if (isNaN(selectedDate.getTime())) {
         return NextResponse.json(
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
       status: status || "new-lead",
       ...(status === "call-back"
         ? {
-            callbackDate: new Date(callbackDate + "T00:00:00"),
+            callbackDate: new Date(callbackDate + "T00:00:00+05:30"),
             callbackSeen: false,
           }
         : {

@@ -63,7 +63,7 @@ const { status, callbackDate } = body;
     );
   }
 
-  const selectedDate = new Date(callbackDate + "T00:00:00");
+     const selectedDate = new Date(callbackDate + "T00:00:00+05:30");
 
   if (isNaN(selectedDate.getTime())) {
     return NextResponse.json(
@@ -163,7 +163,7 @@ await db.collection("leads").updateOne(
       status,
         ...(status === "call-back"
       ? {
-          callbackDate: new Date(callbackDate + "T00:00:00"),
+          callbackDate: new Date(callbackDate + "T00:00:00+05:30"),
           callbackSeen: false,
         }
       : {
@@ -195,7 +195,7 @@ await db.collection("leads").updateOne(
         timestamp: now,
         details:
   status === "call-back"
-    ? `Status changed from "${oldStatus}" to "call-back". Callback scheduled for ${new Date(callbackDate + "T00:00:00").toLocaleDateString("en-IN")}`
+    ? `Status changed from "${oldStatus}" to "call-back". Callback scheduled for ${new Date(callbackDate + "T00:00:00+05:30").toLocaleDateString("en-IN")}`
     : shouldReturnToAdmin
       ? `Status changed from "${oldStatus}" to "${status}" and reassigned to Admin`
       : `Status changed from "${oldStatus}" to "${status}"`,
