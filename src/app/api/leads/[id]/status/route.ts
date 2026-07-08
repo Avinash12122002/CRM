@@ -29,8 +29,8 @@ export async function PUT(
       return NextResponse.json({ message: "Invalid lead ID" }, { status: 400 });
     }
 
-    const body = await req.json();
-    const { status } = body;
+  const body = await req.json();
+const { status, callbackDate } = body;
 
     const validStatuses = [
       "new-lead",
@@ -53,7 +53,27 @@ export async function PUT(
         { status: 400 },
       );
     }
+   if (status === "call-back") {
+  if (!callbackDate) {
+    return NextResponse.json(
+      {
+        message: "Callback date is required.",
+      },
+      { status: 400 }
+    );
+  }
 
+  const selectedDate = new Date(callbackDate + "T00:00:00");
+
+  if (isNaN(selectedDate.getTime())) {
+    return NextResponse.json(
+      {
+        message: "Invalid callback date.",
+      },
+      { status: 400 }
+    );
+  }
+}
     const { db } = await connectToDatabase();
 
     const lead = await db.collection("leads").findOne({
@@ -141,6 +161,15 @@ await db.collection("leads").updateOne(
   {
     $set: {
       status,
+        ...(status === "call-back"
+      ? {
+          callbackDate: new Date(callbackDate + "T00:00:00"),
+          callbackSeen: false,
+        }
+      : {
+          callbackDate: null,
+          callbackSeen: false,
+        }),
 
       ...(shouldReturnToAdmin
         ? {
@@ -164,9 +193,12 @@ await db.collection("leads").updateOne(
         performedBy: payload.id,
         performedByName: payload.name,
         timestamp: now,
-        details: shouldReturnToAdmin
-          ? `Status changed from "${oldStatus}" to "${status}" and reassigned to Admin`
-          : `Status changed from "${oldStatus}" to "${status}"`,
+        details:
+  status === "call-back"
+    ? `Status changed from "${oldStatus}" to "call-back". Callback scheduled for ${new Date(callbackDate + "T00:00:00").toLocaleDateString("en-IN")}`
+    : shouldReturnToAdmin
+      ? `Status changed from "${oldStatus}" to "${status}" and reassigned to Admin`
+      : `Status changed from "${oldStatus}" to "${status}"`,
         oldStatus,
         newStatus: status,
       },

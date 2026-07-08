@@ -215,10 +215,13 @@ async function handleAssign(req: NextRequest) {
           meetingCompletedAt: null,
           meetingCancelledAt: null,
 
-          status:
-            assignedUser?.role === "meeting"
-              ? "meeting-scheduled"
-              : lead.status,
+        status:
+  assignedUser?.role === "meeting"
+    ? "meeting-scheduled"
+    : lead.status,
+...(assignedUser?.role === "meeting"
+  ? { callbackDate: null, callbackSeen: false }
+  : { callbackSeen: false }),
 
           assignedBy: payload.id,
           assignedByName: payload.name,

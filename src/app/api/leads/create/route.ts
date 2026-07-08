@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
       status,
       assignedTo,
       dueDate,
+      callbackDate,
       state,
       city,
       age,
@@ -43,24 +44,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (status === "call-back") {
+      if (!callbackDate) {
+        return NextResponse.json(
+          {
+            message: "Callback date is required.",
+          },
+          { status: 400 },
+        );
+      }
+
+      const selectedDate = new Date(callbackDate + "T00:00:00");
+
+      if (isNaN(selectedDate.getTime())) {
+        return NextResponse.json(
+          {
+            message: "Invalid callback date.",
+          },
+          { status: 400 },
+        );
+      }
+    }
+
     const { db } = await connectToDatabase();
 
     // Normalize phone number
-const cleanPhone = String(phone).trim();
+    const cleanPhone = String(phone).trim();
 
-// Check if phone already exists
-const existingLead = await db.collection("leads").findOne({
-  phone: cleanPhone,
-});
+    // Check if phone already exists
+    const existingLead = await db.collection("leads").findOne({
+      phone: cleanPhone,
+    });
 
-if (existingLead) {
-  return NextResponse.json(
-    {
-      message: "Phone number already exists",
-    },
-    { status: 400 }
-  );
-}
+    if (existingLead) {
+      return NextResponse.json(
+        {
+          message: "Phone number already exists",
+        },
+        { status: 400 },
+      );
+    }
 
     // Employee & Meeting users auto-assign to themselves
     const finalAssignedTo =
@@ -98,8 +121,17 @@ if (existingLead) {
       jobApplied: jobApplied || null,
 
       status: status || "new-lead",
+      ...(status === "call-back"
+        ? {
+            callbackDate: new Date(callbackDate + "T00:00:00"),
+            callbackSeen: false,
+          }
+        : {
+            callbackDate: null,
+            callbackSeen: false,
+          }),
 
-      dueDate: dueDate ? new Date(dueDate) : null,
+      dueDate: dueDate ? new Date(dueDate + "T00:00:00") : null,
 
       assignedTo: finalAssignedTo || null,
       assignedToName: assignedUser?.name || null,
@@ -116,8 +148,8 @@ if (existingLead) {
       updatedAt: now,
       meetingDetails: null,
       meetingStatus: null,
-meetingCompletedAt: null,
-meetingCancelledAt: null,
+      meetingCompletedAt: null,
+      meetingCancelledAt: null,
 
       history: [],
       notes: note?.trim()
@@ -139,6 +171,17 @@ meetingCancelledAt: null,
       timestamp: now,
       details: "Lead created",
     });
+    if (status === "call-back") {
+      lead.history.push({
+        action: "callback_scheduled",
+        performedBy: payload.id,
+        performedByName: payload.name,
+        timestamp: now,
+        details: `Callback scheduled for ${new Date(
+          callbackDate + "T00:00:00",
+        ).toLocaleDateString("en-IN")}`,
+      });
+    }
     if (note?.trim()) {
       lead.history.push({
         action: "note_added",

@@ -73,6 +73,8 @@ export async function GET(
             leadSource: 1,
             jobApplied: 1,
             status: 1,
+            callbackDate: 1,
+            callbackSeen: 1,
             dueDate: 1,
             assignedTo: 1,
             assignedToName: "$assignedUser.name",
@@ -106,14 +108,24 @@ export async function GET(
     const lead = leads[0];
     lead.isOwner = lead.assignedTo === payload.id;
 
-    // Check if employee can access this lead
-    // Check if employee/meeting can access this lead
-
     if (
       (payload.role === "employee" || payload.role === "meeting") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    if (lead.status === "call-back" && lead.callbackSeen === false) {
+      await db.collection("leads").updateOne(
+        { id: leadId },
+        {
+          $set: {
+            callbackSeen: true,
+          },
+        },
+      );
+
+      lead.callbackSeen = true;
     }
     return NextResponse.json({ lead });
   } catch (err) {

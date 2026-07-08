@@ -33,6 +33,7 @@ export async function PUT(
       name,
       phone,
       dueDate,
+      callbackDate,
       state,
       city,
       age,
@@ -69,11 +70,36 @@ export async function PUT(
       );
     }
 
+    // Effective status: fall back to the lead's current status if the request
+    // didn't send one, so we never misjudge whether this is a "call-back" edit.
+    const effectiveStatus = status ?? lead.status;
+
+    if (effectiveStatus === "call-back") {
+      if (!callbackDate) {
+        return NextResponse.json(
+          { message: "Callback date is required." },
+          { status: 400 },
+        );
+      }
+
+      const selectedDate = new Date(callbackDate + "T00:00:00");
+
+      if (isNaN(selectedDate.getTime())) {
+        return NextResponse.json(
+          { message: "Invalid callback date." },
+          { status: 400 },
+        );
+      }
+    }
+
     const now = new Date();
     const changes: string[] = [];
 
     // For employees, phone is read-only but name is editable
-    const finalPhone = payload.role === "employee" || payload.role === "meeting"? lead.phone: phone;
+    const finalPhone =
+      payload.role === "employee" || payload.role === "meeting"
+        ? lead.phone
+        : phone;
 
     // Track changes
     if (lead.name !== name) changes.push(`Name: "${lead.name}" → "${name}"`);
@@ -91,8 +117,10 @@ export async function PUT(
     if (oldAge !== newAge)
       changes.push(`Age: "${oldAge || "N/A"}" → "${newAge || "N/A"}"`);
 
-    if ((lead.status || "") !== (status || ""))
-      changes.push(`Status: "${lead.status || "N/A"}" → "${status || "N/A"}"`);
+    if ((lead.status || "") !== (effectiveStatus || ""))
+      changes.push(
+        `Status: "${lead.status || "N/A"}" → "${effectiveStatus || "N/A"}"`,
+      );
 
     if ((lead.passportType || "") !== (passportType || ""))
       changes.push(
@@ -113,12 +141,31 @@ export async function PUT(
 
     // Format dates for comparison
     const oldDueDate = lead.dueDate
-      ? new Date(lead.dueDate).toISOString().split("T")[0]
+      ? new Date(lead.dueDate).toLocaleDateString("en-CA", {
+          timeZone: "Asia/Kolkata",
+        })
       : "";
     const newDueDate = dueDate || "";
     if (oldDueDate !== newDueDate) {
       changes.push(
         `Due Date: "${oldDueDate || "N/A"}" → "${newDueDate || "N/A"}"`,
+      );
+    }
+
+    const oldCallbackDate = lead.callbackDate
+      ? new Date(lead.callbackDate).toLocaleDateString("en-CA", {
+          timeZone: "Asia/Kolkata",
+        })
+      : "";
+
+    const newCallbackDate =
+      effectiveStatus === "call-back" ? callbackDate || "" : "";
+
+    if (oldCallbackDate !== newCallbackDate) {
+      changes.push(
+        `Callback Date: "${oldCallbackDate || "N/A"}" → "${
+          newCallbackDate || "N/A"
+        }"`,
       );
     }
 
@@ -135,8 +182,17 @@ export async function PUT(
           passportType: passportType || null,
           leadSource: leadSource || null,
           jobApplied: jobApplied || null,
-          status: status || lead.status,
-          dueDate: dueDate ? new Date(dueDate) : null,
+          status: effectiveStatus,
+          ...(effectiveStatus === "call-back"
+            ? {
+                callbackDate: new Date(callbackDate + "T00:00:00"),
+                callbackSeen: false,
+              }
+            : {
+                callbackDate: null,
+                callbackSeen: false,
+              }),
+          dueDate: dueDate ? new Date(dueDate + "T00:00:00") : null,
           updatedAt: now,
         },
         $push: {
