@@ -82,7 +82,7 @@ export async function PUT(
         );
       }
 
-      const selectedDate = new Date(callbackDate + "T00:00:00+05:30");
+      const selectedDate = new Date(callbackDate + "T00:00:00");
 
       if (isNaN(selectedDate.getTime())) {
         return NextResponse.json(
@@ -185,7 +185,7 @@ export async function PUT(
           status: effectiveStatus,
           ...(effectiveStatus === "call-back"
             ? {
-                callbackDate: new Date(callbackDate + "T00:00:00+05:30"),
+                callbackDate: new Date(callbackDate + "T00:00:00"),
                 callbackSeen: false,
               }
             : {

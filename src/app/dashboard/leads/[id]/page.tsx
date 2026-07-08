@@ -1192,7 +1192,7 @@ export default function LeadDetailPage() {
                       ))}
                     </select>
                   </div>
-                {editForm.status === "call-back" && (
+                  {editForm.status === "call-back" && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Callback Date
@@ -1293,7 +1293,7 @@ export default function LeadDetailPage() {
                 </span>
               </div>
 
-            {/* ── Status select ── */}
+              {/* ── Status select ── */}
               <div className="mb-6 flex flex-col sm:flex-row sm:flex-wrap gap-4">
                 <div className="w-full sm:w-auto sm:min-w-[220px]">
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1659,7 +1659,11 @@ export default function LeadDetailPage() {
                     if (!noteAdded) return; // note failed — stop
 
                     // 2. Update status if changed (returns true if page will redirect)
-                    if (selectedStatus !== lead.status) {
+                    // 2. Update status if changed, OR if callback date needs saving
+                    if (
+                      selectedStatus !== lead.status ||
+                      selectedStatus === "call-back"
+                    ) {
                       const willRedirect =
                         await handleStatusUpdate(selectedStatus);
                       if (willRedirect) return;
