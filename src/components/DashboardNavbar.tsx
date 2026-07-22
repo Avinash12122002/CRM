@@ -11,7 +11,7 @@ type DashboardNavbarProps = {
     id: number;
     name: string;
     email?: string;
-    role: "admin" | "employee" | "meeting";
+    role: "admin" | "employee" | "meeting" | "business_development";
   };
 };
 
@@ -109,20 +109,22 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               >
                 Dashboard
               </Link>
-              <Link
-                href="/dashboard/leads"
-                className={`${
-                  isActive("/dashboard/leads")
-                    ? "border-b-2 border-foreground"
-                    : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center px-1 pt-1 text-sm font-medium ${
-                  isActive("/dashboard/leads")
-                    ? ""
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                }`}
-              >
-                Leads
-              </Link>
+              {user.role !== "business_development" && (
+                <Link
+                  href="/dashboard/leads"
+                  className={`${
+                    isActive("/dashboard/leads")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/dashboard/leads")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Leads
+                </Link>
+              )}
               <Link
                 href="/dashboard/activity"
                 className={`${
@@ -168,6 +170,56 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   }`}
                 >
                   Meetings
+                </Link>
+              )}
+              {(user.role === "employee" || user.role === "meeting") && (
+                <Link
+                  href="/dashboard/data-entry"
+                  className={`${
+                    isActive("/dashboard/data-entry")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/dashboard/data-entry")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Data Entry
+                </Link>
+              )}
+              {user.role === "business_development" && (
+                <Link
+                  href="/dashboard/bd-pipeline"
+                  className={`${
+                    isActive("/dashboard/bd-pipeline") ||
+                    pathname.startsWith("/dashboard/bd-pipeline/")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/dashboard/bd-pipeline") ||
+                    pathname.startsWith("/dashboard/bd-pipeline/")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  BD Pipeline
+                </Link>
+              )}
+              {user.role === "admin" && (
+                <Link
+                  href="/dashboard/bd-analytics"
+                  className={`${
+                    isActive("/dashboard/bd-analytics")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/dashboard/bd-analytics")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  BD Analytics
                 </Link>
               )}
               {user.role === "admin" && (
@@ -267,9 +319,11 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard" className={navLinkClass(isActive("/dashboard"))}>
               Dashboard
             </Link>
-            <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
-              Leads
-            </Link>
+            {user.role !== "business_development" && (
+              <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
+                Leads
+              </Link>
+            )}
             <Link href="/dashboard/activity" className={navLinkClass(isActive("/dashboard/activity"))}>
               Activity
             </Link>
@@ -289,6 +343,33 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 className={navLinkClass(isActive("/dashboard/meetings"))}
               >
                 Meetings
+              </Link>
+            )}
+            {(user.role === "employee" || user.role === "meeting") && (
+              <Link
+                href="/dashboard/data-entry"
+                className={navLinkClass(isActive("/dashboard/data-entry"))}
+              >
+                Data Entry
+              </Link>
+            )}
+            {user.role === "business_development" && (
+              <Link
+                href="/dashboard/bd-pipeline"
+                className={navLinkClass(
+                  isActive("/dashboard/bd-pipeline") ||
+                    pathname.startsWith("/dashboard/bd-pipeline/")
+                )}
+              >
+                BD Pipeline
+              </Link>
+            )}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/bd-analytics"
+                className={navLinkClass(isActive("/dashboard/bd-analytics"))}
+              >
+                BD Analytics
               </Link>
             )}
             {user.role === "admin" && (

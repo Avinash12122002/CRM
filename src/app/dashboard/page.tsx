@@ -12,12 +12,27 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting";
+  role: "admin" | "employee" | "meeting" | "business_development";
 };
 
 type LeadStats = {
   dueToday: number;
   newAssigned: number;
+};
+
+type BDStats = {
+  totalAssigned: number;
+  newLead: number;
+  researchStarted: number;
+  initialContact: number;
+  meetingScheduled: number;
+  followUp: number;
+  dealDone: number;
+  lost: number;
+  target: number;
+  totalCreated: number;
+  remaining: number;
+  targetCompleted: boolean;
 };
 
 type MeetingStats = {
@@ -112,6 +127,65 @@ export default function DashboardPage() {
     },
   });
   const [loadingAdminStats, setLoadingAdminStats] = useState(false);
+  const [bdStats, setBdStats] = useState<BDStats | null>(null);
+  const [loadingBdStats, setLoadingBdStats] = useState(false);
+
+  const fetchBDStats = async () => {
+    setLoadingBdStats(true);
+    try {
+      const [leadsRes, targetRes] = await Promise.all([
+        fetch("/api/bd/leads/list"),
+        fetch("/api/bd/targets/today"),
+      ]);
+
+      const counts = {
+        totalAssigned: 0,
+        newLead: 0,
+        researchStarted: 0,
+        initialContact: 0,
+        meetingScheduled: 0,
+        followUp: 0,
+        dealDone: 0,
+        lost: 0,
+      };
+
+      if (leadsRes.ok) {
+        const data = await leadsRes.json();
+        type BDLeadRow = { status: string; pipelineStage: string };
+        const leads: BDLeadRow[] = data.leads || [];
+        counts.totalAssigned = leads.length;
+        for (const l of leads) {
+          if (l.status === "lost") counts.lost++;
+          else if (l.status === "deal_done") counts.dealDone++;
+          else if (l.pipelineStage === "New Lead") counts.newLead++;
+          else if (l.pipelineStage === "Research Started" || l.pipelineStage === "Priority Set")
+            counts.researchStarted++;
+          else if (l.pipelineStage === "Initial Contact" || l.pipelineStage === "Response Received")
+            counts.initialContact++;
+          else if (l.pipelineStage === "Meeting Scheduled") counts.meetingScheduled++;
+          else if (l.pipelineStage === "Follow Up") counts.followUp++;
+        }
+      }
+
+      let target = 25;
+      let totalCreated = 0;
+      let remaining = 25;
+      let targetCompleted = false;
+      if (targetRes.ok) {
+        const t = await targetRes.json();
+        target = t.target;
+        totalCreated = t.totalCreated;
+        remaining = t.remaining;
+        targetCompleted = t.targetCompleted;
+      }
+
+      setBdStats({ ...counts, target, totalCreated, remaining, targetCompleted });
+    } catch (err) {
+      console.error("Failed to fetch BD stats:", err);
+    } finally {
+      setLoadingBdStats(false);
+    }
+  };
 
   const fetchAdminStats = async () => {
     setLoadingAdminStats(true);
@@ -237,6 +311,12 @@ export default function DashboardPage() {
         if (data.role === "admin") {
           fetchAdminStats();
         }
+        if (data.role === "business_development") {
+          fetchBDStats();
+          // FIX: BD users had no time tracking despite having a check-in/out flow —
+          // now pulls the same work-hours summary employees/meeting users get.
+          fetchWorkHours();
+        }
       } catch (err) {
         console.error(err);
         router.push("/");
@@ -284,6 +364,25 @@ export default function DashboardPage() {
                   />
                 </svg>
                 <span>{loadingAdminStats ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            )}
+            {user.role === "business_development" && (
+              <button
+                onClick={() => { fetchBDStats(); fetchWorkHours(); }}
+                disabled={loadingBdStats}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              >
+                <svg
+                  className={`w-5 h-5 ${loadingBdStats ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>{loadingBdStats ? "Refreshing..." : "Refresh"}</span>
               </button>
             )}
           </div>
@@ -546,6 +645,137 @@ export default function DashboardPage() {
                 </div>
                
               </>
+            )}
+          </div>
+        ) : user.role === "business_development" ? (
+          /* ══════════════════════════════════════════════════
+              BUSINESS DEVELOPMENT DASHBOARD
+          ══════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            {loadingBdStats ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <button
+                      onClick={() => router.push("/dashboard/bd-pipeline")}
+                      className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-2xl">🧭</span>
+                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {bdStats?.totalAssigned ?? 0}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-200">My Pipeline</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Total leads assigned</p>
+                    </button>
+
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-2xl">✅</span>
+                        <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                          {bdStats?.dealDone ?? 0}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Deals Done</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Closed successfully</p>
+                    </div>
+
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-2xl">❌</span>
+                        <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                          {bdStats?.lost ?? 0}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-red-900 dark:text-red-200">Lost</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">Did not convert</p>
+                    </div>
+
+                    <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-2xl">📈</span>
+                        <span className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                          {bdStats && bdStats.totalAssigned > 0
+                            ? `${Math.round((bdStats.dealDone / bdStats.totalAssigned) * 100)}%`
+                            : "0%"}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-violet-900 dark:text-violet-200">Conversion Rate</p>
+                      <p className="text-xs text-violet-600 dark:text-violet-400 mt-1">Deals / total assigned</p>
+                    </div>
+                  </div>
+
+                  {/* Pipeline stage breakdown */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+                      Pipeline Breakdown
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { key: "newLead",          label: "New Lead",             emoji: "🆕", color: "bg-blue-500"    },
+                        { key: "researchStarted",  label: "Research / Priority",  emoji: "🔎", color: "bg-indigo-500"  },
+                        { key: "initialContact",   label: "Contact / Response",   emoji: "📞", color: "bg-cyan-500"    },
+                        { key: "meetingScheduled", label: "Meeting Scheduled",    emoji: "📅", color: "bg-purple-500"  },
+                        { key: "followUp",         label: "Follow Up",            emoji: "🔁", color: "bg-yellow-500"  },
+                        { key: "dealDone",         label: "Deal Done",            emoji: "✅", color: "bg-emerald-500" },
+                        { key: "lost",             label: "Lead Lost",            emoji: "❌", color: "bg-red-500"     },
+                      ].map(({ key, label, emoji, color }) => {
+                        const value = (bdStats?.[key as keyof BDStats] as number) ?? 0;
+                        const total = bdStats?.totalAssigned || 1;
+                        const pct = Math.round((value / total) * 100);
+                        return (
+                          <div key={key}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {emoji} {label}
+                              </span>
+                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                {value} <span className="text-xs text-zinc-400">({pct}%)</span>
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Work Hours — FIX: BD users had no time tracking summary, added to match employee/meeting dashboards */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
+                    <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                      Track your work hours and manage your daily activities.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Today's Hours",  value: `${workHours.today}h`       },
+                        { label: "This Week",      value: `${workHours.thisWeek}h`    },
+                        { label: "This Month",     value: `${workHours.thisMonth}h`   },
+                        { label: "Working Days",   value: String(workHours.workingDays) },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Check-in/Check-out — FIX: added so BD role can clock in/out like employee/meeting roles */}
+                <div>
+                  <CheckInOutCard />
+                </div>
+              </div>
             )}
           </div>
         ) : (

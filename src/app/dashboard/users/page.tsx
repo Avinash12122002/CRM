@@ -9,7 +9,7 @@ type User = {
   id: number;
   name: string;
   username: string;
-  role: "admin" | "employee" | "meeting";
+  role: "admin" | "employee" | "meeting" | "business_development";
   createdAt: string;
 };
 
@@ -17,7 +17,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting";
+  role: "admin" | "employee" | "meeting" | "business_development";
 };
 
 export default function UsersPage() {
@@ -324,7 +324,9 @@ export default function UsersPage() {
                                 ? "bg-red-100 text-red-800"
                                 : user.role === "meeting"
                                   ? "bg-purple-100 text-purple-800"
-                                  : "bg-blue-100 text-blue-800"
+                                  : user.role === "business_development"
+                                    ? "bg-teal-100 text-teal-800"
+                                    : "bg-blue-100 text-blue-800"
                             }`}
                           >
                             {user.role}
@@ -594,8 +596,9 @@ export default function UsersPage() {
                   }
                   className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="employee">Employee</option>
+                  <option value="employee">Employee (Sales Team)</option>
                   <option value="meeting">Meeting</option>
+                  <option value="business_development">Business Development</option>
                 </select>
               </div>
 
