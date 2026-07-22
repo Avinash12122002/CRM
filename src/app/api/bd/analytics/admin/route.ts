@@ -22,6 +22,33 @@ function startOfRange(range: string) {
   return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
+/**
+ * Inclusive-start / exclusive-end datetime window for a range. Used to scope
+ * every metric (not just the submissions table) so switching the dropdown to
+ * Weekly/Monthly/etc. actually filters leads, funnels, stage durations and the
+ * headline numbers instead of silently showing lifetime data.
+ */
+function rangeWindow(range: string): { start: Date; end: Date } {
+  const now = new Date();
+  if (range === "today") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    return { start, end };
+  }
+  if (range === "yesterday") {
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return { start, end };
+  }
+  if (range === "weekly") {
+    const start = new Date(now);
+    start.setDate(start.getDate() - 7);
+    return { start, end: now };
+  }
+  // monthly
+  return { start: new Date(now.getFullYear(), now.getMonth(), 1), end: now };
+}
+
 export async function GET(req: NextRequest) {
   try {
     const payload = getAuthPayload(req);
@@ -77,8 +104,25 @@ export async function GET(req: NextRequest) {
       .project({ id: 1, name: 1 })
       .toArray();
 
-    const allLeads = await db.collection(BD_COLLECTIONS.leads).find({}).toArray();
-    const allHistory = await db.collection(BD_COLLECTIONS.pipelineHistory).find({}).toArray();
+    // Scope every downstream metric to the selected range. We treat the range
+    // as a cohort of leads *created* within the window (consistent with the
+    // daily submission table above), and only consider pipeline history for
+    // that cohort. Previously these were `find({})` — lifetime data — so the
+    // dropdown only affected the submissions table.
+    const { start: rangeStart, end: rangeEnd } = rangeWindow(range);
+
+    const allLeads = await db
+      .collection(BD_COLLECTIONS.leads)
+      .find({ createdAt: { $gte: rangeStart, $lt: rangeEnd } })
+      .toArray();
+
+    const cohortLeadIds = allLeads.map((l) => l.id);
+    const allHistory = cohortLeadIds.length
+      ? await db
+          .collection(BD_COLLECTIONS.pipelineHistory)
+          .find({ leadId: { $in: cohortLeadIds } })
+          .toArray()
+      : [];
 
     const bdPerformance = bdUsers.map((bd) => {
       const bdLeads = allLeads.filter((l) => l.assignedTo === bd.id);
@@ -101,9 +145,18 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // ---- 3. Stage duration (avg time spent in each stage, across all leads) ----
+    // ---- 3. Stage duration (avg time spent in each COMPLETED stage) ----
+    // Only stages the lead has actually moved on from count toward the average,
+    // i.e. the transition entries[i] -> entries[i+1] both exist. A lead still
+    // sitting in its current stage is tracked separately as `ongoing` and left
+    // out of the average, so an in-progress stall no longer inflates the
+    // "typical completed time-in-stage" number.
     const stageDurations: Record<string, number[]> = {};
-    PIPELINE_STAGES.forEach((s) => (stageDurations[s] = []));
+    const stageOngoing: Record<string, number> = {};
+    PIPELINE_STAGES.forEach((s) => {
+      stageDurations[s] = [];
+      stageOngoing[s] = 0;
+    });
 
     const historyByLead: Record<number, typeof allHistory> = {};
     for (const h of allHistory) {
@@ -118,11 +171,15 @@ export async function GET(req: NextRequest) {
       for (let i = 0; i < entries.length; i++) {
         const stage = entries[i].toStage;
         if (!PIPELINE_STAGES.includes(stage)) continue;
-        const enteredAt = new Date(entries[i].changedAt).getTime();
-        const leftAt = entries[i + 1]
-          ? new Date(entries[i + 1].changedAt).getTime()
-          : Date.now();
-        stageDurations[stage].push(leftAt - enteredAt);
+        if (entries[i + 1]) {
+          // Completed stage: we know when the lead left it.
+          const enteredAt = new Date(entries[i].changedAt).getTime();
+          const leftAt = new Date(entries[i + 1].changedAt).getTime();
+          stageDurations[stage].push(leftAt - enteredAt);
+        } else {
+          // Still sitting in this stage — excluded from the average.
+          stageOngoing[stage] += 1;
+        }
       }
     }
 
@@ -135,6 +192,7 @@ export async function GET(req: NextRequest) {
         stage,
         avgHours: Math.round((avgMs / (1000 * 60 * 60)) * 10) / 10,
         sampleSize: durations.length,
+        ongoing: stageOngoing[stage],
       };
     });
 

@@ -18,8 +18,16 @@ export async function GET(req: NextRequest) {
     const priority = searchParams.get("priority") || "";
     const assignedTo = searchParams.get("assignedTo") || "";
     const search = searchParams.get("search") || "";
+    // Filter to leads *created* on a specific calendar day (YYYY-MM-DD),
+    // interpreted in Asia/Kolkata (IST, UTC+05:30) so "that particular date"
+    // matches what the user sees locally regardless of how createdAt is stored.
+    const createdDate = searchParams.get("createdDate") || "";
     const page = Math.max(parseInt(searchParams.get("page") || "1") || 1, 1);
     const limit = Math.max(parseInt(searchParams.get("limit") || "10") || 10, 1);
+    // Date sort by creation time: "date_asc" (oldest first) or "date_desc"
+    // (newest first, the default).
+    const sortParam = searchParams.get("sort") || "date_desc";
+    const sortDir = sortParam === "date_asc" ? 1 : -1;
     // "assigned" (default) = leads assigned to me (BD Pipeline view)
     // "created" = leads I personally submitted (Data Entry history view)
     const view = searchParams.get("view") || "assigned";
@@ -52,6 +60,13 @@ export async function GET(req: NextRequest) {
     if (stage) filter.pipelineStage = stage;
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
+    if (createdDate) {
+      const start = new Date(`${createdDate}T00:00:00.000+05:30`);
+      if (!Number.isNaN(start.getTime())) {
+        const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+        filter.createdAt = { $gte: start, $lt: end };
+      }
+    }
     if (search) {
       filter.$or = [
         { companyName: { $regex: search, $options: "i" } },
@@ -70,7 +85,7 @@ export async function GET(req: NextRequest) {
       const leads = await db
         .collection(BD_COLLECTIONS.leads)
         .find(filter)
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: sortDir })
         .toArray();
 
       return NextResponse.json({ leads });
@@ -83,7 +98,7 @@ export async function GET(req: NextRequest) {
     const leads = await db
       .collection(BD_COLLECTIONS.leads)
       .find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: sortDir })
       .skip((safePage - 1) * limit)
       .limit(limit)
       .toArray();

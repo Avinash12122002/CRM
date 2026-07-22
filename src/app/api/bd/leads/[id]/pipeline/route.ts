@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getNextId } from "@/lib/auth";
 import { createNotification } from "@/lib/notifications";
-import { getAuthPayload, logBDActivity } from "@/lib/bd/helpers";
+import { getAuthPayload, logBDActivity, getAdminUser } from "@/lib/bd/helpers";
 import {
   BD_COLLECTIONS,
   BD_ROLE,
@@ -86,10 +86,21 @@ export async function POST(
     }
 
     const isDealDone = nextStage === "Deal Done";
+    let newOwner: { id: number; name: string } | null = null;
     if (isDealDone) {
       updateFields.status = "deal_done";
       updateFields.completedDate = now;
       updateFields.locked = true;
+
+      // Ownership transfers to Admin once a deal closes. Resolve a real
+      // admin account and actually move assignedTo — previously this only
+      // logged an "Ownership Changed" activity entry without touching the
+      // lead, so filters/views keyed on assignedTo never reflected it.
+      newOwner = await getAdminUser(db, payload);
+      if (newOwner) {
+        updateFields.assignedTo = newOwner.id;
+        updateFields.assignedToName = newOwner.name;
+      }
     }
 
     await db.collection(BD_COLLECTIONS.leads).updateOne({ id: leadId }, { $set: updateFields });
@@ -137,15 +148,17 @@ export async function POST(
         userId: payload.id,
         userName: payload.name,
       });
-      await logBDActivity({
-        db,
-        leadId,
-        action: "Ownership Changed",
-        userId: payload.id,
-        userName: payload.name,
-        previousValue: lead.assignedToName,
-        newValue: "Admin",
-      });
+      if (newOwner) {
+        await logBDActivity({
+          db,
+          leadId,
+          action: "Ownership Changed",
+          userId: payload.id,
+          userName: payload.name,
+          previousValue: lead.assignedToName,
+          newValue: newOwner.name,
+        });
+      }
 
       // Notify creator that their lead resulted in a deal
       await createNotification({

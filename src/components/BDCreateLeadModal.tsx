@@ -25,9 +25,13 @@ const emptyForm = {
 export default function BDCreateLeadModal({
   onClose,
   onCreated,
+  selfAssign = true,
 }: {
   onClose: () => void;
   onCreated: (leadId: number) => void;
+  // When true (BD user) the lead is self-assigned; when false (admin) it's
+  // round-robin'd to a Business Development user.
+  selfAssign?: boolean;
 }) {
   const [form, setForm] = useState({ ...emptyForm });
   const [submitting, setSubmitting] = useState(false);
@@ -62,7 +66,11 @@ export default function BDCreateLeadModal({
         return;
       }
 
-      toast.success("Lead Created Successfully — assigned to you");
+      toast.success(
+        selfAssign
+          ? "Lead Created Successfully — assigned to you"
+          : `Lead Created Successfully — assigned to ${data.assignedToName || "a BD user"}`
+      );
       onCreated(data.lead.id);
     } catch (err) {
       console.error(err);
@@ -92,7 +100,9 @@ export default function BDCreateLeadModal({
           </button>
         </div>
         <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-          This lead will be assigned to you directly — no daily quota applies here.
+          {selfAssign
+            ? "This lead will be assigned to you directly — no daily quota applies here."
+            : "This lead will be auto-assigned to a Business Development user (round-robin)."}
         </p>
 
         <form onSubmit={handleSubmit}>

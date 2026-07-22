@@ -56,6 +56,8 @@ type StoredFilters = {
   search: string;
   stageFilter: string;
   statusFilter: string;
+  sortOrder: string;
+  dateFilter: string;
   page: number;
   limit: number;
 };
@@ -74,6 +76,8 @@ export default function BDPipelinePage() {
   const [stageFilter, setStageFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState("date_desc");
+  const [dateFilter, setDateFilter] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const filtersLoadedRef = useRef(false);
 
@@ -109,6 +113,8 @@ export default function BDPipelinePage() {
         setSearch(filters.search || "");
         setStageFilter(filters.stageFilter || "");
         setStatusFilter(filters.statusFilter || "");
+        setSortOrder(filters.sortOrder || "date_desc");
+        setDateFilter(filters.dateFilter || "");
         setPagination((prev) => ({
           ...prev,
           page: filters.page || 1,
@@ -128,17 +134,21 @@ export default function BDPipelinePage() {
       search,
       stageFilter,
       statusFilter,
+      sortOrder,
+      dateFilter,
       page: pagination.page,
       limit: pagination.limit,
     };
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
-  }, [search, stageFilter, statusFilter, pagination.page, pagination.limit]);
+  }, [search, stageFilter, statusFilter, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   const loadLeads = useCallback(async () => {
     const params = new URLSearchParams();
     if (stageFilter) params.set("stage", stageFilter);
     if (statusFilter) params.set("status", statusFilter);
     if (search) params.set("search", search);
+    if (dateFilter) params.set("createdDate", dateFilter);
+    params.set("sort", sortOrder);
     params.set("page", String(pagination.page));
     params.set("limit", String(pagination.limit));
 
@@ -169,12 +179,12 @@ export default function BDPipelinePage() {
         }, 100);
       }
     }
-  }, [stageFilter, statusFilter, search, pagination.page, pagination.limit]);
+  }, [stageFilter, statusFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   useEffect(() => {
     if (user && filtersLoadedRef.current) loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, stageFilter, statusFilter, search, pagination.page, pagination.limit]);
+  }, [user, stageFilter, statusFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   const goToLead = (leadId: number) => {
     sessionStorage.setItem(SELECTED_LEAD_KEY, String(leadId));
@@ -268,6 +278,42 @@ export default function BDPipelinePage() {
             <option value="deal_done">Deal Done</option>
             <option value="lost">Lost</option>
           </select>
+          <select
+            value={sortOrder}
+            onChange={(e) => {
+              setSortOrder(e.target.value);
+              setPagination((p) => ({ ...p, page: 1 }));
+            }}
+            className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+          >
+            <option value="date_desc">Newest first</option>
+            <option value="date_asc">Oldest first</option>
+          </select>
+          <div className="flex items-center gap-1">
+            <input
+              type="date"
+              value={dateFilter}
+              max={new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })}
+              onChange={(e) => {
+                setDateFilter(e.target.value);
+                setPagination((p) => ({ ...p, page: 1 }));
+              }}
+              title="Show leads created on this date"
+              className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+            />
+            {dateFilter && (
+              <button
+                onClick={() => {
+                  setDateFilter("");
+                  setPagination((p) => ({ ...p, page: 1 }));
+                }}
+                title="Clear date filter"
+                className="px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">

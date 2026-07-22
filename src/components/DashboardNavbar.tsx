@@ -208,6 +208,24 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               )}
               {user.role === "admin" && (
                 <Link
+                  href="/dashboard/bd-leads"
+                  className={`${
+                    isActive("/dashboard/bd-leads") ||
+                    pathname.startsWith("/dashboard/bd-leads/")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/dashboard/bd-leads") ||
+                    pathname.startsWith("/dashboard/bd-leads/")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  BD Leads
+                </Link>
+              )}
+              {user.role === "admin" && (
+                <Link
                   href="/dashboard/bd-analytics"
                   className={`${
                     isActive("/dashboard/bd-analytics")
@@ -362,6 +380,17 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 )}
               >
                 BD Pipeline
+              </Link>
+            )}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/bd-leads"
+                className={navLinkClass(
+                  isActive("/dashboard/bd-leads") ||
+                    pathname.startsWith("/dashboard/bd-leads/")
+                )}
+              >
+                BD Leads
               </Link>
             )}
             {user.role === "admin" && (

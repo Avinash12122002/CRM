@@ -26,7 +26,12 @@ type Analytics = {
     dealDone: number;
     leadLost: number;
   }[];
-  stageDurationSummary: { stage: string; avgHours: number; sampleSize: number }[];
+  stageDurationSummary: {
+    stage: string;
+    avgHours: number;
+    sampleSize: number;
+    ongoing?: number;
+  }[];
   metrics: {
     totalLeads: number;
     totalMeetingsScheduled: number;
@@ -161,13 +166,14 @@ export default function BDAnalyticsPage() {
             </Section>
 
             {/* Stage Duration */}
-            <Section title="Stage Duration (average time spent, in hours)">
+            <Section title="Stage Duration (average completed time, in hours)">
               <Table
-                headers={["Stage", "Avg Hours", "Sample Size"]}
+                headers={["Stage", "Avg Hours", "Completed", "Still In Stage"]}
                 rows={data.stageDurationSummary.map((s) => [
                   s.stage,
                   String(s.avgHours),
                   String(s.sampleSize),
+                  String(s.ongoing ?? 0),
                 ])}
                 emptyLabel="Not enough data yet"
               />

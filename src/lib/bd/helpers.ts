@@ -14,8 +14,12 @@ export function getAuthPayload(req: NextRequest): Record<string, any> | null {
 
 /**
  * Round-robin picker for Business Development users.
- * Keeps a single pointer document in bdconfig so distribution is even
- * and survives restarts/deploys.
+ *
+ * Keeps a single pointer document in bdconfig so distribution is even and
+ * survives restarts/deploys. The pointer is advanced with an atomic
+ * findOneAndUpdate $inc (same pattern as getNextId) so two leads submitted at
+ * the exact same instant each read a distinct sequence value and land on
+ * different BD users instead of colliding on the same one.
  */
 export async function pickNextBDUser(db: Db) {
   const bdUsers = await db
@@ -27,27 +31,62 @@ export async function pickNextBDUser(db: Db) {
 
   if (!bdUsers.length) return null;
 
-  const configDoc = await db
-    .collection(BD_COLLECTIONS.config)
-    .findOne({ _id: "bd_round_robin" } as never);
+  // Atomically claim the next sequence number. Concurrent callers can never
+  // observe the same value, which closes the previous read-then-write race.
+  const result = await db.collection(BD_COLLECTIONS.config).findOneAndUpdate(
+    { _id: "bd_round_robin" } as never,
+    { $inc: { assignSeq: 1 }, $set: { updatedAt: new Date() } },
+    { upsert: true, returnDocument: "after" }
+  );
 
-  const lastId = configDoc?.lastAssignedUserId;
-  let nextIndex = 0;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = (result?.value ?? result) as any;
+  const seq: number = doc?.assignSeq ?? 1;
+  const index = (seq - 1) % bdUsers.length;
+  const nextUser = bdUsers[index];
 
-  if (lastId !== undefined && lastId !== null) {
-    const lastIndex = bdUsers.findIndex((u) => u.id === lastId);
-    nextIndex = lastIndex === -1 ? 0 : (lastIndex + 1) % bdUsers.length;
-  }
-
-  const nextUser = bdUsers[nextIndex];
-
+  // Keep lastAssignedUserId around purely for observability/debugging.
   await db.collection(BD_COLLECTIONS.config).updateOne(
     { _id: "bd_round_robin" } as never,
-    { $set: { lastAssignedUserId: nextUser.id, updatedAt: new Date() } },
-    { upsert: true }
+    { $set: { lastAssignedUserId: nextUser.id } }
   );
 
   return nextUser as { id: number; name: string };
+}
+
+/**
+ * Resolve a real Admin account to receive ownership of a lead once it closes
+ * (Deal Done / Lead Lost). Returns the lowest-id admin so ownership transfer
+ * is deterministic, or null if no admin exists (caller then leaves the lead
+ * with its current owner rather than pointing assignedTo at a missing user).
+ */
+export async function getAdminUser(
+  db: Db,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _payload?: Record<string, any>
+): Promise<{ id: number; name: string } | null> {
+  const admin = await db
+    .collection("users")
+    .find({ role: "admin" })
+    .project({ id: 1, name: 1 })
+    .sort({ id: 1 })
+    .limit(1)
+    .toArray();
+
+  if (!admin.length) return null;
+  return { id: admin[0].id, name: admin[0].name };
+}
+
+/**
+ * Every admin account (used to fan out notifications so a newly created BD
+ * lead is visible to all admins, not just one).
+ */
+export async function getAllAdmins(db: Db) {
+  return db
+    .collection("users")
+    .find({ role: "admin" })
+    .project({ id: 1, name: 1 })
+    .toArray() as Promise<{ id: number; name: string }[]>;
 }
 
 interface LogActivityParams {

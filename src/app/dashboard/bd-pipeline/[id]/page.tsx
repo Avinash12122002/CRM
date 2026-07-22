@@ -111,11 +111,17 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
   const [lostReason, setLostReason] = useState("");
   const [markingLost, setMarkingLost] = useState(false);
 
+  // Where "Back" and post-action redirects should land. Admins reach this
+  // page from the BD Leads list (there's no BD Pipeline nav for them), so send
+  // them back there instead of to /dashboard/bd-pipeline.
+  const listPath = () =>
+    user?.role === "admin" ? "/dashboard/bd-leads" : "/dashboard/bd-pipeline";
+
   const load = useCallback(async () => {
     const res = await fetch(`/api/bd/leads/${id}`);
     if (!res.ok) {
       toast.error("Lead not found or access denied");
-      router.push("/dashboard/bd-pipeline");
+      router.push(listPath());
       return;
     }
     const data = await res.json();
@@ -140,6 +146,9 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
       leadSourceOther: data.lead.leadSourceOther || "",
       remarks: data.lead.remarks || "",
     });
+    // listPath intentionally omitted — the error redirect it powers is a rare
+    // path and we don't want load() re-created on every user change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, router]);
 
   useEffect(() => {
@@ -250,7 +259,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
 
       if (nextStage === "Deal Done") {
         sessionStorage.setItem(SELECTED_LEAD_KEY, String(id));
-        router.push("/dashboard/bd-pipeline");
+        router.push(listPath());
         return;
       }
       load();
@@ -282,7 +291,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
       setShowLostModal(false);
       setLostReason("");
       sessionStorage.setItem(SELECTED_LEAD_KEY, String(id));
-      router.push("/dashboard/bd-pipeline");
+      router.push(listPath());
     } catch {
       toast.error("Failed to mark lead as lost");
     } finally {
@@ -307,14 +316,14 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
         <button
           onClick={() => {
             sessionStorage.setItem(SELECTED_LEAD_KEY, String(lead.id));
-            router.push("/dashboard/bd-pipeline");
+            router.push(listPath());
           }}
           className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 font-medium transition cursor-pointer"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to BD Pipeline
+          {user?.role === "admin" ? "Back to BD Leads" : "Back to BD Pipeline"}
         </button>
 
         {/* Header */}

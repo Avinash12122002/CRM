@@ -35,6 +35,10 @@ function todayISO() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
+// Working date is locked to today — reps can't past-date or future-date a lead
+// (which would otherwise let them spin up a fresh 25-lead quota bucket on an
+// arbitrary date to "reset" or backdate their target tracking).
+
 const emptyForm = {
   industry: "",
   companyName: "",
@@ -219,7 +223,16 @@ export default function DataEntryPage() {
             <input
               type="date"
               value={workingDate}
-              onChange={(e) => setWorkingDate(e.target.value)}
+              min={todayISO()}
+              max={todayISO()}
+              onChange={(e) => {
+                const picked = e.target.value;
+                if (picked !== todayISO()) {
+                  toast.error("Working date is locked to today");
+                  return;
+                }
+                setWorkingDate(picked);
+              }}
               className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

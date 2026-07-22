@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getNextId } from "@/lib/auth";
-import { getAuthPayload, logBDActivity } from "@/lib/bd/helpers";
+import { getAuthPayload, logBDActivity, getAdminUser } from "@/lib/bd/helpers";
 import { BD_COLLECTIONS, BD_ROLE } from "@/lib/bd/constants";
 
 export async function POST(
@@ -50,16 +50,25 @@ export async function POST(
 
     const now = new Date();
 
+    // Ownership transfers to Admin once a lead is closed out as lost —
+    // actually move assignedTo (not just log a claim that it happened).
+    const newOwner = await getAdminUser(db, payload);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const setFields: Record<string, any> = {
+      status: "lost",
+      lostDate: now,
+      locked: true,
+      updatedAt: now,
+    };
+    if (newOwner) {
+      setFields.assignedTo = newOwner.id;
+      setFields.assignedToName = newOwner.name;
+    }
+
     await db.collection(BD_COLLECTIONS.leads).updateOne(
       { id: leadId },
-      {
-        $set: {
-          status: "lost",
-          lostDate: now,
-          locked: true,
-          updatedAt: now,
-        },
-      }
+      { $set: setFields }
     );
 
     const historyId = await getNextId(db, BD_COLLECTIONS.pipelineHistory);
@@ -83,15 +92,17 @@ export async function POST(
       previousValue: lead.pipelineStage,
       newValue: "Lead Lost",
     });
-    await logBDActivity({
-      db,
-      leadId,
-      action: "Ownership Changed",
-      userId: payload.id,
-      userName: payload.name,
-      previousValue: lead.assignedToName,
-      newValue: "Admin",
-    });
+    if (newOwner) {
+      await logBDActivity({
+        db,
+        leadId,
+        action: "Ownership Changed",
+        userId: payload.id,
+        userName: payload.name,
+        previousValue: lead.assignedToName,
+        newValue: newOwner.name,
+      });
+    }
 
     const updatedLead = await db.collection(BD_COLLECTIONS.leads).findOne({ id: leadId });
 

@@ -7,6 +7,7 @@ import {
   getAuthPayload,
   pickNextBDUser,
   logBDActivity,
+  getAllAdmins,
 } from "@/lib/bd/helpers";
 import {
   BD_COLLECTIONS,
@@ -21,6 +22,10 @@ function todayISO() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
+// Data-entry leads must be logged against today only — no past-dating and no
+// future-dating. This stops a rep from spinning up a fresh 25-lead quota bucket
+// on an arbitrary date to "reset" or backdate their target tracking.
+
 export async function POST(req: NextRequest) {
   try {
     const payload = getAuthPayload(req);
@@ -30,12 +35,17 @@ export async function POST(req: NextRequest) {
 
     // Sales/Meeting submit through the Data Entry module (daily quota, round-robin
     // assignment). Business Development creates and self-assigns their own leads
-    // directly from the BD Pipeline page — no quota, no round-robin.
+    // directly from the BD Pipeline page — no quota, no round-robin. Admin can
+    // also create leads from the BD Leads page; those are round-robin'd to a BD
+    // user (admin never owns an active lead) and carry no daily quota.
     const isSelfAssign = payload.role === BD_ROLE;
+    const isAdmin = payload.role === "admin";
+    // Only the daily-quota data-entry roles use a working date.
+    const needsWorkingDate = DATA_ENTRY_ROLES.includes(payload.role);
 
-    if (!DATA_ENTRY_ROLES.includes(payload.role) && !isSelfAssign) {
+    if (!DATA_ENTRY_ROLES.includes(payload.role) && !isSelfAssign && !isAdmin) {
       return NextResponse.json(
-        { message: "Only Sales Team, Meeting Team and Business Development can submit leads" },
+        { message: "Only Sales Team, Meeting Team, Business Development and Admin can submit leads" },
         { status: 403 }
       );
     }
@@ -60,9 +70,19 @@ export async function POST(req: NextRequest) {
       remarks,
     } = body;
 
-    if (!isSelfAssign && !workingDate) {
+    if (needsWorkingDate && !workingDate) {
       return NextResponse.json(
         { message: "Working date is required" },
+        { status: 400 }
+      );
+    }
+
+    // Working date is locked to today — enforced here (not just in the UI) so
+    // the quota bucket can't be gamed by posting a past- or future-dated day
+    // straight to the API.
+    if (needsWorkingDate && workingDate && workingDate !== todayISO()) {
+      return NextResponse.json(
+        { message: "Working date must be today — past and future dates are not allowed" },
         { status: 400 }
       );
     }
@@ -188,11 +208,47 @@ export async function POST(req: NextRequest) {
       newValue: { assignedTo: bdUser.id, assignedToName: bdUser.name },
     });
 
+    // Every BD lead is visible to Admin (full access). Notify all admins on
+    // creation so a new lead always surfaces to them, regardless of who it was
+    // round-robin'd or self-assigned to.
+    try {
+      const admins = await getAllAdmins(db);
+      await Promise.all(
+        admins
+          .filter((a) => a.id !== payload.id)
+          .map((a) =>
+            createNotification({
+              userId: a.id,
+              title: "New BD Lead",
+              message: `${lead.companyName || "New lead"} (${industry}) created by ${payload.name}, assigned to ${bdUser.name}`,
+              type: "bd_lead_created",
+              link: `/dashboard/bd-pipeline/${id}`,
+            })
+          )
+      );
+    } catch (notifyErr) {
+      // Notifications are best-effort — never fail lead creation over them.
+      console.error("Failed to notify admins of new BD lead", notifyErr);
+    }
+
+    // Whenever the lead is assigned to someone other than its creator
+    // (Sales/Meeting round-robin, or an admin-created lead), notify the BD
+    // owner it landed on.
+    if (!isSelfAssign) {
+      await createNotification({
+        userId: bdUser.id,
+        title: "New Lead Assigned",
+        message: `${lead.companyName || "New lead"} (${industry}) assigned to you by ${payload.name}`,
+        type: "bd_lead_assigned",
+        link: `/dashboard/bd-pipeline/${id}`,
+      });
+    }
+
     let dailyProgress = null;
 
-    if (!isSelfAssign) {
+    if (needsWorkingDate) {
       // Daily target tracking for the submitter (Sales / Meeting only —
-      // Business Development has no daily quota).
+      // Business Development and Admin have no daily quota).
       const targetFilter = { userId: payload.id, date: effectiveWorkingDate };
       const existingTarget = await db
         .collection(BD_COLLECTIONS.dailyTargets)
@@ -220,15 +276,6 @@ export async function POST(req: NextRequest) {
         target: DAILY_LEAD_TARGET,
         remaining: Math.max(DAILY_LEAD_TARGET - newTotal, 0),
       };
-
-      // Notify assigned BD user (only relevant when someone else assigned it to them)
-      await createNotification({
-        userId: bdUser.id,
-        title: "New Lead Assigned",
-        message: `${lead.companyName || "New lead"} (${industry}) assigned to you by ${payload.name}`,
-        type: "bd_lead_assigned",
-        link: `/dashboard/bd-pipeline/${id}`,
-      });
     }
 
     return NextResponse.json(
