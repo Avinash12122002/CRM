@@ -318,17 +318,17 @@ export default function BDPipelinePage() {
 
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700 text-xs">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Company</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Industry</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stage</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Company</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Industry</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Stage</th>
                   {user.role === "admin" && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned To</th>
+                    <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Assigned To</th>
                   )}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Created</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -346,8 +346,7 @@ export default function BDPipelinePage() {
                       className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
                       onClick={() => goToLead(lead.id)}
                     >
-                      <td className="px-6 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
-                        <Link
+                        <td className="px-3 py-2 text-xs font-medium text-gray-800 dark:text-gray-100 max-w-[280px] wrap-break-word whitespace-normal">                        <Link
                           href={`/dashboard/bd-pipeline/${lead.id}`}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -358,10 +357,10 @@ export default function BDPipelinePage() {
                           {lead.companyName || "Unnamed Lead"}
                         </Link>
                       </td>
-                      <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">{lead.industry}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 align-top">{lead.industry}</td>
                       <td className="px-6 py-3 text-sm">
                         {lead.priority ? (
-                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${PRIORITY_COLORS[lead.priority]}`}>
+                          <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${PRIORITY_COLORS[lead.priority]}`}>
                             {lead.priority}
                           </span>
                         ) : (
@@ -370,7 +369,7 @@ export default function BDPipelinePage() {
                       </td>
                       <td className="px-6 py-3 text-sm">
                         <span
-                          className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                          className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${
                             lead.status === "lost"
                               ? "bg-red-100 text-red-800"
                               : STAGE_COLORS[lead.pipelineStage] || "bg-gray-100 text-gray-700"
