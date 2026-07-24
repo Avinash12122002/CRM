@@ -121,6 +121,7 @@ export async function POST(req: NextRequest) {
       jobApplied: jobApplied || null,
 
       status: status || "new-lead",
+      isAgent: false,
       ...(status === "call-back"
         ? {
             callbackDate: new Date(callbackDate + "T00:00:00"),

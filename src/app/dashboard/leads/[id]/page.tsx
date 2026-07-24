@@ -42,6 +42,7 @@ interface Lead {
   leadSource?: string;
   jobApplied?: string;
   status: string;
+  isAgent?: boolean;
   dueDate?: string;
   callbackDate?: string;
   callbackSeen?: boolean;
@@ -82,6 +83,7 @@ export default function LeadDetailPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
   const [movingToAdmin, setMovingToAdmin] = useState(false);
+  const [togglingAgent, setTogglingAgent] = useState(false);
 
   const [adminUsers, setAdminUsers] = useState<{ id: number; name: string }[]>(
     [],
@@ -529,6 +531,42 @@ export default function LeadDetailPage() {
     }
   };
 
+  const handleToggleAgent = async () => {
+    if (!lead) return;
+    const nextValue = !lead.isAgent;
+    if (
+      !window.confirm(
+        nextValue
+          ? "Mark this lead as an Agent? This will flag them across the leads list."
+          : "Unmark this lead as an Agent?",
+      )
+    )
+      return;
+    setTogglingAgent(true);
+    try {
+      const res = await fetch(`/api/leads/${leadId}/agent`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isAgent: nextValue }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(
+          nextValue ? "Lead marked as an Agent" : "Lead unmarked as an Agent",
+        );
+        setLead((prev) => (prev ? { ...prev, isAgent: nextValue } : prev));
+        await fetchLead();
+      } else {
+        toast.error(data.message || "Failed to update agent status");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setTogglingAgent(false);
+    }
+  };
+
   // Called only from Submit — handles assign or meeting booking
   const handleAssignUser = async () => {
     if (!lead) {
@@ -856,15 +894,54 @@ export default function LeadDetailPage() {
               <>
                 {/* ─── Header ─── */}
                 <div className="flex justify-between items-start mb-6 flex-wrap gap-4">
-                  <h1 className="text-4xl font-bold text-gray-900">
-                    {lead.name}
-                  </h1>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h1 className="text-4xl font-bold text-gray-900">
+                      {lead.name}
+                    </h1>
+                    {lead.isAgent && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-amber-100 text-amber-800 border border-amber-300">
+                        <svg
+                          className="w-3.5 h-3.5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                        </svg>
+                        Agent
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3 flex-wrap">
                     <span
                       className={`px-4 py-2 text-sm font-bold rounded-full uppercase tracking-wide ${getStatusBadgeColor(lead.status)}`}
                     >
                       {lead.status}
                     </span>
+
+                    {(user.role === "admin" || lead.isOwner) && (
+                      <button
+                        onClick={handleToggleAgent}
+                        disabled={togglingAgent}
+                        className={`px-4 py-2 rounded-lg transition font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                          lead.isAgent
+                            ? "bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
+                            : "bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200"
+                        }`}
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                        </svg>
+                        {togglingAgent
+                          ? "Updating..."
+                          : lead.isAgent
+                            ? "Unmark Agent"
+                            : "Mark as Agent"}
+                      </button>
+                    )}
 
                     {(user.role === "admin" || lead.isOwner) && (
                       <button

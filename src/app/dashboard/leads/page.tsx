@@ -21,6 +21,7 @@ interface Lead {
   phone?: string;
   company?: string;
   status: string;
+  isAgent?: boolean;
   dueDate?: string;
   callbackDate?: string;
   callbackSeen?: boolean;
@@ -63,6 +64,7 @@ interface StoredFilters {
   assignedSearchQuery: string;
   selectedMonth: string;
   selectedYear: string;
+  agentFilter: string;
   page: number;
   limit: number;
 }
@@ -91,6 +93,7 @@ export default function LeadsPage() {
   const [selectedYear, setSelectedYear] = useState<string>(
     new Date().getFullYear().toString(),
   );
+  const [agentFilter, setAgentFilter] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
@@ -118,6 +121,7 @@ export default function LeadsPage() {
           setSelectedYear(
             filters.selectedYear || new Date().getFullYear().toString(),
           );
+          setAgentFilter(filters.agentFilter || "");
           setPagination((prev) => ({
             ...prev,
             page: filters.page || 1,
@@ -141,6 +145,7 @@ export default function LeadsPage() {
         assignedSearchQuery,
         selectedMonth,
         selectedYear,
+        agentFilter,
         page: pagination.page,
         limit: pagination.limit,
       };
@@ -154,6 +159,7 @@ export default function LeadsPage() {
     assignedSearchQuery,
     selectedMonth,
     selectedYear,
+    agentFilter,
     pagination.page,
     pagination.limit,
   ]);
@@ -177,6 +183,7 @@ export default function LeadsPage() {
     selectedAssigned,
     selectedMonth,
     selectedYear,
+    agentFilter,
   ]);
 
   useEffect(() => {
@@ -240,6 +247,7 @@ export default function LeadsPage() {
         url += `&assignedTo=${encodeURIComponent(selectedAssigned)}`;
       if (selectedMonth) url += `&month=${selectedMonth}`;
       if (selectedYear) url += `&year=${selectedYear}`;
+      if (agentFilter) url += `&isAgent=${agentFilter}`;
 
       const res = await fetch(url);
       if (res.ok) {
@@ -345,6 +353,50 @@ export default function LeadsPage() {
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100";
     }
+  };
+
+  // Restrained row styling: a thin left accent border communicates priority/role
+  // without washing the whole row in a loud background color.
+  const getRowAccentClasses = (lead: Lead) => {
+    // Not visible to this viewer (employee/meeting looking at someone else's lead)
+    if (user && user.role !== "admin" && !lead.isOwner) {
+      return "border-l-4 border-l-transparent bg-gray-50/70 dark:bg-gray-900/30 opacity-60";
+    }
+
+    // Agent-flagged leads get top visual priority
+    if (lead.isAgent) {
+      return "border-l-4 border-l-amber-400 bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20";
+    }
+
+    // Callback due today is the next priority signal
+    if (lead.status === "call-back") {
+      if (lead.isDueToday) {
+        return "border-l-4 border-l-emerald-400 bg-emerald-50/60 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20";
+      }
+      const isOverdue =
+        lead.callbackDate &&
+        new Date(lead.callbackDate).setHours(0, 0, 0, 0) <
+          new Date().setHours(0, 0, 0, 0);
+      if (isOverdue) {
+        return "border-l-4 border-l-rose-400 bg-rose-50/60 dark:bg-rose-900/10 hover:bg-rose-50 dark:hover:bg-rose-900/20";
+      }
+      return "border-l-4 border-l-amber-300 bg-amber-50/30 dark:bg-amber-900/5 hover:bg-amber-50/60 dark:hover:bg-amber-900/10";
+    }
+
+    // Otherwise, a subtle role accent for admins scanning the queue
+    if (user && user.role === "admin") {
+      if (lead.assignedToRole === "admin") {
+        return "border-l-4 border-l-red-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "meeting") {
+        return "border-l-4 border-l-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "employee") {
+        return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+    }
+
+    return "border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50";
   };
 
   const formatStatusText = (status: string) => {
@@ -809,7 +861,55 @@ export default function LeadsPage() {
                     ))}
                   </select>
                 </div>
+
+                {/* Agent flag */}
+                <div className="min-w-[130px]">
+                  <select
+                    value={agentFilter}
+                    onChange={(e) => {
+                      setAgentFilter(e.target.value);
+                      setPagination((p) => ({ ...p, page: 1 }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Leads</option>
+                    <option value="true">Agents Only</option>
+                    <option value="false">Exclude Agents</option>
+                  </select>
+                </div>
               </div>
+            </div>
+
+            {/* Legend */}
+            <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+              {user.role === "admin" && (
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-red-300" />
+                    Assigned to Admin
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-purple-300" />
+                    Assigned to Meeting
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-blue-300" />
+                    Assigned to Employee
+                  </span>
+                </>
+              )}
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
+                Agent
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400" />
+                Callback Due Today
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-rose-400" />
+                Callback Overdue
+              </span>
             </div>
 
             {/* Table */}
@@ -856,21 +956,7 @@ export default function LeadsPage() {
                         <tr
                           id={`lead-${lead.id}`}
                           key={lead.id}
-                          className={`transition-colors duration-700 ${
-                            lead.status === "call-back"
-  ? "bg-pink-300 dark:bg-pink-900 hover:bg-pink-400 dark:hover:bg-pink-800":
-                            user.role === "admin"
-                              ? lead.assignedToRole === "admin"
-                                ? "bg-red-100 dark:bg-red-900/20"
-                                : lead.assignedToRole === "meeting"
-                                  ? "bg-purple-100 dark:bg-purple-900/20"
-                                  : lead.assignedToRole === "employee"
-                                    ? "bg-green-100 dark:bg-green-900/20"
-                                    : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                              : !lead.isOwner
-                                ? "bg-red-100 dark:bg-red-900/20 opacity-50"
-                                : "hover:bg-gray-50 dark:hover:bg-gray-700"
-                          }`}
+                          className={`transition-colors duration-700 ${getRowAccentClasses(lead)}`}
                         >
                           {/* Name */}
                           <td className="px-3 py-2 max-w-[160px]">
@@ -891,6 +977,11 @@ export default function LeadsPage() {
                               ) : (
                                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400 cursor-not-allowed truncate max-w-[110px]">
                                   {lead.name || "-"}
+                                </span>
+                              )}
+                              {lead.isAgent && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 whitespace-nowrap border border-amber-300 dark:border-amber-700">
+                                  Agent
                                 </span>
                               )}
                               {lead.lastNoteAddedByAdmin && (

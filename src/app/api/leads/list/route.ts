@@ -40,6 +40,7 @@ function buildLeadPipeline(
         phone: 1,
         company: 1,
         status: 1,
+        isAgent: 1,
         callbackDate: 1,
         callbackSeen: 1,
         dueDate: 1,
@@ -132,6 +133,7 @@ function buildLeadPipeline(
       phone: 1,
       company: 1,
       status: 1,
+      isAgent: 1,
       callbackDate: 1,
       callbackSeen: 1,
       dueDate: 1,
@@ -218,6 +220,7 @@ export async function GET(req: NextRequest) {
     const meetingUserId = searchParams.get("meetingUserId") || "";
     const meetingStatus = searchParams.get("meetingStatus") || "";
     const meetingDate = searchParams.get("meetingDate") || "";
+    const isAgent = searchParams.get("isAgent") || "";
 
     const { db } = await connectToDatabase();
 
@@ -265,6 +268,12 @@ export async function GET(req: NextRequest) {
 
     if (meetingDate) {
       filter["meetingDetails.meetingDate"] = meetingDate;
+    }
+
+    if (isAgent === "true") {
+      filter.isAgent = true;
+    } else if (isAgent === "false") {
+      filter.isAgent = { $ne: true };
     }
 
     // Apply month and year filters

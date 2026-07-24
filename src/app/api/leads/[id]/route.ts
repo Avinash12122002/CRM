@@ -73,6 +73,7 @@ export async function GET(
             leadSource: 1,
             jobApplied: 1,
             status: 1,
+            isAgent: 1,
             callbackDate: 1,
             callbackSeen: 1,
             dueDate: 1,
