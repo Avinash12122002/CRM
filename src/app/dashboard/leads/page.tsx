@@ -844,7 +844,7 @@ export default function LeadsPage() {
                         ].map((header) => (
                           <th
                             key={header}
-                            className="px-3 py-2 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide whitespace-nowrap"
+                            className="px-3 py-2 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide"
                           >
                             {header}
                           </th>
@@ -873,7 +873,7 @@ export default function LeadsPage() {
                           }`}
                         >
                           {/* Name */}
-                          <td className="px-3 py-2 whitespace-nowrap max-w-[160px]">
+                          <td className="px-3 py-2 max-w-[160px]">
                             <div className="flex items-center gap-1.5">
                               {user.role === "admin" || lead.isOwner ? (
                                 <button
@@ -943,7 +943,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Phone */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             {user.role === "admin" || lead.isOwner ? (
                               <button
                                 onClick={() => {
@@ -965,7 +965,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Created At */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <div className="text-xs text-gray-900 dark:text-gray-100">
                               {lead.createdAt
                                 ? new Date(lead.createdAt).toLocaleString(
@@ -983,7 +983,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Due Date */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <div className="text-xs text-gray-900 dark:text-gray-100">
                               {lead.dueDate
                                 ? new Date(lead.dueDate).toLocaleDateString(
@@ -999,7 +999,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Last Worked At */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <div className="text-xs text-gray-900 dark:text-gray-100">
                               {lead.lastNote?.timestamp
                                 ? new Date(
@@ -1016,7 +1016,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Status */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             {lead.status === "call-back" ? (
                               <div className="flex flex-col">
                                 <span
@@ -1093,7 +1093,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Assigned To */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <div className="text-xs text-gray-900 dark:text-gray-100">
                               {lead.assignedToName || "Unassigned"}
                             </div>
@@ -1117,7 +1117,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Assigned By */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <div className="text-xs text-gray-900 dark:text-gray-100">
                               {lead.assignedByName || "-"}
                             </div>
@@ -1137,7 +1137,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Actions */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <div className="flex items-center gap-2">
                               {(user.role === "admin" || lead.isOwner) && (
                                 <button

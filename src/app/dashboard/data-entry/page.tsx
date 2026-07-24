@@ -81,10 +81,12 @@ export default function DataEntryPage() {
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [workingDate, setWorkingDate] = useState(todayISO());
+  const [historyDate, setHistoryDate] = useState(todayISO());
   const [progress, setProgress] = useState<DailyProgress | null>(null);
   const [form, setForm] = useState<FormState>(() => loadDraft());
   const [submitting, setSubmitting] = useState(false);
   const [history, setHistory] = useState<SubmittedLead[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const reminderTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Persist every keystroke as a draft so a refresh restores the in-progress form.
@@ -128,6 +130,7 @@ export default function DataEntryPage() {
   }, []);
 
   const loadHistory = useCallback(async (date: string) => {
+    setHistoryLoading(true);
     try {
       const res = await fetch(`/api/bd/leads/list?date=${date}&view=created`);
       if (res.ok) {
@@ -136,14 +139,23 @@ export default function DataEntryPage() {
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setHistoryLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (!user) return;
     loadProgress(workingDate);
-    loadHistory(workingDate);
-  }, [user, workingDate, loadProgress, loadHistory]);
+  }, [user, workingDate, loadProgress]);
+
+  // History has its own date picker so reps can look back at previous days'
+  // leads without affecting the working date (which stays locked to today
+  // for actually creating leads).
+  useEffect(() => {
+    if (!user) return;
+    loadHistory(historyDate);
+  }, [user, historyDate, loadHistory]);
 
   // Reminder: check every 2 hours while the page stays open
   useEffect(() => {
@@ -215,7 +227,7 @@ export default function DataEntryPage() {
         // ignore storage errors
       }
       loadProgress(workingDate);
-      loadHistory(workingDate);
+      if (historyDate === todayISO()) loadHistory(historyDate);
     } catch (err) {
       console.error(err);
       toast.error("Failed to create lead");
@@ -227,7 +239,7 @@ export default function DataEntryPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
@@ -239,18 +251,18 @@ export default function DataEntryPage() {
     : "";
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNavbar user={user} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">
           Data Entry
         </h1>
 
         {/* Working date + target */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
               Working Date
             </label>
             <input
@@ -266,17 +278,17 @@ export default function DataEntryPage() {
                 }
                 setWorkingDate(picked);
               }}
-              className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div className="text-right">
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Today&apos;s Target</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Today&apos;s Target</p>
             <p
               className={`text-3xl font-bold ${
                 progress?.targetCompleted
                   ? "text-green-600 dark:text-green-400"
-                  : "text-zinc-900 dark:text-zinc-100"
+                  : "text-gray-800 dark:text-gray-100"
               }`}
             >
               {counterLabel || "25 Remaining"}
@@ -292,19 +304,19 @@ export default function DataEntryPage() {
         {/* Lead form */}
         <form
           onSubmit={handleSubmit}
-          className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 mb-8"
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-8"
         >
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
             New Lead
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">Industry *</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Industry *</label>
               <select
                 value={form.industry}
                 onChange={(e) => handleChange("industry", e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select industry</option>
                 {INDUSTRIES.map((i) => (
@@ -334,11 +346,11 @@ export default function DataEntryPage() {
               onChange={(v) => handleChange("decisionMakerPosition", v)}
             />
             <div>
-              <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">Lead Source</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Lead Source</label>
               <select
                 value={form.leadSource}
                 onChange={(e) => handleChange("leadSource", e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Select lead source</option>
                 {LEAD_SOURCES.map((s) => (
@@ -362,14 +374,14 @@ export default function DataEntryPage() {
           </div>
 
           <div className="mt-4">
-            <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+            <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
               Remarks
             </label>
             <textarea
               value={form.remarks}
               onChange={(e) => handleChange("remarks", e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -382,40 +394,74 @@ export default function DataEntryPage() {
           </button>
         </form>
 
-        {/* Today's submitted leads */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-              Today&apos;s Submitted Leads
-            </h2>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Read only — cannot edit or delete</p>
+        {/* Submitted leads history — browsable by date, but this never affects
+            the working date above, so new leads can still only be created
+            on today's date. */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                {historyDate === todayISO()
+                  ? "Today's Submitted Leads"
+                  : `Submitted Leads — ${new Date(historyDate).toLocaleDateString("en-IN", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    })}`}
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Read only — cannot edit or delete</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={historyDate}
+                max={todayISO()}
+                onChange={(e) => setHistoryDate(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {historyDate !== todayISO() && (
+                <button
+                  type="button"
+                  onClick={() => setHistoryDate(todayISO())}
+                  className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-xs font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Today
+                </button>
+              )}
+            </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-              <thead className="bg-zinc-50 dark:bg-zinc-800">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Time</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Company</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Industry</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Assigned To</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Company</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Industry</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned To</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-                {history.length === 0 ? (
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {historyLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-zinc-500 dark:text-zinc-400">
-                      No leads submitted yet for this date
+                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      Loading…
+                    </td>
+                  </tr>
+                ) : history.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      No leads submitted for this date
                     </td>
                   </tr>
                 ) : (
                   history.map((lead) => (
                     <tr key={lead.id}>
-                      <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
                         {new Date(lead.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                       </td>
-                      <td className="px-6 py-3 text-sm text-zinc-900 dark:text-zinc-100">{lead.companyName || "—"}</td>
-                      <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-400">{lead.industry}</td>
-                      <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-400">{lead.assignedToName}</td>
+                      <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 break-words">{lead.companyName || "—"}</td>
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 break-words">{lead.industry}</td>
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 break-words">{lead.assignedToName}</td>
                     </tr>
                   ))
                 )}
@@ -441,12 +487,12 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">{label}</label>
+      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
     </div>
   );

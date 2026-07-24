@@ -230,7 +230,7 @@ export default function MeetingsPage() {
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
                   {["Lead","Phone","Meeting Date","Start","End","Meeting User","Booked By","Status","Actions"].map((h) => (
-                    <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide whitespace-nowrap">
+                    <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
                       {h}
                     </th>
                   ))}
@@ -254,33 +254,33 @@ export default function MeetingsPage() {
                     return (
                       <tr key={meeting.id} className={`transition-colors ${rowBg(meeting.meetingStatus)}`}>
 
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{meeting.name}</span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.phone}</span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.meetingDate || "—"}</span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.startTime || "—"}</span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.endTime || "—"}</span>
                         </td>
-                         <td className="px-4 py-2.5 whitespace-nowrap">
+                         <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.meetingUserName || "—"}</span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.bookedByName || "—"}</span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize ${statusBadge(meeting.meetingStatus)}`}>
                             {meeting.meetingStatus || "scheduled"}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5 whitespace-nowrap">
+                        <td className="px-4 py-2.5">
                           <div className="flex gap-1.5">
                             <button
                               disabled={isFinished || isActioning}

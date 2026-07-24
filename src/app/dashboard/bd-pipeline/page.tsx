@@ -33,7 +33,7 @@ type Pagination = {
 };
 
 const STAGE_COLORS: Record<string, string> = {
-  "New Lead": "bg-zinc-100 text-zinc-800",
+  "New Lead": "bg-gray-100 text-gray-700",
   "Research Started": "bg-blue-100 text-blue-800",
   "Priority Set": "bg-indigo-100 text-indigo-800",
   "Initial Contact": "bg-yellow-100 text-yellow-800",
@@ -46,7 +46,7 @@ const STAGE_COLORS: Record<string, string> = {
 const PRIORITY_COLORS: Record<string, string> = {
   High: "bg-red-100 text-red-800",
   Medium: "bg-yellow-100 text-yellow-800",
-  Low: "bg-zinc-100 text-zinc-700",
+  Low: "bg-gray-100 text-gray-700",
 };
 
 const FILTER_STORAGE_KEY = "bd_pipeline_filters";
@@ -199,21 +199,21 @@ export default function BDPipelinePage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNavbar user={user} />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">BD Pipeline</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">BD Pipeline</h1>
 
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+            <label className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
               Rows per page
             </label>
             <select
@@ -221,7 +221,7 @@ export default function BDPipelinePage() {
               onChange={(e) =>
                 setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }))
               }
-              className="px-2 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs text-zinc-900 dark:text-zinc-100"
+              className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-xs text-gray-800 dark:text-gray-100"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>
@@ -248,7 +248,7 @@ export default function BDPipelinePage() {
               setPagination((p) => ({ ...p, page: 1 }));
             }}
             placeholder="Search company, decision maker, phone..."
-            className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <select
             value={stageFilter}
@@ -256,7 +256,7 @@ export default function BDPipelinePage() {
               setStageFilter(e.target.value);
               setPagination((p) => ({ ...p, page: 1 }));
             }}
-            className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
           >
             <option value="">All Stages</option>
             {Object.keys(STAGE_COLORS).map((s) => (
@@ -271,7 +271,7 @@ export default function BDPipelinePage() {
               setStatusFilter(e.target.value);
               setPagination((p) => ({ ...p, page: 1 }));
             }}
-            className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
@@ -284,7 +284,7 @@ export default function BDPipelinePage() {
               setSortOrder(e.target.value);
               setPagination((p) => ({ ...p, page: 1 }));
             }}
-            className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
           >
             <option value="date_desc">Newest first</option>
             <option value="date_asc">Oldest first</option>
@@ -299,7 +299,7 @@ export default function BDPipelinePage() {
                 setPagination((p) => ({ ...p, page: 1 }));
               }}
               title="Show leads created on this date"
-              className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
             />
             {dateFilter && (
               <button
@@ -308,7 +308,7 @@ export default function BDPipelinePage() {
                   setPagination((p) => ({ ...p, page: 1 }));
                 }}
                 title="Clear date filter"
-                className="px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                className="px-2 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-100"
               >
                 ✕
               </button>
@@ -316,25 +316,25 @@ export default function BDPipelinePage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-              <thead className="bg-zinc-50 dark:bg-zinc-800">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Company</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Industry</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Priority</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Stage</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Company</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Industry</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Priority</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Stage</th>
                   {user.role === "admin" && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Assigned To</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned To</th>
                   )}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase">Created</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {leads.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-zinc-500 dark:text-zinc-400">
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       No leads found
                     </td>
                   </tr>
@@ -343,10 +343,10 @@ export default function BDPipelinePage() {
                     <tr
                       key={lead.id}
                       id={`bdlead-${lead.id}`}
-                      className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 cursor-pointer"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
                       onClick={() => goToLead(lead.id)}
                     >
-                      <td className="px-6 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                      <td className="px-6 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
                         <Link
                           href={`/dashboard/bd-pipeline/${lead.id}`}
                           onClick={(e) => {
@@ -358,14 +358,14 @@ export default function BDPipelinePage() {
                           {lead.companyName || "Unnamed Lead"}
                         </Link>
                       </td>
-                      <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-400">{lead.industry}</td>
+                      <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">{lead.industry}</td>
                       <td className="px-6 py-3 text-sm">
                         {lead.priority ? (
                           <span className={`px-2 py-1 text-xs font-semibold rounded-full ${PRIORITY_COLORS[lead.priority]}`}>
                             {lead.priority}
                           </span>
                         ) : (
-                          <span className="text-zinc-400 text-xs">—</span>
+                          <span className="text-gray-400 text-xs">—</span>
                         )}
                       </td>
                       <td className="px-6 py-3 text-sm">
@@ -373,16 +373,16 @@ export default function BDPipelinePage() {
                           className={`px-2 py-1 text-xs font-semibold rounded-full ${
                             lead.status === "lost"
                               ? "bg-red-100 text-red-800"
-                              : STAGE_COLORS[lead.pipelineStage] || "bg-zinc-100 text-zinc-800"
+                              : STAGE_COLORS[lead.pipelineStage] || "bg-gray-100 text-gray-700"
                           }`}
                         >
                           {lead.status === "lost" ? "Lead Lost" : lead.pipelineStage}
                         </span>
                       </td>
                       {user.role === "admin" && (
-                        <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-400">{lead.assignedToName}</td>
+                        <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">{lead.assignedToName}</td>
                       )}
-                      <td className="px-6 py-3 text-sm text-zinc-600 dark:text-zinc-400">
+                      <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {new Date(lead.createdAt).toLocaleDateString()}
                       </td>
                     </tr>
@@ -393,8 +393,8 @@ export default function BDPipelinePage() {
           </div>
 
           {pagination.total > 0 && (
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-3 border-t border-zinc-200 dark:border-zinc-800">
-              <p className="text-xs text-zinc-700 dark:text-zinc-300">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-6 py-3 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-700 dark:text-gray-300">
                 Showing{" "}
                 <span className="font-medium">
                   {(pagination.page - 1) * pagination.limit + 1}
@@ -409,7 +409,7 @@ export default function BDPipelinePage() {
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="relative inline-flex items-center px-2 py-1.5 rounded-l-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative inline-flex items-center px-2 py-1.5 rounded-l-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="sr-only">Previous</span>
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -430,7 +430,7 @@ export default function BDPipelinePage() {
                       elements.push(
                         <span
                           key={`ellipsis-${p}`}
-                          className="relative inline-flex items-center px-3 py-1.5 border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                          className="relative inline-flex items-center px-3 py-1.5 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-300"
                         >
                           ...
                         </span>
@@ -443,7 +443,7 @@ export default function BDPipelinePage() {
                         className={`relative inline-flex items-center px-3 py-1.5 border text-xs font-medium ${
                           p === pagination.page
                             ? "z-10 bg-blue-600 border-blue-600 text-white"
-                            : "bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                            : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700"
                         }`}
                       >
                         {p}
@@ -455,7 +455,7 @@ export default function BDPipelinePage() {
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages}
-                  className="relative inline-flex items-center px-2 py-1.5 rounded-r-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="relative inline-flex items-center px-2 py-1.5 rounded-r-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="sr-only">Next</span>
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

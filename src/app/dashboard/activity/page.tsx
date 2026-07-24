@@ -347,7 +347,7 @@ export default function ActivityPage() {
                   <thead className="bg-zinc-50 dark:bg-zinc-700">
                     <tr>
                       {user.role === "admin" && (
-                        <th className="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide whitespace-nowrap">
+                        <th className="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                           Employee
                         </th>
                       )}
@@ -357,7 +357,7 @@ export default function ActivityPage() {
                         ...(user.role === "admin" ? ["Late", "Sessions"] : []),
                         "Status",
                       ].map((h) => (
-                        <th key={h} className="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide whitespace-nowrap">
+                        <th key={h} className="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
                           {h}
                         </th>
                       ))}
@@ -374,7 +374,7 @@ export default function ActivityPage() {
                         >
                           {/* Employee (admin only) */}
                           {user.role === "admin" && (
-                            <td className="px-3 py-2 whitespace-nowrap">
+                            <td className="px-3 py-2">
                               <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">
                                 {activity.userName}
                               </div>
@@ -385,45 +385,45 @@ export default function ActivityPage() {
                           )}
 
                           {/* Date */}
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 dark:text-zinc-300">
+                          <td className="px-3 py-2 text-xs text-gray-700 dark:text-zinc-300">
                             {formatDate(activity.date)}
                           </td>
 
                           {/* Check In */}
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 dark:text-zinc-300">
+                          <td className="px-3 py-2 text-xs text-gray-700 dark:text-zinc-300">
                             {formatTime(activity.firstCheckIn || activity.checkIn)}
                           </td>
 
                           {/* Check Out */}
-                          <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 dark:text-zinc-300">
+                          <td className="px-3 py-2 text-xs text-gray-700 dark:text-zinc-300">
                             {activity.checkOut
                               ? formatTime(activity.lastCheckOut || activity.checkOut)
                               : <span className="text-zinc-400">—</span>}
                           </td>
 
                           {/* Work */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <span className="text-xs font-semibold text-green-600 dark:text-green-400">
                               {formatHours(activity.workHours)}
                             </span>
                           </td>
 
                           {/* Break */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <span className="text-xs font-semibold text-yellow-600 dark:text-yellow-400">
                               {formatHours(activity.breakHours)}
                             </span>
                           </td>
 
                           {/* Training */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">
                               {formatHours(activity.trainingHours)}
                             </span>
                           </td>
 
                           {/* Total */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                               {formatHours(activity.totalWorkingDay)}
                             </span>
@@ -431,7 +431,7 @@ export default function ActivityPage() {
 
                           {/* Late (admin only) */}
                           {user.role === "admin" && (
-                            <td className="px-3 py-2 whitespace-nowrap">
+                            <td className="px-3 py-2">
                               {activity.lateMinutes > 0 ? (
                                 <span className="text-xs font-medium text-red-600 dark:text-red-400">
                                   {activity.lateMinutes}m
@@ -444,13 +444,13 @@ export default function ActivityPage() {
 
                           {/* Sessions (admin only) */}
                           {user.role === "admin" && (
-                            <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 dark:text-zinc-300">
+                            <td className="px-3 py-2 text-xs text-gray-700 dark:text-zinc-300">
                               {activity.sessions}
                             </td>
                           )}
 
                           {/* Status */}
-                          <td className="px-3 py-2 whitespace-nowrap">
+                          <td className="px-3 py-2">
                             <span className={`inline-flex px-2 py-0.5 text-[11px] font-semibold rounded-full ${sc.cls}`}>
                               {sc.label}
                             </span>

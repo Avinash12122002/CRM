@@ -165,7 +165,7 @@ export default function BDAnalyticsPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
@@ -174,12 +174,12 @@ export default function BDAnalyticsPage() {
   const scopeLabel = data ? (data.date ? data.date : data.month ? data.month : "All Time") : "";
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNavbar user={user} />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">BD Analytics</h1>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">BD Analytics</h1>
           <div className="flex flex-wrap items-center gap-2">
             {(date || month) && (
               <button
@@ -187,12 +187,12 @@ export default function BDAnalyticsPage() {
                   setDate("");
                   setMonth("");
                 }}
-                className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-100"
               >
                 All Time
               </button>
             )}
-            <label className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap">
+            <label className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">
               Date
               <input
                 type="date"
@@ -204,10 +204,10 @@ export default function BDAnalyticsPage() {
                   setMonth("");
                 }}
                 title="Show analytics for leads created on this date"
-                className="px-3 py-2 min-w-[9.5rem] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
+                className="px-3 py-2 min-w-[9.5rem] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 disabled:opacity-50"
               />
             </label>
-            <label className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap">
+            <label className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">
               Month
               <input
                 type="month"
@@ -219,7 +219,7 @@ export default function BDAnalyticsPage() {
                   setDate("");
                 }}
                 title="Show analytics for leads created in this month"
-                className="px-3 py-2 min-w-[8rem] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
+                className="px-3 py-2 min-w-[8rem] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 disabled:opacity-50"
               />
             </label>
             <button
@@ -233,7 +233,7 @@ export default function BDAnalyticsPage() {
         </div>
 
         {!data ? (
-          <p className="text-zinc-500">Loading analytics...</p>
+          <p className="text-gray-500">Loading analytics...</p>
         ) : (
           <>
             {emptyButHasData && (
@@ -347,18 +347,18 @@ export default function BDAnalyticsPage() {
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">{label}</p>
-      <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mt-1">{value}</p>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-1">{value}</p>
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
-      <div className="px-6 py-4 border-b border-zinc-200 dark:border-zinc-800">
-        <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{title}</h2>
+    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">{title}</h2>
       </div>
       <div className="overflow-x-auto">{children}</div>
     </div>
@@ -375,23 +375,23 @@ function Table({
   emptyLabel: string;
 }) {
   return (
-    <table className="w-full table-fixed divide-y divide-zinc-200 dark:divide-zinc-800">
-      <thead className="bg-zinc-50 dark:bg-zinc-800">
+    <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
+      <thead className="bg-gray-50 dark:bg-gray-700">
         <tr>
           {headers.map((h) => (
             <th
               key={h}
-              className="px-2 py-2 text-left text-[10px] leading-tight font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide align-bottom"
+              className="px-2 py-2 text-left text-[10px] leading-tight font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide align-bottom"
             >
               {h}
             </th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
         {rows.length === 0 ? (
           <tr>
-            <td colSpan={headers.length} className="px-4 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
+            <td colSpan={headers.length} className="px-4 py-6 text-center text-xs text-gray-500 dark:text-gray-400">
               {emptyLabel}
             </td>
           </tr>
@@ -399,7 +399,7 @@ function Table({
           rows.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className="px-2 py-2 text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                <td key={j} className="px-2 py-2 text-xs text-gray-800 dark:text-gray-100 truncate">
                   {cell}
                 </td>
               ))}

@@ -209,28 +209,28 @@ export default function BDLeadsAdminPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNavbar user={user} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
               BD Leads
             </h1>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Every Business Development lead — full admin access to view, open and reassign.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-xs text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+            <label className="text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
               Rows per page
             </label>
             <select
@@ -239,7 +239,7 @@ export default function BDLeadsAdminPage() {
                 setLimit(Number(e.target.value));
                 setPage(1);
               }}
-              className="px-2 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs text-zinc-900 dark:text-zinc-100"
+              className="px-2 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-xs text-gray-800 dark:text-gray-100"
             >
               <option value={10}>10</option>
               <option value={15}>15</option>
@@ -257,7 +257,7 @@ export default function BDLeadsAdminPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <input
               type="text"
@@ -267,7 +267,7 @@ export default function BDLeadsAdminPage() {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:col-span-2"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:col-span-2"
             />
             <select
               value={assignedTo}
@@ -275,7 +275,7 @@ export default function BDLeadsAdminPage() {
                 setAssignedTo(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
             >
               <option value="">All owners</option>
               {bdUsers.map((u) => (
@@ -290,7 +290,7 @@ export default function BDLeadsAdminPage() {
                 setStage(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
             >
               <option value="">All stages</option>
               {PIPELINE_STAGES.map((s) => (
@@ -305,7 +305,7 @@ export default function BDLeadsAdminPage() {
                 setStatus(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
             >
               <option value="">All statuses</option>
               <option value="active">Active</option>
@@ -318,7 +318,7 @@ export default function BDLeadsAdminPage() {
                 setPriority(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
             >
               <option value="">All priorities</option>
               {PRIORITIES.map((p) => (
@@ -333,7 +333,7 @@ export default function BDLeadsAdminPage() {
                 setSortOrder(e.target.value);
                 setPage(1);
               }}
-              className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
             >
               <option value="date_desc">Newest first</option>
               <option value="date_asc">Oldest first</option>
@@ -348,7 +348,7 @@ export default function BDLeadsAdminPage() {
                   setPage(1);
                 }}
                 title="Show leads created on this date"
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
               />
               {dateFilter && (
                 <button
@@ -357,7 +357,7 @@ export default function BDLeadsAdminPage() {
                     setPage(1);
                   }}
                   title="Clear date filter"
-                  className="px-2 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+                  className="px-2 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-100"
                 >
                   ✕
                 </button>
@@ -367,10 +367,10 @@ export default function BDLeadsAdminPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
-              <thead className="bg-zinc-50 dark:bg-zinc-800">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   {[
                     "Company",
@@ -384,36 +384,36 @@ export default function BDLeadsAdminPage() {
                   ].map((h) => (
                     <th
                       key={h}
-                      className="px-4 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap"
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase whitespace-nowrap"
                     >
                       {h}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {leads.length === 0 ? (
                   <tr>
                     <td
                       colSpan={8}
-                      className="px-4 py-8 text-center text-zinc-500 dark:text-zinc-400"
+                      className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                     >
                       No leads match these filters
                     </td>
                   </tr>
                 ) : (
                   leads.map((lead) => (
-                    <tr key={lead.id} id={`bdlead-${lead.id}`} className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                      <td className="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
+                    <tr key={lead.id} id={`bdlead-${lead.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800 dark:text-gray-100">
                         {lead.companyName || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {lead.industry || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {lead.pipelineStage}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-4 py-3">
                         <span
                           className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusClass(
                             lead.status
@@ -422,16 +422,16 @@ export default function BDLeadsAdminPage() {
                           {STATUS_LABELS[lead.status] || lead.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {lead.priority || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {lead.assignedToName || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400 whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {lead.createdByName || "—"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                      <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-3">
                           <Link
                             href={`/dashboard/bd-pipeline/${lead.id}`}
@@ -445,7 +445,7 @@ export default function BDLeadsAdminPage() {
                           <button
                             onClick={() => setReassignLead(lead)}
                             disabled={lead.status !== "active" || (lead as { locked?: boolean }).locked}
-                            className="text-zinc-700 dark:text-zinc-300 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
+                            className="text-gray-700 dark:text-gray-300 hover:underline disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed"
                             title={
                               lead.status !== "active"
                                 ? "Closed leads can't be reassigned"
@@ -465,22 +465,22 @@ export default function BDLeadsAdminPage() {
 
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-200 dark:border-zinc-800">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Page {pagination.page} of {pagination.totalPages} · {pagination.total} leads
               </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => setPage((p) => Math.max(p - 1, 1))}
                   disabled={pagination.page <= 1}
-                  className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300 disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-40"
                 >
                   Previous
                 </button>
                 <button
                   onClick={() => setPage((p) => Math.min(p + 1, pagination.totalPages))}
                   disabled={pagination.page >= pagination.totalPages}
-                  className="px-3 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 text-sm text-zinc-700 dark:text-zinc-300 disabled:opacity-40"
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-40"
                 >
                   Next
                 </button>

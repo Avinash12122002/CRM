@@ -302,13 +302,13 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
   if (loading || !user || !lead) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-zinc-500">Loading...</p>
+        <p className="text-gray-500">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNavbar user={user} />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -327,11 +327,11 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
         </button>
 
         {/* Header */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{lead.companyName || "Unnamed Lead"}</h1>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{lead.companyName || "Unnamed Lead"}</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {lead.industry}
               </p>
             </div>
@@ -363,11 +363,11 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Pipeline stepper */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Pipeline</h2>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Pipeline</h2>
             {lead.status !== "lost" && (
-              <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 Stage {Math.min(STAGES.indexOf(lead.pipelineStage) + 1, STAGES.length)} of {STAGES.length}
               </span>
             )}
@@ -402,7 +402,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                               ? "bg-blue-600 text-white"
                               : current
                               ? "bg-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-900/40 scale-110"
-                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700"
+                              : "bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700"
                           }`}
                         >
                           {done ? "✓" : i + 1}
@@ -413,8 +413,8 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                         <p
                           className={`mt-2 text-center text-[11px] leading-tight font-medium ${
                             upcoming
-                              ? "text-zinc-400 dark:text-zinc-500"
-                              : "text-zinc-900 dark:text-zinc-100"
+                              ? "text-gray-400 dark:text-gray-500"
+                              : "text-gray-800 dark:text-gray-100"
                           }`}
                         >
                           {stage}
@@ -455,7 +455,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
           )}
 
           {canEdit && lead.status === "active" && nextStage && (
-            <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+            <div className="flex flex-wrap gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
               <button
                 onClick={() => setShowMoveModal(true)}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -474,14 +474,14 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Editable lead details */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Lead Details</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Lead Details</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <ReadOnlyField label="Industry *" value={lead.industry || "—"} editable={canEdit}>
               <select
                 value={editForm.industry}
                 onChange={(e) => setEditForm({ ...editForm, industry: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               >
                 <option value="">Select industry</option>
                 {INDUSTRIES.map((i) => (
@@ -495,49 +495,49 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
               <input
                 value={editForm.country}
                 onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Website *" value={lead.website || "—"} editable={canEdit}>
               <input
                 value={editForm.website}
                 onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Company Name" value={lead.companyName || "—"} editable={canEdit}>
               <input
                 value={editForm.companyName}
                 onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Email" value={lead.email || "—"} editable={canEdit}>
               <input
                 value={editForm.email}
                 onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Phone Number" value={lead.phoneNumber || "—"} editable={canEdit}>
               <input
                 value={editForm.phoneNumber}
                 onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Decision Maker Name" value={lead.decisionMakerName || "—"} editable={canEdit}>
               <input
                 value={editForm.decisionMakerName}
                 onChange={(e) => setEditForm({ ...editForm, decisionMakerName: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Decision Maker Position" value={lead.decisionMakerPosition || "—"} editable={canEdit}>
               <input
                 value={editForm.decisionMakerPosition}
                 onChange={(e) => setEditForm({ ...editForm, decisionMakerPosition: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField
@@ -557,7 +557,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                 <select
                   value={editForm.leadSource}
                   onChange={(e) => setEditForm({ ...editForm, leadSource: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
                 >
                   <option value="">Select lead source</option>
                   {LEAD_SOURCES.map((s) => (
@@ -571,7 +571,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                     value={editForm.leadSourceOther}
                     onChange={(e) => setEditForm({ ...editForm, leadSourceOther: e.target.value })}
                     placeholder="Job portal name *"
-                    className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
                   />
                 )}
               </div>
@@ -580,28 +580,28 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
               <input
                 value={editForm.address}
                 onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="LinkedIn" value={lead.linkedin || "—"} editable={canEdit}>
               <input
                 value={editForm.linkedin}
                 onChange={(e) => setEditForm({ ...editForm, linkedin: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Instagram" value={lead.instagram || "—"} editable={canEdit}>
               <input
                 value={editForm.instagram}
                 onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Facebook" value={lead.facebook || "—"} editable={canEdit}>
               <input
                 value={editForm.facebook}
                 onChange={(e) => setEditForm({ ...editForm, facebook: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <ReadOnlyField label="Remarks" value={lead.remarks || "—"} editable={canEdit}>
@@ -609,16 +609,16 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                 value={editForm.remarks}
                 onChange={(e) => setEditForm({ ...editForm, remarks: e.target.value })}
                 rows={2}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
             <div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">Created By</p>
-              <p className="text-sm text-zinc-900 dark:text-zinc-100 py-2">{lead.createdByName}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Created By</p>
+              <p className="text-sm text-gray-800 dark:text-gray-100 py-2">{lead.createdByName}</p>
             </div>
             <div>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">Assigned To</p>
-              <p className="text-sm text-zinc-900 dark:text-zinc-100 py-2">{lead.assignedToName}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Assigned To</p>
+              <p className="text-sm text-gray-800 dark:text-gray-100 py-2">{lead.assignedToName}</p>
             </div>
           </div>
 
@@ -634,8 +634,8 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* Notes */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Notes</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Notes</h2>
 
           {canEdit && (
             <div className="flex gap-2 mb-4">
@@ -643,7 +643,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
                 placeholder="Add a note..."
-                className="flex-1 px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
               <button
                 onClick={handleAddNote}
@@ -657,12 +657,12 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
 
           <div className="space-y-3">
             {notes.length === 0 ? (
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">No notes yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No notes yet</p>
             ) : (
               notes.map((n) => (
-                <div key={n.id} className="border-l-2 border-zinc-200 dark:border-zinc-700 pl-3">
-                  <p className="text-sm text-zinc-900 dark:text-zinc-100">{n.note}</p>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                <div key={n.id} className="border-l-2 border-gray-200 dark:border-gray-700 pl-3">
+                  <p className="text-sm text-gray-800 dark:text-gray-100">{n.note}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {n.createdByName} · {new Date(n.createdAt).toLocaleString()}
                   </p>
                 </div>
@@ -672,20 +672,20 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
         </div>
 
         {/* History timeline (immutable) — newest first */}
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">Timeline</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Timeline</h2>
           <div className="space-y-4">
             {[...history].reverse().map((h) => (
-              <div key={h.id} className="border-l-2 border-zinc-200 dark:border-zinc-700 pl-4">
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <div key={h.id} className="border-l-2 border-gray-200 dark:border-gray-700 pl-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {new Date(h.changedAt).toLocaleDateString()}{" "}
                   {new Date(h.changedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                 </p>
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
                   {h.fromStage ? `${h.fromStage} → ${h.toStage}` : h.toStage}
                 </p>
-                {h.note && <p className="text-sm text-zinc-600 dark:text-zinc-400">{h.note}</p>}
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">by {h.changedByName}</p>
+                {h.note && <p className="text-sm text-gray-600 dark:text-gray-400">{h.note}</p>}
+                <p className="text-xs text-gray-400 dark:text-gray-500">by {h.changedByName}</p>
               </div>
             ))}
           </div>
@@ -697,11 +697,11 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
         <Modal onClose={() => setShowMoveModal(false)} title={`Move to "${nextStage}"`}>
           {nextStage === "Priority Set" && (
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">Priority</label>
+              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Priority</label>
               <select
                 value={movePriority}
                 onChange={(e) => setMovePriority(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               >
                 <option value="">Select priority</option>
                 {PRIORITIES.map((p) => (
@@ -712,20 +712,20 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
               </select>
             </div>
           )}
-          <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
             Note (required)
           </label>
           <textarea
             value={moveNote}
             onChange={(e) => setMoveNote(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
             placeholder="e.g. Called client. Client requested callback tomorrow."
           />
           <div className="flex justify-end gap-2 mt-4">
             <button
               onClick={() => setShowMoveModal(false)}
-              className="px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-sm"
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm"
             >
               Cancel
             </button>
@@ -743,20 +743,20 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
       {/* Lead lost modal */}
       {showLostModal && (
         <Modal onClose={() => setShowLostModal(false)} title="Mark Lead as Lost">
-          <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+          <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
             Reason (required)
           </label>
           <textarea
             value={lostReason}
             onChange={(e) => setLostReason(e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
             placeholder="e.g. Client went with a competitor."
           />
           <div className="flex justify-end gap-2 mt-4">
             <button
               onClick={() => setShowLostModal(false)}
-              className="px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 text-sm"
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm"
             >
               Cancel
             </button>
@@ -787,8 +787,8 @@ function ReadOnlyField({
 }) {
   return (
     <div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-1">{label}</p>
-      {editable ? children : <p className="text-sm text-zinc-900 dark:text-zinc-100 py-2">{value}</p>}
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
+      {editable ? children : <p className="text-sm text-gray-800 dark:text-gray-100 py-2">{value}</p>}
     </div>
   );
 }
@@ -808,10 +808,10 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6 w-full max-w-md"
+        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">{title}</h3>
+        <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">{title}</h3>
         {children}
       </div>
     </div>
