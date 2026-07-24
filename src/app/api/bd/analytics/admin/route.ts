@@ -141,7 +141,7 @@ export async function GET(req: NextRequest) {
 
     // These four are fully independent of one another — run them
     // concurrently instead of one-by-one.
-    const [dailySubmission, bdUsers, totalInDb, cohortLeads] = await Promise.all([
+    const [dailySubmissionRaw, bdUsers, totalInDb, cohortLeads] = await Promise.all([
       db
         .collection(BD_COLLECTIONS.dailyTargets)
         .aggregate([
@@ -158,6 +158,15 @@ export async function GET(req: NextRequest) {
     const cohortLeadIds = cohortLeads.map((l) => l.id);
     const leadsById = new Map<number, (typeof cohortLeads)[number]>();
     for (const l of cohortLeads) leadsById.set(l.id, l);
+
+    const bdNameById = new Map<number, string>(bdUsers.map((u) => [u.id, u.name]));
+    const dailySubmission = dailySubmissionRaw
+      // A target row only represents a real submission once totalCreated > 0.
+      // Rows can otherwise exist purely from a reminder check (throttle
+      // bookkeeping) firing before any lead was created that day — those
+      // aren't a BD user's activity and shouldn't appear in this table.
+      .filter((d) => (d.totalCreated || 0) > 0)
+      .map((d) => ({ ...d, userName: d.userName || bdNameById.get(d._id) || "Unknown" }));
 
     // Also independent of one another — run concurrently.
     const [allHistory, ownerLogs] = await Promise.all([

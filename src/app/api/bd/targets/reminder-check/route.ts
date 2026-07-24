@@ -55,7 +55,16 @@ export async function GET(req: NextRequest) {
 
       await db.collection(BD_COLLECTIONS.dailyTargets).updateOne(
         { userId: payload.id, date },
-        { $set: { lastReminderAt: new Date() } },
+        {
+          $set: { lastReminderAt: new Date() },
+          $setOnInsert: {
+            userId: payload.id,
+            userName: payload.name,
+            date,
+            totalCreated: 0,
+            targetCompleted: false,
+          },
+        },
         { upsert: true }
       );
     }

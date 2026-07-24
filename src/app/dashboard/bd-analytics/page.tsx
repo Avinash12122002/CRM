@@ -204,7 +204,7 @@ export default function BDAnalyticsPage() {
                   setMonth("");
                 }}
                 title="Show analytics for leads created on this date"
-                className="px-3 py-2 min-w-[9.5rem] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                className="px-3 py-2 min-w-38 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 disabled:opacity-50"
               />
             </label>
             <label className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 shrink-0 whitespace-nowrap">
@@ -219,7 +219,7 @@ export default function BDAnalyticsPage() {
                   setDate("");
                 }}
                 title="Show analytics for leads created in this month"
-                className="px-3 py-2 min-w-[8rem] rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 disabled:opacity-50"
+                className="px-3 py-2 min-w-32 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 disabled:opacity-50"
               />
             </label>
             <button
