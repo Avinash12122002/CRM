@@ -82,19 +82,19 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
 
   const [editForm, setEditForm] = useState({
     industry: "",
+    country: "",
+    website: "",
+    companyName: "",
     email: "",
     phoneNumber: "",
-    companyName: "",
-    website: "",
-    linkedin: "",
-    facebook: "",
-    instagram: "",
     decisionMakerName: "",
     decisionMakerPosition: "",
-    country: "",
-    address: "",
     leadSource: "",
     leadSourceOther: "",
+    address: "",
+    linkedin: "",
+    instagram: "",
+    facebook: "",
     remarks: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
@@ -131,19 +131,19 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
     setCanEdit(data.canEdit);
     setEditForm({
       industry: data.lead.industry || "",
+      country: data.lead.country || "",
+      website: data.lead.website || "",
+      companyName: data.lead.companyName || "",
       email: data.lead.email || "",
       phoneNumber: data.lead.phoneNumber || "",
-      companyName: data.lead.companyName || "",
-      website: data.lead.website || "",
-      linkedin: data.lead.linkedin || "",
-      facebook: data.lead.facebook || "",
-      instagram: data.lead.instagram || "",
       decisionMakerName: data.lead.decisionMakerName || "",
       decisionMakerPosition: data.lead.decisionMakerPosition || "",
-      country: data.lead.country || "",
-      address: data.lead.address || "",
       leadSource: data.lead.leadSource || "",
       leadSourceOther: data.lead.leadSourceOther || "",
+      address: data.lead.address || "",
+      linkedin: data.lead.linkedin || "",
+      instagram: data.lead.instagram || "",
+      facebook: data.lead.facebook || "",
       remarks: data.lead.remarks || "",
     });
     // listPath intentionally omitted — the error redirect it powers is a rare
@@ -491,6 +491,20 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                 ))}
               </select>
             </ReadOnlyField>
+            <ReadOnlyField label="Country *" value={lead.country || "—"} editable={canEdit}>
+              <input
+                value={editForm.country}
+                onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              />
+            </ReadOnlyField>
+            <ReadOnlyField label="Website *" value={lead.website || "—"} editable={canEdit}>
+              <input
+                value={editForm.website}
+                onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              />
+            </ReadOnlyField>
             <ReadOnlyField label="Company Name" value={lead.companyName || "—"} editable={canEdit}>
               <input
                 value={editForm.companyName}
@@ -512,41 +526,6 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                 className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
               />
             </ReadOnlyField>
-            <ReadOnlyField label="Website *" value={lead.website || "—"} editable={canEdit}>
-              <input
-                value={editForm.website}
-                onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-              />
-            </ReadOnlyField>
-            <ReadOnlyField label="Country *" value={lead.country || "—"} editable={canEdit}>
-              <input
-                value={editForm.country}
-                onChange={(e) => setEditForm({ ...editForm, country: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-              />
-            </ReadOnlyField>
-            <ReadOnlyField label="LinkedIn" value={lead.linkedin || "—"} editable={canEdit}>
-              <input
-                value={editForm.linkedin}
-                onChange={(e) => setEditForm({ ...editForm, linkedin: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-              />
-            </ReadOnlyField>
-            <ReadOnlyField label="Facebook" value={lead.facebook || "—"} editable={canEdit}>
-              <input
-                value={editForm.facebook}
-                onChange={(e) => setEditForm({ ...editForm, facebook: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-              />
-            </ReadOnlyField>
-            <ReadOnlyField label="Instagram" value={lead.instagram || "—"} editable={canEdit}>
-              <input
-                value={editForm.instagram}
-                onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-              />
-            </ReadOnlyField>
             <ReadOnlyField label="Decision Maker Name" value={lead.decisionMakerName || "—"} editable={canEdit}>
               <input
                 value={editForm.decisionMakerName}
@@ -558,13 +537,6 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
               <input
                 value={editForm.decisionMakerPosition}
                 onChange={(e) => setEditForm({ ...editForm, decisionMakerPosition: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-              />
-            </ReadOnlyField>
-            <ReadOnlyField label="Address" value={lead.address || "—"} editable={canEdit}>
-              <input
-                value={editForm.address}
-                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
                 className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
               />
             </ReadOnlyField>
@@ -603,6 +575,34 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                   />
                 )}
               </div>
+            </ReadOnlyField>
+            <ReadOnlyField label="Address" value={lead.address || "—"} editable={canEdit}>
+              <input
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              />
+            </ReadOnlyField>
+            <ReadOnlyField label="LinkedIn" value={lead.linkedin || "—"} editable={canEdit}>
+              <input
+                value={editForm.linkedin}
+                onChange={(e) => setEditForm({ ...editForm, linkedin: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              />
+            </ReadOnlyField>
+            <ReadOnlyField label="Instagram" value={lead.instagram || "—"} editable={canEdit}>
+              <input
+                value={editForm.instagram}
+                onChange={(e) => setEditForm({ ...editForm, instagram: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              />
+            </ReadOnlyField>
+            <ReadOnlyField label="Facebook" value={lead.facebook || "—"} editable={canEdit}>
+              <input
+                value={editForm.facebook}
+                onChange={(e) => setEditForm({ ...editForm, facebook: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+              />
             </ReadOnlyField>
             <ReadOnlyField label="Remarks" value={lead.remarks || "—"} editable={canEdit}>
               <textarea

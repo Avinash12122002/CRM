@@ -16,43 +16,53 @@ type Analytics = {
   month: string | null;
   filtered: boolean;
   totalInDb: number;
-  dailySubmission: { _id: number; userName: string; totalCreated: number }[];
-  bdPerformance: {
-    bdUserId: number;
-    bdUserName: string;
-    totalLeads: number;
-    newLead: number;
-    researchStarted: number;
-    prioritySet: number;
-    initialContact: number;
-    responseReceived: number;
-    meetingScheduled: number;
-    followUp: number;
-    dealDone: number;
-    leadLost: number;
+  statusDistribution: { status: string; label: string; count: number }[];
+  employeePerformance: {
+    userId: number;
+    userName: string;
+    newLeads: number;
+    callBack: number;
+    notAnswering: number;
+    documentPending: number;
+    paymentPending: number;
+    sales: number;
   }[];
-  stageDurationSummary: {
-    stage: string;
-    total: number;
-    completed: number;
-    ongoing: number;
+  meetingPerformance: {
+    userId: number;
+    userName: string;
+    newLeads: number;
+    callBack: number;
+    notAnswering: number;
+    meetingScheduled: number;
+    documentPending: number;
+    paymentPending: number;
+    sales: number;
   }[];
   metrics: {
     totalLeads: number;
-    totalMeetingsScheduled: number;
-    totalDealsDone: number;
-    totalLeadLost: number;
-    efficiency: number;
-    successRate: number;
+    newLeads: number;
+    inProgress: number;
+    meetingsScheduled: number;
+    sales: number;
+    lost: number;
+    meetingEfficiency: number;
+    conversionRate: number;
     dropRate: number;
   };
-  leaderboard: {
+  employeeLeaderboard: {
     rank: number;
-    bdUserId: number;
-    bdUserName: string;
-    totalLeads: number;
-    deals: number;
+    userId: number;
+    userName: string;
+    leads: number;
+    sales: number;
+    successPercent: number;
+  }[];
+  meetingLeaderboard: {
+    rank: number;
+    userId: number;
+    userName: string;
     meetings: number;
+    sales: number;
     successPercent: number;
   }[];
 };
@@ -65,13 +75,7 @@ function currentMonthISO() {
   return todayISO().slice(0, 7);
 }
 
-// Escape a CSV cell (wrap in quotes if it contains comma/quote/newline).
-function csv(v: string) {
-  if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-  return v;
-}
-
-export default function BDAnalyticsPage() {
+export default function LeadAnalyticsPage() {
   const router = useRouter();
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,7 +108,8 @@ export default function BDAnalyticsPage() {
     const qs = new URLSearchParams();
     if (date) qs.set("date", date);
     else if (month) qs.set("month", month);
-    const res = await fetch(`/api/bd/analytics/admin?${qs.toString()}`);
+    // Neither selected -> no query params -> backend returns all-time data.
+    const res = await fetch(`/api/leads/analytics?${qs.toString()}`);
     if (res.ok) setData(await res.json());
   }, [date, month]);
 
@@ -116,48 +121,58 @@ export default function BDAnalyticsPage() {
     if (!data) return;
     const lines: string[] = [];
     const scope = data.date ? `Date ${data.date}` : data.month ? `Month ${data.month}` : "All Time";
-    lines.push(`BD Analytics,${scope}`);
+    lines.push(`Lead Analytics,${scope}`);
     lines.push("");
     lines.push("Metric,Value");
     lines.push(`Total Leads,${data.metrics.totalLeads}`);
-    lines.push(`Meetings Scheduled,${data.metrics.totalMeetingsScheduled}`);
-    lines.push(`Deals Done,${data.metrics.totalDealsDone}`);
-    lines.push(`Lead Lost,${data.metrics.totalLeadLost}`);
-    lines.push(`Data Efficiency %,${data.metrics.efficiency}`);
-    lines.push(`Deal Success Rate %,${data.metrics.successRate}`);
+    lines.push(`New Leads,${data.metrics.newLeads}`);
+    lines.push(`In Progress,${data.metrics.inProgress}`);
+    lines.push(`Meetings Scheduled,${data.metrics.meetingsScheduled}`);
+    lines.push(`Sales (Converted),${data.metrics.sales}`);
+    lines.push(`Lost,${data.metrics.lost}`);
+    lines.push(`Meeting Efficiency %,${data.metrics.meetingEfficiency}`);
+    lines.push(`Conversion Rate %,${data.metrics.conversionRate}`);
     lines.push(`Drop Rate %,${data.metrics.dropRate}`);
     lines.push("");
-    lines.push(`Daily Lead Submission (${scope})`);
-    lines.push("Employee,Leads Created");
-    data.dailySubmission.forEach((d) => lines.push(`${csv(d.userName)},${d.totalCreated}`));
-    lines.push("");
-    lines.push(`Business Development Performance (${scope})`);
-    lines.push(
-      "BD User,Total Lead,New Lead,Research Started,Priority Set,Initial Contact,Response Received,Meeting Scheduled,Follow Up,Deal Done,Lead Lost"
-    );
-    data.bdPerformance.forEach((bd) =>
+    lines.push(`Employee Performance (${scope})`);
+    lines.push("Employee,New Lead,Call Back,Not Answering,Document Pending,Payment Pending,Sales");
+    data.employeePerformance.forEach((a) =>
       lines.push(
-        `${csv(bd.bdUserName)},${bd.totalLeads},${bd.newLead},${bd.researchStarted},${bd.prioritySet},${bd.initialContact},${bd.responseReceived},${bd.meetingScheduled},${bd.followUp},${bd.dealDone},${bd.leadLost}`
+        `${csv(a.userName)},${a.newLeads},${a.callBack},${a.notAnswering},${a.documentPending},${a.paymentPending},${a.sales}`
       )
     );
     lines.push("");
-    lines.push(`Stage Duration (${scope})`);
-    lines.push("Stage,Total,Completed,Still In Stage");
-    data.stageDurationSummary.forEach((s) =>
-      lines.push(`${csv(s.stage)},${s.total},${s.completed},${s.ongoing}`)
+    lines.push(`Meeting User Performance (${scope})`);
+    lines.push(
+      "Meeting User,New Lead,Call Back,Not Answering,Meeting Scheduled,Document Pending,Payment Pending,Sales"
+    );
+    data.meetingPerformance.forEach((a) =>
+      lines.push(
+        `${csv(a.userName)},${a.newLeads},${a.callBack},${a.notAnswering},${a.meetingScheduled},${a.documentPending},${a.paymentPending},${a.sales}`
+      )
     );
     lines.push("");
+    lines.push(`Status Distribution (${scope})`);
+    lines.push("Status,Count");
+    data.statusDistribution.forEach((s) => lines.push(`${csv(s.label)},${s.count}`));
+    lines.push("");
     lines.push(`Employee Leaderboard (${scope})`);
-    lines.push("Rank,Employee,Total Lead,Deals,Meetings,Success %");
-    data.leaderboard.forEach((l) =>
-      lines.push(`${l.rank},${csv(l.bdUserName)},${l.totalLeads},${l.deals},${l.meetings},${l.successPercent}`)
+    lines.push("Rank,Employee,Leads,Sales,Success %");
+    data.employeeLeaderboard.forEach((l) =>
+      lines.push(`${l.rank},${csv(l.userName)},${l.leads},${l.sales},${l.successPercent}`)
+    );
+    lines.push("");
+    lines.push(`Meeting Leaderboard (${scope})`);
+    lines.push("Rank,Meeting User,Meetings,Sales,Success %");
+    data.meetingLeaderboard.forEach((l) =>
+      lines.push(`${l.rank},${csv(l.userName)},${l.meetings},${l.sales},${l.successPercent}`)
     );
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `bd-analytics-${data.date || data.month || "all-time"}.csv`;
+    a.download = `lead-analytics-${data.date || data.month || "all-time"}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -179,7 +194,7 @@ export default function BDAnalyticsPage() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">BD Analytics</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Lead Analytics</h1>
           <div className="flex flex-wrap items-center gap-2">
             {(date || month) && (
               <button
@@ -192,7 +207,7 @@ export default function BDAnalyticsPage() {
                 All Time
               </button>
             )}
-            <label className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap">
+            <label className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
               Date
               <input
                 type="date"
@@ -204,10 +219,10 @@ export default function BDAnalyticsPage() {
                   setMonth("");
                 }}
                 title="Show analytics for leads created on this date"
-                className="px-3 py-2 min-w-[9.5rem] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
               />
             </label>
-            <label className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 shrink-0 whitespace-nowrap">
+            <label className="flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
               Month
               <input
                 type="month"
@@ -219,7 +234,7 @@ export default function BDAnalyticsPage() {
                   setDate("");
                 }}
                 title="Show analytics for leads created in this month"
-                className="px-3 py-2 min-w-[8rem] rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
+                className="px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 disabled:opacity-50"
               />
             </label>
             <button
@@ -254,85 +269,103 @@ export default function BDAnalyticsPage() {
             )}
 
             {/* Key metrics (scoped to selected date/month, or all-time) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               <MetricCard label="Total Leads" value={data.metrics.totalLeads} />
-              <MetricCard label="Meetings Scheduled" value={data.metrics.totalMeetingsScheduled} />
-              <MetricCard label="Deals Done" value={data.metrics.totalDealsDone} />
-              <MetricCard label="Lead Lost" value={data.metrics.totalLeadLost} />
-              <MetricCard label="Data Efficiency" value={`${data.metrics.efficiency}%`} />
-              <MetricCard label="Deal Success Rate" value={`${data.metrics.successRate}%`} />
+              <MetricCard label="New Leads" value={data.metrics.newLeads} />
+              <MetricCard label="In Progress" value={data.metrics.inProgress} />
+              <MetricCard label="Meetings Scheduled" value={data.metrics.meetingsScheduled} />
+              <MetricCard label="Sales (Converted)" value={data.metrics.sales} />
+              <MetricCard label="Lost" value={data.metrics.lost} />
+              <MetricCard label="Meeting Efficiency" value={`${data.metrics.meetingEfficiency}%`} />
+              <MetricCard label="Conversion Rate" value={`${data.metrics.conversionRate}%`} />
               <MetricCard label="Drop Rate" value={`${data.metrics.dropRate}%`} />
             </div>
 
-            {/* Daily Lead Submission */}
-            <Section title={`Daily Lead Submission (${scopeLabel})`}>
-              <Table
-                headers={["Employee", "Leads Created"]}
-                rows={data.dailySubmission.map((d) => [d.userName, String(d.totalCreated)])}
-                emptyLabel="No submissions in this range"
-              />
-            </Section>
-
-            {/* BD Performance — mutually-exclusive current-state breakdown;
-               each row's columns (excluding Total Lead) sum to Total Lead. */}
-            <Section title={`Business Development Performance (${scopeLabel})`}>
+            {/* Employee Performance */}
+            <Section title={`Agent Performance — Employees (${scopeLabel})`}>
               <Table
                 headers={[
-                  "BD User",
-                  "Total Lead",
-                  "🆕 New Lead",
-                  "🔎 Research Started",
-                  "🎯 Priority Set",
-                  "📞 Initial Contact",
-                  "💬 Response Received",
-                  "📅 Meeting Scheduled",
-                  "🔁 Follow Up",
-                  "✅ Deal Done",
-                  "❌ Lead Lost",
+                  "Employee",
+                  "New Lead",
+                  "Call Back",
+                  "Not Answering",
+                  "Document Pending",
+                  "Payment Pending",
+                  "Total Sales",
                 ]}
-                rows={data.bdPerformance.map((bd) => [
-                  bd.bdUserName,
-                  String(bd.totalLeads),
-                  String(bd.newLead),
-                  String(bd.researchStarted),
-                  String(bd.prioritySet),
-                  String(bd.initialContact),
-                  String(bd.responseReceived),
-                  String(bd.meetingScheduled),
-                  String(bd.followUp),
-                  String(bd.dealDone),
-                  String(bd.leadLost),
+                rows={data.employeePerformance.map((a) => [
+                  a.userName,
+                  String(a.newLeads),
+                  String(a.callBack),
+                  String(a.notAnswering),
+                  String(a.documentPending),
+                  String(a.paymentPending),
+                  String(a.sales),
                 ])}
-                emptyLabel="No Business Development users yet"
+                emptyLabel="No employees yet"
               />
             </Section>
 
-            {/* Stage Duration — Deal Done is included; Completed/Still In
-               Stage are always 0 for it since it's terminal (nothing ever
-               follows it), Total still shows how many leads reached it. */}
-            <Section title={`Stage Duration (${scopeLabel})`}>
+            {/* Meeting User Performance */}
+            <Section title={`Agent Performance — Meeting Users (${scopeLabel})`}>
               <Table
-                headers={["Stage", "Total", "Completed", "Still In Stage"]}
-                rows={data.stageDurationSummary.map((s) => [
-                  s.stage,
-                  String(s.total),
-                  String(s.completed),
-                  String(s.ongoing),
+                headers={[
+                  "Meeting User",
+                  "New Lead",
+                  "Call Back",
+                  "Not Answering",
+                  "Meeting Scheduled",
+                  "Document Pending",
+                  "Payment Pending",
+                  "Total Sales",
+                ]}
+                rows={data.meetingPerformance.map((a) => [
+                  a.userName,
+                  String(a.newLeads),
+                  String(a.callBack),
+                  String(a.notAnswering),
+                  String(a.meetingScheduled),
+                  String(a.documentPending),
+                  String(a.paymentPending),
+                  String(a.sales),
                 ])}
-                emptyLabel="Not enough data yet"
+                emptyLabel="No meeting users yet"
               />
             </Section>
 
-            {/* Leaderboard */}
+            {/* Status Distribution (scoped to selected date/month, or all-time) */}
+            <Section title={`Lead Status Distribution (${scopeLabel})`}>
+              <Table
+                headers={["Status", "Count"]}
+                rows={data.statusDistribution.map((s) => [s.label, String(s.count)])}
+                emptyLabel="No leads in this range"
+              />
+            </Section>
+
+            {/* Employee Leaderboard */}
             <Section title={`Employee Leaderboard (${scopeLabel})`}>
               <Table
-                headers={["Rank", "Employee", "Total Lead", "Deals", "Meetings", "Success %"]}
-                rows={data.leaderboard.map((l) => [
+                headers={["Rank", "Employee", "Leads", "Sales", "Success %"]}
+                rows={data.employeeLeaderboard.map((l) => [
                   String(l.rank),
-                  l.bdUserName,
-                  String(l.totalLeads),
-                  String(l.deals),
+                  l.userName,
+                  String(l.leads),
+                  String(l.sales),
+                  `${l.successPercent}%`,
+                ])}
+                emptyLabel="No leaderboard data yet"
+              />
+            </Section>
+
+            {/* Meeting Leaderboard */}
+            <Section title={`Meeting User Leaderboard (${scopeLabel})`}>
+              <Table
+                headers={["Rank", "Meeting User", "Meetings", "Sales", "Success %"]}
+                rows={data.meetingLeaderboard.map((l) => [
+                  String(l.rank),
+                  l.userName,
                   String(l.meetings),
+                  String(l.sales),
                   `${l.successPercent}%`,
                 ])}
                 emptyLabel="No leaderboard data yet"
@@ -343,6 +376,12 @@ export default function BDAnalyticsPage() {
       </main>
     </div>
   );
+}
+
+// Escape a CSV cell (wrap in quotes if it contains comma/quote/newline).
+function csv(v: string) {
+  if (/[",\n]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
+  return v;
 }
 
 function MetricCard({ label, value }: { label: string; value: string | number }) {
@@ -375,13 +414,13 @@ function Table({
   emptyLabel: string;
 }) {
   return (
-    <table className="w-full table-fixed divide-y divide-zinc-200 dark:divide-zinc-800">
+    <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
       <thead className="bg-zinc-50 dark:bg-zinc-800">
         <tr>
           {headers.map((h) => (
             <th
               key={h}
-              className="px-2 py-2 text-left text-[10px] leading-tight font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide align-bottom"
+              className="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase whitespace-nowrap"
             >
               {h}
             </th>
@@ -391,7 +430,7 @@ function Table({
       <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
         {rows.length === 0 ? (
           <tr>
-            <td colSpan={headers.length} className="px-4 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
+            <td colSpan={headers.length} className="px-6 py-8 text-center text-zinc-500 dark:text-zinc-400">
               {emptyLabel}
             </td>
           </tr>
@@ -399,7 +438,7 @@ function Table({
           rows.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className="px-2 py-2 text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                <td key={j} className="px-6 py-3 text-sm text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
                   {cell}
                 </td>
               ))}

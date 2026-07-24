@@ -208,6 +208,22 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               )}
               {user.role === "admin" && (
                 <Link
+                  href="/dashboard/lead-analytics"
+                  className={`${
+                    isActive("/dashboard/lead-analytics")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/dashboard/lead-analytics")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Lead Analytics
+                </Link>
+              )}
+              {user.role === "admin" && (
+                <Link
                   href="/dashboard/bd-leads"
                   className={`${
                     isActive("/dashboard/bd-leads") ||
@@ -380,6 +396,14 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 )}
               >
                 BD Pipeline
+              </Link>
+            )}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/lead-analytics"
+                className={navLinkClass(isActive("/dashboard/lead-analytics"))}
+              >
+                Lead Analytics
               </Link>
             )}
             {user.role === "admin" && (
