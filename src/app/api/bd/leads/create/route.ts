@@ -8,6 +8,8 @@ import {
   pickNextBDUser,
   logBDActivity,
   getAllAdmins,
+  companyNameMatchRegex,
+  websiteMatchRegex,
 } from "@/lib/bd/helpers";
 import {
   BD_COLLECTIONS,
@@ -117,6 +119,32 @@ export async function POST(req: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+
+    // Belt-and-braces duplicate guard. The BD Create Lead form already checks
+    // company name / website live as the user types (see
+    // /api/bd/leads/check-duplicate), so this should rarely trigger — it only
+    // catches a race where two people submit the same company at once, or a
+    // direct API call that skipped the live check.
+    const duplicateWebsite = await db
+      .collection(BD_COLLECTIONS.leads)
+      .findOne({ website: websiteMatchRegex(website) }, { projection: { id: 1 } });
+    if (duplicateWebsite) {
+      return NextResponse.json(
+        { message: "A lead with this website already exists" },
+        { status: 409 }
+      );
+    }
+    if (companyName?.trim()) {
+      const duplicateCompany = await db
+        .collection(BD_COLLECTIONS.leads)
+        .findOne({ companyName: companyNameMatchRegex(companyName) }, { projection: { id: 1 } });
+      if (duplicateCompany) {
+        return NextResponse.json(
+          { message: "A lead with this company name already exists" },
+          { status: 409 }
+        );
+      }
+    }
 
     // Business Development: always self-assigned, no round robin.
     // Sales / Meeting: auto-assigned to the next BD user in rotation.

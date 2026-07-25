@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import { INDUSTRIES, LEAD_SOURCES } from "@/lib/bd/constants";
+import { useDuplicateCheck } from "@/lib/bd/useDuplicateCheck";
 
 type MeResponse = {
   id: number;
@@ -85,6 +86,8 @@ export default function DataEntryPage() {
   const [progress, setProgress] = useState<DailyProgress | null>(null);
   const [form, setForm] = useState<FormState>(() => loadDraft());
   const [submitting, setSubmitting] = useState(false);
+  const companyDup = useDuplicateCheck("companyName", form.companyName);
+  const websiteDup = useDuplicateCheck("website", form.website);
   const [history, setHistory] = useState<SubmittedLead[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const reminderTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -202,6 +205,11 @@ export default function DataEntryPage() {
 
     if (form.leadSource === "Job Portals" && !form.leadSourceOther.trim()) {
       toast.error("Please enter the job portal name");
+      return;
+    }
+
+    if (companyDup.exists || websiteDup.exists) {
+      toast.error("Please resolve the duplicate company name / website before submitting");
       return;
     }
 
@@ -327,8 +335,20 @@ export default function DataEntryPage() {
               </select>
             </div>
             <Field label="Country *" value={form.country} onChange={(v) => handleChange("country", v)} />
-            <Field label="Website *" value={form.website} onChange={(v) => handleChange("website", v)} />
-            <Field label="Company Name" value={form.companyName} onChange={(v) => handleChange("companyName", v)} />
+            <Field
+              label="Website *"
+              value={form.website}
+              onChange={(v) => handleChange("website", v)}
+              checking={websiteDup.checking}
+              error={websiteDup.message}
+            />
+            <Field
+              label="Company Name"
+              value={form.companyName}
+              onChange={(v) => handleChange("companyName", v)}
+              checking={companyDup.checking}
+              error={companyDup.message}
+            />
             <Field label="Email" type="email" value={form.email} onChange={(v) => handleChange("email", v)} />
             <Field
               label="Phone Number"
@@ -387,7 +407,7 @@ export default function DataEntryPage() {
 
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || companyDup.exists || websiteDup.exists}
             className="mt-6 w-full sm:w-auto px-6 py-2.5 rounded-lg bg-foreground text-background font-medium hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? "Submitting..." : "Submit Lead"}
@@ -479,21 +499,33 @@ function Field({
   value,
   onChange,
   type = "text",
+  checking = false,
+  error = "",
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  checking?: boolean;
+  error?: string;
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">{label}</label>
+      <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
+        {label}
+        {checking && <span className="ml-2 text-xs font-normal text-gray-400">checking…</span>}
+      </label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 ${
+          error
+            ? "border-red-500 focus:ring-red-500"
+            : "border-gray-300 dark:border-gray-700 focus:ring-blue-500"
+        }`}
       />
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

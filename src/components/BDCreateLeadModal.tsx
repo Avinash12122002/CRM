@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { INDUSTRIES, LEAD_SOURCES } from "@/lib/bd/constants";
+import { useDuplicateCheck } from "@/lib/bd/useDuplicateCheck";
 
 const emptyForm = {
   industry: "",
@@ -54,6 +55,9 @@ export default function BDCreateLeadModal({
   const [form, setForm] = useState<FormState>(() => loadDraft());
   const [submitting, setSubmitting] = useState(false);
 
+  const companyDup = useDuplicateCheck("companyName", form.companyName);
+  const websiteDup = useDuplicateCheck("website", form.website);
+
   // Persist every keystroke as a draft so a refresh restores the in-progress form.
   useEffect(() => {
     try {
@@ -76,6 +80,10 @@ export default function BDCreateLeadModal({
     }
     if (form.leadSource === "Job Portals" && !form.leadSourceOther.trim()) {
       toast.error("Please enter the job portal name");
+      return;
+    }
+    if (companyDup.exists || websiteDup.exists) {
+      toast.error("Please resolve the duplicate company name / website before submitting");
       return;
     }
 
@@ -155,8 +163,20 @@ export default function BDCreateLeadModal({
               </select>
             </div>
             <Field label="Country *" value={form.country} onChange={(v) => handleChange("country", v)} />
-            <Field label="Website *" value={form.website} onChange={(v) => handleChange("website", v)} />
-            <Field label="Company Name" value={form.companyName} onChange={(v) => handleChange("companyName", v)} />
+            <Field
+              label="Website *"
+              value={form.website}
+              onChange={(v) => handleChange("website", v)}
+              checking={websiteDup.checking}
+              error={websiteDup.message}
+            />
+            <Field
+              label="Company Name"
+              value={form.companyName}
+              onChange={(v) => handleChange("companyName", v)}
+              checking={companyDup.checking}
+              error={companyDup.message}
+            />
             <Field label="Email" type="email" value={form.email} onChange={(v) => handleChange("email", v)} />
             <Field label="Phone Number" value={form.phoneNumber} onChange={(v) => handleChange("phoneNumber", v)} />
             <Field
@@ -217,7 +237,7 @@ export default function BDCreateLeadModal({
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || companyDup.exists || websiteDup.exists}
               className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {submitting ? "Creating..." : "+ Create Lead"}
@@ -234,21 +254,33 @@ function Field({
   value,
   onChange,
   type = "text",
+  checking = false,
+  error = "",
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   type?: string;
+  checking?: boolean;
+  error?: string;
 }) {
   return (
     <div>
-      <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">{label}</label>
+      <label className="block text-sm font-medium mb-1 text-zinc-700 dark:text-zinc-300">
+        {label}
+        {checking && <span className="ml-2 text-xs font-normal text-zinc-400">checking…</span>}
+      </label>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 ${
+          error
+            ? "border-red-500 focus:ring-red-500"
+            : "border-zinc-300 dark:border-zinc-700 focus:ring-blue-500"
+        }`}
       />
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

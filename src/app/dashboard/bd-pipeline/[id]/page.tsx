@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import { INDUSTRIES, LEAD_SOURCES } from "@/lib/bd/constants";
+import { useDuplicateCheck } from "@/lib/bd/useDuplicateCheck";
 
 type MeResponse = {
   id: number;
@@ -99,6 +100,9 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const companyDup = useDuplicateCheck("companyName", editForm.companyName, lead?.id);
+  const websiteDup = useDuplicateCheck("website", editForm.website, lead?.id);
+
   const [noteText, setNoteText] = useState("");
   const [addingNote, setAddingNote] = useState(false);
 
@@ -180,6 +184,10 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
     }
     if (editForm.leadSource === "Job Portals" && !editForm.leadSourceOther.trim()) {
       toast.error("Please enter the job portal name");
+      return;
+    }
+    if (companyDup.exists || websiteDup.exists) {
+      toast.error("Please resolve the duplicate company name / website before saving");
       return;
     }
     setSavingEdit(true);
@@ -498,18 +506,34 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
                 className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
               />
             </ReadOnlyField>
-            <ReadOnlyField label="Website *" value={lead.website || "—"} editable={canEdit}>
+            <ReadOnlyField
+              label="Website *"
+              value={lead.website || "—"}
+              editable={canEdit}
+              checking={websiteDup.checking}
+              error={websiteDup.message}
+            >
               <input
                 value={editForm.website}
                 onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 ${
+                  websiteDup.message ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                }`}
               />
             </ReadOnlyField>
-            <ReadOnlyField label="Company Name" value={lead.companyName || "—"} editable={canEdit}>
+            <ReadOnlyField
+              label="Company Name"
+              value={lead.companyName || "—"}
+              editable={canEdit}
+              checking={companyDup.checking}
+              error={companyDup.message}
+            >
               <input
                 value={editForm.companyName}
                 onChange={(e) => setEditForm({ ...editForm, companyName: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
+                className={`w-full px-3 py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 ${
+                  companyDup.message ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+                }`}
               />
             </ReadOnlyField>
             <ReadOnlyField label="Email" value={lead.email || "—"} editable={canEdit}>
@@ -625,7 +649,7 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
           {canEdit && (
             <button
               onClick={handleSaveEdit}
-              disabled={savingEdit}
+              disabled={savingEdit || companyDup.exists || websiteDup.exists}
               className="mt-4 px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90 disabled:opacity-50"
             >
               {savingEdit ? "Saving..." : "Save Changes"}
@@ -779,16 +803,24 @@ function ReadOnlyField({
   value,
   editable,
   children,
+  checking = false,
+  error = "",
 }: {
   label: string;
   value: string;
   editable: boolean;
   children: React.ReactNode;
+  checking?: boolean;
+  error?: string;
 }) {
   return (
     <div>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+        {label}
+        {editable && checking && <span className="ml-2 text-gray-400">checking…</span>}
+      </p>
       {editable ? children : <p className="text-sm text-gray-800 dark:text-gray-100 py-2">{value}</p>}
+      {editable && error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

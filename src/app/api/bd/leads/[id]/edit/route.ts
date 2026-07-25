@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import { getAuthPayload, logBDActivity } from "@/lib/bd/helpers";
+import { getAuthPayload, logBDActivity, companyNameMatchRegex, websiteMatchRegex } from "@/lib/bd/helpers";
 import { BD_COLLECTIONS, BD_ROLE, PRIORITIES, INDUSTRIES, LEAD_SOURCES } from "@/lib/bd/constants";
 
 // Fields Business Development is allowed to edit until Deal Done / Lead Lost.
@@ -99,6 +99,37 @@ export async function PATCH(
     }
     if (body.website !== undefined && !String(body.website).trim()) {
       return NextResponse.json({ message: "Website is required" }, { status: 400 });
+    }
+
+    // Belt-and-braces duplicate guard — mirrors the live check the edit form
+    // runs while the user types (see /api/bd/leads/check-duplicate).
+    if (body.website !== undefined && String(body.website).trim()) {
+      const duplicateWebsite = await db
+        .collection(BD_COLLECTIONS.leads)
+        .findOne(
+          { website: websiteMatchRegex(body.website), id: { $ne: leadId } },
+          { projection: { id: 1 } }
+        );
+      if (duplicateWebsite) {
+        return NextResponse.json(
+          { message: "A lead with this website already exists" },
+          { status: 409 }
+        );
+      }
+    }
+    if (body.companyName !== undefined && String(body.companyName).trim()) {
+      const duplicateCompany = await db
+        .collection(BD_COLLECTIONS.leads)
+        .findOne(
+          { companyName: companyNameMatchRegex(body.companyName), id: { $ne: leadId } },
+          { projection: { id: 1 } }
+        );
+      if (duplicateCompany) {
+        return NextResponse.json(
+          { message: "A lead with this company name already exists" },
+          { status: 409 }
+        );
+      }
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

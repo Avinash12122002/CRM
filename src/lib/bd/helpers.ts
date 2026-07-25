@@ -127,3 +127,35 @@ export async function logBDActivity({
 export function todayDateStr() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
+
+// Escapes regex special characters so a raw user-typed value can be safely
+// dropped into a RegExp source string.
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Case-insensitive "is this the same company name" match, trimmed on both
+ * sides. Used to block duplicate leads from being created for a company
+ * that's already in the pipeline under a differently-cased/spaced name.
+ */
+export function companyNameMatchRegex(value: string) {
+  const trimmed = value.trim();
+  return new RegExp(`^\\s*${escapeRegExp(trimmed)}\\s*$`, "i");
+}
+
+/**
+ * Case-insensitive "is this the same website" match that ignores the
+ * differences that don't actually change the domain: http vs https, a
+ * leading "www.", and a trailing slash. So "acme.com", "www.acme.com" and
+ * "https://acme.com/" are all treated as the same website.
+ */
+export function websiteMatchRegex(value: string) {
+  const trimmed = value
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/+$/, "");
+  const escaped = escapeRegExp(trimmed);
+  return new RegExp(`^(https?:\\/\\/)?(www\\.)?${escaped}\\/?$`, "i");
+}

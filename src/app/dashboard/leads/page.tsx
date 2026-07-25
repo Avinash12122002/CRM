@@ -629,7 +629,7 @@ export default function LeadsPage() {
             <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex flex-wrap gap-2">
                 {/* Search */}
-                <div className="flex-1 min-w-[160px]">
+                <div className="flex-1 min-w-40">
                   <input
                     type="text"
                     placeholder="Search name or phone"
@@ -959,7 +959,7 @@ export default function LeadsPage() {
                           className={`transition-colors duration-700 ${getRowAccentClasses(lead)}`}
                         >
                           {/* Name */}
-                          <td className="px-3 py-2 max-w-[160px]">
+                          <td className="px-3 py-2 max-w-40">
                             <div className="flex items-center gap-1.5">
                               {user.role === "admin" || lead.isOwner ? (
                                 <button
@@ -992,7 +992,7 @@ export default function LeadsPage() {
                               {lead.lastNote && (
                                 <div className="relative group">
                                   <svg
-                                    className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 cursor-help flex-shrink-0"
+                                    className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 cursor-help shrink-0"
                                     fill="currentColor"
                                     viewBox="0 0 20 20"
                                   >
@@ -1022,7 +1022,7 @@ export default function LeadsPage() {
                                       </span>
                                     </div>
 
-                                    <div className="text-white break-words whitespace-pre-wrap">
+                                    <div className="text-white wrap-break-word whitespace-pre-wrap">
                                       Note — {lead.lastNote.note}
                                     </div>
 
