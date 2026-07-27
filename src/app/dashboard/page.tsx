@@ -84,6 +84,15 @@ type AdminStats = {
   };
 };
 
+type BillingSummary = {
+  totalBills: number;
+  totalAmount: number;
+  paidCount: number;
+  paidAmount: number;
+  unpaidCount: number;
+  unpaidAmount: number;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<MeResponse | null>(null);
@@ -129,6 +138,8 @@ export default function DashboardPage() {
   const [loadingAdminStats, setLoadingAdminStats] = useState(false);
   const [bdStats, setBdStats] = useState<BDStats | null>(null);
   const [loadingBdStats, setLoadingBdStats] = useState(false);
+  const [billingSummary, setBillingSummary] = useState<BillingSummary | null>(null);
+  const [loadingBillingSummary, setLoadingBillingSummary] = useState(false);
 
   const fetchBDStats = async () => {
     setLoadingBdStats(true);
@@ -232,6 +243,21 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchBillingSummary = async () => {
+    setLoadingBillingSummary(true);
+    try {
+      const res = await fetch("/api/billing/summary");
+      if (res.ok) {
+        const data: BillingSummary = await res.json();
+        setBillingSummary(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch billing summary:", err);
+    } finally {
+      setLoadingBillingSummary(false);
+    }
+  };
+
   type ActivityHours = {
     date: string;
     workHours: number;
@@ -317,6 +343,10 @@ export default function DashboardPage() {
           // now pulls the same work-hours summary employees/meeting users get.
           fetchWorkHours();
         }
+        if (data.role === "billing") {
+          fetchBillingSummary();
+          fetchWorkHours();
+        }
       } catch (err) {
         console.error(err);
         router.push("/");
@@ -383,6 +413,25 @@ export default function DashboardPage() {
                   />
                 </svg>
                 <span>{loadingBdStats ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            )}
+            {user.role === "billing" && (
+              <button
+                onClick={() => { fetchBillingSummary(); fetchWorkHours(); }}
+                disabled={loadingBillingSummary}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              >
+                <svg
+                  className={`w-5 h-5 ${loadingBillingSummary ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>{loadingBillingSummary ? "Refreshing..." : "Refresh"}</span>
               </button>
             )}
           </div>
@@ -666,7 +715,7 @@ export default function DashboardPage() {
                       onClick={() => router.push("/dashboard/bd-pipeline")}
                       className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col items-start gap-3 mb-2">
                         <span className="text-2xl">🧭</span>
                         <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                           {bdStats?.totalAssigned ?? 0}
@@ -677,7 +726,7 @@ export default function DashboardPage() {
                     </button>
 
                     <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col items-start gap-3 mb-2">
                         <span className="text-2xl">✅</span>
                         <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                           {bdStats?.dealDone ?? 0}
@@ -688,7 +737,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col items-start gap-3 mb-2">
                         <span className="text-2xl">❌</span>
                         <span className="text-2xl font-bold text-red-600 dark:text-red-400">
                           {bdStats?.lost ?? 0}
@@ -699,7 +748,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex flex-col items-start gap-3 mb-2">
                         <span className="text-2xl">📈</span>
                         <span className="text-2xl font-bold text-violet-600 dark:text-violet-400">
                           {bdStats && bdStats.totalAssigned > 0
@@ -783,21 +832,113 @@ export default function DashboardPage() {
               BILLING DASHBOARD
           ══════════════════════════════════════════════════ */
           <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
-                Billing
-              </h3>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                Create client bills and download receipts, and track paid / unpaid status from
-                your billing history.
-              </p>
-              <a
-                href="/dashboard/billing"
-                className="inline-block px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90"
-              >
-                Go to Billing
-              </a>
-            </div>
+            {loadingBillingSummary && !billingSummary ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-linear-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {billingSummary ? billingSummary.totalBills : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">Total Bills</h4>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        {billingSummary ? `Rs.${billingSummary.totalAmount.toLocaleString("en-IN")}` : "Loading…"}
+                      </p>
+                    </div>
+
+                    <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-green-100 dark:bg-green-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {billingSummary ? billingSummary.paidCount : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-green-900 dark:text-green-200">Paid</h4>
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        {billingSummary ? `Rs.${billingSummary.paidAmount.toLocaleString("en-IN")}` : "Loading…"}
+                      </p>
+                    </div>
+
+                    <div className="bg-linear-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-red-100 dark:bg-red-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                          {billingSummary ? billingSummary.unpaidCount : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-red-900 dark:text-red-200">Unpaid</h4>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        {billingSummary ? `Rs.${billingSummary.unpaidAmount.toLocaleString("en-IN")}` : "Loading…"}
+                      </p>
+                    </div>
+
+                    <div className="bg-linear-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-purple-100 dark:bg-purple-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a4 4 0 00-8 0v2M5 9h14l1 11H4L5 9z" />
+                          </svg>
+                        </div>
+                        <span className="text-lg lg:text-xl font-bold text-purple-600 dark:text-purple-400 break-words">
+                          {billingSummary ? `Rs.${billingSummary.totalAmount.toLocaleString("en-IN")}` : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-200">Total Amount</h4>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                        {billingSummary ? `${billingSummary.totalBills} bill${billingSummary.totalBills === 1 ? "" : "s"}` : "Loading…"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Work Hours */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
+                    <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                      Track your work hours and manage your daily activities.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Today's Hours",  value: `${workHours.today}h`       },
+                        { label: "This Week",      value: `${workHours.thisWeek}h`    },
+                        { label: "This Month",     value: `${workHours.thisMonth}h`   },
+                        { label: "Working Days",   value: String(workHours.workingDays) },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Check-in/Check-out */}
+                <div>
+                  <CheckInOutCard />
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* ══════════════════════════════════════════════════
@@ -825,7 +966,7 @@ export default function DashboardPage() {
                           onClick={() => router.push("/dashboard/leads")}
                           className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
                         >
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex flex-col items-start gap-3 mb-2">
                             <div className="bg-red-100 dark:bg-red-900/40 rounded-full p-2">
                               <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -841,7 +982,7 @@ export default function DashboardPage() {
                           onClick={() => router.push("/dashboard/leads")}
                           className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
                         >
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex flex-col items-start gap-3 mb-2">
                             <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2">
                               <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
@@ -859,7 +1000,7 @@ export default function DashboardPage() {
                     {user.role === "meeting" && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <button onClick={() => router.push("/dashboard/meetings")} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left">
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex flex-col items-start gap-3 mb-2">
                             <span className="text-2xl">📅</span>
                             <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{meetingStats.todayMeetingSlots}</span>
                           </div>
@@ -868,7 +1009,7 @@ export default function DashboardPage() {
                         </button>
 
                         <button onClick={() => router.push("/dashboard/meetings")} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left">
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex flex-col items-start gap-3 mb-2">
                             <span className="text-2xl">✅</span>
                             <span className="text-2xl font-bold text-green-600 dark:text-green-400">{meetingStats.completedMeetings}</span>
                           </div>
@@ -877,7 +1018,7 @@ export default function DashboardPage() {
                         </button>
 
                         <button onClick={() => router.push("/dashboard/meetings")} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left">
-                          <div className="flex items-center justify-between mb-2">
+                          <div className="flex flex-col items-start gap-3 mb-2">
                             <span className="text-2xl">❌</span>
                             <span className="text-2xl font-bold text-red-600 dark:text-red-400">{meetingStats.cancelledMeetings}</span>
                           </div>

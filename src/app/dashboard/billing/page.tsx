@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import { generateInvoicePdf } from "@/lib/billing/generateInvoicePdf";
+import { generateReceiptPdf } from "@/lib/billing/generateReceiptPdf";
 
 type MeResponse = {
   id: number;
@@ -27,8 +28,18 @@ type Bill = {
   ifsc: string;
   upiId: string;
   paid: boolean;
+  paidAt: string | null;
   createdBy: { id: number; name: string };
   createdAt: string;
+};
+
+type Summary = {
+  totalBills: number;
+  totalAmount: number;
+  paidCount: number;
+  paidAmount: number;
+  unpaidCount: number;
+  unpaidAmount: number;
 };
 
 const DEFAULT_DESCRIPTION = "Australia Embassy Fees Charge";
@@ -60,6 +71,8 @@ export default function BillingPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const limit = 10;
+
+  const [summary, setSummary] = useState<Summary | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -114,6 +127,24 @@ export default function BillingPage() {
     setPage(1);
   }, [historyDate]);
 
+  const loadSummary = useCallback(async (date: string) => {
+    try {
+      const qs = new URLSearchParams();
+      if (date) qs.set("date", date);
+      const res = await fetch(`/api/billing/summary?${qs.toString()}`);
+      if (res.ok) {
+        setSummary(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    loadSummary(historyDate);
+  }, [user, historyDate, loadSummary]);
+
   const handleChange = (field: keyof typeof emptyForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
@@ -156,6 +187,7 @@ export default function BillingPage() {
         setPage(1);
         setHistoryDate("");
       }
+      loadSummary(historyDate);
     } catch (err) {
       console.error(err);
       toast.error("Failed to create bill");
@@ -174,10 +206,44 @@ export default function BillingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ paid: nextPaid }),
       });
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         toast.error(data.message || "Failed to update status");
         setHistory((prev) => prev.map((b) => (b.id === bill.id ? { ...b, paid: bill.paid } : b)));
+        return;
+      }
+
+      // Keep the row's paidAt in sync with what the server actually stored.
+      const updated: Bill | undefined = data.bill;
+      if (updated) {
+        setHistory((prev) => prev.map((b) => (b.id === bill.id ? { ...b, paidAt: updated.paidAt } : b)));
+      }
+
+      loadSummary(historyDate);
+
+      // Marking a bill Paid confirms payment was received — download the
+      // signed payment receipt automatically, filled with this bill's values.
+      if (nextPaid) {
+        try {
+          await generateReceiptPdf({
+            id: bill.id,
+            invoiceNumber: bill.invoiceNumber,
+            clientName: bill.clientName,
+            passportNumber: bill.passportNumber,
+            description: bill.description,
+            amount: bill.amount,
+            org: bill.org,
+            paidAt: updated?.paidAt ?? new Date().toISOString(),
+            createdAt: bill.createdAt,
+          });
+          toast.success("Marked as Paid — receipt downloaded");
+        } catch (err) {
+          console.error(err);
+          toast.error("Marked as Paid, but the receipt download failed");
+        }
+      } else {
+        toast.success("Marked as Unpaid");
       }
     } catch (err) {
       console.error(err);
@@ -199,7 +265,16 @@ export default function BillingPage() {
       <DashboardNavbar user={user} />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">Billing</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-6">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Billing</h1>
+          {summary && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {historyDate
+                ? new Date(historyDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                : "All time"}
+            </p>
+          )}
+        </div>
 
         <form
           onSubmit={handleSubmit}
@@ -334,7 +409,7 @@ export default function BillingPage() {
                           year: "numeric",
                         })}
                       </td>
-                      <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 break-words">{bill.clientName}</td>
+                      <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 wrap-break-word">{bill.clientName}</td>
                       <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{bill.passportNumber}</td>
                       <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100">
                         Rs.{bill.amount.toLocaleString("en-IN")}
@@ -348,10 +423,11 @@ export default function BillingPage() {
                         <button
                           type="button"
                           onClick={() => togglePaid(bill)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          title={bill.paid ? "Click to mark Unpaid" : "Click to mark Paid & download receipt"}
+                          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                             bill.paid
-                              ? "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400"
-                              : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                              ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/40 dark:text-green-400 dark:hover:bg-green-900/60"
+                              : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-400 dark:hover:bg-red-900/60"
                           }`}
                         >
                           {bill.paid ? "Paid" : "Unpaid"}
