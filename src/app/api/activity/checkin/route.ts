@@ -23,15 +23,14 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
 
-    const indiaNow = new Date(
-      now.toLocaleString("en-US", {
-        timeZone: "Asia/Kolkata",
-      }),
-    );
+    // IST is always UTC+5:30 — compute the IST date directly without
+    // relying on toLocaleString+new Date() which uses the server's local timezone
+    const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+    const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
 
-    const today = `${indiaNow.getFullYear()}-${String(
-      indiaNow.getMonth() + 1,
-    ).padStart(2, "0")}-${String(indiaNow.getDate()).padStart(2, "0")}`;
+    const today = `${nowIST.getUTCFullYear()}-${String(
+      nowIST.getUTCMonth() + 1,
+    ).padStart(2, "0")}-${String(nowIST.getUTCDate()).padStart(2, "0")}`;
 
     // Already checked in
     const activeCheckIn = await db.collection("activities").findOne({

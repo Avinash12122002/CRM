@@ -9,7 +9,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting";
+  role: "admin" | "employee" | "meeting" | "billing" | "business_development";
 };
 
 type Activity = {
@@ -111,10 +111,11 @@ export default function ActivityPage() {
     }
   }
 
-  async function fetchActivities(page: number) {
+  async function fetchActivities(page: number, limitOverride?: number) {
     setLoadingActivities(true);
+    const currentLimit = limitOverride ?? pagination.limit;
     try {
-      let url = `/api/activity/list?page=${page}&limit=${pagination.limit}`;
+      let url = `/api/activity/list?page=${page}&limit=${currentLimit}`;
       if (selectedDate) url += `&date=${selectedDate}`;
       if (selectedEmployee && user?.role === "admin") url += `&userId=${selectedEmployee}`;
       const res = await fetch(url);
@@ -283,8 +284,9 @@ export default function ActivityPage() {
               <select
                 value={pagination.limit}
                 onChange={(e) => {
-                  setPagination((prev) => ({ ...prev, limit: Number(e.target.value), page: 1 }));
-                  fetchActivities(1);
+                  const newLimit = Number(e.target.value);
+                  setPagination((prev) => ({ ...prev, limit: newLimit, page: 1 }));
+                  fetchActivities(1, newLimit);
                 }}
                 className="w-full px-3 py-1.5 text-xs border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >

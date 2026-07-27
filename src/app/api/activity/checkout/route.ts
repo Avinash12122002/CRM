@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
       {
         $set: {
           checkOut: now,
+          lastCheckOut: now,
 
           workSeconds: totalWorkSeconds,
           breakSeconds: totalBreakSeconds,

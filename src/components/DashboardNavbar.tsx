@@ -109,7 +109,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               >
                 Dashboard
               </Link>
-              {user.role !== "business_development" && (
+              {(user.role === "admin" || user.role === "employee" || user.role === "meeting") && (
                 <Link
                   href="/dashboard/leads"
                   className={`${
@@ -385,7 +385,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard" className={navLinkClass(isActive("/dashboard"))}>
               Dashboard
             </Link>
-            {user.role !== "business_development" && (
+            {(user.role === "admin" || user.role === "employee" || user.role === "meeting") && (
               <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
                 Leads
               </Link>

@@ -32,7 +32,12 @@ export async function GET(req: NextRequest) {
 
     const matchFilter: Record<string, any> = {};
 
-    if (payload.role === "employee" || payload.role === "meeting") {
+    if (
+      payload.role === "employee" ||
+      payload.role === "meeting" ||
+      payload.role === "billing" ||
+      payload.role === "business_development"
+    ) {
       matchFilter.userId = payload.id;
     } else if (userIdFilter) {
       matchFilter.userId = parseInt(userIdFilter);
@@ -173,29 +178,25 @@ export async function GET(req: NextRequest) {
         ((workSeconds + trainingSeconds) / 3600).toFixed(2),
       );
 
-     let lateMinutes = 0;
+      let lateMinutes = 0;
 
-const firstCheckIn =
-  activity.firstCheckIn;
+      const firstCheckIn = activity.firstCheckIn;
 
-if (firstCheckIn) {
-  const checkInIST = new Date(
-    new Date(firstCheckIn).toLocaleString("en-US", {
-      timeZone: "Asia/Kolkata",
-    }),
-  );
+      if (firstCheckIn) {
+        const checkInDate = new Date(firstCheckIn);
+        // IST is always UTC + 5:30 (India has no DST)
+        const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+        const checkInISTShifted = new Date(checkInDate.getTime() + IST_OFFSET_MS);
 
-  const expectedIST = new Date(checkInIST);
+        const istHours = checkInISTShifted.getUTCHours();
+        const istMinutes = checkInISTShifted.getUTCMinutes();
+        const checkInMinutes = istHours * 60 + istMinutes;
+        const expectedMinutes = 10 * 60; // 10:00 AM IST
 
-  expectedIST.setHours(10, 0, 0, 0);
-
-  if (checkInIST > expectedIST) {
-    lateMinutes = Math.floor(
-      (checkInIST.getTime() - expectedIST.getTime()) /
-        (1000 * 60),
-    );
-  }
-}
+        if (checkInMinutes > expectedMinutes) {
+          lateMinutes = checkInMinutes - expectedMinutes;
+        }
+      }
 
       return {
         id: activity.id,

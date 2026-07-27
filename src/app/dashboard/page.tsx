@@ -271,29 +271,34 @@ export default function DashboardPage() {
       const data = await res.json();
       const activities: ActivityHours[] = data.activities || [];
       const now = new Date();
-      const todayString = now.toISOString().split("T")[0];
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(
-        now.getDate() - (now.getDay() === 0 ? 6 : now.getDay() - 1),
-      );
-      startOfWeek.setHours(0, 0, 0, 0);
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
+      // Activity dates are stored in IST — match them with an IST "today" string
+      const todayString = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+      // Build IST-based week start string for reliable comparison
+      // en-CA gives YYYY-MM-DD which matches the activity date format
+      const dayOfWeek = new Date(
+        now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+      ).getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const startOfWeekDate = new Date(now);
+      startOfWeekDate.setDate(startOfWeekDate.getDate() - daysToMonday);
+      const startOfWeekString = startOfWeekDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+      const currentMonth = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata", month: "numeric" });
+      const currentYear = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata", year: "numeric" });
 
       const todayHours = activities
         .filter((a) => a.date === todayString)
         .reduce((sum, a) => sum + ((a.workHours || 0) + (a.trainingHours || 0)), 0);
 
       const weekHours = activities
-        .filter((a) => {
-          const date = new Date(a.date);
-          return date >= startOfWeek && date <= now;
-        })
+        .filter((a) => a.date >= startOfWeekString && a.date <= todayString)
         .reduce((sum, a) => sum + ((a.workHours || 0) + (a.trainingHours || 0)), 0);
 
       const monthActivities = activities.filter((a) => {
-        const d = new Date(a.date);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        // a.date is "YYYY-MM-DD" — extract month & year directly
+        const [y, m] = a.date.split("-");
+        return m === currentMonth.padStart(2, "0") && y === currentYear;
       });
 
       const monthHours = monthActivities.reduce(

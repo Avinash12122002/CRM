@@ -46,6 +46,13 @@ export async function POST(req: NextRequest) {
   );
 }
 
+    if (activity.status === "break") {
+      return NextResponse.json(
+        { message: "End break first before starting training" },
+        { status: 400 }
+      );
+    }
+
     const now = new Date();
 
     let workSeconds = activity.workSeconds || 0;
