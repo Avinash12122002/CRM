@@ -11,7 +11,7 @@ type DashboardNavbarProps = {
     id: number;
     name: string;
     email?: string;
-    role: "admin" | "employee" | "meeting" | "business_development";
+    role: "admin" | "employee" | "meeting" | "business_development" | "billing";
   };
 };
 
@@ -82,7 +82,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   return (
     <nav className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between h-14">
           {/* Logo */}
           <div className="flex">
             <div className="shrink-0 flex items-center">
@@ -94,14 +94,14 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             </div>
 
             {/* Desktop nav links */}
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+            <div className="hidden sm:ml-4 sm:flex sm:space-x-4">
               <Link
                 href="/dashboard"
                 className={`${
                   isActive("/dashboard")
                     ? "border-b-2 border-foreground"
                     : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                   isActive("/dashboard")
                     ? ""
                     : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -116,7 +116,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                     isActive("/dashboard/leads")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/leads")
                       ? ""
                       : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -131,7 +131,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   isActive("/dashboard/activity")
                     ? "border-b-2 border-foreground"
                     : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                   isActive("/dashboard/activity")
                     ? ""
                     : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -146,7 +146,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   pathname.startsWith("/dashboard/vacancies/")
                     ? "border-b-2 border-foreground"
                     : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                   isActive("/dashboard/vacancies") ||
                   pathname.startsWith("/dashboard/vacancies/")
                     ? ""
@@ -156,6 +156,22 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Vacancies
               </Link>
 
+              {(user.role === "admin" || user.role === "billing") && (
+                <Link
+                  href="/dashboard/billing"
+                  className={`${
+                    isActive("/dashboard/billing")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
+                    isActive("/dashboard/billing")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Billing
+                </Link>
+              )}
               {user.role === "meeting" && (
                 <Link
                   href="/dashboard/meetings"
@@ -163,7 +179,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                     isActive("/dashboard/meetings")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/meetings")
                       ? ""
                       : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -179,7 +195,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                     isActive("/dashboard/data-entry")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/data-entry")
                       ? ""
                       : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -196,7 +212,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                     pathname.startsWith("/dashboard/bd-pipeline/")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/bd-pipeline") ||
                     pathname.startsWith("/dashboard/bd-pipeline/")
                       ? ""
@@ -213,7 +229,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                     isActive("/dashboard/lead-analytics")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/lead-analytics")
                       ? ""
                       : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -230,7 +246,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                     pathname.startsWith("/dashboard/bd-leads/")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/bd-leads") ||
                     pathname.startsWith("/dashboard/bd-leads/")
                       ? ""
@@ -247,7 +263,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                     isActive("/dashboard/bd-analytics")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/bd-analytics")
                       ? ""
                       : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -258,12 +274,28 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               )}
               {user.role === "admin" && (
                 <Link
+                  href="/dashboard/billing-analytics"
+                  className={`${
+                    isActive("/dashboard/billing-analytics")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
+                    isActive("/dashboard/billing-analytics")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Billing Analysis
+                </Link>
+              )}
+              {user.role === "admin" && (
+                <Link
                   href="/dashboard/users"
                   className={`${
                     isActive("/dashboard/users")
                       ? "border-b-2 border-foreground"
                       : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
                     isActive("/dashboard/users")
                       ? ""
                       : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
@@ -371,6 +403,14 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               Vacancies
             </Link>
 
+            {(user.role === "admin" || user.role === "billing") && (
+              <Link
+                href="/dashboard/billing"
+                className={navLinkClass(isActive("/dashboard/billing"))}
+              >
+                Billing
+              </Link>
+            )}
             {user.role === "meeting" && (
               <Link
                 href="/dashboard/meetings"
@@ -423,6 +463,14 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 className={navLinkClass(isActive("/dashboard/bd-analytics"))}
               >
                 BD Analytics
+              </Link>
+            )}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/billing-analytics"
+                className={navLinkClass(isActive("/dashboard/billing-analytics"))}
+              >
+                Billing Analysis
               </Link>
             )}
             {user.role === "admin" && (

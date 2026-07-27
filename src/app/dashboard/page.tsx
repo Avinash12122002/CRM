@@ -12,7 +12,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development";
+  role: "admin" | "employee" | "meeting" | "business_development" | "billing";
 };
 
 type LeadStats = {
@@ -777,6 +777,27 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+          </div>
+        ) : user.role === "billing" ? (
+          /* ══════════════════════════════════════════════════
+              BILLING DASHBOARD
+          ══════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+                Billing
+              </h3>
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+                Create client bills and download receipts, and track paid / unpaid status from
+                your billing history.
+              </p>
+              <a
+                href="/dashboard/billing"
+                className="inline-block px-4 py-2 rounded-lg bg-foreground text-background text-sm font-medium hover:opacity-90"
+              >
+                Go to Billing
+              </a>
+            </div>
           </div>
         ) : (
           /* ══════════════════════════════════════════════════

@@ -9,7 +9,7 @@ type User = {
   id: number;
   name: string;
   username: string;
-  role: "admin" | "employee" | "meeting" | "business_development";
+  role: "admin" | "employee" | "meeting" | "business_development" | "billing";
   createdAt: string;
 };
 
@@ -17,7 +17,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development";
+  role: "admin" | "employee" | "meeting" | "business_development" | "billing";
 };
 
 export default function UsersPage() {
@@ -326,7 +326,9 @@ export default function UsersPage() {
                                   ? "bg-purple-100 text-purple-800"
                                   : user.role === "business_development"
                                     ? "bg-teal-100 text-teal-800"
-                                    : "bg-blue-100 text-blue-800"
+                                    : user.role === "billing"
+                                      ? "bg-amber-100 text-amber-800"
+                                      : "bg-blue-100 text-blue-800"
                             }`}
                           >
                             {user.role}
@@ -599,6 +601,7 @@ export default function UsersPage() {
                   <option value="employee">Employee (Sales Team)</option>
                   <option value="meeting">Meeting</option>
                   <option value="business_development">Business Development</option>
+                  <option value="billing">Billing</option>
                 </select>
               </div>
 
