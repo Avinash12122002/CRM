@@ -900,7 +900,7 @@ export default function DashboardPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a4 4 0 00-8 0v2M5 9h14l1 11H4L5 9z" />
                           </svg>
                         </div>
-                        <span className="text-lg lg:text-xl font-bold text-purple-600 dark:text-purple-400 break-words">
+                        <span className="text-lg lg:text-xl font-bold text-purple-600 dark:text-purple-400 wrap-break-word">
                           {billingSummary ? `Rs.${billingSummary.totalAmount.toLocaleString("en-IN")}` : "—"}
                         </span>
                       </div>
