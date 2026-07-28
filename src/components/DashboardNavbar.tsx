@@ -79,6 +79,18 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
         : "border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800"
     }`;
 
+  // Desktop nav link class helper (compact)
+  const deskLinkClass = (active: boolean) =>
+    `${
+      active
+        ? "border-b-2 border-foreground"
+        : "border-transparent hover:border-zinc-300 border-b-2"
+    } inline-flex items-center px-1 py-1 text-[12px] font-medium whitespace-nowrap ${
+      active
+        ? ""
+        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+    }`;
+
   return (
     <nav className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -94,247 +106,92 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             </div>
 
             {/* Desktop nav links */}
-            <div className="hidden sm:ml-4 sm:flex sm:space-x-4">
-              <Link
-                href="/dashboard"
-                className={`${
-                  isActive("/dashboard")
-                    ? "border-b-2 border-foreground"
-                    : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                  isActive("/dashboard")
-                    ? ""
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                }`}
-              >
+            <div className="hidden sm:ml-3 sm:flex sm:items-center sm:space-x-2 overflow-x-auto">
+              <Link href="/dashboard" className={deskLinkClass(isActive("/dashboard"))}>
                 Dashboard
               </Link>
               {(user.role === "admin" || user.role === "employee" || user.role === "meeting") && (
-                <Link
-                  href="/dashboard/leads"
-                  className={`${
-                    isActive("/dashboard/leads")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/leads")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/leads" className={deskLinkClass(isActive("/dashboard/leads"))}>
                   Leads
                 </Link>
               )}
-              <Link
-                href="/dashboard/activity"
-                className={`${
-                  isActive("/dashboard/activity")
-                    ? "border-b-2 border-foreground"
-                    : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                  isActive("/dashboard/activity")
-                    ? ""
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                }`}
-              >
+              <Link href="/dashboard/activity" className={deskLinkClass(isActive("/dashboard/activity"))}>
                 Activity
               </Link>
               <Link
                 href="/dashboard/vacancies"
-                className={`${
-                  isActive("/dashboard/vacancies") ||
-                  pathname.startsWith("/dashboard/vacancies/")
-                    ? "border-b-2 border-foreground"
-                    : "border-transparent hover:border-zinc-300 border-b-2"
-                } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                  isActive("/dashboard/vacancies") ||
-                  pathname.startsWith("/dashboard/vacancies/")
-                    ? ""
-                    : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                }`}
+                className={deskLinkClass(
+                  isActive("/dashboard/vacancies") || pathname.startsWith("/dashboard/vacancies/")
+                )}
               >
                 Vacancies
               </Link>
 
               {(user.role === "admin" || user.role === "billing") && (
-                <Link
-                  href="/dashboard/billing"
-                  className={`${
-                    isActive("/dashboard/billing")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/billing")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/billing" className={deskLinkClass(isActive("/dashboard/billing"))}>
                   Billing
                 </Link>
               )}
               {user.role === "meeting" && (
-                <Link
-                  href="/dashboard/meetings"
-                  className={`${
-                    isActive("/dashboard/meetings")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/meetings")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/meetings" className={deskLinkClass(isActive("/dashboard/meetings"))}>
                   Meetings
                 </Link>
               )}
               {(user.role === "employee" || user.role === "meeting") && (
-                <Link
-                  href="/dashboard/data-entry"
-                  className={`${
-                    isActive("/dashboard/data-entry")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/data-entry")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/data-entry" className={deskLinkClass(isActive("/dashboard/data-entry"))}>
                   Data Entry
                 </Link>
               )}
               {user.role === "business_development" && (
                 <Link
                   href="/dashboard/bd-pipeline"
-                  className={`${
-                    isActive("/dashboard/bd-pipeline") ||
-                    pathname.startsWith("/dashboard/bd-pipeline/")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/bd-pipeline") ||
-                    pathname.startsWith("/dashboard/bd-pipeline/")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
+                  className={deskLinkClass(
+                    isActive("/dashboard/bd-pipeline") || pathname.startsWith("/dashboard/bd-pipeline/")
+                  )}
                 >
                   BD Pipeline
                 </Link>
               )}
               {user.role === "admin" && (
-                <Link
-                  href="/dashboard/lead-analytics"
-                  className={`${
-                    isActive("/dashboard/lead-analytics")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/lead-analytics")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/lead-analytics" className={deskLinkClass(isActive("/dashboard/lead-analytics"))}>
                   Lead Analytics
                 </Link>
               )}
               {user.role === "admin" && (
                 <Link
                   href="/dashboard/bd-leads"
-                  className={`${
-                    isActive("/dashboard/bd-leads") ||
-                    pathname.startsWith("/dashboard/bd-leads/")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/bd-leads") ||
-                    pathname.startsWith("/dashboard/bd-leads/")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
+                  className={deskLinkClass(
+                    isActive("/dashboard/bd-leads") || pathname.startsWith("/dashboard/bd-leads/")
+                  )}
                 >
                   BD Leads
                 </Link>
               )}
               {user.role === "admin" && (
-                <Link
-                  href="/dashboard/bd-analytics"
-                  className={`${
-                    isActive("/dashboard/bd-analytics")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/bd-analytics")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/bd-analytics" className={deskLinkClass(isActive("/dashboard/bd-analytics"))}>
                   BD Analytics
                 </Link>
               )}
               {user.role === "admin" && (
-                <Link
-                  href="/dashboard/billing-analytics"
-                  className={`${
-                    isActive("/dashboard/billing-analytics")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/billing-analytics")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/billing-analytics" className={deskLinkClass(isActive("/dashboard/billing-analytics"))}>
                   Billing Analysis
                 </Link>
               )}
               {user.role === "admin" && (
                 <Link
                   href="/dashboard/email"
-                  className={`${
-                    isActive("/dashboard/email") ||
-                    pathname.startsWith("/dashboard/email")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/email") ||
-                    pathname.startsWith("/dashboard/email")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
+                  className={deskLinkClass(isActive("/dashboard/email") || pathname.startsWith("/dashboard/email"))}
                 >
                   Email
                 </Link>
               )}
               {user.role === "admin" && (
-                <Link
-                  href="/dashboard/email-analytics"
-                  className={`${
-                    isActive("/dashboard/email-analytics")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/email-analytics")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/email-analytics" className={deskLinkClass(isActive("/dashboard/email-analytics"))}>
                   Email Analytics
                 </Link>
               )}
               {user.role === "admin" && (
-                <Link
-                  href="/dashboard/users"
-                  className={`${
-                    isActive("/dashboard/users")
-                      ? "border-b-2 border-foreground"
-                      : "border-transparent hover:border-zinc-300 border-b-2"
-                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
-                    isActive("/dashboard/users")
-                      ? ""
-                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-                  }`}
-                >
+                <Link href="/dashboard/users" className={deskLinkClass(isActive("/dashboard/users"))}>
                   Users
                 </Link>
               )}
@@ -342,7 +199,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
           </div>
 
           {/* Right side: notification + user + sign out + hamburger */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <span className="hidden sm:block text-sm text-zinc-600 dark:text-zinc-400">
               {user.name} <span className="text-xs">({user.role})</span>
             </span>
