@@ -32,6 +32,7 @@ export async function PUT(
     const {
       name,
       phone,
+      email,
       dueDate,
       callbackDate,
       state,
@@ -46,6 +47,13 @@ export async function PUT(
     if (!phone?.trim()) {
       return NextResponse.json(
         { message: "Phone is required" },
+        { status: 400 },
+      );
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+      return NextResponse.json(
+        { message: "Please enter a valid email address" },
         { status: 400 },
       );
     }
@@ -106,6 +114,10 @@ export async function PUT(
     if ((lead.phone || "") !== (finalPhone || ""))
       changes.push(
         `Phone: "${lead.phone || "N/A"}" → "${finalPhone || "N/A"}"`,
+      );
+    if ((lead.email || "") !== ((email || "").trim()))
+      changes.push(
+        `Email: "${lead.email || "N/A"}" → "${(email || "").trim() || "N/A"}"`,
       );
     if ((lead.state || "") !== (state || ""))
       changes.push(`State: "${lead.state || "N/A"}" → "${state || "N/A"}"`);
@@ -176,6 +188,7 @@ export async function PUT(
         $set: {
           name: name || null,
           phone: finalPhone,
+          email: email ? String(email).trim() : null,
           state: state || null,
           city: city || null,
           age: age ? parseInt(age) : null,

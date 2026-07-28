@@ -226,22 +226,31 @@ export async function GET(req: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let filter: Record<string, any> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const andConditions: Record<string, any>[] = [];
+
     if (payload.role === "employee" || payload.role === "meeting") {
-      filter = {
+      andConditions.push({
         $or: [{ assignedTo: payload.id }, { visibleTo: payload.id }],
-        status: {
-          $nin: ["wrong-number", "not-interested", "sales"],
-        },
-      };
+      });
     }
     // Admins can see all leads
 
-    // Apply search filter (name or phone)
+    // Apply search filter (name, phone, or email) — combined via $and so it
+    // narrows results without clobbering the employee/meeting visibility
+    // restriction above.
     if (search) {
-      filter.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { phone: { $regex: search, $options: "i" } },
-      ];
+      andConditions.push({
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { phone: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    if (andConditions.length) {
+      filter.$and = andConditions;
     }
 
     // Apply status filter

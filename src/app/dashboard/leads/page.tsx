@@ -632,7 +632,7 @@ export default function LeadsPage() {
                 <div className="flex-1 min-w-40">
                   <input
                     type="text"
-                    placeholder="Search name or phone"
+                    placeholder="Search name, phone, or email"
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -934,8 +934,9 @@ export default function LeadsPage() {
                         {[
                           "Name",
                           "Phone",
+                          "Email",
                           "Created At",
-                          "Due Date",
+                          // "Due Date",
                           "Last Worked",
                           "Status",
                           "Assigned To",
@@ -1055,6 +1056,13 @@ export default function LeadsPage() {
                             )}
                           </td>
 
+                          {/* Email */}
+                          <td className="px-3 py-2">
+                            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block max-w-40">
+                              {lead.email || "-"}
+                            </span>
+                          </td>
+
                           {/* Created At */}
                           <td className="px-3 py-2">
                             <div className="text-xs text-gray-900 dark:text-gray-100">
@@ -1074,7 +1082,7 @@ export default function LeadsPage() {
                           </td>
 
                           {/* Due Date */}
-                          <td className="px-3 py-2">
+                          {/* <td className="px-3 py-2">
                             <div className="text-xs text-gray-900 dark:text-gray-100">
                               {lead.dueDate
                                 ? new Date(lead.dueDate).toLocaleDateString(
@@ -1087,7 +1095,7 @@ export default function LeadsPage() {
                                   )
                                 : "-"}
                             </div>
-                          </td>
+                          </td> */}
 
                           {/* Last Worked At */}
                           <td className="px-3 py-2">

@@ -23,6 +23,7 @@ export default function CreateLeadModal({
 }: CreateLeadModalProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
@@ -49,6 +50,7 @@ export default function CreateLeadModal({
       setShowDropdown(false);
       setName("");
       setPhone("");
+      setEmail("");
       setDueDate("");
       setState("");
       setCity("");
@@ -138,6 +140,11 @@ export default function CreateLeadModal({
       return;
     }
 
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/leads/create", {
@@ -146,6 +153,7 @@ export default function CreateLeadModal({
         body: JSON.stringify({
           name,
           phone,
+          email: email.trim() || undefined,
           dueDate: dueDate || undefined,
           state: state || undefined,
           city: city || undefined,
@@ -165,6 +173,7 @@ export default function CreateLeadModal({
         toast.success("Lead created successfully");
         setName("");
         setPhone("");
+        setEmail("");
         setDueDate("");
         setState("");
         setCity("");
@@ -244,6 +253,19 @@ export default function CreateLeadModal({
                 placeholder="1234567890"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-900 placeholder:text-gray-400"
                 required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="candidate@example.com"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-900 placeholder:text-gray-400"
               />
             </div>
 

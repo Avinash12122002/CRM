@@ -113,6 +113,7 @@ export default function LeadDetailPage() {
   const [editForm, setEditForm] = useState({
     name: "",
     phone: "",
+    email: "",
     dueDate: "",
     state: "",
     city: "",
@@ -296,6 +297,7 @@ export default function LeadDetailPage() {
         setEditForm({
           name: data.lead.name || "",
           phone: data.lead.phone || "",
+          email: data.lead.email || "",
           dueDate: dueDateValue,
           callbackDate: data.lead.callbackDate
             ? new Date(data.lead.callbackDate).toISOString().split("T")[0]
@@ -425,6 +427,7 @@ export default function LeadDetailPage() {
       setEditForm({
         name: lead.name || "",
         phone: lead.phone || "",
+        email: lead.email || "",
         dueDate: dueDateValue,
         callbackDate: lead.callbackDate
           ? new Date(lead.callbackDate).toISOString().split("T")[0]
@@ -444,6 +447,13 @@ export default function LeadDetailPage() {
     e.preventDefault();
     if (!editForm.phone.trim()) {
       toast.error("Phone is required");
+      return;
+    }
+    if (
+      editForm.email.trim() &&
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())
+    ) {
+      toast.error("Please enter a valid email address");
       return;
     }
     if (editForm.status === "call-back" && !editForm.callbackDate) {
@@ -1026,6 +1036,7 @@ export default function LeadDetailPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                   {[
                     { label: "Phone", value: lead.phone },
+                    { label: "Email", value: lead.email },
                     { label: "State", value: lead.state },
                     { label: "City", value: lead.city },
                     { label: "Age", value: lead.age },
@@ -1160,6 +1171,20 @@ export default function LeadDetailPage() {
                         user.role === "employee" || user.role === "meeting"
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed cursor-text"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, email: e.target.value })
+                      }
+                      placeholder="candidate@example.com"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
                   </div>
                   <div>

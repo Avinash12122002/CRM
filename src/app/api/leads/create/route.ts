@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     const {
       name,
       phone,
+      email,
       status,
       assignedTo,
       dueDate,
@@ -40,6 +41,13 @@ export async function POST(req: NextRequest) {
     if (!phone) {
       return NextResponse.json(
         { message: "Phone is required" },
+        { status: 400 },
+      );
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+      return NextResponse.json(
+        { message: "Please enter a valid email address" },
         { status: 400 },
       );
     }
@@ -113,6 +121,7 @@ export async function POST(req: NextRequest) {
       id,
       name: name || null,
       phone: cleanPhone,
+      email: email ? String(email).trim() : null,
       state: state || null,
       city: city || null,
       age: age ? parseInt(age) : null,

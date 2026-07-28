@@ -290,6 +290,40 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               )}
               {user.role === "admin" && (
                 <Link
+                  href="/dashboard/email"
+                  className={`${
+                    isActive("/dashboard/email") ||
+                    pathname.startsWith("/dashboard/email")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
+                    isActive("/dashboard/email") ||
+                    pathname.startsWith("/dashboard/email")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Email
+                </Link>
+              )}
+              {user.role === "admin" && (
+                <Link
+                  href="/dashboard/email-analytics"
+                  className={`${
+                    isActive("/dashboard/email-analytics")
+                      ? "border-b-2 border-foreground"
+                      : "border-transparent hover:border-zinc-300 border-b-2"
+                  } inline-flex items-center px-1 py-1 text-[13px] font-medium ${
+                    isActive("/dashboard/email-analytics")
+                      ? ""
+                      : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  }`}
+                >
+                  Email Analytics
+                </Link>
+              )}
+              {user.role === "admin" && (
+                <Link
                   href="/dashboard/users"
                   className={`${
                     isActive("/dashboard/users")
@@ -471,6 +505,25 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 className={navLinkClass(isActive("/dashboard/billing-analytics"))}
               >
                 Billing Analysis
+              </Link>
+            )}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/email"
+                className={navLinkClass(
+                  isActive("/dashboard/email") ||
+                    pathname.startsWith("/dashboard/email")
+                )}
+              >
+                Email
+              </Link>
+            )}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/email-analytics"
+                className={navLinkClass(isActive("/dashboard/email-analytics"))}
+              >
+                Email Analytics
               </Link>
             )}
             {user.role === "admin" && (

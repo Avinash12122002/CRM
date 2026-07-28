@@ -16,6 +16,7 @@
     "@lexical/rich-text": "^0.38.2",
     "@lexical/utils": "^0.38.2",
     "@tiptap/pm": "^3.10.7",
+    "@types/nodemailer": "^8.0.1",
     "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.17.0",
@@ -26,6 +27,7 @@
     "lucide-react": "^1.21.0",
     "mongodb": "^5.9.0",
     "next": "16.0.7",
+    "nodemailer": "^9.0.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-hot-toast": "^2.6.0"
