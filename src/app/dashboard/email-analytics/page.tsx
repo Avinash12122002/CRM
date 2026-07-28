@@ -47,11 +47,6 @@ type InvoiceStat = {
   totalAmount: number;
 };
 
-type ProgramStat = {
-  _id: string;
-  count: number;
-  completed: number;
-};
 
 type Analytics = {
   funnelData: FunnelItem[];
@@ -63,7 +58,6 @@ type Analytics = {
   completedWorkflows: number;
   followupsTodayCount: number;
   emailsTodayCount: number;
-  programBreakdown: ProgramStat[];
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -284,30 +278,7 @@ export default function EmailAnalyticsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Program Breakdown */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
-                <h2 className="text-sm font-semibold text-white mb-4">Per-Program Breakdown</h2>
-                {analytics.programBreakdown.length === 0 ? (
-                  <p className="text-slate-600 text-sm text-center py-8">No program data yet</p>
-                ) : (
-                  <div className="space-y-2">
-                    {analytics.programBreakdown.map((p, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3 p-3 bg-slate-800/40 rounded-lg">
-                        <div>
-                          <p className="text-sm text-white font-medium">{p._id}</p>
-                          <p className="text-xs text-slate-500">{p.completed} completed</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-indigo-400">{p.count}</p>
-                          <p className="text-xs text-slate-500">leads</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
+            <div className="grid grid-cols-1 gap-6">
               {/* Recent Activity */}
               <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-white mb-4">Recent Email Activity</h2>
@@ -347,22 +318,6 @@ export default function EmailAnalyticsPage() {
               </div>
             </div>
 
-            {/* Cron Info Banner */}
-            <div className="mt-6 bg-indigo-950/20 border border-indigo-900/40 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <span className="text-indigo-400 text-lg">⚡</span>
-                <div>
-                  <p className="text-sm font-medium text-indigo-300">Automatic Follow-up Engine</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Follow-up emails are processed via <code className="text-indigo-400 bg-indigo-950/50 px-1 py-0.5 rounded">/api/email/cron</code>.
-                    Trigger this endpoint hourly via Vercel Cron or Windows Task Scheduler to enable automatic 3-day follow-ups.
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Protect with: <code className="text-slate-400">CRON_SECRET</code> env var → pass as <code className="text-slate-400">?secret=...</code> query param
-                  </p>
-                </div>
-              </div>
-            </div>
           </>
         ) : (
           <div className="text-center py-32 text-slate-600">

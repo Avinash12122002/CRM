@@ -101,15 +101,7 @@ export async function GET() {
     .collection("email_history")
     .countDocuments({ sentAt: { $gte: todayStart } });
 
-  // Per-program breakdown
-  const programBreakdown = await db
-    .collection("lead_workflows")
-    .aggregate([
-      { $match: { workflowName: { $ne: null } } },
-      { $group: { _id: "$workflowName", count: { $sum: 1 }, completed: { $sum: { $cond: ["$isCompleted", 1, 0] } } } },
-      { $sort: { count: -1 } },
-    ])
-    .toArray();
+
 
   return NextResponse.json({
     funnelData,
@@ -121,6 +113,5 @@ export async function GET() {
     completedWorkflows,
     followupsTodayCount,
     emailsTodayCount,
-    programBreakdown,
   });
 }
