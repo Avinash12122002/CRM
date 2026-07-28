@@ -11,6 +11,28 @@ type MeResponse = {
   role: "admin" | "employee" | "meeting" | "business_development" | "billing";
 };
 
+type ByUser = {
+  userId: number;
+  userName: string;
+  count: number;
+  amount: number;
+  paidCount: number;
+  paidAmount: number;
+  remainingAmount: number;
+};
+
+type OutstandingBill = {
+  billId: number;
+  invoiceNumber: string;
+  clientName: string;
+  passportNumber: string;
+  amount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  createdByName: string;
+  createdAt: string;
+};
+
 type Analytics = {
   date: string | null;
   month: string | null;
@@ -19,11 +41,14 @@ type Analytics = {
   totalBills: number;
   totalAmount: number;
   paidCount: number;
-  paidAmount: number;
+  partialCount: number;
   unpaidCount: number;
+  paidAmount: number;
+  remainingAmount: number;
   unpaidAmount: number;
-  byUser: { userId: number; userName: string; count: number; amount: number; paidCount: number; paidAmount: number }[];
+  byUser: ByUser[];
   dailyBilling: { date: string; count: number; amount: number }[];
+  outstanding: OutstandingBill[];
 };
 
 function todayISO() {
@@ -90,18 +115,27 @@ export default function BillingAnalyticsPage() {
     lines.push(`Total Amount,${data.totalAmount}`);
     lines.push(`Paid Bills,${data.paidCount}`);
     lines.push(`Paid Amount,${data.paidAmount}`);
+    lines.push(`Partial Bills,${data.partialCount}`);
     lines.push(`Unpaid Bills,${data.unpaidCount}`);
-    lines.push(`Unpaid Amount,${data.unpaidAmount}`);
+    lines.push(`Remaining Amount,${data.remainingAmount}`);
     lines.push("");
     lines.push(`Bills Generated Per Person (${scope})`);
-    lines.push("Person,Bills Created,Total Amount,Paid Bills,Paid Amount");
+    lines.push("Person,Bills Created,Total Amount,Paid Bills,Paid Amount,Remaining Amount");
     data.byUser.forEach((u) =>
-      lines.push(`${csv(u.userName)},${u.count},${u.amount},${u.paidCount},${u.paidAmount}`)
+      lines.push(`${csv(u.userName)},${u.count},${u.amount},${u.paidCount},${u.paidAmount},${u.remainingAmount}`)
     );
     lines.push("");
     lines.push(`Daily Billing (${scope})`);
     lines.push("Date,Bills Created,Total Amount");
     data.dailyBilling.forEach((d) => lines.push(`${d.date},${d.count},${d.amount}`));
+    lines.push("");
+    lines.push(`Clients With Pending Balance (${scope})`);
+    lines.push("Invoice #,Client,Passport,Total,Paid,Remaining,Created By,Date");
+    data.outstanding.forEach((o) =>
+      lines.push(
+        `${o.invoiceNumber},${csv(o.clientName)},${o.passportNumber},${o.amount},${o.paidAmount},${o.remainingAmount},${csv(o.createdByName)},${new Date(o.createdAt).toLocaleDateString("en-IN")}`
+      )
+    );
 
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -182,11 +216,16 @@ export default function BillingAnalyticsPage() {
             <p className="text-sm text-gray-500 dark:text-gray-400">Showing: {scopeLabel}</p>
 
             {/* Summary cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
               <StatCard label="Total Bills" value={data.totalBills} />
               <StatCard label="Total Amount" value={`Rs.${data.totalAmount.toLocaleString("en-IN")}`} />
               <StatCard label="Paid" value={`${data.paidCount} (Rs.${data.paidAmount.toLocaleString("en-IN")})`} accent="green" />
-              <StatCard label="Unpaid" value={`${data.unpaidCount} (Rs.${data.unpaidAmount.toLocaleString("en-IN")})`} accent="red" />
+              <StatCard label="Partial" value={data.partialCount} accent="amber" />
+              <StatCard
+                label="Unpaid / Remaining"
+                value={`${data.unpaidCount} (Rs.${data.remainingAmount.toLocaleString("en-IN")})`}
+                accent="red"
+              />
               <StatCard label="Total In DB" value={data.totalInDb} />
             </div>
 
@@ -206,12 +245,13 @@ export default function BillingAnalyticsPage() {
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Amount</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Paid</th>
                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Paid Amount</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Remaining Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {data.byUser.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                           No bills for this period
                         </td>
                       </tr>
@@ -222,7 +262,58 @@ export default function BillingAnalyticsPage() {
                           <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{u.count}</td>
                           <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100">Rs.{u.amount.toLocaleString("en-IN")}</td>
                           <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{u.paidCount}</td>
-                          <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">Rs.{u.paidAmount.toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-2 text-xs text-green-700 dark:text-green-400">Rs.{u.paidAmount.toLocaleString("en-IN")}</td>
+                          <td className={`px-4 py-2 text-xs ${u.remainingAmount > 0 ? "text-red-600 dark:text-red-400 font-medium" : "text-gray-500 dark:text-gray-400"}`}>
+                            Rs.{u.remainingAmount.toLocaleString("en-IN")}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Clients with pending balance */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Clients With Pending Balance</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Sorted by remaining amount, highest first</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Invoice #</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Client</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Passport</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Paid</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Remaining</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Created By</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {data.outstanding.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                          No pending balances — everyone's paid up 🎉
+                        </td>
+                      </tr>
+                    ) : (
+                      data.outstanding.map((o) => (
+                        <tr key={o.billId}>
+                          <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100">{o.invoiceNumber}</td>
+                          <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 wrap-break-word">{o.clientName}</td>
+                          <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{o.passportNumber}</td>
+                          <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100">Rs.{o.amount.toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-2 text-xs text-green-700 dark:text-green-400">Rs.{o.paidAmount.toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-2 text-xs text-red-600 dark:text-red-400 font-medium">Rs.{o.remainingAmount.toLocaleString("en-IN")}</td>
+                          <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{o.createdByName}</td>
+                          <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
+                            {new Date(o.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                          </td>
                         </tr>
                       ))
                     )}
@@ -272,13 +363,23 @@ export default function BillingAnalyticsPage() {
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent?: "green" | "red" }) {
+function StatCard({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  accent?: "green" | "red" | "amber";
+}) {
   const accentClass =
     accent === "green"
       ? "text-green-600 dark:text-green-400"
       : accent === "red"
         ? "text-red-600 dark:text-red-400"
-        : "text-gray-800 dark:text-gray-100";
+        : accent === "amber"
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-gray-800 dark:text-gray-100";
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
       <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>

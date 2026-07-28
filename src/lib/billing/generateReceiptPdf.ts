@@ -1,13 +1,7 @@
-// Client-only utility — generates and downloads a "Payment Receipt" PDF
-// (distinct from the invoice generated on bill creation via
-// generateInvoicePdf.ts). This one matches the org's official payment
-// receipt template: Receipt No/Date, Client, Passport, Particulars/Amount
-// table, and a signed "Received with thanks" confirmation line.
+// Client-only utility — generates the Payment Receipt PDF, downloaded when
+// a payment (partial or final) is recorded from Billing History.
 //
-// Requires the "jspdf" package (already a dependency — see generateInvoicePdf.ts).
-//
-// Only ever call this from inside a browser event handler, e.g. right after
-// a bill is successfully marked Paid via PATCH /api/billing/[id].
+// Requires "jspdf".
 
 export type BillingReceipt = {
   id: number;
@@ -16,6 +10,7 @@ export type BillingReceipt = {
   passportNumber: string;
   description: string;
   amount: number;
+  paidAmount?: number;
   org: string;
   paidAt?: string | Date | null;
   createdAt: string | Date;
@@ -27,10 +22,6 @@ function formatINR(amount: number) {
   return `${amount.toLocaleString("en-IN")}/-`;
 }
 
-// Renders a run of segments (some bold, some not) as wrapped paragraph text,
-// since jsPDF's text() only supports a single font per call. Splits each
-// segment into words and lays them out left-to-right, wrapping to a new
-// line whenever the next word would overflow maxWidth.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function renderRichText(
   doc: any,
@@ -53,12 +44,10 @@ function renderRichText(
 
     words.forEach((word) => {
       const wordWidth = doc.getTextWidth(word);
-
       if (x + wordWidth > startX + maxWidth && x > startX) {
         x = startX;
         y += lineHeight;
       }
-
       doc.text(word, x, y);
       x += wordWidth + spaceWidth;
     });
@@ -74,7 +63,7 @@ export async function generateReceiptPdf(bill: BillingReceipt) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const marginX = 56;
   const tableWidth = pageWidth - marginX * 2;
-  let y = 60;
+  let y = 55;
 
   const receiptNo = `TMS-RCPT-${String(bill.id).padStart(4, "0")}`;
   const receiptDate = new Date(bill.paidAt || bill.createdAt).toLocaleDateString("en-IN", {
@@ -84,7 +73,12 @@ export async function generateReceiptPdf(bill: BillingReceipt) {
     timeZone: "Asia/Kolkata",
   });
 
-  // Header
+  const paidAmount = bill.paidAmount ?? bill.amount;
+  const remainingAmount = Math.max(bill.amount - paidAmount, 0);
+  const isFullyPaid = remainingAmount <= 0.01;
+  const statusLabel = isFullyPaid ? "PAID IN FULL" : "PARTIAL PAYMENT";
+  const statusColor: [number, number, number] = isFullyPaid ? [22, 140, 70] : [190, 130, 10];
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(18);
   doc.text(bill.org.toUpperCase(), pageWidth / 2, y, { align: "center" });
@@ -94,7 +88,21 @@ export async function generateReceiptPdf(bill: BillingReceipt) {
   doc.setTextColor(60, 60, 60);
   doc.text("OFFICIAL PAYMENT RECEIPT", pageWidth / 2, y, { align: "center" });
   doc.setTextColor(0, 0, 0);
-  y += 14;
+  y += 18;
+
+  // Status stamp, centered under the title
+  const stampWidth = 150;
+  const stampX = pageWidth / 2 - stampWidth / 2;
+  doc.setDrawColor(...statusColor);
+  doc.setLineWidth(1.5);
+  doc.rect(stampX, y, stampWidth, 22);
+  doc.setLineWidth(1);
+  doc.setTextColor(...statusColor);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(statusLabel, pageWidth / 2, y + 15, { align: "center" });
+  doc.setTextColor(0, 0, 0);
+  y += 34;
 
   doc.setDrawColor(180, 180, 180);
   doc.line(marginX, y, marginX + tableWidth, y);
@@ -123,7 +131,6 @@ export async function generateReceiptPdf(bill: BillingReceipt) {
     y += height;
   }
 
-  // Two-up Receipt No / Receipt Date row
   const halfWidth = tableWidth / 2;
   doc.setFillColor(240, 240, 240);
   doc.rect(marginX, y, halfWidth, 26, "F");
@@ -148,7 +155,6 @@ export async function generateReceiptPdf(bill: BillingReceipt) {
 
   y += 20;
 
-  // Particulars / Amount table
   const descColWidth = tableWidth - 140;
   function headerCell(text: string, x: number, w: number) {
     doc.setFillColor(224, 235, 250);
@@ -180,24 +186,35 @@ export async function generateReceiptPdf(bill: BillingReceipt) {
   }
 
   dataRow(bill.description, formatINR(bill.amount));
-  dataRow("Amount Received", formatINR(bill.amount));
-  dataRow("Outstanding Balance", "0.00", true);
+  dataRow("Amount Received", formatINR(paidAmount));
+  dataRow("Outstanding Balance", isFullyPaid ? "0.00" : formatINR(remainingAmount), true);
 
   y += 30;
 
-  // Receipt confirmation line — amount and client name rendered bold, rest normal.
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.text("Receipt Confirmation", marginX, y);
   y += 18;
 
-  const confirmationSegments: RichSegment[] = [
-    { text: "Received with thanks an amount of INR" },
-    { text: formatINR(bill.amount), bold: true },
-    { text: "from" },
-    { text: bill.clientName.toUpperCase(), bold: true },
-    { text: `towards ${bill.description}.` },
-  ];
+  const confirmationSegments: RichSegment[] = isFullyPaid
+    ? [
+        { text: "Received with thanks an amount of INR" },
+        { text: formatINR(paidAmount), bold: true },
+        { text: "from" },
+        { text: bill.clientName.toUpperCase(), bold: true },
+        { text: `towards ${bill.description}.` },
+      ]
+    : [
+        { text: "Received with thanks a partial payment of INR" },
+        { text: formatINR(paidAmount), bold: true },
+        { text: "from" },
+        { text: bill.clientName.toUpperCase(), bold: true },
+        { text: `towards ${bill.description}, out of a total of INR` },
+        { text: formatINR(bill.amount), bold: true },
+        { text: ". A balance of INR" },
+        { text: formatINR(remainingAmount), bold: true },
+        { text: "remains due." },
+      ];
   y = renderRichText(doc, confirmationSegments, marginX, y, tableWidth);
 
   y += 40;

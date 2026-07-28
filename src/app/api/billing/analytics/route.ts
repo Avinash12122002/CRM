@@ -2,10 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getAuthPayload } from "@/lib/bd/helpers";
-import { BILLING_COLLECTION } from "@/lib/billing/constants";
-
-// Same optional Date (YYYY-MM-DD) / Month (YYYY-MM) filter model used by
-// BD Analytics / Lead Analytics. Neither selected -> lifetime "All Time".
+import { BILLING_COLLECTION, round2 } from "@/lib/billing/constants";
 
 function dayWindow(dateStr: string): { start: Date; end: Date } {
   const start = new Date(`${dateStr}T00:00:00.000+05:30`);
@@ -20,10 +17,6 @@ function monthWindow(monthStr: string): { start: Date; end: Date } {
   const nextMonth = m === 12 ? 1 : m + 1;
   const end = new Date(`${nextYear}-${String(nextMonth).padStart(2, "0")}-01T00:00:00.000+05:30`);
   return { start, end };
-}
-
-function round2(n: number) {
-  return Math.round(n * 100) / 100;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -64,27 +57,53 @@ export async function GET(req: NextRequest) {
 
     let totalAmount = 0;
     let paidCount = 0;
-    let paidAmount = 0;
+    let partialCount = 0;
     let unpaidCount = 0;
-    let unpaidAmount = 0;
+    let collectedAmount = 0;
+    let remainingAmount = 0;
 
     const byUserMap = new Map<
-      number,
-      { userId: number; userName: string; count: number; amount: number; paidCount: number; paidAmount: number }
-    >();
+  number,
+  {
+    userId: number;
+    userName: string;
+    count: number;
+    amount: number;
+    paidCount: number;
+    paidAmount: number;
+    remainingAmount: number;
+  }
+>();
     const dailyMap = new Map<string, { date: string; count: number; amount: number }>();
+    const outstanding: {
+      billId: number;
+      invoiceNumber: string;
+      clientName: string;
+      passportNumber: string;
+      amount: number;
+      paidAmount: number;
+      remainingAmount: number;
+      createdByName: string;
+      createdAt: Date;
+    }[] = [];
 
     bills.forEach((bill: Bill) => {
       const amount = Number(bill.amount) || 0;
-      totalAmount += amount;
+      const billPaidAmount =
+        bill.paidAmount !== undefined ? Number(bill.paidAmount) || 0 : bill.paid ? amount : 0;
+      const billRemaining =
+        bill.remainingAmount !== undefined
+          ? Number(bill.remainingAmount) || 0
+          : Math.max(amount - billPaidAmount, 0);
+      const isFullyPaid = billRemaining <= 0.01;
 
-      if (bill.paid) {
-        paidCount += 1;
-        paidAmount += amount;
-      } else {
-        unpaidCount += 1;
-        unpaidAmount += amount;
-      }
+      totalAmount += amount;
+      collectedAmount += billPaidAmount;
+      remainingAmount += billRemaining;
+
+      if (isFullyPaid) paidCount += 1;
+      else if (billPaidAmount > 0) partialCount += 1;
+      else unpaidCount += 1;
 
       const uid = bill.createdBy?.id ?? 0;
       const uname = bill.createdBy?.name || "Unknown";
@@ -95,13 +114,13 @@ export async function GET(req: NextRequest) {
         amount: 0,
         paidCount: 0,
         paidAmount: 0,
+        remainingAmount: 0,
       };
       existingUser.count += 1;
       existingUser.amount += amount;
-      if (bill.paid) {
-        existingUser.paidCount += 1;
-        existingUser.paidAmount += amount;
-      }
+      existingUser.paidAmount += billPaidAmount;
+      existingUser.remainingAmount += billRemaining;
+      if (isFullyPaid) existingUser.paidCount += 1;
       byUserMap.set(uid, existingUser);
 
       const dayKey = new Date(bill.createdAt).toLocaleDateString("en-CA", {
@@ -111,15 +130,36 @@ export async function GET(req: NextRequest) {
       existingDay.count += 1;
       existingDay.amount += amount;
       dailyMap.set(dayKey, existingDay);
+
+      if (billRemaining > 0.01) {
+        outstanding.push({
+          billId: bill.id,
+          invoiceNumber: bill.invoiceNumber,
+          clientName: bill.clientName,
+          passportNumber: bill.passportNumber,
+          amount: round2(amount),
+          paidAmount: round2(billPaidAmount),
+          remainingAmount: round2(billRemaining),
+          createdByName: bill.createdBy?.name || "Unknown",
+          createdAt: bill.createdAt,
+        });
+      }
     });
 
     const byUser = Array.from(byUserMap.values())
-      .map((u) => ({ ...u, amount: round2(u.amount), paidAmount: round2(u.paidAmount) }))
+      .map((u) => ({
+        ...u,
+        amount: round2(u.amount),
+        paidAmount: round2(u.paidAmount),
+        remainingAmount: round2(u.remainingAmount),
+      }))
       .sort((a, b) => b.amount - a.amount);
 
     const dailyBilling = Array.from(dailyMap.values())
       .map((d) => ({ ...d, amount: round2(d.amount) }))
       .sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    outstanding.sort((a, b) => b.remainingAmount - a.remainingAmount);
 
     return NextResponse.json({
       date: validDate || null,
@@ -129,11 +169,14 @@ export async function GET(req: NextRequest) {
       totalBills: bills.length,
       totalAmount: round2(totalAmount),
       paidCount,
-      paidAmount: round2(paidAmount),
+      partialCount,
       unpaidCount,
-      unpaidAmount: round2(unpaidAmount),
+      paidAmount: round2(collectedAmount),
+      remainingAmount: round2(remainingAmount),
+      unpaidAmount: round2(remainingAmount),
       byUser,
       dailyBilling,
+      outstanding,
     });
   } catch (err) {
     console.error(err);
