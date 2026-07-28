@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
@@ -135,7 +135,7 @@ function getNextStage(current: EmailStage | null): EmailStage | null {
 // Main Page
 // ─────────────────────────────────────────────
 
-export default function EmailPage() {
+function EmailPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -1433,5 +1433,19 @@ export default function EmailPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function EmailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <EmailPageInner />
+    </Suspense>
   );
 }
