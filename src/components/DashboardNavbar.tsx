@@ -180,7 +180,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               {user.role === "admin" && (
                 <Link
                   href="/dashboard/email"
-                  className={deskLinkClass(isActive("/dashboard/email") || pathname.startsWith("/dashboard/email"))}
+                  className={deskLinkClass(isActive("/dashboard/email") || pathname.startsWith("/dashboard/email/"))}
                 >
                   Email
                 </Link>
