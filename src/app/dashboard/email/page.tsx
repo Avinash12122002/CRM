@@ -191,6 +191,7 @@ function EmailPageInner() {
 
   // Template form
   const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [tplName, setTplName] = useState("");
   const [tplStage, setTplStage] = useState<EmailStage>("info");
   const [tplMailbox, setTplMailbox] = useState("info@tmsvisa.com");
@@ -562,24 +563,38 @@ function EmailPageInner() {
     }
     setSavingTemplate(true);
     try {
+      const method = editingTemplateId ? "PUT" : "POST";
+      const bodyPayload = editingTemplateId
+        ? {
+            _id: editingTemplateId,
+            name: tplName,
+            stage: tplStage,
+            mailbox: tplMailbox,
+            subject: tplSubject,
+            html: tplHtml,
+            program: tplProgram || null,
+            attachments: tplAttachments,
+          }
+        : {
+            name: tplName,
+            stage: tplStage,
+            mailbox: tplMailbox,
+            subject: tplSubject,
+            html: tplHtml,
+            program: tplProgram || null,
+            attachments: tplAttachments,
+          };
       const res = await fetch("/api/email/templates", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: tplName,
-          stage: tplStage,
-          mailbox: tplMailbox,
-          subject: tplSubject,
-          html: tplHtml,
-          program: tplProgram || null,
-          attachments: tplAttachments,
-        }),
+        body: JSON.stringify(bodyPayload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed");
 
-      toast.success("Template saved!");
+      toast.success(editingTemplateId ? "Template updated!" : "Template saved!");
       setShowTemplateForm(false);
+      setEditingTemplateId(null);
       setTplName("");
       setTplSubject("");
       setTplHtml("");
@@ -603,6 +618,20 @@ function EmailPageInner() {
     } catch {
       toast.error("Failed to delete");
     }
+  };
+
+  // ─── Edit Template ───
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleEditTemplate = (t: any) => {
+    setEditingTemplateId(t._id);
+    setTplName(t.name);
+    setTplStage(t.stage as EmailStage);
+    setTplMailbox(t.mailbox);
+    setTplSubject(t.subject);
+    setTplHtml(t.html);
+    setTplProgram(t.program || "");
+    setTplAttachments(t.attachments || []);
+    setShowTemplateForm(true);
   };
 
   // ─── Delete Template ───
@@ -1448,7 +1477,15 @@ function EmailPageInner() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setShowTemplateForm(false)} className="px-4 py-2 rounded-lg text-sm text-slate-400 border border-slate-700 hover:border-slate-500">Cancel</button>
+                  <button onClick={() => {
+                    setShowTemplateForm(false);
+                    setEditingTemplateId(null);
+                    setTplName("");
+                    setTplSubject("");
+                    setTplHtml("");
+                    setTplProgram("");
+                    setTplAttachments([]);
+                  }} className="px-4 py-2 rounded-lg text-sm text-slate-400 border border-slate-700 hover:border-slate-500">Cancel</button>
                   <button onClick={handleSaveTemplate} disabled={savingTemplate} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
                     style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
                     {savingTemplate ? "Saving..." : "Save Template"}
@@ -1476,7 +1513,10 @@ function EmailPageInner() {
                           <p className="text-xs text-slate-400 mt-0.5 truncate">{t.subject}</p>
                           {t.program && <p className="text-xs text-indigo-400 mt-0.5">🌏 {t.program}</p>}
                         </div>
-                        <button onClick={() => handleDeleteTemplate(t._id)} className="text-red-500 hover:text-red-400 text-xs shrink-0">Delete</button>
+                        <div className="flex gap-3 shrink-0 items-center">
+                          <button onClick={() => handleEditTemplate(t)} className="text-indigo-400 hover:text-indigo-300 text-xs font-medium">Edit</button>
+                          <button onClick={() => handleDeleteTemplate(t._id)} className="text-red-500 hover:text-red-400 text-xs font-medium">Delete</button>
+                        </div>
                       </div>
                     ))}
                   </div>
