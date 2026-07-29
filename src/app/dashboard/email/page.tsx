@@ -649,6 +649,7 @@ function EmailPageInner() {
       setShowTemplateForm(true);
       setShowFollowupTemplateForm(false);
     }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // ─── Delete Template ───
