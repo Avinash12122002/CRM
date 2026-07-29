@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
+import { getGridFSBucket } from "@/lib/gridfs";
 import { ObjectId } from "mongodb";
 import {
   sendEmail,
@@ -85,6 +86,8 @@ export async function POST(
     let html = customHtml || "";
 
     // Load and process template if provided
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let template: any = null;
     if (templateId) {
       let templateObjectId;
       try {
@@ -93,7 +96,7 @@ export async function POST(
         return NextResponse.json({ error: "Invalid templateId" }, { status: 400 });
       }
 
-      const template = await db
+      template = await db
         .collection("email_templates")
         .findOne({ _id: templateObjectId });
 
@@ -140,6 +143,30 @@ export async function POST(
       );
     }
 
+    // Process attachments if template has any
+    const emailAttachments: { filename: string; content: Buffer; contentType: string }[] = [];
+    if (template && template.attachments && template.attachments.length > 0) {
+      try {
+        const bucket = await getGridFSBucket();
+        for (const att of template.attachments) {
+          const fileStream = bucket.openDownloadStream(new ObjectId(att.fileId));
+          const chunks: Buffer[] = [];
+          for await (const chunk of fileStream) {
+            chunks.push(Buffer.from(chunk));
+          }
+          const content = Buffer.concat(chunks);
+          emailAttachments.push({
+            filename: att.fileName,
+            content,
+            contentType: att.mimeType,
+          });
+        }
+      } catch (attErr) {
+        console.error("Failed to fetch attachments:", attErr);
+        // Continue without attachments if it fails, or maybe throw error?
+      }
+    }
+
     // Send the email
     const sendResult = await sendEmail({
       from: mailbox,
@@ -147,6 +174,7 @@ export async function POST(
       to: lead.email,
       subject,
       html,
+      attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
     });
 
     // Determine status to record

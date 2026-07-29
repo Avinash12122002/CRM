@@ -72,6 +72,13 @@ type EmailHistory = {
   invoiceId?: string;
 };
 
+type TemplateAttachment = {
+  fileId: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+};
+
 type Template = {
   _id: string;
   name: string;
@@ -81,6 +88,7 @@ type Template = {
   html: string;
   isFollowup: boolean;
   program?: string;
+  attachments?: TemplateAttachment[];
 };
 
 type Mailbox = {
@@ -189,6 +197,8 @@ function EmailPageInner() {
   const [tplSubject, setTplSubject] = useState("");
   const [tplHtml, setTplHtml] = useState("");
   const [tplProgram, setTplProgram] = useState("");
+  const [tplAttachments, setTplAttachments] = useState<TemplateAttachment[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
 
   // ─── Auth ───
@@ -514,6 +524,36 @@ function EmailPageInner() {
     }
   };
 
+  const handleUploadAttachment = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    setUploadingAttachment(true);
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/email/templates/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload failed");
+      
+      setTplAttachments(prev => [...prev, data]);
+      toast.success("Attachment added");
+    } catch (err) {
+      toast.error(String(err));
+    } finally {
+      setUploadingAttachment(false);
+      e.target.value = ""; // reset file input
+    }
+  };
+
+  const removeAttachment = (fileId: string) => {
+    setTplAttachments(prev => prev.filter(a => a.fileId !== fileId));
+  };
+
   // ─── Save Template ───
   const handleSaveTemplate = async () => {
     if (!tplName || !tplSubject || !tplHtml) {
@@ -532,6 +572,7 @@ function EmailPageInner() {
           subject: tplSubject,
           html: tplHtml,
           program: tplProgram || null,
+          attachments: tplAttachments,
         }),
       });
       const data = await res.json();
@@ -543,6 +584,7 @@ function EmailPageInner() {
       setTplSubject("");
       setTplHtml("");
       setTplProgram("");
+      setTplAttachments([]);
       fetchTemplates();
     } catch (err) {
       toast.error(String(err));
@@ -934,6 +976,7 @@ function EmailPageInner() {
                                     setTplSubject("");
                                     setTplHtml("");
                                     setTplProgram("");
+                                    setTplAttachments([]);
                                     setShowTemplateForm(true);
                                     setActiveTab("templates");
                                   }}
@@ -1129,6 +1172,7 @@ function EmailPageInner() {
                                     setTplSubject("");
                                     setTplHtml("");
                                     setTplProgram("");
+                                    setTplAttachments([]);
                                     setShowTemplateForm(true);
                                     setActiveTab("templates");
                                   }}
@@ -1384,6 +1428,24 @@ function EmailPageInner() {
                   </label>
                   <textarea rows={8} placeholder="<p>Dear {{CandidateName}},</p><p>...</p>" value={tplHtml} onChange={(e) => setTplHtml(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white font-mono focus:outline-none focus:border-indigo-500 resize-y" />
+                </div>
+                {/* Attachments Section */}
+                <div className="mb-4">
+                  <label className="text-xs text-slate-400 mb-2 block">Attachments</label>
+                  <div className="flex flex-col gap-2">
+                    {tplAttachments.map((att) => (
+                      <div key={att.fileId} className="flex items-center justify-between bg-slate-800 p-2 rounded-lg border border-slate-700">
+                        <span className="text-xs text-slate-300 truncate max-w-[200px]">{att.fileName}</span>
+                        <button onClick={() => removeAttachment(att.fileId)} className="text-red-400 hover:text-red-300 text-xs px-2">Remove</button>
+                      </div>
+                    ))}
+                    <div className="relative mt-1">
+                      <input type="file" onChange={handleUploadAttachment} disabled={uploadingAttachment} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
+                      <div className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 hover:border-indigo-500/50 transition-colors bg-slate-900/30">
+                        {uploadingAttachment ? "Uploading..." : "+ Add Attachment"}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setShowTemplateForm(false)} className="px-4 py-2 rounded-lg text-sm text-slate-400 border border-slate-700 hover:border-slate-500">Cancel</button>

@@ -141,6 +141,10 @@ export default function DashboardPage() {
   const [billingSummary, setBillingSummary] = useState<BillingSummary | null>(null);
   const [loadingBillingSummary, setLoadingBillingSummary] = useState(false);
 
+  const [showCleanupPrompt, setShowCleanupPrompt] = useState(false);
+  const [cleanupCount, setCleanupCount] = useState(0);
+  const [cleanupDownloading, setCleanupDownloading] = useState(false);
+
   const fetchBDStats = async () => {
     setLoadingBdStats(true);
     try {
@@ -323,6 +327,61 @@ export default function DashboardPage() {
     }
   };
 
+  const fetchAdminCleanup = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const dismissed = localStorage.getItem(`dismissedCleanup_${today}`);
+      if (dismissed === "true") return;
+
+      const res = await fetch("/api/admin/cleanup");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.promptNotInterested) {
+          setShowCleanupPrompt(true);
+          setCleanupCount(data.notInterestedCount);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch cleanup status:", err);
+    }
+  };
+
+  const handleDownloadAndCleanup = async () => {
+    setCleanupDownloading(true);
+    try {
+      const res = await fetch("/api/admin/cleanup", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.csvData) {
+          const blob = new Blob([data.csvData], { type: "text/csv" });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `not_interested_leads_${new Date().toISOString().split("T")[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+
+          setShowCleanupPrompt(false);
+          alert(`Successfully downloaded and deleted ${data.count} leads.`);
+        }
+      } else {
+        alert("Failed to process cleanup");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error processing cleanup");
+    } finally {
+      setCleanupDownloading(false);
+    }
+  };
+
+  const handleDismissCleanup = () => {
+    const today = new Date().toISOString().split("T")[0];
+    localStorage.setItem(`dismissedCleanup_${today}`, "true");
+    setShowCleanupPrompt(false);
+  };
+
   useEffect(() => {
     async function fetchUser() {
       try {
@@ -341,6 +400,7 @@ export default function DashboardPage() {
         }
         if (data.role === "admin") {
           fetchAdminStats();
+          fetchAdminCleanup();
         }
         if (data.role === "business_development") {
           fetchBDStats();
@@ -369,6 +429,32 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNavbar user={user} />
       <AnnouncementBanner />
+
+      {showCleanupPrompt && (
+        <div className="bg-red-500/10 border-l-4 border-red-500 p-4 max-w-7xl mx-auto sm:px-6 lg:px-8 mt-4 rounded-r-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-red-800 dark:text-red-200 font-bold text-sm">Action Required: Lead Cleanup</h3>
+            <p className="text-red-700 dark:text-red-300 text-sm mt-1">
+              There are {cleanupCount} &quot;Not Interested&quot; leads and ALL of them have a last worked date of more than one month old. Please download them as a CSV and delete them from the database to keep the system clean.
+            </p>
+          </div>
+          <div className="flex gap-2 whitespace-nowrap">
+            <button 
+              onClick={handleDismissCleanup}
+              className="px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+            >
+              Not Now (Remind Tomorrow)
+            </button>
+            <button 
+              onClick={handleDownloadAndCleanup}
+              disabled={cleanupDownloading}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {cleanupDownloading ? "Processing..." : "Download CSV & Delete"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
