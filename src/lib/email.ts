@@ -200,7 +200,8 @@ export async function createOrGetLeadWorkflow(leadId: number) {
 export async function advanceLeadStage(
   leadId: number,
   newStage: EmailStage,
-  workflowName?: string
+  workflowName?: string | null,
+  initialTemplateId?: string | null
 ) {
   const { db } = await connectToDatabase();
 
@@ -220,8 +221,9 @@ export async function advanceLeadStage(
       $set: {
         currentStage: newStage,
         workflowName: workflowName || null,
+        initialTemplateId: initialTemplateId || null,
         followupCount: 0,
-        nextFollowupAt,
+        nextFollowupAt: newStage === "info" ? nextFollowupAt : null,
         stageStartedAt: new Date(),
         updatedAt: new Date(),
       },
@@ -231,8 +233,28 @@ export async function advanceLeadStage(
   );
 }
 
-export async function scheduleNextFollowup(leadId: number, daysFromNow = 3) {
+export async function scheduleNextFollowup(leadId: number) {
   const { db } = await connectToDatabase();
+  
+  const wf = await db.collection("lead_workflows").findOne({ leadId });
+  if (!wf || wf.currentStage !== "info") return;
+
+  const count = wf.followupCount || 0;
+  let daysFromNow = 0;
+  
+  if (count === 0) daysFromNow = 3;
+  else if (count === 1) daysFromNow = 7;
+  else if (count === 2) daysFromNow = 14;
+  else if (count === 3) daysFromNow = 30;
+  else {
+    // Stop after 4th followup
+    await db.collection("lead_workflows").updateOne(
+      { leadId },
+      { $set: { nextFollowupAt: null, updatedAt: new Date() } }
+    );
+    return;
+  }
+
   const nextFollowupAt = new Date();
   nextFollowupAt.setDate(nextFollowupAt.getDate() + daysFromNow);
 
@@ -292,7 +314,7 @@ export async function processDueFollowups() {
     .collection("lead_workflows")
     .find({
       nextFollowupAt: { $lte: now },
-      currentStage: { $ne: null },
+      currentStage: "info", // Only process followups for information stage
       isCompleted: false,
     })
     .toArray();
@@ -307,16 +329,65 @@ export async function processDueFollowups() {
 
       const stage = wf.currentStage as EmailStage;
       const mailbox = STAGE_MAILBOXES[stage];
-      const followupNum = (wf.followupCount || 0) + 1;
+      const followupNum = wf.followupCount || 1; // Since scheduleNextFollowup increments immediately after send, this will be 1, 2, 3, 4
       const stageLabel = STAGE_LABELS[stage];
 
-      const subject = `Follow-up ${followupNum}: ${stageLabel} — ${lead.name}`;
-      const html = `
+      let subject = `Follow-up ${followupNum}: ${stageLabel} — ${lead.name}`;
+      let html = `
         <p>Dear ${lead.name},</p>
         <p>This is a follow-up regarding your <strong>${stageLabel}</strong>.</p>
         <p>Please let us know if you have any questions or are ready to proceed.</p>
         <p>Regards,<br/>TMS Visa Team</p>
       `;
+      let emailAttachments: { filename: string; content: Buffer; contentType: string }[] | undefined;
+
+      // Look for a custom follow-up template linked to the initial template
+      if (wf.initialTemplateId) {
+        const customTemplate = await db.collection("email_templates").findOne({
+          isFollowup: true,
+          parentTemplateId: wf.initialTemplateId
+        });
+
+        if (customTemplate) {
+          const vars = {
+            CandidateName: lead.name || "",
+            Program: wf.workflowName || lead.program || "",
+            CompanyName: "TMS Visa",
+          };
+
+          // Replace variables and prepend followup number to subject
+          subject = `Follow-up ${followupNum}: ${customTemplate.subject}`;
+          html = customTemplate.html;
+          for (const [key, value] of Object.entries(vars)) {
+            const regex = new RegExp(`{{${key}}}`, "g");
+            subject = subject.replace(regex, String(value));
+            html = html.replace(regex, String(value));
+          }
+
+          // Process attachments
+          if (customTemplate.attachments && customTemplate.attachments.length > 0) {
+            emailAttachments = [];
+            try {
+              const { getGridFSBucket } = await import("@/lib/gridfs");
+              const bucket = await getGridFSBucket();
+              for (const att of customTemplate.attachments) {
+                const fileStream = bucket.openDownloadStream(new ObjectId(att.fileId));
+                const chunks: Buffer[] = [];
+                for await (const chunk of fileStream) {
+                  chunks.push(Buffer.from(chunk));
+                }
+                emailAttachments.push({
+                  filename: att.fileName,
+                  content: Buffer.concat(chunks),
+                  contentType: att.mimeType,
+                });
+              }
+            } catch (err) {
+              console.error("Failed to fetch follow-up attachments:", err);
+            }
+          }
+        }
+      }
 
       const sendResult = await sendEmail({
         from: mailbox,
@@ -324,6 +395,7 @@ export async function processDueFollowups() {
         to: lead.email,
         subject,
         html,
+        attachments: emailAttachments,
       });
 
       // Record in history
@@ -346,7 +418,7 @@ export async function processDueFollowups() {
       });
 
       // Schedule next follow-up
-      await scheduleNextFollowup(wf.leadId, 3);
+      await scheduleNextFollowup(wf.leadId);
 
       results.push({ leadId: wf.leadId, success: true, followupNum });
     } catch (err) {

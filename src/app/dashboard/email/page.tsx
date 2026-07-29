@@ -87,6 +87,7 @@ type Template = {
   subject: string;
   html: string;
   isFollowup: boolean;
+  parentTemplateId?: string;
   program?: string;
   attachments?: TemplateAttachment[];
 };
@@ -191,6 +192,7 @@ function EmailPageInner() {
 
   // Template form
   const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [showFollowupTemplateForm, setShowFollowupTemplateForm] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [tplName, setTplName] = useState("");
   const [tplStage, setTplStage] = useState<EmailStage>("info");
@@ -198,6 +200,7 @@ function EmailPageInner() {
   const [tplSubject, setTplSubject] = useState("");
   const [tplHtml, setTplHtml] = useState("");
   const [tplProgram, setTplProgram] = useState("");
+  const [tplParentTemplateId, setTplParentTemplateId] = useState("");
   const [tplAttachments, setTplAttachments] = useState<TemplateAttachment[]>([]);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -330,7 +333,10 @@ function EmailPageInner() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed");
+      if (!res.ok) {
+        await openLeadPanel(selectedLead); // Refresh to show failure in history
+        throw new Error(data.error || "Failed");
+      }
 
       toast.success(data.simulated ? "Email queued (SMTP not configured)" : "Email sent successfully!");
       setSelectedTemplate("");
@@ -338,6 +344,7 @@ function EmailPageInner() {
       fetchLeadWorkflows();
     } catch (err) {
       toast.error(String(err));
+      if (selectedLead) await openLeadPanel(selectedLead);
     } finally {
       setSendingEmail(false);
     }
@@ -561,29 +568,30 @@ function EmailPageInner() {
       toast.error("Name, subject, and body are required");
       return;
     }
+    if (showFollowupTemplateForm && !tplParentTemplateId) {
+      toast.error("Parent Template is required for follow-up templates");
+      return;
+    }
     setSavingTemplate(true);
     try {
       const method = editingTemplateId ? "PUT" : "POST";
-      const bodyPayload = editingTemplateId
-        ? {
-            _id: editingTemplateId,
-            name: tplName,
-            stage: tplStage,
-            mailbox: tplMailbox,
-            subject: tplSubject,
-            html: tplHtml,
-            program: tplProgram || null,
-            attachments: tplAttachments,
-          }
-        : {
-            name: tplName,
-            stage: tplStage,
-            mailbox: tplMailbox,
-            subject: tplSubject,
-            html: tplHtml,
-            program: tplProgram || null,
-            attachments: tplAttachments,
-          };
+      const bodyPayload: any = {
+        name: tplName,
+        stage: tplStage,
+        mailbox: tplMailbox,
+        subject: tplSubject,
+        html: tplHtml,
+        program: tplProgram || null,
+        attachments: tplAttachments,
+        isFollowup: showFollowupTemplateForm,
+      };
+      if (showFollowupTemplateForm) {
+        bodyPayload.parentTemplateId = tplParentTemplateId;
+      }
+      if (editingTemplateId) {
+        bodyPayload._id = editingTemplateId;
+      }
+
       const res = await fetch("/api/email/templates", {
         method,
         headers: { "Content-Type": "application/json" },
@@ -594,11 +602,13 @@ function EmailPageInner() {
 
       toast.success(editingTemplateId ? "Template updated!" : "Template saved!");
       setShowTemplateForm(false);
+      setShowFollowupTemplateForm(false);
       setEditingTemplateId(null);
       setTplName("");
       setTplSubject("");
       setTplHtml("");
       setTplProgram("");
+      setTplParentTemplateId("");
       setTplAttachments([]);
       fetchTemplates();
     } catch (err) {
@@ -631,7 +641,14 @@ function EmailPageInner() {
     setTplHtml(t.html);
     setTplProgram(t.program || "");
     setTplAttachments(t.attachments || []);
-    setShowTemplateForm(true);
+    if (t.isFollowup) {
+      setTplParentTemplateId(t.parentTemplateId || "");
+      setShowFollowupTemplateForm(true);
+      setShowTemplateForm(false);
+    } else {
+      setShowTemplateForm(true);
+      setShowFollowupTemplateForm(false);
+    }
   };
 
   // ─── Delete Template ───
@@ -1407,13 +1424,41 @@ function EmailPageInner() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Email Templates</h2>
-              <button
-                onClick={() => setShowTemplateForm(true)}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
-                style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-              >
-                + Add Template
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setShowTemplateForm(true);
+                    setShowFollowupTemplateForm(false);
+                    setEditingTemplateId(null);
+                    setTplName("");
+                    setTplSubject("");
+                    setTplHtml("");
+                    setTplProgram("");
+                    setTplAttachments([]);
+                  }}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white"
+                  style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                >
+                  + Add Template
+                </button>
+                <button
+                  onClick={() => {
+                    setShowFollowupTemplateForm(true);
+                    setShowTemplateForm(false);
+                    setEditingTemplateId(null);
+                    setTplStage("info");
+                    setTplMailbox("info@tmsvisa.com");
+                    setTplName("");
+                    setTplSubject("");
+                    setTplHtml("");
+                    setTplParentTemplateId("");
+                    setTplAttachments([]);
+                  }}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white border border-indigo-500 hover:bg-indigo-900/30 transition-colors"
+                >
+                  + Add Follow Ups Templates
+                </button>
+              </div>
             </div>
 
             {showTemplateForm && (
@@ -1494,6 +1539,76 @@ function EmailPageInner() {
               </div>
             )}
 
+            {showFollowupTemplateForm && (
+              <div className="bg-indigo-950/40 border border-indigo-900/50 rounded-xl p-5 mb-4">
+                <h3 className="text-sm font-semibold text-white mb-4">New Follow-up Template</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Template Name *</label>
+                    <input type="text" placeholder="e.g. 482 - Follow-up" value={tplName} onChange={(e) => setTplName(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Parent Template (Information) *</label>
+                    <select value={tplParentTemplateId} onChange={(e) => setTplParentTemplateId(e.target.value)}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                      <option value="">Select a template...</option>
+                      {templates.filter(t => t.stage === "info" && !t.isFollowup).map(t => (
+                        <option key={t._id} value={t._id}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                </div>
+                <div className="mb-3">
+                  <label className="text-xs text-slate-400 mb-1 block">Subject *</label>
+                  <input type="text" value={tplSubject} onChange={(e) => setTplSubject(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500" />
+                </div>
+                <div className="mb-4">
+                  <label className="text-xs text-slate-400 mb-1 flex items-center justify-between">
+                    Body (HTML) *
+                    <span className="text-indigo-400">Available vars: {'{{CandidateName}}'}, {'{{Program}}'}</span>
+                  </label>
+                  <textarea value={tplHtml} onChange={(e) => setTplHtml(e.target.value)} rows={6}
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono" />
+                </div>
+                <div className="mb-6">
+                  <label className="text-xs text-slate-400 mb-2 block">Attachments</label>
+                  <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-3">
+                    {tplAttachments.map((att) => (
+                      <div key={att.fileId} className="flex items-center justify-between bg-slate-800 p-2 rounded-lg border border-slate-700">
+                        <span className="text-xs text-slate-300 truncate max-w-[200px]">{att.fileName}</span>
+                        <button onClick={() => removeAttachment(att.fileId)} className="text-red-400 hover:text-red-300 text-xs px-2">Remove</button>
+                      </div>
+                    ))}
+                    <div className="relative mt-1">
+                      <input type="file" onChange={handleUploadAttachment} disabled={uploadingAttachment} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed" />
+                      <div className="flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-slate-700 rounded-lg text-slate-400 hover:text-indigo-400 hover:border-indigo-500/50 transition-colors bg-slate-900/30">
+                        {uploadingAttachment ? "Uploading..." : "+ Add Attachment"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => {
+                    setShowFollowupTemplateForm(false);
+                    setEditingTemplateId(null);
+                    setTplName("");
+                    setTplSubject("");
+                    setTplHtml("");
+                    setTplProgram("");
+                    setTplParentTemplateId("");
+                    setTplAttachments([]);
+                  }} className="px-4 py-2 rounded-lg text-sm text-slate-400 border border-slate-700 hover:border-slate-500">Cancel</button>
+                  <button onClick={handleSaveTemplate} disabled={savingTemplate} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
+                    style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
+                    {savingTemplate ? "Saving..." : "Save Follow-up Template"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Templates grouped by stage */}
             {STAGES.map((stage) => {
               const stageTpls = templates.filter((t) => t.stage === stage.key);
@@ -1511,7 +1626,12 @@ function EmailPageInner() {
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-white text-sm">{t.name}</p>
                           <p className="text-xs text-slate-400 mt-0.5 truncate">{t.subject}</p>
-                          {t.program && <p className="text-xs text-indigo-400 mt-0.5">🌏 {t.program}</p>}
+                          {t.isFollowup && (
+                            <p className="text-xs text-emerald-400 mt-1 font-semibold">
+                              Linked to: {templates.find(pt => pt._id === t.parentTemplateId)?.name || "Unknown"}
+                            </p>
+                          )}
+                          {t.program && <p className="text-xs text-indigo-400 mt-0.5">🔹 {t.program}</p>}
                         </div>
                         <div className="flex gap-3 shrink-0 items-center">
                           <button onClick={() => handleEditTemplate(t)} className="text-indigo-400 hover:text-indigo-300 text-xs font-medium">Edit</button>

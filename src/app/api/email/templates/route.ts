@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await req.json();
-    const { name, stage, mailbox, subject, html, isFollowup, workflowId, program, attachments } = body;
+    const { name, stage, mailbox, subject, html, isFollowup, parentTemplateId, attachments } = body;
 
     if (!name || !stage || !mailbox || !subject || !html) {
       return NextResponse.json(
@@ -67,8 +67,7 @@ export async function POST(req: NextRequest) {
       subject,
       html,
       isFollowup: isFollowup || false,
-      workflowId: workflowId || null,
-      program: program || null,
+      parentTemplateId: isFollowup ? parentTemplateId : null,
       attachments: attachments || [],
       createdBy: user.id,
       createdAt: new Date(),

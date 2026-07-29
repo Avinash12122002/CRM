@@ -186,8 +186,10 @@ export async function POST(
 
     // Only advance workflow and schedule follow-up if NOT a hard failure
     if (!sendResult.failed) {
-      await advanceLeadStage(parseInt(leadId), stage as EmailStage, workflowName);
-      await scheduleNextFollowup(parseInt(leadId), 3);
+      await advanceLeadStage(parseInt(leadId), stage as EmailStage, workflowName, templateId || null);
+      if (stage === "info") {
+        await scheduleNextFollowup(parseInt(leadId));
+      }
     }
 
     // Record in history
@@ -253,10 +255,10 @@ export async function PUT(
     if (action === "advance_stage") {
       if (!targetStage) return NextResponse.json({ error: "targetStage required" }, { status: 400 });
 
-      await advanceLeadStage(parseInt(leadId), targetStage as EmailStage, workflowName);
+      await advanceLeadStage(parseInt(leadId), targetStage as EmailStage, workflowName, null);
 
       // Auto-send for certain stages
-      const autoSendStages: EmailStage[] = ["payment_confirmation", "case_manager"];
+      const autoSendStages: EmailStage[] = ["payment_confirmation", "case_manager", "agreement"];
       if (autoSendStages.includes(targetStage as EmailStage)) {
         const mailbox = STAGE_MAILBOXES[targetStage as EmailStage];
         const stageLabel = STAGE_LABELS[targetStage as EmailStage];
@@ -310,7 +312,9 @@ export async function PUT(
           sentByName: user.name,
         });
 
-        await scheduleNextFollowup(parseInt(leadId), 3);
+        if (targetStage === "info") {
+          await scheduleNextFollowup(parseInt(leadId));
+        }
       }
 
       // Mark as completed if last stage
