@@ -315,7 +315,7 @@ export async function processDueFollowups() {
     .find({
       nextFollowupAt: { $lte: now },
       currentStage: "info", // Only process followups for information stage
-      isCompleted: false,
+      isCompleted: { $ne: true },
     })
     .toArray();
 
@@ -355,8 +355,8 @@ export async function processDueFollowups() {
             CompanyName: "TMS Visa",
           };
 
-          // Replace variables and prepend followup number to subject
-          subject = `Follow-up ${followupNum}: ${customTemplate.subject}`;
+          // Replace variables
+          subject = customTemplate.subject;
           html = customTemplate.html;
           for (const [key, value] of Object.entries(vars)) {
             const regex = new RegExp(`{{${key}}}`, "g");
@@ -389,14 +389,19 @@ export async function processDueFollowups() {
         }
       }
 
-      const sendResult = await sendEmail({
-        from: mailbox,
-        fromName: "TMS Visa",
-        to: lead.email,
-        subject,
-        html,
-        attachments: emailAttachments,
-      });
+      let sendResult: any;
+      try {
+        sendResult = await sendEmail({
+          from: mailbox,
+          fromName: "TMS Visa",
+          to: lead.email,
+          subject,
+          html,
+          attachments: emailAttachments,
+        });
+      } catch (err) {
+        sendResult = { failed: true, error: String(err) };
+      }
 
       // Record in history
       await recordEmailHistory({

@@ -1551,11 +1551,24 @@ function EmailPageInner() {
                   </div>
                   <div>
                     <label className="text-xs text-slate-400 mb-1 block">Parent Template (Information) *</label>
-                    <select value={tplParentTemplateId} onChange={(e) => setTplParentTemplateId(e.target.value)}
+                    <select value={tplParentTemplateId} onChange={(e) => {
+                      const newId = e.target.value;
+                      setTplParentTemplateId(newId);
+                      const parentTpl = templates.find(t => t._id === newId);
+                      if (parentTpl) {
+                        setTplSubject(parentTpl.subject);
+                      }
+                    }}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
-                      <option value="">Select a template...</option>
+                      <option value="" onClick={() => {
+                        setTplParentTemplateId("");
+                        setTplSubject("");
+                      }}>Select a template...</option>
                       {templates.filter(t => t.stage === "info" && !t.isFollowup).map(t => (
-                        <option key={t._id} value={t._id}>{t.name}</option>
+                        <option key={t._id} value={t._id} onClick={() => {
+                          setTplParentTemplateId(t._id);
+                          setTplSubject(t.subject);
+                        }}>{t.name}</option>
                       ))}
                     </select>
                   </div>
@@ -1571,7 +1584,7 @@ function EmailPageInner() {
                     Body (HTML) *
                     <span className="text-indigo-400">Available vars: {'{{CandidateName}}'}, {'{{Program}}'}</span>
                   </label>
-                  <textarea value={tplHtml} onChange={(e) => setTplHtml(e.target.value)} rows={6}
+                  <textarea value={tplHtml} placeholder="<p>Dear {{CandidateName}},</p><p>...</p>" onChange={(e) => setTplHtml(e.target.value)} rows={6}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono" />
                 </div>
                 <div className="mb-6">
