@@ -176,6 +176,12 @@ function EmailPageInner() {
   const [sendingEmail, setSendingEmail] = useState(false);
   const [advancingStage, setAdvancingStage] = useState(false);
 
+  // Agreement Custom Fields
+  const [agrName, setAgrName] = useState("");
+  const [agrPhone, setAgrPhone] = useState("");
+  const [agrEmail, setAgrEmail] = useState("");
+  const [agrCountry, setAgrCountry] = useState("");
+
   // Invoice form
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
   const [invoiceAmount, setInvoiceAmount] = useState("");
@@ -294,6 +300,12 @@ function EmailPageInner() {
     try {
       const res = await fetch(`/api/email/lead/${lead.id}`);
       const data = await res.json();
+      if (data.lead) {
+        setAgrName(data.lead.name || "");
+        setAgrPhone(data.lead.phone || "");
+        setAgrEmail(data.lead.email || "");
+        setAgrCountry(data.lead.country || "");
+      }
       setSelectedWorkflow(data.workflow || null);
       setEmailHistory(data.history || []);
       setInvoices(data.invoices || []);
@@ -332,6 +344,10 @@ function EmailPageInner() {
           stage,
           templateId: selectedTemplate,
           workflowName: selectedWorkflow?.workflowName || "",
+          agrName: stage === "agreement" ? agrName : undefined,
+          agrPhone: stage === "agreement" ? agrPhone : undefined,
+          agrEmail: stage === "agreement" ? agrEmail : undefined,
+          agrCountry: stage === "agreement" ? agrCountry : undefined,
         }),
       });
       const data = await res.json();
@@ -999,7 +1015,46 @@ function EmailPageInner() {
                                 <div className="w-2 h-2 rounded-full bg-purple-400" />
                                 <p className="text-sm font-medium text-purple-300">Send Agreement</p>
                               </div>
-                              <p className="text-xs text-slate-500">From: compliance@tmsvisa.com</p>
+                              <p className="text-xs text-slate-500 mb-2">From: compliance@tmsvisa.com</p>
+
+                              <div className="grid grid-cols-2 gap-3 mb-2">
+                                <div>
+                                  <label className="text-xs text-slate-400 mb-1 block">Candidate Name</label>
+                                  <input
+                                    type="text"
+                                    value={agrName}
+                                    onChange={(e) => setAgrName(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-400 mb-1 block">Phone</label>
+                                  <input
+                                    type="text"
+                                    value={agrPhone}
+                                    onChange={(e) => setAgrPhone(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-400 mb-1 block">Email</label>
+                                  <input
+                                    type="email"
+                                    value={agrEmail}
+                                    onChange={(e) => setAgrEmail(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-slate-400 mb-1 block">Country</label>
+                                  <input
+                                    type="text"
+                                    value={agrCountry}
+                                    onChange={(e) => setAgrCountry(e.target.value)}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
+                                  />
+                                </div>
+                              </div>
 
                               <div>
                                 <label className="text-xs text-slate-400 mb-1 block">Agreement Template</label>
@@ -1037,7 +1092,7 @@ function EmailPageInner() {
 
                               <button
                                 onClick={handleSendEmail}
-                                disabled={sendingEmail || !selectedTemplate}
+                                disabled={sendingEmail || !selectedTemplate || !agrName.trim() || !agrPhone.trim() || !agrEmail.trim() || !agrCountry.trim()}
                                 className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white transition-all duration-200 disabled:opacity-50"
                                 style={{ background: "linear-gradient(135deg, #7c3aed, #9333ea)" }}
                               >

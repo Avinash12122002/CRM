@@ -72,7 +72,7 @@ export async function POST(
 
     const { leadId } = await params;
     const body = await req.json();
-    const { stage, templateId, customSubject, customHtml, workflowName, invoiceId } = body;
+    const { stage, templateId, customSubject, customHtml, workflowName, invoiceId, agrName, agrPhone, agrEmail, agrCountry } = body;
 
     if (!stage) return NextResponse.json({ error: "stage is required" }, { status: 400 });
 
@@ -82,7 +82,13 @@ export async function POST(
     if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
 
     const mailbox = STAGE_MAILBOXES[stage as EmailStage];
-    let subject = customSubject || `${STAGE_LABELS[stage as EmailStage]} — ${lead.name}`;
+    
+    const targetName = agrName || lead.name || "";
+    const targetEmail = agrEmail || lead.email || "";
+    const targetPhone = agrPhone || lead.phone || "";
+    const targetCountry = agrCountry || lead.country || "";
+
+    let subject = customSubject || `${STAGE_LABELS[stage as EmailStage]} — ${targetName}`;
     let html = customHtml || "";
 
     // Load and process template if provided
@@ -120,8 +126,18 @@ export async function POST(
         }
 
         const vars = {
-          CandidateName: lead.name || "",
+          CandidateName: targetName,
+          candidatename: targetName,
+          name: targetName,
+          Name: targetName,
+          Phone: targetPhone,
+          phone: targetPhone,
+          Email: targetEmail,
+          email: targetEmail,
+          Country: targetCountry,
+          country: targetCountry,
           Program: workflowName || lead.program || "",
+          program: workflowName || lead.program || "",
           CompanyName: "TMS Visa",
           ...invoiceData,
         };
@@ -132,13 +148,13 @@ export async function POST(
     }
 
     if (!html) {
-      html = `<p>Dear ${lead.name || "Candidate"},</p><p>Please see the information regarding your visa application.</p><p>Regards,<br/>TMS Visa Team</p>`;
+      html = `<p>Dear ${targetName || "Candidate"},</p><p>Please see the information regarding your visa application.</p><p>Regards,<br/>TMS Visa Team</p>`;
     }
 
-    // Guard: block send if lead has no email
-    if (!lead.email || lead.email.trim() === "") {
+    // Guard: block send if target email is missing
+    if (!targetEmail || targetEmail.trim() === "") {
       return NextResponse.json(
-        { error: "This lead has no email address. Please add an email to their profile first." },
+        { error: "No email address provided for the recipient." },
         { status: 400 }
       );
     }
@@ -171,7 +187,7 @@ export async function POST(
     const sendResult = await sendEmail({
       from: mailbox,
       fromName: "TMS Visa",
-      to: lead.email,
+      to: targetEmail,
       subject,
       html,
       attachments: emailAttachments.length > 0 ? emailAttachments : undefined,
