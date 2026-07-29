@@ -217,6 +217,7 @@ export async function POST(
       sentAt: new Date(),
       sentBy: user.id,
       sentByName: user.name,
+      body: html,
       invoiceId: invoiceId || undefined,
     });
 
@@ -310,6 +311,7 @@ export async function PUT(
           sentAt: new Date(),
           sentBy: user.id,
           sentByName: user.name,
+          body: html,
         });
 
         if (targetStage === "info") {

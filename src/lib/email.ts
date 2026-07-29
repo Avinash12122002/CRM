@@ -289,6 +289,7 @@ export interface EmailHistoryRecord {
   sentBy: number;
   sentByName: string;
   invoiceId?: string;
+  body?: string;
 }
 
 export async function recordEmailHistory(record: EmailHistoryRecord) {
@@ -364,6 +365,26 @@ export async function processDueFollowups() {
             html = html.replace(regex, String(value));
           }
 
+          // Generate professional intro based on follow-up sequence number
+          let introText = "";
+          if (followupNum === 1) {
+            introText = "Hope you are doing well. I wanted to follow up and see if you've had a chance to review the details we sent you a few days ago.";
+          } else if (followupNum === 2) {
+            introText = "I'm checking in again regarding the information we shared last week. Please let me know if you have any questions or need clarification on any points.";
+          } else if (followupNum === 3) {
+            introText = "It has been about two weeks since we sent over the details. I wanted to see if you are still interested in proceeding or if you require any assistance.";
+          } else if (followupNum === 4) {
+            introText = "This is our final check-in regarding the program details we sent a month ago. If you are still interested in proceeding, please let us know so we can help you take the next steps. Otherwise, we will close your file.";
+          }
+
+          // Insert intro text right after the greeting paragraph (usually the first </p>)
+          const firstParaEnd = html.indexOf("</p>");
+          if (firstParaEnd !== -1) {
+            html = html.substring(0, firstParaEnd + 4) + `\n<p style="color: #4f46e5; font-style: italic; margin: 15px 0;">${introText}</p>` + html.substring(firstParaEnd + 4);
+          } else {
+            html = `<p style="color: #4f46e5; font-style: italic; margin-bottom: 15px;">${introText}</p>\n` + html;
+          }
+
           // Process attachments
           if (customTemplate.attachments && customTemplate.attachments.length > 0) {
             emailAttachments = [];
@@ -420,6 +441,7 @@ export async function processDueFollowups() {
         sentAt: new Date(),
         sentBy: 0,
         sentByName: "System",
+        body: html,
       });
 
       // Schedule next follow-up

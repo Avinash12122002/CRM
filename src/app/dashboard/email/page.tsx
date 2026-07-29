@@ -70,6 +70,7 @@ type EmailHistory = {
   sentAt: string;
   sentByName: string;
   invoiceId?: string;
+  body?: string;
 };
 
 type TemplateAttachment = {
@@ -164,6 +165,7 @@ function EmailPageInner() {
   const [emailHistory, setEmailHistory] = useState<EmailHistory[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [panelLoading, setPanelLoading] = useState(false);
+  const [selectedHistoryEmail, setSelectedHistoryEmail] = useState<EmailHistory | null>(null);
 
   // Templates
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -1276,7 +1278,8 @@ function EmailPageInner() {
                                 return (
                                   <div
                                     key={h._id}
-                                    className={`p-3 rounded-lg border transition-colors ${
+                                    onClick={() => setSelectedHistoryEmail(h)}
+                                    className={`p-3 rounded-lg border transition-all cursor-pointer hover:border-slate-500 hover:bg-slate-900/60 ${
                                       h.cancelled
                                         ? "border-slate-800/50 bg-slate-900/20 opacity-50"
                                         : "border-slate-800 bg-slate-900/40"
@@ -1664,6 +1667,42 @@ function EmailPageInner() {
                 <p>No templates yet. Click &quot;+ Add Template&quot; to get started.</p>
               </div>
             )}
+          </div>
+        )}
+
+        {selectedHistoryEmail && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+                <div className="min-w-0 flex-1 pr-4">
+                  <h3 className="font-semibold text-white text-base truncate">
+                    {selectedHistoryEmail.subject}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Sent on {formatDateTime(selectedHistoryEmail.sentAt)} by {selectedHistoryEmail.sentByName}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedHistoryEmail(null)} 
+                  className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors shrink-0"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-5 overflow-y-auto flex-1 bg-white text-black min-h-[300px]">
+                {selectedHistoryEmail.body ? (
+                  <div dangerouslySetInnerHTML={{ __html: selectedHistoryEmail.body }} />
+                ) : (
+                  <div className="text-slate-500 italic p-8 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                    <p className="text-sm font-medium text-slate-700 mb-1">No email body saved</p>
+                    <p className="text-xs text-slate-400">This is a legacy record. The full body is only saved for newly sent emails.</p>
+                    <div className="mt-4 p-3 bg-white border border-slate-200 rounded text-left not-italic font-normal text-xs text-slate-600 max-h-[150px] overflow-y-auto">
+                      <strong>Preview:</strong> {selectedHistoryEmail.bodyPreview}...
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
