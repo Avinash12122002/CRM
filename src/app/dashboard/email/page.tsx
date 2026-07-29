@@ -1155,7 +1155,7 @@ function EmailPageInner() {
                             <div className="bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-4 space-y-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                                <p className="text-sm font-medium text-emerald-300">Payment Awaited</p>
+                                <p className="text-sm font-medium text-emerald-300">Payment Confirmation</p>
                               </div>
                               <p className="text-xs text-slate-500">From: sales@tmsvisa.com</p>
 
@@ -1173,18 +1173,59 @@ function EmailPageInner() {
                                     <span className="text-slate-400">Status:</span>
                                     <span className="text-amber-400">⏳ Pending</span>
                                   </div>
+                                  <button
+                                    onClick={handlePaymentReceived}
+                                    disabled={advancingStage}
+                                    className="w-full mt-3 py-1.5 px-3 rounded-lg text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-600 transition-colors"
+                                  >
+                                    {advancingStage ? "Processing..." : "✓ Mark as Paid"}
+                                  </button>
                                 </div>
                               ) : (
                                 <p className="text-xs text-slate-500">Awaiting payment...</p>
                               )}
 
+                              <div>
+                                <label className="text-xs text-slate-400 mb-1 block">Payment Template</label>
+                                <select
+                                  value={selectedTemplate}
+                                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                                >
+                                  <option value="">Select template...</option>
+                                  {stageTemplates.map((t) => (
+                                    <option key={t._id} value={t._id}>{t.name}</option>
+                                  ))}
+                                  {stageTemplates.length === 0 && <option disabled>No templates</option>}
+                                </select>
+                              </div>
+
+                              {stageTemplates.length === 0 && (
+                                <button
+                                  onClick={() => {
+                                    setTplStage("payment_confirmation");
+                                    setTplMailbox("sales@tmsvisa.com");
+                                    setTplName("");
+                                    setTplSubject("");
+                                    setTplHtml("");
+                                    setTplProgram("");
+                                    setTplAttachments([]);
+                                    setShowTemplateForm(true);
+                                    setActiveTab("templates");
+                                  }}
+                                  className="w-full py-2 px-3 rounded-lg text-xs text-emerald-300 border border-emerald-800/50 hover:border-emerald-600 hover:bg-emerald-950/30 transition-colors text-center"
+                                >
+                                  + Create Payment Template
+                                </button>
+                              )}
+
                               <button
-                                onClick={handlePaymentReceived}
-                                disabled={advancingStage}
+                                onClick={handleSendEmail}
+                                disabled={sendingEmail || !selectedTemplate}
                                 className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white transition-all duration-200 disabled:opacity-50"
                                 style={{ background: "linear-gradient(135deg, #059669, #047857)" }}
                               >
-                                {advancingStage ? "Processing..." : "✓ Payment Received — Send Confirmation"}
+                                {sendingEmail ? "Sending..." : "Send Payment Confirmation"}
                               </button>
                             </div>
                           )}

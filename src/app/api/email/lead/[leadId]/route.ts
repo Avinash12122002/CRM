@@ -258,66 +258,7 @@ export async function PUT(
 
       await advanceLeadStage(parseInt(leadId), targetStage as EmailStage, workflowName, null);
 
-      // Auto-send for certain stages
-      const autoSendStages: EmailStage[] = ["payment_confirmation", "case_manager", "agreement"];
-      if (autoSendStages.includes(targetStage as EmailStage)) {
-        const mailbox = STAGE_MAILBOXES[targetStage as EmailStage];
-        const stageLabel = STAGE_LABELS[targetStage as EmailStage];
 
-        let html = "";
-        if (targetStage === "payment_confirmation") {
-          const invoice = await db
-            .collection("invoices")
-            .findOne({ leadId: parseInt(leadId) }, { sort: { createdAt: -1 } });
-
-          html = `
-            <p>Dear ${lead.name || "Candidate"},</p>
-            <p>We are pleased to confirm that we have received your payment${invoice ? ` of <strong>${invoice.currency || "AUD"} ${invoice.amount}</strong>` : ""}.</p>
-            <p>Your application is now being processed. Our team will be in touch shortly with further details.</p>
-            <p>Regards,<br/>TMS Visa Team<br/>sales@tmsvisa.com</p>
-          `;
-        } else if (targetStage === "case_manager") {
-          html = `
-            <p>Dear ${lead.name || "Candidate"},</p>
-            <p>I am Sumit Kumar, and I have been assigned as your dedicated Case Manager for your visa application.</p>
-            <p>I will be your primary point of contact throughout the process. Please feel free to reach out to me with any questions or concerns.</p>
-            <p>We look forward to working with you!</p>
-            <p>Warm regards,<br/>Sumit Kumar<br/>Case Manager — TMS Visa<br/>sumit.recruiter@tmsvisa.com</p>
-          `;
-        }
-
-        const subject = `${stageLabel} — ${lead.name || "Candidate"}`;
-        const sendResult = await sendEmail({
-          from: mailbox,
-          fromName: "TMS Visa",
-          to: lead.email,
-          subject,
-          html,
-        });
-
-        await recordEmailHistory({
-          leadId: parseInt(leadId),
-          leadName: lead.name || "",
-          stage: targetStage as EmailStage,
-          mailbox,
-          templateName: stageLabel,
-          subject,
-          bodyPreview: html.replace(/<[^>]*>/g, "").slice(0, 200),
-          status: sendResult.simulated ? "simulated" : "sent",
-          isFollowup: false,
-          followupNumber: 0,
-          isPendingFollowup: false,
-          cancelled: false,
-          sentAt: new Date(),
-          sentBy: user.id,
-          sentByName: user.name,
-          body: html,
-        });
-
-        if (targetStage === "info") {
-          await scheduleNextFollowup(parseInt(leadId));
-        }
-      }
 
       // Mark as completed if last stage
       if (targetStage === STAGE_ORDER[STAGE_ORDER.length - 1]) {
