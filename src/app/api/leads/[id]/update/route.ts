@@ -37,6 +37,7 @@ export async function PUT(
       callbackDate,
       state,
       city,
+      country,
       age,
       status,
       passportType,
@@ -119,6 +120,12 @@ export async function PUT(
       changes.push(
         `Email: "${lead.email || "N/A"}" → "${(email || "").trim() || "N/A"}"`,
       );
+    if ((lead.country || "") !== (country || ""))
+      changes.push(
+        `Country: "${lead.country || "N/A"}" → "${
+          country || "N/A"
+        }"`,
+      );
     if ((lead.state || "") !== (state || ""))
       changes.push(`State: "${lead.state || "N/A"}" → "${state || "N/A"}"`);
     if ((lead.city || "") !== (city || ""))
@@ -191,6 +198,7 @@ export async function PUT(
           email: email ? String(email).trim() : null,
           state: state || null,
           city: city || null,
+          country: country || null,
           age: age ? parseInt(age) : null,
           passportType: passportType || null,
           leadSource: leadSource || null,

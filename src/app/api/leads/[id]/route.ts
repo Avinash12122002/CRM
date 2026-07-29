@@ -68,6 +68,7 @@ export async function GET(
             company: 1,
             state: 1,
             city: 1,
+            country: 1,
             age: 1,
             passportType: 1,
             leadSource: 1,

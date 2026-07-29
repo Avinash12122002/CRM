@@ -27,6 +27,7 @@ export default function CreateLeadModal({
   const [dueDate, setDueDate] = useState("");
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
   const [age, setAge] = useState("");
   const [passportType, setPassportType] = useState("");
   const [leadSource, setLeadSource] = useState("");
@@ -54,6 +55,7 @@ export default function CreateLeadModal({
       setDueDate("");
       setState("");
       setCity("");
+      setCountry("");
       setAge("");
       setPassportType("");
       setLeadSource("");
@@ -105,7 +107,7 @@ export default function CreateLeadModal({
         const data = await res.json();
         // Filter to show users
         const allUsers = (data.users || []).filter((user: User) =>
-          ["admin", "employee", "meeting"].includes(user.role),
+          ["employee", "meeting"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -157,6 +159,7 @@ export default function CreateLeadModal({
           dueDate: dueDate || undefined,
           state: state || undefined,
           city: city || undefined,
+          country: country || undefined,
           age: age ? parseInt(age) : undefined,
           passportType: passportType || undefined,
           leadSource: leadSource || undefined,
@@ -177,6 +180,7 @@ export default function CreateLeadModal({
         setDueDate("");
         setState("");
         setCity("");
+        setCountry("");
         setAge("");
         setPassportType("");
         setLeadSource("");
@@ -333,9 +337,9 @@ export default function CreateLeadModal({
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <span>{emp.name}</span>
+                            <span className="font-medium text-gray-900">{emp.name}</span>
 
-                            <span className="text-xs px-2 py-1 rounded bg-gray-100">
+                            <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
                               {emp.role}
                             </span>
                           </div>
@@ -371,6 +375,19 @@ export default function CreateLeadModal({
                   )}
                 </>
               )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Country
+              </label>
+              <input
+                type="text"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="Enter country"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-900 placeholder:text-gray-400"
+              />
             </div>
 
             <div>

@@ -37,6 +37,7 @@ interface Lead {
   company?: string;
   state?: string;
   city?: string;
+  country?: string;
   age?: number;
   passportType?: string;
   leadSource?: string;
@@ -117,6 +118,7 @@ export default function LeadDetailPage() {
     dueDate: "",
     state: "",
     city: "",
+    country: "",
     age: "",
     passportType: "",
     leadSource: "",
@@ -304,6 +306,7 @@ export default function LeadDetailPage() {
             : "",
           state: data.lead.state || "",
           city: data.lead.city || "",
+          country: data.lead.country || "",
           age: data.lead.age ? String(data.lead.age) : "",
           passportType: data.lead.passportType || "",
           leadSource: data.lead.leadSource || "",
@@ -434,6 +437,7 @@ export default function LeadDetailPage() {
           : "",
         state: lead.state || "",
         city: lead.city || "",
+        country: lead.country || "",
         age: lead.age ? String(lead.age) : "",
         passportType: lead.passportType || "",
         leadSource: lead.leadSource || "",
@@ -1039,6 +1043,7 @@ export default function LeadDetailPage() {
                     { label: "Email", value: lead.email },
                     { label: "State", value: lead.state },
                     { label: "City", value: lead.city },
+                    { label: "Country", value: lead.country },
                     { label: "Age", value: lead.age },
                     { label: "Passport Type", value: lead.passportType },
                     { label: "Lead Source", value: lead.leadSource },
@@ -1209,6 +1214,20 @@ export default function LeadDetailPage() {
                       value={editForm.city}
                       onChange={(e) =>
                         setEditForm({ ...editForm, city: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Country
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.country}
+                      placeholder="Enter country"
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, country: e.target.value })
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
