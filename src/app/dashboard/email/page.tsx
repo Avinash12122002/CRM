@@ -1008,333 +1008,71 @@ function EmailPageInner() {
                             </div>
                           )}
 
-                          {/* STAGE 2: Agreement */}
+                          {/* STAGE 2: Agreement – manual, Move to only */}
                           {currentStage === "agreement" && (
                             <div className="bg-purple-950/30 border border-purple-900/50 rounded-xl p-4 space-y-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="w-2 h-2 rounded-full bg-purple-400" />
-                                <p className="text-sm font-medium text-purple-300">Send Agreement</p>
+                                <p className="text-sm font-medium text-purple-300">Agreement Stage</p>
                               </div>
-                              <p className="text-xs text-slate-500 mb-2">From: compliance@tmsvisa.com</p>
-
-                              <div className="grid grid-cols-2 gap-3 mb-2">
-                                <div>
-                                  <label className="text-xs text-slate-400 mb-1 block">Candidate Name</label>
-                                  <input
-                                    type="text"
-                                    value={agrName}
-                                    onChange={(e) => setAgrName(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-400 mb-1 block">Phone</label>
-                                  <input
-                                    type="text"
-                                    value={agrPhone}
-                                    onChange={(e) => setAgrPhone(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-400 mb-1 block">Email</label>
-                                  <input
-                                    type="email"
-                                    value={agrEmail}
-                                    onChange={(e) => setAgrEmail(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-xs text-slate-400 mb-1 block">Country</label>
-                                  <input
-                                    type="text"
-                                    value={agrCountry}
-                                    onChange={(e) => setAgrCountry(e.target.value)}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-purple-500"
-                                  />
-                                </div>
+                              <p className="text-xs text-slate-400">
+                                This step is handled manually. Send the agreement directly to the candidate outside this system, then move them to the next stage when ready.
+                              </p>
+                              <div className="bg-purple-900/20 border border-purple-800/30 rounded-lg p-3 flex items-center gap-2">
+                                <span className="text-lg">📋</span>
+                                <span className="text-xs text-purple-300">Waiting for agreement sign-off from candidate.</span>
                               </div>
-
-                              <div>
-                                <label className="text-xs text-slate-400 mb-1 block">Agreement Template</label>
-                                <select
-                                  value={selectedTemplate}
-                                  onChange={(e) => setSelectedTemplate(e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500"
-                                >
-                                  <option value="">Select template...</option>
-                                  {stageTemplates.map((t) => (
-                                    <option key={t._id} value={t._id}>{t.name}</option>
-                                  ))}
-                                  {stageTemplates.length === 0 && <option disabled>No templates</option>}
-                                </select>
-                              </div>
-
-                              {stageTemplates.length === 0 && (
-                                <button
-                                  onClick={() => {
-                                    setTplStage("agreement");
-                                    setTplMailbox("compliance@tmsvisa.com");
-                                    setTplName("");
-                                    setTplSubject("");
-                                    setTplHtml("");
-                                    setTplProgram("");
-                                    setTplAttachments([]);
-                                    setShowTemplateForm(true);
-                                    setActiveTab("templates");
-                                  }}
-                                  className="w-full py-2 px-3 rounded-lg text-xs text-purple-300 border border-purple-800/50 hover:border-purple-600 hover:bg-purple-950/30 transition-colors text-center"
-                                >
-                                  + Create Agreement Template
-                                </button>
-                              )}
-
-                              <button
-                                onClick={handleSendEmail}
-                                disabled={sendingEmail || !selectedTemplate || !agrName.trim() || !agrPhone.trim() || !agrEmail.trim() || !agrCountry.trim()}
-                                className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white transition-all duration-200 disabled:opacity-50"
-                                style={{ background: "linear-gradient(135deg, #7c3aed, #9333ea)" }}
-                              >
-                                {sendingEmail ? "Sending..." : "Send Agreement Email"}
-                              </button>
                             </div>
                           )}
 
-                          {/* STAGE 3: Invoice */}
+                          {/* STAGE 3: Invoice – manual, Move to only */}
                           {currentStage === "invoice" && (
                             <div className="bg-amber-950/30 border border-amber-900/50 rounded-xl p-4 space-y-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="w-2 h-2 rounded-full bg-amber-400" />
-                                <p className="text-sm font-medium text-amber-300">Generate & Send Invoice</p>
+                                <p className="text-sm font-medium text-amber-300">Invoice Stage</p>
                               </div>
-                              <p className="text-xs text-slate-500">From: sales@tmsvisa.com</p>
-
-                              {pendingInvoice && (
-                                <div className="bg-amber-900/20 border border-amber-800/40 rounded-lg p-3 text-sm">
-                                  <p className="text-amber-300 font-medium">{pendingInvoice.invoiceNumber}</p>
-                                  <p className="text-amber-200">{pendingInvoice.currency} {pendingInvoice.amount}</p>
-                                  <a href={pendingInvoice.paymentLink} target="_blank" className="text-blue-400 text-xs hover:underline truncate block">{pendingInvoice.paymentLink}</a>
-                                </div>
-                              )}
-
-                              {!showInvoiceForm ? (
-                                <button
-                                  onClick={() => setShowInvoiceForm(true)}
-                                  className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white transition-all duration-200"
-                                  style={{ background: "linear-gradient(135deg, #d97706, #b45309)" }}
-                                >
-                                  + Create Invoice
-                                </button>
-                              ) : (
-                                <div className="space-y-3 border border-amber-900/30 rounded-lg p-3 bg-amber-950/20">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                      <label className="text-xs text-slate-400 mb-1 block">Amount *</label>
-                                      <input
-                                        type="number"
-                                        placeholder="e.g. 300"
-                                        value={invoiceAmount}
-                                        onChange={(e) => setInvoiceAmount(e.target.value)}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-slate-400 mb-1 block">Currency</label>
-                                      <select
-                                        value={invoiceCurrency}
-                                        onChange={(e) => setInvoiceCurrency(e.target.value)}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                                      >
-                                        <option>AUD</option>
-                                        <option>USD</option>
-                                        <option>CAD</option>
-                                        <option>EUR</option>
-                                        <option>GBP</option>
-                                        <option>INR</option>
-                                      </select>
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">Payment Link * <span className="text-amber-500">(unique per invoice)</span></label>
-                                    <input
-                                      type="url"
-                                      placeholder="https://pay.example.com/..."
-                                      value={invoicePaymentLink}
-                                      onChange={(e) => setInvoicePaymentLink(e.target.value)}
-                                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">Due Date</label>
-                                    <input
-                                      type="date"
-                                      value={invoiceDueDate}
-                                      onChange={(e) => setInvoiceDueDate(e.target.value)}
-                                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-slate-400 mb-1 block">Remarks</label>
-                                    <input
-                                      type="text"
-                                      placeholder="Optional notes..."
-                                      value={invoiceRemarks}
-                                      onChange={(e) => setInvoiceRemarks(e.target.value)}
-                                      className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-                                    />
-                                  </div>
-                                  <div className="flex gap-2">
-                                    <button
-                                      onClick={() => setShowInvoiceForm(false)}
-                                      className="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-slate-400 border border-slate-700 hover:border-slate-500 transition-colors"
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      onClick={handleCreateInvoice}
-                                      disabled={creatingInvoice}
-                                      className="flex-1 py-2 px-4 rounded-lg text-sm font-semibold text-white disabled:opacity-50"
-                                      style={{ background: "linear-gradient(135deg, #d97706, #b45309)" }}
-                                    >
-                                      {creatingInvoice ? "Sending..." : "Send Invoice"}
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
+                              <p className="text-xs text-slate-400">
+                                This step is handled manually. Send the invoice to the candidate directly, then move them to the next stage when payment is made.
+                              </p>
+                              <div className="bg-amber-900/20 border border-amber-800/30 rounded-lg p-3 flex items-center gap-2">
+                                <span className="text-lg">🧾</span>
+                                <span className="text-xs text-amber-300">Waiting for invoice payment from candidate.</span>
+                              </div>
                             </div>
                           )}
 
-                          {/* STAGE 4: Payment Confirmation */}
+                          {/* STAGE 4: Payment Confirmation – manual, Move to only */}
                           {currentStage === "payment_confirmation" && (
                             <div className="bg-emerald-950/30 border border-emerald-900/50 rounded-xl p-4 space-y-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                                <p className="text-sm font-medium text-emerald-300">Payment Confirmation</p>
+                                <p className="text-sm font-medium text-emerald-300">Payment Confirmation Stage</p>
                               </div>
-                              <p className="text-xs text-slate-500">From: sales@tmsvisa.com</p>
-
-                              {pendingInvoice ? (
-                                <div className="bg-emerald-900/20 border border-emerald-800/40 rounded-lg p-3">
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-slate-400">Invoice:</span>
-                                    <span className="text-emerald-300 font-medium">{pendingInvoice.invoiceNumber}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm mt-1">
-                                    <span className="text-slate-400">Amount:</span>
-                                    <span className="text-white font-bold">{pendingInvoice.currency} {pendingInvoice.amount}</span>
-                                  </div>
-                                  <div className="flex justify-between text-sm mt-1">
-                                    <span className="text-slate-400">Status:</span>
-                                    <span className="text-amber-400">⏳ Pending</span>
-                                  </div>
-                                  <button
-                                    onClick={handlePaymentReceived}
-                                    disabled={advancingStage}
-                                    className="w-full mt-3 py-1.5 px-3 rounded-lg text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-600 transition-colors"
-                                  >
-                                    {advancingStage ? "Processing..." : "✓ Mark as Paid"}
-                                  </button>
-                                </div>
-                              ) : (
-                                <p className="text-xs text-slate-500">Awaiting payment...</p>
-                              )}
-
-                              <div>
-                                <label className="text-xs text-slate-400 mb-1 block">Payment Template</label>
-                                <select
-                                  value={selectedTemplate}
-                                  onChange={(e) => setSelectedTemplate(e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                                >
-                                  <option value="">Select template...</option>
-                                  {stageTemplates.map((t) => (
-                                    <option key={t._id} value={t._id}>{t.name}</option>
-                                  ))}
-                                  {stageTemplates.length === 0 && <option disabled>No templates</option>}
-                                </select>
+                              <p className="text-xs text-slate-400">
+                                This step is handled manually. Confirm payment receipt directly with the candidate, then move them to the next stage.
+                              </p>
+                              <div className="bg-emerald-900/20 border border-emerald-800/30 rounded-lg p-3 flex items-center gap-2">
+                                <span className="text-lg">💳</span>
+                                <span className="text-xs text-emerald-300">Waiting for payment confirmation.</span>
                               </div>
-
-                              {stageTemplates.length === 0 && (
-                                <button
-                                  onClick={() => {
-                                    setTplStage("payment_confirmation");
-                                    setTplMailbox("sales@tmsvisa.com");
-                                    setTplName("");
-                                    setTplSubject("");
-                                    setTplHtml("");
-                                    setTplProgram("");
-                                    setTplAttachments([]);
-                                    setShowTemplateForm(true);
-                                    setActiveTab("templates");
-                                  }}
-                                  className="w-full py-2 px-3 rounded-lg text-xs text-emerald-300 border border-emerald-800/50 hover:border-emerald-600 hover:bg-emerald-950/30 transition-colors text-center"
-                                >
-                                  + Create Payment Template
-                                </button>
-                              )}
-
-                              <button
-                                onClick={handleSendEmail}
-                                disabled={sendingEmail || !selectedTemplate}
-                                className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white transition-all duration-200 disabled:opacity-50"
-                                style={{ background: "linear-gradient(135deg, #059669, #047857)" }}
-                              >
-                                {sendingEmail ? "Sending..." : "Send Payment Confirmation"}
-                              </button>
                             </div>
                           )}
 
-                          {/* STAGE 5: Case Manager */}
+                          {/* STAGE 5: Case Manager – manual, Move to only */}
                           {currentStage === "case_manager" && (
                             <div className="bg-blue-950/30 border border-blue-900/50 rounded-xl p-4 space-y-3">
                               <div className="flex items-center gap-2 mb-1">
                                 <div className="w-2 h-2 rounded-full bg-blue-400" />
-                                <p className="text-sm font-medium text-blue-300">Case Manager Introduction</p>
+                                <p className="text-sm font-medium text-blue-300">Case Manager Introduction Stage</p>
                               </div>
-                              <p className="text-xs text-slate-500">From: sumit.recruiter@tmsvisa.com</p>
-
-                              <div>
-                                <label className="text-xs text-slate-400 mb-1 block">Intro Template (optional)</label>
-                                <select
-                                  value={selectedTemplate}
-                                  onChange={(e) => setSelectedTemplate(e.target.value)}
-                                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
-                                >
-                                  <option value="">Use default intro email</option>
-                                  {stageTemplates.map((t) => (
-                                    <option key={t._id} value={t._id}>{t.name}</option>
-                                  ))}
-                                </select>
+                              <p className="text-xs text-slate-400">
+                                This is the final step. Introduce the case manager to the candidate manually, then mark as completed.
+                              </p>
+                              <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg p-3 flex items-center gap-2">
+                                <span className="text-lg">🤝</span>
+                                <span className="text-xs text-blue-300">Ready for case manager handover.</span>
                               </div>
-
-                              {stageTemplates.length === 0 && (
-                                <button
-                                  onClick={() => {
-                                    setTplStage("case_manager");
-                                    setTplMailbox("sumit.recruiter@tmsvisa.com");
-                                    setTplName("");
-                                    setTplSubject("");
-                                    setTplHtml("");
-                                    setTplProgram("");
-                                    setTplAttachments([]);
-                                    setShowTemplateForm(true);
-                                    setActiveTab("templates");
-                                  }}
-                                  className="w-full py-2 px-3 rounded-lg text-xs text-blue-300 border border-blue-800/50 hover:border-blue-600 hover:bg-blue-950/30 transition-colors text-center"
-                                >
-                                  + Create Case Manager Intro Template
-                                </button>
-                              )}
-
-                              <button
-                                onClick={handleSendEmail}
-                                disabled={sendingEmail}
-                                className="w-full py-2.5 px-4 rounded-lg text-sm font-semibold text-white transition-all duration-200 disabled:opacity-50"
-                                style={{ background: "linear-gradient(135deg, #2563eb, #1d4ed8)" }}
-                              >
-                                {sendingEmail ? "Sending..." : "Send Case Manager Intro"}
-                              </button>
                             </div>
                           )}
 

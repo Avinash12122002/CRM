@@ -697,9 +697,14 @@ export async function PUT(
     if (action === "advance_stage") {
       if (!targetStage) return NextResponse.json({ error: "targetStage required" }, { status: 400 });
 
+      // Get current stage before advancing (for history label)
+      const workflow = await db.collection("lead_workflows").findOne({ leadId: parseInt(leadId) });
+      const fromStageLabel = workflow?.currentStage
+        ? (STAGE_LABELS[workflow.currentStage as EmailStage] || workflow.currentStage)
+        : "Start";
+      const toStageLabel = STAGE_LABELS[targetStage as EmailStage] || targetStage;
+
       await advanceLeadStage(parseInt(leadId), targetStage as EmailStage, workflowName, null);
-
-
 
       // Mark as completed if last stage
       if (targetStage === STAGE_ORDER[STAGE_ORDER.length - 1]) {
@@ -709,8 +714,31 @@ export async function PUT(
         );
       }
 
+      // Record stage move in email history so the panel reflects it
+      await recordEmailHistory({
+        leadId: parseInt(leadId),
+        leadName: lead.name || "",
+        stage: targetStage as EmailStage,
+        mailbox: STAGE_MAILBOXES[targetStage as EmailStage] || "",
+        templateId: undefined,
+        templateName: `Moved: ${fromStageLabel} → ${toStageLabel}`,
+        subject: `Stage moved to: ${toStageLabel}`,
+        bodyPreview: `Manually moved from ${fromStageLabel} to ${toStageLabel} by ${user.name}`,
+        status: "simulated",
+        isFollowup: false,
+        followupNumber: 0,
+        isPendingFollowup: false,
+        cancelled: false,
+        sentAt: new Date(),
+        sentBy: user.id,
+        sentByName: user.name,
+        body: `<p>Stage manually moved from <strong>${fromStageLabel}</strong> to <strong>${toStageLabel}</strong> by ${user.name}.</p>`,
+        invoiceId: undefined,
+      });
+
       return NextResponse.json({ success: true });
     }
+
 
     if (action === "cancel_followups") {
       await db.collection("email_history").updateMany(
