@@ -479,9 +479,9 @@ export default function DataEntryPage() {
                       <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
                         {new Date(lead.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                       </td>
-                      <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 break-words">{lead.companyName || "—"}</td>
-                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 break-words">{lead.industry}</td>
-                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 break-words">{lead.assignedToName}</td>
+                      <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 wrap-break-word">{lead.companyName || "—"}</td>
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 wrap-break-word">{lead.industry}</td>
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 wrap-break-word">{lead.assignedToName}</td>
                     </tr>
                   ))
                 )}

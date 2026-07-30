@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import BDReassignModal from "@/components/BDReassignModal";
 import BDCreateLeadModal from "@/components/BDCreateLeadModal";
@@ -90,7 +91,27 @@ export default function BDLeadsAdminPage() {
 
   const [reassignLead, setReassignLead] = useState<BDLead | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [deleteLead, setDeleteLead] = useState<BDLead | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const filtersLoadedRef = useRef(false);
+
+  const loadCountries = useCallback(async () => {
+  try {
+    const res = await fetch("/api/bd/leads/countries");
+    if (res.ok) {
+      const data = await res.json();
+      const list: string[] = data.countries || [];
+      setCountries(list);
+      setCountry((current) => (current && !list.includes(current) ? "" : current));
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}, []);
+
+useEffect(() => {
+  loadCountries();
+}, [loadCountries]);
 
   useEffect(() => {
     (async () => {
@@ -124,61 +145,75 @@ export default function BDLeadsAdminPage() {
     })();
   }, []);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/bd/leads/countries");
-        if (res.ok) {
-          const data = await res.json();
-          setCountries(data.countries || []);
-        }
-      } catch (err) {
-        console.error(err);
+useEffect(() => {
+  (async () => {
+    try {
+      const res = await fetch("/api/bd/leads/countries");
+      if (res.ok) {
+        const data = await res.json();
+        const list: string[] = data.countries || [];
+        setCountries(list);
+        // If a country was restored from localStorage but no longer
+        // exists in the valid list (e.g. its only lead was deleted),
+        // clear it so the UI and the actual query stay in sync.
+        setCountry((current) => (current && !list.includes(current) ? "" : current));
       }
-    })();
-  }, []);
-
-  const loadLeads = useCallback(async () => {
-    const qs = new URLSearchParams();
-    if (search.trim()) qs.set("search", search.trim());
-    if (stage) qs.set("stage", stage);
-    if (status) qs.set("status", status);
-    if (priority) qs.set("priority", priority);
-    if (country) qs.set("country", country);
-    if (assignedTo) qs.set("assignedTo", assignedTo);
-    if (dateFilter) qs.set("createdDate", dateFilter);
-    qs.set("sort", sortOrder);
-    qs.set("page", String(page));
-    qs.set("limit", String(limit));
-
-    const res = await fetch(`/api/bd/leads/list?${qs.toString()}`);
-    if (res.ok) {
-      const data = await res.json();
-      setLeads(data.leads || []);
-      setPagination(data.pagination || null);
-
-      // Scroll to + blink-highlight whichever lead the admin just came back
-      // from (row id set on View/Edit click and by the detail page's Back
-      // button), so they return to the same row instead of the top of page 1.
-      const selectedId =
-        typeof window !== "undefined" ? sessionStorage.getItem(SELECTED_LEAD_KEY) : null;
-      if (selectedId) {
-        setTimeout(() => {
-          const row = document.getElementById(`bdlead-${selectedId}`);
-          if (row) {
-            row.scrollIntoView({ behavior: "smooth", block: "center" });
-            row.classList.add("bg-yellow-100", "dark:bg-yellow-900/40", "transition-colors", "duration-700");
-            setTimeout(() => {
-              row.classList.remove("bg-yellow-100", "dark:bg-yellow-900/40");
-              sessionStorage.removeItem(SELECTED_LEAD_KEY);
-            }, 2200);
-          } else {
-            sessionStorage.removeItem(SELECTED_LEAD_KEY);
-          }
-        }, 100);
-      }
+    } catch (err) {
+      console.error(err);
     }
-  }, [search, stage, status, priority, country, assignedTo, sortOrder, dateFilter, limit, page]);
+  })();
+}, []);
+
+ const loadLeads = useCallback(async () => {
+  const qs = new URLSearchParams();
+  if (search.trim()) qs.set("search", search.trim());
+  if (stage) qs.set("stage", stage);
+  if (status) qs.set("status", status);
+  if (priority) qs.set("priority", priority);
+  if (country) qs.set("country", country);
+  if (assignedTo) qs.set("assignedTo", assignedTo);
+  if (dateFilter) qs.set("createdDate", dateFilter);
+  qs.set("sort", sortOrder);
+  qs.set("page", String(page));
+  qs.set("limit", String(limit));
+
+  const res = await fetch(`/api/bd/leads/list?${qs.toString()}`);
+  if (res.ok) {
+    const data = await res.json();
+    setLeads(data.leads || []);
+    setPagination(data.pagination || null);
+    // The server clamps an out-of-range page to the last valid one for
+    // *this* response, but never tells our local `page` state to catch up
+    // — so a delete (or any change that shrinks the result count) can
+    // leave `page` pointing past the end for every request after this
+    // one. Resync it here so the very next fetch (from any filter, not
+    // just this one) starts from a page that actually has rows.
+    if (data.pagination && data.pagination.page !== page) {
+      setPage(data.pagination.page);
+    }
+
+    // Scroll to + blink-highlight whichever lead the admin just came back
+    // from (row id set on View/Edit click and by the detail page's Back
+    // button), so they return to the same row instead of the top of page 1.
+    const selectedId =
+      typeof window !== "undefined" ? sessionStorage.getItem(SELECTED_LEAD_KEY) : null;
+    if (selectedId) {
+      setTimeout(() => {
+        const row = document.getElementById(`bdlead-${selectedId}`);
+        if (row) {
+          row.scrollIntoView({ behavior: "smooth", block: "center" });
+          row.classList.add("bg-yellow-100", "dark:bg-yellow-900/40", "transition-colors", "duration-700");
+          setTimeout(() => {
+            row.classList.remove("bg-yellow-100", "dark:bg-yellow-900/40");
+            sessionStorage.removeItem(SELECTED_LEAD_KEY);
+          }, 2200);
+        } else {
+          sessionStorage.removeItem(SELECTED_LEAD_KEY);
+        }
+      }, 100);
+    }
+  }
+}, [search, stage, status, priority, country, assignedTo, sortOrder, dateFilter, limit, page]);
 
   // Restore saved filters + page position on first mount.
   useEffect(() => {
@@ -226,6 +261,33 @@ export default function BDLeadsAdminPage() {
     if (user && filtersLoadedRef.current) loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, search, stage, status, priority, country, assignedTo, sortOrder, dateFilter, limit, page]);
+
+ const handleDelete = async () => {
+  if (!deleteLead) return;
+  setDeleting(true);
+  try {
+    const res = await fetch(`/api/bd/leads/${deleteLead.id}`, {
+      method: "DELETE",
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast.error(data.message || "Failed to delete lead");
+      return;
+    }
+    toast.success("Lead deleted");
+    setDeleteLead(null);
+    // loadLeads() now resyncs `page` from the server's response, so a
+    // plain reload here is enough — it no longer matters whether this was
+    // the last row on the page.
+    loadLeads();
+    loadCountries();
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to delete lead");
+  } finally {
+    setDeleting(false);
+  }
+};
 
   if (loading || !user) {
     return (
@@ -494,6 +556,13 @@ export default function BDLeadsAdminPage() {
                           >
                             Reassign
                           </button>
+                          <button
+                            onClick={() => setDeleteLead(lead)}
+                            className="text-red-600 dark:text-red-400 hover:underline"
+                            title="Delete this lead permanently"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -537,6 +606,7 @@ export default function BDLeadsAdminPage() {
           onReassigned={() => {
             setReassignLead(null);
             loadLeads();
+            loadCountries();
           }}
         />
       )}
@@ -551,8 +621,48 @@ export default function BDLeadsAdminPage() {
             setPage(1);
             sessionStorage.setItem(SELECTED_LEAD_KEY, String(leadId));
             loadLeads();
+            loadCountries();
           }}
         />
+      )}
+
+      {deleteLead && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => !deleting && setDeleteLead(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+              Delete this lead?
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+              This will permanently delete{" "}
+              <span className="font-medium text-gray-800 dark:text-gray-100">
+                {deleteLead.companyName || "this lead"}
+              </span>
+              , along with its pipeline history and notes. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteLead(null)}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete Lead"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
