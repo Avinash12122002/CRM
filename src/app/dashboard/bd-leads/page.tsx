@@ -19,6 +19,7 @@ type BDLead = {
   id: number;
   companyName?: string;
   industry?: string;
+  country?: string;
   pipelineStage: string;
   status: "active" | "deal_done" | "lost";
   priority?: string | null;
@@ -58,6 +59,7 @@ type StoredFilters = {
   stage: string;
   status: string;
   priority: string;
+  country: string;
   assignedTo: string;
   sortOrder: string;
   dateFilter: string;
@@ -73,11 +75,13 @@ export default function BDLeadsAdminPage() {
   const [leads, setLeads] = useState<BDLead[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [bdUsers, setBdUsers] = useState<BDUser[]>([]);
+  const [countries, setCountries] = useState<string[]>([]);
 
   const [search, setSearch] = useState("");
   const [stage, setStage] = useState("");
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
+  const [country, setCountry] = useState("");
   const [assignedTo, setAssignedTo] = useState("");
   const [sortOrder, setSortOrder] = useState("date_desc");
   const [dateFilter, setDateFilter] = useState("");
@@ -120,12 +124,27 @@ export default function BDLeadsAdminPage() {
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/bd/leads/countries");
+        if (res.ok) {
+          const data = await res.json();
+          setCountries(data.countries || []);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+  }, []);
+
   const loadLeads = useCallback(async () => {
     const qs = new URLSearchParams();
     if (search.trim()) qs.set("search", search.trim());
     if (stage) qs.set("stage", stage);
     if (status) qs.set("status", status);
     if (priority) qs.set("priority", priority);
+    if (country) qs.set("country", country);
     if (assignedTo) qs.set("assignedTo", assignedTo);
     if (dateFilter) qs.set("createdDate", dateFilter);
     qs.set("sort", sortOrder);
@@ -159,7 +178,7 @@ export default function BDLeadsAdminPage() {
         }, 100);
       }
     }
-  }, [search, stage, status, priority, assignedTo, sortOrder, dateFilter, limit, page]);
+  }, [search, stage, status, priority, country, assignedTo, sortOrder, dateFilter, limit, page]);
 
   // Restore saved filters + page position on first mount.
   useEffect(() => {
@@ -172,6 +191,7 @@ export default function BDLeadsAdminPage() {
         setStage(f.stage || "");
         setStatus(f.status || "");
         setPriority(f.priority || "");
+        setCountry(f.country || "");
         setAssignedTo(f.assignedTo || "");
         setSortOrder(f.sortOrder || "date_desc");
         setDateFilter(f.dateFilter || "");
@@ -192,6 +212,7 @@ export default function BDLeadsAdminPage() {
       stage,
       status,
       priority,
+      country,
       assignedTo,
       sortOrder,
       dateFilter,
@@ -199,12 +220,12 @@ export default function BDLeadsAdminPage() {
       page,
     };
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(f));
-  }, [search, stage, status, priority, assignedTo, sortOrder, dateFilter, limit, page]);
+  }, [search, stage, status, priority, country, assignedTo, sortOrder, dateFilter, limit, page]);
 
   useEffect(() => {
     if (user && filtersLoadedRef.current) loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, search, stage, status, priority, assignedTo, sortOrder, dateFilter, limit, page]);
+  }, [user, search, stage, status, priority, country, assignedTo, sortOrder, dateFilter, limit, page]);
 
   if (loading || !user) {
     return (
@@ -258,7 +279,7 @@ export default function BDLeadsAdminPage() {
 
         {/* Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             <input
               type="text"
               placeholder="Search company, contact, email, phone"
@@ -328,6 +349,21 @@ export default function BDLeadsAdminPage() {
               ))}
             </select>
             <select
+              value={country}
+              onChange={(e) => {
+                setCountry(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
+            >
+              <option value="">All countries</option>
+              {countries.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <select
               value={sortOrder}
               onChange={(e) => {
                 setSortOrder(e.target.value);
@@ -375,6 +411,7 @@ export default function BDLeadsAdminPage() {
                   {[
                     "Company",
                     "Industry",
+                    "Country",
                     "Stage",
                     "Status",
                     "Priority",
@@ -395,7 +432,7 @@ export default function BDLeadsAdminPage() {
                 {leads.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={9}
                       className="px-4 py-8 text-center text-gray-500 dark:text-gray-400"
                     >
                       No leads match these filters
@@ -409,6 +446,9 @@ export default function BDLeadsAdminPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {lead.industry || "—"}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        {lead.country || "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                         {lead.pipelineStage}

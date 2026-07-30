@@ -17,6 +17,7 @@ type BDLead = {
   id: number;
   companyName: string;
   industry: string;
+  country?: string;
   phoneNumber: string;
   priority: "High" | "Medium" | "Low" | null;
   pipelineStage: string;
@@ -56,6 +57,7 @@ type StoredFilters = {
   search: string;
   stageFilter: string;
   statusFilter: string;
+  countryFilter: string;
   sortOrder: string;
   dateFilter: string;
   page: number;
@@ -75,6 +77,8 @@ export default function BDPipelinePage() {
   });
   const [stageFilter, setStageFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [countryFilter, setCountryFilter] = useState("");
+  const [countries, setCountries] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState("date_desc");
   const [dateFilter, setDateFilter] = useState("");
@@ -103,6 +107,20 @@ export default function BDPipelinePage() {
     })();
   }, [router]);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/bd/leads/countries");
+        if (res.ok) {
+          const data = await res.json();
+          setCountries(data.countries || []);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+  }, []);
+
   // Restore filters + pagination position from the last time this page was viewed
   useEffect(() => {
     if (typeof window === "undefined" || filtersLoadedRef.current) return;
@@ -113,6 +131,7 @@ export default function BDPipelinePage() {
         setSearch(filters.search || "");
         setStageFilter(filters.stageFilter || "");
         setStatusFilter(filters.statusFilter || "");
+        setCountryFilter(filters.countryFilter || "");
         setSortOrder(filters.sortOrder || "date_desc");
         setDateFilter(filters.dateFilter || "");
         setPagination((prev) => ({
@@ -134,18 +153,20 @@ export default function BDPipelinePage() {
       search,
       stageFilter,
       statusFilter,
+      countryFilter,
       sortOrder,
       dateFilter,
       page: pagination.page,
       limit: pagination.limit,
     };
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
-  }, [search, stageFilter, statusFilter, sortOrder, dateFilter, pagination.page, pagination.limit]);
+  }, [search, stageFilter, statusFilter, countryFilter, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   const loadLeads = useCallback(async () => {
     const params = new URLSearchParams();
     if (stageFilter) params.set("stage", stageFilter);
     if (statusFilter) params.set("status", statusFilter);
+    if (countryFilter) params.set("country", countryFilter);
     if (search) params.set("search", search);
     if (dateFilter) params.set("createdDate", dateFilter);
     params.set("sort", sortOrder);
@@ -179,12 +200,12 @@ export default function BDPipelinePage() {
         }, 100);
       }
     }
-  }, [stageFilter, statusFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
+  }, [stageFilter, statusFilter, countryFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   useEffect(() => {
     if (user && filtersLoadedRef.current) loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, stageFilter, statusFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
+  }, [user, stageFilter, statusFilter, countryFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   const goToLead = (leadId: number) => {
     sessionStorage.setItem(SELECTED_LEAD_KEY, String(leadId));
@@ -279,6 +300,21 @@ export default function BDPipelinePage() {
             <option value="lost">Lost</option>
           </select>
           <select
+            value={countryFilter}
+            onChange={(e) => {
+              setCountryFilter(e.target.value);
+              setPagination((p) => ({ ...p, page: 1 }));
+            }}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
+          >
+            <option value="">All Countries</option>
+            {countries.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <select
             value={sortOrder}
             onChange={(e) => {
               setSortOrder(e.target.value);
@@ -323,6 +359,7 @@ export default function BDPipelinePage() {
                 <tr>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Company</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Industry</th>
+                  <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Country</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Priority</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Stage</th>
                   {user.role === "admin" && (
@@ -334,7 +371,7 @@ export default function BDPipelinePage() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {leads.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                       No leads found
                     </td>
                   </tr>
@@ -358,6 +395,7 @@ export default function BDPipelinePage() {
                         </Link>
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 align-top">{lead.industry}</td>
+                      <td className="px-3 py-2 text-xs text-gray-600 dark:text-gray-400 align-top">{lead.country || "—"}</td>
                       <td className="px-6 py-3 text-sm">
                         {lead.priority ? (
                           <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded-full ${PRIORITY_COLORS[lead.priority]}`}>

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getAuthPayload } from "@/lib/bd/helpers";
 import { BD_COLLECTIONS, DATA_ENTRY_ROLES, BD_ROLE } from "@/lib/bd/constants";
+import { countryMatchRegex } from "@/lib/bd/helpers";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,6 +17,7 @@ export async function GET(req: NextRequest) {
     const stage = searchParams.get("stage") || "";
     const status = searchParams.get("status") || "";
     const priority = searchParams.get("priority") || "";
+    const country = searchParams.get("country") || "";
     const assignedTo = searchParams.get("assignedTo") || "";
     const search = searchParams.get("search") || "";
     // Filter to leads *created* on a specific calendar day (YYYY-MM-DD),
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
     if (stage) filter.pipelineStage = stage;
     if (status) filter.status = status;
     if (priority) filter.priority = priority;
+    if (country) filter.country = countryMatchRegex(country);
     if (createdDate) {
       const start = new Date(`${createdDate}T00:00:00.000+05:30`);
       if (!Number.isNaN(start.getTime())) {

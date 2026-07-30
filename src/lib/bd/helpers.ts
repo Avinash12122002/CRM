@@ -145,6 +145,16 @@ export function companyNameMatchRegex(value: string) {
 }
 
 /**
+ * Case-insensitive "is this the same country" match, trimmed on both sides.
+ * Used by the Country filter so "india", "India" and " India " all match the
+ * same stored value regardless of how it was originally typed in.
+ */
+export function countryMatchRegex(value: string) {
+  const trimmed = value.trim();
+  return new RegExp(`^\\s*${escapeRegExp(trimmed)}\\s*$`, "i");
+}
+
+/**
  * Case-insensitive "is this the same website" match that ignores the
  * differences that don't actually change the domain: http vs https, a
  * leading "www.", and a trailing slash. So "acme.com", "www.acme.com" and
