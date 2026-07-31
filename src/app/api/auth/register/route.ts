@@ -27,8 +27,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Missing fields" }, { status: 400 });
     }
 
-    // Allow employee, meeting, business_development, and billing roles
-    if (!["employee", "meeting", "business_development", "billing"].includes(role)) {
+    // Allow employee, meeting, business_development, billing, and case_manager roles
+    if (
+      !["employee", "meeting", "business_development", "billing", "case_manager"].includes(
+        role,
+      )
+    ) {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
     }
 
@@ -65,6 +69,8 @@ export async function POST(req: NextRequest) {
             ? "Business Development user"
             : role === "billing"
             ? "Billing user"
+            : role === "case_manager"
+            ? "Case Manager user"
             : "Employee"
         } created successfully`,
         user: {

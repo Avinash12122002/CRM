@@ -11,7 +11,13 @@ type DashboardNavbarProps = {
     id: number;
     name: string;
     email?: string;
-    role: "admin" | "employee" | "meeting" | "business_development" | "billing";
+    role:
+      | "admin"
+      | "employee"
+      | "meeting"
+      | "business_development"
+      | "billing"
+      | "case_manager";
   };
 };
 

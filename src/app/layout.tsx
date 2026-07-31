@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 import FloatingChatButton from "@/components/chat/FloatingChatButton";
 import FloatingChatWindow from "@/components/chat/FloatingChatWindow";
+import NewMessagePopup from "@/components/chat/NewMessagePopup";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +40,8 @@ export default function RootLayout({
             {/* FloatingChatWindow renders below the button in DOM but z-index keeps them separate */}
             <FloatingChatWindow />
             <FloatingChatButton />
+            {/* Center-screen popup that alerts the user when a new chat message arrives */}
+            <NewMessagePopup />
           </ChatProvider>
         </ThemeProvider>
       </body>
