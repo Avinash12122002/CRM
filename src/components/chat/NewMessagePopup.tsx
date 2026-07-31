@@ -35,6 +35,7 @@ export default function NewMessagePopup() {
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isOpenRef = useRef(isOpen);
   const selectedConversationRef = useRef(selectedConversation);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     isOpenRef.current = isOpen;
@@ -43,6 +44,16 @@ export default function NewMessagePopup() {
   useEffect(() => {
     selectedConversationRef.current = selectedConversation;
   }, [selectedConversation]);
+
+  // Ask for OS-level notification permission once, on first load, so that
+  // new-message alerts can show even when the CRM tab isn't focused (e.g.
+  // the person is in another app on their laptop).
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     checkForNewMessages();
@@ -106,6 +117,8 @@ export default function NewMessagePopup() {
 
       if (incoming) {
         showPopup(incoming);
+        playSound();
+        showDesktopNotification(incoming);
       }
     } catch {
       // silently ignore — popup is a nice-to-have, not critical
@@ -114,9 +127,75 @@ export default function NewMessagePopup() {
 
   const showPopup = (data: IncomingPopup) => {
     setPopup(data);
-
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-    dismissTimerRef.current = setTimeout(() => setPopup(null), 8000);
+  };
+
+  // Short, synthesized "ping" — no external audio file needed. Two quick
+  // tones through the Web Audio API.
+  const playSound = () => {
+    try {
+      if (typeof window === "undefined") return;
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctx) return;
+
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new Ctx();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+
+      const playTone = (freq: number, startOffset: number, duration: number) => {
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.value = freq;
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        const startTime = ctx.currentTime + startOffset;
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(1, startTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration + 0.05);
+      };
+
+      playTone(880, 0, 0.18);
+      playTone(1175, 0.12, 0.2);
+      playTone(1175, 0.28, 0.22);
+    } catch {
+      // ignore — sound is a nice-to-have
+    }
+  };
+
+  // Native OS notification — shows in the system tray / notification center
+  // even while the person is working in a different app on their laptop.
+  const showDesktopNotification = (data: IncomingPopup) => {
+    try {
+      if (typeof window === "undefined" || !("Notification" in window)) return;
+      if (Notification.permission !== "granted") return;
+
+      const notification = new Notification(`New message from ${data.name}`, {
+        body: data.message,
+        icon: "/logo.png",
+        tag: `conversation-${data.conversationId}`,
+      });
+
+      notification.onclick = () => {
+        window.focus();
+        setSelectedConversation(data.conversationId);
+        setIsOpen(true);
+        notification.close();
+      };
+    } catch {
+      // ignore — desktop notification is a nice-to-have
+    }
   };
 
   const handleClose = () => {
@@ -154,11 +233,11 @@ export default function NewMessagePopup() {
           pointer-events-auto
           w-full
           max-w-sm
-          bg-white
-          dark:bg-red-500
+          bg-red-600
+          dark:bg-red-700
           border
-          border-zinc-200
-          dark:border-zinc-700
+          border-red-700
+          dark:border-red-800
           rounded-2xl
           shadow-2xl
           p-4
@@ -168,15 +247,15 @@ export default function NewMessagePopup() {
         "
       >
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 shrink-0 rounded-full bg-blue-600 text-white flex items-center justify-center">
+          <div className="w-10 h-10 shrink-0 rounded-full bg-white/20 text-white flex items-center justify-center">
             <MessageCircle size={18} />
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-black-900 dark:text-black-100">
+            <p className="text-sm font-semibold text-white">
               New message from {popup.name}
             </p>
-            <p className="text-sm font-semibold text-gray-900 dark:text-gray-200 truncate mt-0.5">
+            <p className="text-sm text-red-50 truncate mt-0.5">
               {popup.message}
             </p>
           </div>
@@ -195,13 +274,10 @@ export default function NewMessagePopup() {
               items-center
               justify-center
               rounded-full
-              text-black-400
-              hover:text-zinc-700
-              hover:bg-zinc-100
-              dark:hover:bg-zinc-800
-              dark:hover:text-zinc-200
+              text-white/80
+              hover:text-white
+              hover:bg-white/20
               transition
-              cursor-pointer
             "
           >
             <X size={16} />
