@@ -240,10 +240,6 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
   const nextStage = lead ? STAGES[STAGES.indexOf(lead.pipelineStage) + 1] : null;
 
   const handleMoveForward = async () => {
-    if (!moveNote.trim()) {
-      toast.error("A note is required to move this lead forward");
-      return;
-    }
     if (nextStage === "Priority Set" && !movePriority) {
       toast.error("Select a priority (High / Medium / Low)");
       return;
@@ -737,14 +733,14 @@ export default function BDLeadDetailPage({ params }: { params: Promise<{ id: str
             </div>
           )}
           <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-            Note (required)
+            Note (optional)
           </label>
           <textarea
             value={moveNote}
             onChange={(e) => setMoveNote(e.target.value)}
             rows={3}
             className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100"
-            placeholder="e.g. Called client. Client requested callback tomorrow."
+            placeholder="e.g. Called client. Client requested callback tomorrow. (optional)"
           />
           <div className="flex justify-end gap-2 mt-4">
             <button

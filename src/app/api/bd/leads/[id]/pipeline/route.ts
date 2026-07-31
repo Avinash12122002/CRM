@@ -24,15 +24,8 @@ export async function POST(
     const { id } = await params;
     const leadId = parseInt(id);
     const body = await req.json();
-    const note: string | undefined = body?.note?.trim();
+    const note: string = body?.note?.trim() || "";
     const priority: string | undefined = body?.priority;
-
-    if (!note) {
-      return NextResponse.json(
-        { message: "A note is required to move this lead forward" },
-        { status: 400 }
-      );
-    }
 
     const { db } = await connectToDatabase();
     const lead = await db.collection(BD_COLLECTIONS.leads).findOne({ id: leadId });

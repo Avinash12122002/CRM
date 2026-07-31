@@ -58,6 +58,7 @@ type StoredFilters = {
   stageFilter: string;
   statusFilter: string;
   countryFilter: string;
+  priorityFilter: string;
   sortOrder: string;
   dateFilter: string;
   page: number;
@@ -78,6 +79,7 @@ export default function BDPipelinePage() {
   const [stageFilter, setStageFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("");
   const [countries, setCountries] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState("date_desc");
@@ -132,6 +134,7 @@ export default function BDPipelinePage() {
         setStageFilter(filters.stageFilter || "");
         setStatusFilter(filters.statusFilter || "");
         setCountryFilter(filters.countryFilter || "");
+        setPriorityFilter(filters.priorityFilter || "");
         setSortOrder(filters.sortOrder || "date_desc");
         setDateFilter(filters.dateFilter || "");
         setPagination((prev) => ({
@@ -154,19 +157,21 @@ export default function BDPipelinePage() {
       stageFilter,
       statusFilter,
       countryFilter,
+      priorityFilter,
       sortOrder,
       dateFilter,
       page: pagination.page,
       limit: pagination.limit,
     };
     localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
-  }, [search, stageFilter, statusFilter, countryFilter, sortOrder, dateFilter, pagination.page, pagination.limit]);
+  }, [search, stageFilter, statusFilter, countryFilter, priorityFilter, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   const loadLeads = useCallback(async () => {
     const params = new URLSearchParams();
     if (stageFilter) params.set("stage", stageFilter);
     if (statusFilter) params.set("status", statusFilter);
     if (countryFilter) params.set("country", countryFilter);
+    if (priorityFilter) params.set("priority", priorityFilter);
     if (search) params.set("search", search);
     if (dateFilter) params.set("createdDate", dateFilter);
     params.set("sort", sortOrder);
@@ -200,12 +205,12 @@ export default function BDPipelinePage() {
         }, 100);
       }
     }
-  }, [stageFilter, statusFilter, countryFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
+  }, [stageFilter, statusFilter, countryFilter, priorityFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   useEffect(() => {
     if (user && filtersLoadedRef.current) loadLeads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, stageFilter, statusFilter, countryFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
+  }, [user, stageFilter, statusFilter, countryFilter, priorityFilter, search, sortOrder, dateFilter, pagination.page, pagination.limit]);
 
   const goToLead = (leadId: number) => {
     sessionStorage.setItem(SELECTED_LEAD_KEY, String(leadId));
@@ -311,6 +316,21 @@ export default function BDPipelinePage() {
             {countries.map((c) => (
               <option key={c} value={c}>
                 {c}
+              </option>
+            ))}
+          </select>
+          <select
+            value={priorityFilter}
+            onChange={(e) => {
+              setPriorityFilter(e.target.value);
+              setPagination((p) => ({ ...p, page: 1 }));
+            }}
+            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
+          >
+            <option value="">All Priorities</option>
+            {Object.keys(PRIORITY_COLORS).map((p) => (
+              <option key={p} value={p}>
+                {p}
               </option>
             ))}
           </select>
