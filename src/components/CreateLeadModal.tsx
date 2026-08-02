@@ -74,7 +74,7 @@ export default function CreateLeadModal({
         if (userData && userData.id) {
           setCurrentUser(userData);
           // If users, set their name in search term for display
-          if (userData.role === "employee" || userData.role === "meeting") {
+          if (userData.role === "telecaller" || userData.role === "meeting") {
             setSearchTerm(userData.name);
             setAssignedTo(userData.id);
           }
@@ -107,7 +107,7 @@ export default function CreateLeadModal({
         const data = await res.json();
         // Filter to show users
         const allUsers = (data.users || []).filter((user: User) =>
-          ["employee", "meeting"].includes(user.role),
+          ["telecaller", "meeting"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -188,7 +188,7 @@ export default function CreateLeadModal({
         setNote("");
         setStatus("new-lead");
         if (
-          currentUser?.role === "employee" ||
+          currentUser?.role === "telecaller" ||
           currentUser?.role === "meeting"
         ) {
           setAssignedTo(currentUser.id);
@@ -275,12 +275,12 @@ export default function CreateLeadModal({
 
             <div className="relative" ref={dropdownRef}>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Assign To (Admin / Employee / Meeting)
+                Assign To (Admin / Telecaller / Meeting)
               </label>
 
-              {currentUser?.role === "employee" ||
+              {currentUser?.role === "telecaller" ||
               currentUser?.role === "meeting" ? (
-                // Employee view - show their name as assigned, read-only
+                // Telecaller view - show their name as assigned, read-only
                 <div className="w-full px-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
                   <div className="flex items-center justify-between">
                     <span>{currentUser.name}</span>

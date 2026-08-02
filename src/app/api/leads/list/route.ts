@@ -207,14 +207,14 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    // This endpoint powers the general Leads workspace (admin/employee/meeting
+    // This endpoint powers the general Leads workspace (admin/telecaller/meeting
     // only). Other roles have their own dedicated, properly-scoped lead feeds
     // (case-manager/leads/list, bd/leads/list, billing/summary) — without this
     // check they'd fall through to the unrestricted branch below and see
     // every lead in the system.
     if (
       payload.role !== "admin" &&
-      payload.role !== "employee" &&
+      payload.role !== "telecaller" &&
       payload.role !== "meeting"
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -242,7 +242,7 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const andConditions: Record<string, any>[] = [];
 
-    if (payload.role === "employee" || payload.role === "meeting") {
+    if (payload.role === "telecaller" || payload.role === "meeting") {
       andConditions.push({
         $or: [{ assignedTo: payload.id }, { visibleTo: payload.id }],
       });
@@ -250,7 +250,7 @@ export async function GET(req: NextRequest) {
     // Admins can see all leads
 
     // Apply search filter (name, phone, or email) — combined via $and so it
-    // narrows results without clobbering the employee/meeting visibility
+    // narrows results without clobbering the telecaller/meeting visibility
     // restriction above.
     if (search) {
       andConditions.push({
@@ -269,7 +269,7 @@ export async function GET(req: NextRequest) {
     // Apply status filter
     if (status) {
       filter.status = status;
-    } else if (payload.role === "employee" || payload.role === "meeting") {
+    } else if (payload.role === "telecaller" || payload.role === "meeting") {
       filter.status = {
         $nin: ["wrong-number", "not-interested", "sales"],
       };

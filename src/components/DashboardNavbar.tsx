@@ -13,7 +13,7 @@ type DashboardNavbarProps = {
     email?: string;
     role:
       | "admin"
-      | "employee"
+      | "telecaller"
       | "meeting"
       | "business_development"
       | "billing"
@@ -116,7 +116,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               <Link href="/dashboard" className={deskLinkClass(isActive("/dashboard"))}>
                 Dashboard
               </Link>
-              {(user.role === "admin" || user.role === "employee" || user.role === "meeting") && (
+              {(user.role === "admin" || user.role === "telecaller" || user.role === "meeting") && (
                 <Link href="/dashboard/leads" className={deskLinkClass(isActive("/dashboard/leads"))}>
                   Leads
                 </Link>
@@ -145,7 +145,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Meetings
                 </Link>
               )}
-              {(user.role === "employee" || user.role === "meeting") && (
+              {(user.role === "telecaller" || user.role === "meeting") && (
                 <Link href="/dashboard/data-entry" className={deskLinkClass(isActive("/dashboard/data-entry"))}>
                   Data Entry
                 </Link>
@@ -294,7 +294,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard" className={navLinkClass(isActive("/dashboard"))}>
               Dashboard
             </Link>
-            {(user.role === "admin" || user.role === "employee" || user.role === "meeting") && (
+            {(user.role === "admin" || user.role === "telecaller" || user.role === "meeting") && (
               <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
                 Leads
               </Link>
@@ -330,7 +330,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Meetings
               </Link>
             )}
-            {(user.role === "employee" || user.role === "meeting") && (
+            {(user.role === "telecaller" || user.role === "meeting") && (
               <Link
                 href="/dashboard/data-entry"
                 className={navLinkClass(isActive("/dashboard/data-entry"))}

@@ -51,7 +51,7 @@ export async function PUT(
 
     // Only admins or the lead's current owner can flag/unflag an agent
     if (
-      (payload.role === "employee" || payload.role === "meeting") &&
+      (payload.role === "telecaller" || payload.role === "meeting") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(

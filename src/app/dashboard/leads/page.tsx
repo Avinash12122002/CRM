@@ -11,7 +11,7 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: "admin" | "employee" | "meeting";
+  role: "admin" | "telecaller" | "meeting";
 }
 
 interface Lead {
@@ -29,10 +29,10 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: "admin" | "employee" | "meeting" | "case_manager";
+  assignedToRole?: "admin" | "telecaller" | "meeting" | "case_manager";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: "admin" | "employee" | "meeting" | "case_manager";
+  assignedByRole?: "admin" | "telecaller" | "meeting" | "case_manager";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
@@ -315,7 +315,7 @@ export default function LeadsPage() {
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((u: { role: string }) =>
-          ["admin", "employee", "meeting"].includes(u.role),
+          ["admin", "telecaller", "meeting"].includes(u.role),
         );
         setUsers(allUsers);
       }
@@ -358,7 +358,7 @@ export default function LeadsPage() {
   // Restrained row styling: a thin left accent border communicates priority/role
   // without washing the whole row in a loud background color.
   const getRowAccentClasses = (lead: Lead) => {
-    // Not visible to this viewer (employee/meeting looking at someone else's lead)
+    // Not visible to this viewer (telecaller/meeting looking at someone else's lead)
     if (user && user.role !== "admin" && !lead.isOwner) {
       return "border-l-4 border-l-transparent bg-gray-50/70 dark:bg-gray-900/30 opacity-60";
     }
@@ -391,7 +391,7 @@ export default function LeadsPage() {
       if (lead.assignedToRole === "meeting") {
         return "border-l-4 border-l-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      if (lead.assignedToRole === "employee") {
+      if (lead.assignedToRole === "telecaller") {
         return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
       if (lead.assignedToRole === "case_manager") {
@@ -403,7 +403,7 @@ export default function LeadsPage() {
   };
 
   // Shared label/color mapping for role badges (Assigned To / Assigned By /
-  // legend) so admin, meeting, employee, and case_manager all render
+  // legend) so admin, meeting, telecaller, and case_manager all render
   // consistently instead of each spot hardcoding its own set of roles.
   const getRoleBadgeLabel = (role?: string) => {
     switch (role) {
@@ -411,8 +411,8 @@ export default function LeadsPage() {
         return "Admin";
       case "meeting":
         return "Meeting";
-      case "employee":
-        return "Employee";
+      case "telecaller":
+        return "Telecaller";
       case "case_manager":
         return "Case Manager";
       default:
@@ -426,7 +426,7 @@ export default function LeadsPage() {
         return "bg-red-100 text-red-700";
       case "meeting":
         return "bg-purple-100 text-purple-700";
-      case "employee":
+      case "telecaller":
         return "bg-blue-100 text-blue-700";
       case "case_manager":
         return "bg-teal-100 text-teal-700";
@@ -930,7 +930,7 @@ export default function LeadsPage() {
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-sm bg-blue-300" />
-                    Assigned to Employee
+                    Assigned to Telecaller
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-sm bg-teal-300" />

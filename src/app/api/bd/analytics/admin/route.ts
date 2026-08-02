@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
     if (validDate) cohortWindow = dayWindow(validDate);
     else if (validMonth) cohortWindow = monthWindow(validMonth);
 
-    // ---- 1. Daily Lead Submission per employee (scoped to date/month) ----
+    // ---- 1. Daily Lead Submission per telecaller (scoped to date/month) ----
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const submissionMatch: Record<string, any> = {};
     if (validDate) {

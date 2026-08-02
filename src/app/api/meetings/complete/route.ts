@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Admin can complete any meeting
-    // Employee/Meeting can complete only their assigned lead
+    // Telecaller/Meeting can complete only their assigned lead
     if (payload.role !== "admin" && lead.assignedTo !== payload.id) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }

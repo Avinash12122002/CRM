@@ -13,7 +13,7 @@ type User = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development" | "billing";
+  role: "admin" | "telecaller" | "meeting" | "business_development" | "billing";
 };
 
 type EmailStage =

@@ -8,7 +8,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development";
+  role: "admin" | "telecaller" | "meeting" | "business_development";
 };
 
 type Analytics = {
@@ -128,7 +128,7 @@ export default function BDAnalyticsPage() {
     lines.push(`Drop Rate %,${data.metrics.dropRate}`);
     lines.push("");
     lines.push(`Daily Lead Submission (${scope})`);
-    lines.push("Employee,Leads Created");
+    lines.push("Telecaller,Leads Created");
     data.dailySubmission.forEach((d) => lines.push(`${csv(d.userName)},${d.totalCreated}`));
     lines.push("");
     lines.push(`Business Development Performance (${scope})`);
@@ -147,8 +147,8 @@ export default function BDAnalyticsPage() {
       lines.push(`${csv(s.stage)},${s.total},${s.completed},${s.ongoing}`)
     );
     lines.push("");
-    lines.push(`Employee Leaderboard (${scope})`);
-    lines.push("Rank,Employee,Total Lead,Deals,Meetings,Success %");
+    lines.push(`Telecaller Leaderboard (${scope})`);
+    lines.push("Rank,Telecaller,Total Lead,Deals,Meetings,Success %");
     data.leaderboard.forEach((l) =>
       lines.push(`${l.rank},${csv(l.bdUserName)},${l.totalLeads},${l.deals},${l.meetings},${l.successPercent}`)
     );
@@ -267,7 +267,7 @@ export default function BDAnalyticsPage() {
             {/* Daily Lead Submission */}
             <Section title={`Daily Lead Submission (${scopeLabel})`}>
               <Table
-                headers={["Employee", "Leads Created"]}
+                headers={["Telecaller", "Leads Created"]}
                 rows={data.dailySubmission.map((d) => [d.userName, String(d.totalCreated)])}
                 emptyLabel="No submissions in this range"
               />
@@ -324,9 +324,9 @@ export default function BDAnalyticsPage() {
             </Section>
 
             {/* Leaderboard */}
-            <Section title={`Employee Leaderboard (${scopeLabel})`}>
+            <Section title={`Telecaller Leaderboard (${scopeLabel})`}>
               <Table
-                headers={["Rank", "Employee", "Total Lead", "Deals", "Meetings", "Success %"]}
+                headers={["Rank", "Telecaller", "Total Lead", "Deals", "Meetings", "Success %"]}
                 rows={data.leaderboard.map((l) => [
                   String(l.rank),
                   l.bdUserName,

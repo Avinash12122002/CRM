@@ -112,7 +112,7 @@ export async function GET(
     lead.isOwner = lead.assignedTo === payload.id;
 
     if (
-      (payload.role === "employee" ||
+      (payload.role === "telecaller" ||
         payload.role === "meeting" ||
         payload.role === "case_manager") &&
       lead.assignedTo !== payload.id
@@ -186,7 +186,7 @@ export async function PUT(
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
     if (
-      (payload.role === "employee" || payload.role === "meeting") &&
+      (payload.role === "telecaller" || payload.role === "meeting") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });

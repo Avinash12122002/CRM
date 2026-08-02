@@ -12,7 +12,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development" | "billing" | "case_manager";
+  role: "admin" | "telecaller" | "meeting" | "business_development" | "billing" | "case_manager";
 };
 
 type LeadStats = {
@@ -41,10 +41,10 @@ type MeetingStats = {
   cancelledMeetings: number;
 };
 
-type EmployeePerformance = {
-  employeeId: number;
-  employeeName: string;
-  employeeUsername: string;
+type TelecallerPerformance = {
+  telecallerId: number;
+  telecallerName: string;
+  telecallerUsername: string;
   userRole: string;
   // Active (non-sales) leads currently assigned to this user
   totalLeads: number;
@@ -63,14 +63,14 @@ type EmployeePerformance = {
 };
 
 type AdminStats = {
-  employeesOnline: number;
+  telecallersOnline: number;
   leadsCreatedToday: number;
   leadsWorkedToday: number;
   assignedLeads: number;
   unassignedLeads: number;
   totalMeetings: number;   // FIX: was missing from type
   todayMeetings: number;   // FIX: was missing from type
-  employeePerformance: EmployeePerformance[];
+  telecallerPerformance: TelecallerPerformance[];
   statusBreakdown: {
     "new-lead": number;
     "call-back": number;
@@ -122,14 +122,14 @@ export default function DashboardPage() {
     workingDays: 0,
   });
   const [adminStats, setAdminStats] = useState<AdminStats>({
-    employeesOnline: 0,
+    telecallersOnline: 0,
     leadsCreatedToday: 0,
     leadsWorkedToday: 0,
     assignedLeads: 0,
     unassignedLeads: 0,
     totalMeetings: 0,
     todayMeetings: 0,
-    employeePerformance: [],
+    telecallerPerformance: [],
     statusBreakdown: {
       "new-lead": 0,
       "call-back": 0,
@@ -229,7 +229,7 @@ export default function DashboardPage() {
   const fetchUserStats = async () => {
     setLoadingStats(true);
     try {
-      const statsRes = await fetch("/api/dashboard/employee-stats");
+      const statsRes = await fetch("/api/dashboard/telecaller-stats");
       if (statsRes.ok) {
         const statsData: LeadStats = await statsRes.json();
         setLeadStats(statsData);
@@ -413,7 +413,7 @@ export default function DashboardPage() {
         if (!res.ok) { router.push("/"); return; }
         const data: MeResponse = await res.json();
         setUser(data);
-        if (data.role === "employee") {
+        if (data.role === "telecaller") {
           fetchUserStats();
           fetchWorkHours();
         }
@@ -429,7 +429,7 @@ export default function DashboardPage() {
         if (data.role === "business_development") {
           fetchBDStats();
           // FIX: BD users had no time tracking despite having a check-in/out flow —
-          // now pulls the same work-hours summary employees/meeting users get.
+          // now pulls the same work-hours summary telecallers/meeting users get.
           fetchWorkHours();
         }
         if (data.role === "billing") {
@@ -589,7 +589,7 @@ export default function DashboardPage() {
                 {/* ── Quick Stats Grid ── */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
-                  {/* Employees Online */}
+                  {/* Telecallers Online */}
                   {/* FIX: bg-linear-to-br → bg-gradient-to-br (was invalid Tailwind class) */}
                   <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
                     <div className="flex items-center justify-between mb-3">
@@ -599,10 +599,10 @@ export default function DashboardPage() {
                         </svg>
                       </div>
                       <span className="text-3xl font-bold text-green-600 dark:text-green-400">
-                        {adminStats.employeesOnline}
+                        {adminStats.telecallersOnline}
                       </span>
                     </div>
-                    <h4 className="text-sm font-semibold text-green-900 dark:text-green-200">Employees/Meeting Online</h4>
+                    <h4 className="text-sm font-semibold text-green-900 dark:text-green-200">Telecallers/Meeting Online</h4>
                     <p className="text-xs text-green-600 dark:text-green-400 mt-1">Currently checked in</p>
                   </div>
 
@@ -689,7 +689,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* ── Status Breakdown + Employee Performance ── */}
+                {/* ── Status Breakdown + Telecaller Performance ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                   {/* Lead Status Breakdown */}
@@ -722,18 +722,18 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Employee & Meeting Performance */}
+                  {/* Telecaller & Meeting Performance */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                     <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                      Employee & Meeting Performance
+                      Telecaller & Meeting Performance
                     </h3>
                     <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                      {adminStats.employeePerformance.length === 0 ? (
+                      {adminStats.telecallerPerformance.length === 0 ? (
                         <p className="text-sm text-zinc-600 dark:text-zinc-400 text-center py-4">
                           No performance data available
                         </p>
                       ) : (
-                        adminStats.employeePerformance.map((emp) => {
+                        adminStats.telecallerPerformance.map((emp) => {
                           // FIX: totalLeads from API = active non-sales leads only.
                           // Show active + sales as the combined "Total" so the number
                           // reflects their full contribution, not just current pipeline.
@@ -741,24 +741,24 @@ export default function DashboardPage() {
 
                           return (
                             <div
-                              key={emp.employeeId}
+                              key={emp.telecallerId}
                               className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors"
                             >
                               {/* Name + role badge + combined total */}
                               <div className="flex items-start justify-between mb-2 gap-2">
                                 <div className="min-w-0">
                                   <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                                    {emp.employeeName}
+                                    {emp.telecallerName}
                                   </h4>
                                   <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    @{emp.employeeUsername}
+                                    @{emp.telecallerUsername}
                                   </p>
                                   <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded font-medium ${
                                     emp.userRole === "meeting"
                                       ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
                                       : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                                   }`}>
-                                    {emp.userRole === "meeting" ? "Meeting" : "Employee"}
+                                    {emp.userRole === "meeting" ? "Meeting" : "Telecaller"}
                                   </span>
                                 </div>
                                 {/* FIX: show active leads + sales combined, labelled clearly */}
@@ -936,7 +936,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Work Hours — FIX: BD users had no time tracking summary, added to match employee/meeting dashboards */}
+                  {/* Work Hours — FIX: BD users had no time tracking summary, added to match telecaller/meeting dashboards */}
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                     <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
                     <p className="text-zinc-600 dark:text-zinc-400 mb-4">
@@ -958,7 +958,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Check-in/Check-out — FIX: added so BD role can clock in/out like employee/meeting roles */}
+                {/* Check-in/Check-out — FIX: added so BD role can clock in/out like telecaller/meeting roles */}
                 <div>
                   <CheckInOutCard />
                 </div>
@@ -1184,7 +1184,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           /* ══════════════════════════════════════════════════
-              EMPLOYEE / MEETING DASHBOARD
+              TELECALLER / MEETING DASHBOARD
           ══════════════════════════════════════════════════ */
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
@@ -1201,8 +1201,8 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    {/* Employee cards */}
-                    {user.role === "employee" && (
+                    {/* Telecaller cards */}
+                    {user.role === "telecaller" && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <button
                           onClick={() => router.push("/dashboard/leads")}

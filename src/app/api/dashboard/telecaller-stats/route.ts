@@ -26,8 +26,8 @@ export async function GET(req: NextRequest) {
 
     const { role, id: userId } = payload;
 
-    // Employees and Meeting users can access this endpoint
-    if (role !== "employee" && role !== "meeting") {
+    // Telecallers and Meeting users can access this endpoint
+    if (role !== "telecaller" && role !== "meeting") {
       return NextResponse.json(
         { error: "Access denied." },
         { status: 403 },
@@ -163,14 +163,14 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error(
-      "Error fetching employee statistics:",
+      "Error fetching telecaller statistics:",
       error,
     );
 
     return NextResponse.json(
       {
         error:
-          "Failed to fetch employee statistics",
+          "Failed to fetch telecaller statistics",
       },
       {
         status: 500,

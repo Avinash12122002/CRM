@@ -66,7 +66,7 @@ export default function AssignLeadModal({
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((user: User) =>
-          ["admin", "employee", "meeting"].includes(user.role),
+          ["admin", "telecaller", "meeting"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -209,7 +209,7 @@ export default function AssignLeadModal({
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               Assign To <span className="text-red-500">*</span>
               <span className="text-gray-400 font-normal text-xs ml-1">
-                (Admin / Employee / Meeting)
+                (Admin / Telecaller / Meeting)
               </span>
             </label>
 

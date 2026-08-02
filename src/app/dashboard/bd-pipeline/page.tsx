@@ -10,7 +10,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development";
+  role: "admin" | "telecaller" | "meeting" | "business_development";
 };
 
 type BDLead = {

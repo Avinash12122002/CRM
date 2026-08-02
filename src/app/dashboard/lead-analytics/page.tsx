@@ -8,7 +8,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development";
+  role: "admin" | "telecaller" | "meeting" | "business_development";
 };
 
 type Analytics = {
@@ -17,7 +17,7 @@ type Analytics = {
   filtered: boolean;
   totalInDb: number;
   statusDistribution: { status: string; label: string; count: number }[];
-  employeePerformance: {
+  telecallerPerformance: {
     userId: number;
     userName: string;
     newLeads: number;
@@ -50,7 +50,7 @@ type Analytics = {
     meetingConversionRate: number;
     dropRate: number;
   };
-  employeeLeaderboard: {
+  telecallerLeaderboard: {
     rank: number;
     userId: number;
     userName: string;
@@ -136,9 +136,9 @@ export default function LeadAnalyticsPage() {
     lines.push(`Meeting Conversion Rate %,${data.metrics.meetingConversionRate}`);
     lines.push(`Drop Rate %,${data.metrics.dropRate}`);
     lines.push("");
-    lines.push(`Employee Performance (${scope})`);
-    lines.push("Employee,New Lead,Call Back,Not Answering,Document Pending,Payment Pending,Sales");
-    data.employeePerformance.forEach((a) =>
+    lines.push(`Telecaller Performance (${scope})`);
+    lines.push("Telecaller,New Lead,Call Back,Not Answering,Document Pending,Payment Pending,Sales");
+    data.telecallerPerformance.forEach((a) =>
       lines.push(
         `${csv(a.userName)},${a.newLeads},${a.callBack},${a.notAnswering},${a.documentPending},${a.paymentPending},${a.sales}`
       )
@@ -158,9 +158,9 @@ export default function LeadAnalyticsPage() {
     lines.push("Status,Count");
     data.statusDistribution.forEach((s) => lines.push(`${csv(s.label)},${s.count}`));
     lines.push("");
-    lines.push(`Employee Leaderboard (${scope})`);
-    lines.push("Rank,Employee,Leads,Sales,Success %");
-    data.employeeLeaderboard.forEach((l) =>
+    lines.push(`Telecaller Leaderboard (${scope})`);
+    lines.push("Rank,Telecaller,Leads,Sales,Success %");
+    data.telecallerLeaderboard.forEach((l) =>
       lines.push(`${l.rank},${csv(l.userName)},${l.leads},${l.sales},${l.successPercent}`)
     );
     lines.push("");
@@ -284,11 +284,11 @@ export default function LeadAnalyticsPage() {
               <MetricCard label="Drop Rate" value={`${data.metrics.dropRate}%`} />
             </div>
 
-            {/* Employee Performance */}
-            <Section title={`Agent Performance — Employees (${scopeLabel})`}>
+            {/* Telecaller Performance */}
+            <Section title={`Agent Performance — Telecallers (${scopeLabel})`}>
               <Table
                 headers={[
-                  "Employee",
+                  "Telecaller",
                   "New Lead",
                   "Call Back",
                   "Not Answering",
@@ -296,7 +296,7 @@ export default function LeadAnalyticsPage() {
                   "Payment Pending",
                   "Total Sales",
                 ]}
-                rows={data.employeePerformance.map((a) => [
+                rows={data.telecallerPerformance.map((a) => [
                   a.userName,
                   String(a.newLeads),
                   String(a.callBack),
@@ -305,7 +305,7 @@ export default function LeadAnalyticsPage() {
                   String(a.paymentPending),
                   String(a.sales),
                 ])}
-                emptyLabel="No employees yet"
+                emptyLabel="No telecallers yet"
               />
             </Section>
 
@@ -345,11 +345,11 @@ export default function LeadAnalyticsPage() {
               />
             </Section>
 
-            {/* Employee Leaderboard */}
-            <Section title={`Employee Leaderboard (${scopeLabel})`}>
+            {/* Telecaller Leaderboard */}
+            <Section title={`Telecaller Leaderboard (${scopeLabel})`}>
               <Table
-                headers={["Rank", "Employee", "Leads", "Sales", "Success %"]}
-                rows={data.employeeLeaderboard.map((l) => [
+                headers={["Rank", "Telecaller", "Leads", "Sales", "Success %"]}
+                rows={data.telecallerLeaderboard.map((l) => [
                   String(l.rank),
                   l.userName,
                   String(l.leads),

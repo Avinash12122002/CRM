@@ -10,7 +10,7 @@ type User = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting";
+  role: "admin" | "telecaller" | "meeting";
 };
 
 type Vacancy = {
@@ -90,8 +90,8 @@ export default function VacanciesPage() {
       if (search) {
         url += `&search=${encodeURIComponent(search)}`;
       }
-      // For employees, always filter to show only active vacancies
-      if (user?.role === "employee" || user?.role === "meeting") {
+      // For telecallers, always filter to show only active vacancies
+      if (user?.role === "telecaller" || user?.role === "meeting") {
         url += `&status=active`;
       } else if (statusFilter) {
         // For admins, apply the selected status filter

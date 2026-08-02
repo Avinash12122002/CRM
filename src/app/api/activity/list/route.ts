@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const matchFilter: Record<string, any> = {};
 
     if (
-      payload.role === "employee" ||
+      payload.role === "telecaller" ||
       payload.role === "meeting" ||
       payload.role === "billing" ||
       payload.role === "business_development" ||

@@ -72,7 +72,7 @@ async function handleAssign(req: NextRequest) {
     // =========================
 
     if (payload.role !== "admin") {
-      // Employee/Meeting can only reassign their own leads
+      // Telecaller/Meeting can only reassign their own leads
       if (lead.assignedTo !== payload.id) {
         return NextResponse.json(
           {
@@ -82,8 +82,8 @@ async function handleAssign(req: NextRequest) {
         );
       }
 
-      // Employee -> Admin or Meeting
-      const allowedRoles = ["admin", "employee", "meeting"];
+      // Telecaller -> Admin or Meeting
+      const allowedRoles = ["admin", "telecaller", "meeting"];
 
       if (
         payload.role !== "admin" &&
@@ -198,7 +198,7 @@ async function handleAssign(req: NextRequest) {
         updatedAt: now,
       });
     } else {
-      // If assigned to Admin/Employee/unassigned
+      // If assigned to Admin/Telecaller/unassigned
       await db.collection("meetingSlots").deleteMany({
         leadId,
       });

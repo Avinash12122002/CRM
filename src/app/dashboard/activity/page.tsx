@@ -9,7 +9,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "billing" | "business_development" | "case_manager";
+  role: "admin" | "telecaller" | "meeting" | "billing" | "business_development" | "case_manager";
 };
 
 type Activity = {
@@ -50,14 +50,14 @@ export default function ActivityPage() {
     totalPages: 0,
   });
   const [loadingActivities, setLoadingActivities] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>("");
+  const [selectedTelecaller, setSelectedTelecaller] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [employees, setEmployees] = useState<
+  const [telecallers, setTelecallers] = useState<
     { id: number; name: string; username: string }[]
   >([]);
-  const [employeeDropdownOpen, setEmployeeDropdownOpen] = useState(false);
-  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
-  const employeeDropdownRef = useRef<HTMLDivElement>(null);
+  const [telecallerDropdownOpen, setTelecallerDropdownOpen] = useState(false);
+  const [telecallerSearchQuery, setTelecallerSearchQuery] = useState("");
+  const telecallerDropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     (async () => {
@@ -75,40 +75,40 @@ export default function ActivityPage() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.role === "admin") fetchEmployees();
+    if (user.role === "admin") fetchTelecallers();
     fetchActivities(1);
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
     fetchActivities(1);
-  }, [selectedDate, selectedEmployee]);
+  }, [selectedDate, selectedTelecaller]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
-        employeeDropdownRef.current &&
-        !employeeDropdownRef.current.contains(event.target as Node)
+        telecallerDropdownRef.current &&
+        !telecallerDropdownRef.current.contains(event.target as Node)
       ) {
-        setEmployeeDropdownOpen(false);
+        setTelecallerDropdownOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  async function fetchEmployees() {
+  async function fetchTelecallers() {
     try {
       const res = await fetch("/api/auth/users");
       if (!res.ok) return;
       const data = await res.json();
-      const employeeUsers = (data.users || []).filter(
+      const telecallerUsers = (data.users || []).filter(
         (u: { role: string }) =>
-          u.role === "employee" || u.role === "meeting" || u.role === "case_manager",
+          u.role === "telecaller" || u.role === "meeting" || u.role === "case_manager",
       );
-      setEmployees(employeeUsers);
+      setTelecallers(telecallerUsers);
     } catch (error) {
-      console.error("Failed to fetch employees:", error);
+      console.error("Failed to fetch telecallers:", error);
     }
   }
 
@@ -118,7 +118,7 @@ export default function ActivityPage() {
     try {
       let url = `/api/activity/list?page=${page}&limit=${currentLimit}`;
       if (selectedDate) url += `&date=${selectedDate}`;
-      if (selectedEmployee && user?.role === "admin") url += `&userId=${selectedEmployee}`;
+      if (selectedTelecaller && user?.role === "admin") url += `&userId=${selectedTelecaller}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch activities");
       const data = await res.json();
@@ -179,10 +179,10 @@ export default function ActivityPage() {
 
   if (!user) return null;
 
-  const filteredEmployees = employees.filter(
+  const filteredTelecallers = telecallers.filter(
     (emp) =>
-      emp.name.toLowerCase().includes(employeeSearchQuery.toLowerCase()) ||
-      emp.username.toLowerCase().includes(employeeSearchQuery.toLowerCase()),
+      emp.name.toLowerCase().includes(telecallerSearchQuery.toLowerCase()) ||
+      emp.username.toLowerCase().includes(telecallerSearchQuery.toLowerCase()),
   );
 
   return (
@@ -194,11 +194,11 @@ export default function ActivityPage() {
         {/* Header */}
         <div className="mb-5">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {user.role === "admin" ? "Employee Activity" : "My Activity"}
+            {user.role === "admin" ? "Telecaller Activity" : "My Activity"}
           </h2>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {user.role === "admin"
-              ? "Track and manage employee and meeting records"
+              ? "Track and manage telecaller and meeting records"
               : "View your activity history"}
           </p>
         </div>
@@ -207,25 +207,25 @@ export default function ActivityPage() {
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-zinc-200 dark:border-zinc-700 px-4 py-3 mb-4">
           <div className="flex flex-wrap items-end gap-3">
 
-            {/* Employee dropdown — admin only */}
+            {/* Telecaller dropdown — admin only */}
             {user.role === "admin" && (
               <div className="flex-1 min-w-[180px]">
                 <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-400 mb-1">
-                  Employee
+                  Telecaller
                 </label>
-                <div className="relative" ref={employeeDropdownRef}>
+                <div className="relative" ref={telecallerDropdownRef}>
                   <input
                     type="text"
-                    placeholder="Search employees..."
-                    value={employeeSearchQuery}
-                    onChange={(e) => setEmployeeSearchQuery(e.target.value)}
-                    onFocus={() => setEmployeeDropdownOpen(true)}
+                    placeholder="Search telecallers..."
+                    value={telecallerSearchQuery}
+                    onChange={(e) => setTelecallerSearchQuery(e.target.value)}
+                    onFocus={() => setTelecallerDropdownOpen(true)}
                     className="w-full px-3 py-1.5 text-xs border border-zinc-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 placeholder:text-gray-400"
                   />
-                  {selectedEmployee && (
+                  {selectedTelecaller && (
                     <button
                       type="button"
-                      onClick={() => { setSelectedEmployee(""); setEmployeeSearchQuery(""); }}
+                      onClick={() => { setSelectedTelecaller(""); setTelecallerSearchQuery(""); }}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -233,29 +233,29 @@ export default function ActivityPage() {
                       </svg>
                     </button>
                   )}
-                  {employeeDropdownOpen && (
+                  {telecallerDropdownOpen && (
                     <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
                       <button
                         type="button"
-                        onClick={() => { setSelectedEmployee(""); setEmployeeSearchQuery(""); setEmployeeDropdownOpen(false); }}
+                        onClick={() => { setSelectedTelecaller(""); setTelecallerSearchQuery(""); setTelecallerDropdownOpen(false); }}
                         className="w-full px-3 py-2 text-left text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 text-gray-900 dark:text-zinc-100 border-b border-zinc-100 dark:border-zinc-700"
                       >
-                        All Employees
+                        All Telecallers
                       </button>
-                      {filteredEmployees.map((emp) => (
+                      {filteredTelecallers.map((emp) => (
                         <button
                           key={emp.id}
                           type="button"
-                          onClick={() => { setSelectedEmployee(emp.id.toString()); setEmployeeSearchQuery(emp.name); setEmployeeDropdownOpen(false); }}
+                          onClick={() => { setSelectedTelecaller(emp.id.toString()); setTelecallerSearchQuery(emp.name); setTelecallerDropdownOpen(false); }}
                           className="w-full px-3 py-2 text-left text-xs hover:bg-zinc-100 dark:hover:bg-zinc-700 text-gray-900 dark:text-zinc-100"
                         >
                           <span className="font-medium">{emp.name}</span>
                           <span className="text-zinc-400 ml-1">@{emp.username}</span>
                         </button>
                       ))}
-                      {filteredEmployees.length === 0 && (
+                      {filteredTelecallers.length === 0 && (
                         <div className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-                          No employees found
+                          No telecallers found
                         </div>
                       )}
                     </div>
@@ -301,7 +301,7 @@ export default function ActivityPage() {
             {/* Clear */}
             <button
               type="button"
-              onClick={() => { setSelectedDate(""); setSelectedEmployee(""); setEmployeeSearchQuery(""); }}
+              onClick={() => { setSelectedDate(""); setSelectedTelecaller(""); setTelecallerSearchQuery(""); }}
               className="px-3 py-1.5 text-xs bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-700 dark:text-zinc-300 rounded-lg transition font-medium"
             >
               Clear
@@ -310,12 +310,12 @@ export default function ActivityPage() {
           </div>
 
           {/* Active filter chips */}
-          {(selectedEmployee || selectedDate) && (
+          {(selectedTelecaller || selectedDate) && (
             <div className="flex flex-wrap gap-2 mt-2.5 pt-2.5 border-t border-zinc-100 dark:border-zinc-700">
-              {selectedEmployee && (
+              {selectedTelecaller && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 text-xs rounded-full">
-                  {employees.find((e) => e.id.toString() === selectedEmployee)?.name || "Employee"}
-                  <button type="button" onClick={() => { setSelectedEmployee(""); setEmployeeSearchQuery(""); }} className="hover:text-blue-600">×</button>
+                  {telecallers.find((e) => e.id.toString() === selectedTelecaller)?.name || "Telecaller"}
+                  <button type="button" onClick={() => { setSelectedTelecaller(""); setTelecallerSearchQuery(""); }} className="hover:text-blue-600">×</button>
                 </span>
               )}
               {selectedDate && (
@@ -341,7 +341,7 @@ export default function ActivityPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">No activities yet</h3>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Employee activity records will appear here</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Telecaller activity records will appear here</p>
             </div>
           ) : (
             <>
@@ -351,7 +351,7 @@ export default function ActivityPage() {
                     <tr>
                       {user.role === "admin" && (
                         <th className="px-3 py-2 text-left text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">
-                          Employee
+                          Telecaller
                         </th>
                       )}
                       {[
@@ -375,7 +375,7 @@ export default function ActivityPage() {
                           key={activity.id}
                           className="hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors"
                         >
-                          {/* Employee (admin only) */}
+                          {/* Telecaller (admin only) */}
                           {user.role === "admin" && (
                             <td className="px-3 py-2">
                               <div className="text-xs font-semibold text-gray-900 dark:text-gray-100">

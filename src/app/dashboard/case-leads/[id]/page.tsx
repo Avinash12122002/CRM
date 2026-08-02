@@ -13,7 +13,7 @@ interface User {
   email?: string;
   role:
     | "admin"
-    | "employee"
+    | "telecaller"
     | "meeting"
     | "business_development"
     | "billing"

@@ -24,8 +24,8 @@ import { verifyToken } from "@/lib/auth";
 //  - Lost = wrong-number + not-interested (current status only).
 //  - Meeting Scheduled (headline) = distinct leads that ever reached the
 //    meeting-scheduled milestone (dedup per lead, so a lead handed from an
-//    employee to a meeting user is still ONE meeting, never two).
-//  - Sales attribution: when a lead went through a meeting, BOTH the employee
+//    telecaller to a meeting user is still ONE meeting, never two).
+//  - Sales attribution: when a lead went through a meeting, BOTH the telecaller
 //    who booked it (meetingDetails.bookedBy) AND the meeting user who ran it
 //    (meetingDetails.meetingUserId) are credited +1 sale each in their own
 //    performance rows — this matches the Admin Dashboard's behaviour, while
@@ -36,7 +36,7 @@ import { verifyToken } from "@/lib/auth";
 //    0-100) — of the leads that reached a meeting, how many closed as sales.
 //  - Drop Rate = (Wrong Number + Not Interested) / Total Leads × 100
 //    (clamped 0-100 — can never be negative).
-//  - Employee Leaderboard % and Meeting Leaderboard % are computed against
+//  - Telecaller Leaderboard % and Meeting Leaderboard % are computed against
 //    the count of leads/meetings assigned to that person WITHIN THE SAME
 //    SCOPE as everything else on the page (never just their currently-
 //    active, non-sold leads), so the percentage can no longer exceed 100%.
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
       .find({})
       .project({ id: 1, name: 1, role: 1 })
       .toArray();
-    const staffUsers = users.filter((u) => u.role === "employee" || u.role === "meeting");
+    const staffUsers = users.filter((u) => u.role === "telecaller" || u.role === "meeting");
 
     // Pull every lead once — headline metrics, status distribution, Agent
     // Performance, and both Leaderboards are ALL derived from the same
@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
     // status, meetingDetails carries a meeting user, or history recorded the
     // scheduling event — checked this way (instead of only "current status")
     // so a lead that later converted to Sales or was Lost is still counted
-    // once as a meeting, and a lead handed off between an employee and a
+    // once as a meeting, and a lead handed off between an telecaller and a
     // meeting user is never double-counted.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const everHadMeeting = (lead: any): boolean => {
@@ -256,7 +256,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Step C — sales attribution, scoped to the same window. Case A: lead
-    // went through a meeting, credit BOTH the booking employee and the
+    // went through a meeting, credit BOTH the booking telecaller and the
     // meeting user. Case B: direct sale (no meeting), credit whoever
     // performed the status_updated -> "sales" transition in history.
     for (const l of cohortLeads) {
@@ -329,8 +329,8 @@ export async function GET(req: NextRequest) {
 
     const allStaff = Array.from(staffMap.values());
 
-    const employeePerformance = allStaff
-      .filter((s) => s.role === "employee")
+    const telecallerPerformance = allStaff
+      .filter((s) => s.role === "telecaller")
       .map((s) => ({
         userId: s.userId,
         userName: s.userName,
@@ -358,8 +358,8 @@ export async function GET(req: NextRequest) {
       }))
       .sort((a, b) => b.sales - a.sales);
 
-    const employeeLeaderboard = allStaff
-      .filter((s) => s.role === "employee")
+    const telecallerLeaderboard = allStaff
+      .filter((s) => s.role === "telecaller")
       .map((s) => ({
         userId: s.userId,
         userName: s.userName,
@@ -388,7 +388,7 @@ export async function GET(req: NextRequest) {
       filtered: !!cohortWindow,
       totalInDb: allLeads.length,
       statusDistribution,
-      employeePerformance,
+      telecallerPerformance,
       meetingPerformance,
       metrics: {
         totalLeads,
@@ -402,7 +402,7 @@ export async function GET(req: NextRequest) {
         meetingConversionRate,
         dropRate,
       },
-      employeeLeaderboard,
+      telecallerLeaderboard,
       meetingLeaderboard,
     });
   } catch (err) {

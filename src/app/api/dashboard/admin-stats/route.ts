@@ -32,9 +32,9 @@ export async function GET(req: NextRequest) {
     const todayStr = today.toISOString().split("T")[0]; // "YYYY-MM-DD"
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 1. EMPLOYEES ONLINE RIGHT NOW
+    // 1. TELECALLERS ONLINE RIGHT NOW
     // ═══════════════════════════════════════════════════════════════════════
-    const employeesOnline = await db.collection("activities").countDocuments({
+    const telecallersOnline = await db.collection("activities").countDocuments({
       checkIn:  { $gte: today, $lt: tomorrow },
       checkOut: null,
     });
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
 
     // ═══════════════════════════════════════════════════════════════════════
     // 4. ASSIGNED VS UNASSIGNED LEADS
-    //    Assigned = currently held by an employee or meeting user.
+    //    Assigned = currently held by an telecaller or meeting user.
     // ═══════════════════════════════════════════════════════════════════════
     const assignedLeadsResult = await db
       .collection("leads")
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
           },
         },
         { $unwind: "$assignedUser" },
-        { $match: { "assignedUser.role": { $in: ["employee", "meeting"] } } },
+        { $match: { "assignedUser.role": { $in: ["telecaller", "meeting"] } } },
         { $count: "count" },
       ])
       .toArray();
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
     });
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 7. EMPLOYEE PERFORMANCE
+    // 7. TELECALLER PERFORMANCE
     //
     //  TWO COMPLETELY SEPARATE COUNTERS — never mixed:
     //
@@ -153,7 +153,7 @@ export async function GET(req: NextRequest) {
     //  SALES ATTRIBUTION RULES:
     //
     //  Case A — lead went through a meeting (meetingDetails present):
-    //    meetingDetails.bookedBy      → +1 sales (employee who booked)
+    //    meetingDetails.bookedBy      → +1 sales (telecaller who booked)
     //    meetingDetails.meetingUserId → +1 sales (meeting user who ran it)
     //    Same person for both         → only +1 (Set dedup, never +2)
     //
@@ -165,16 +165,16 @@ export async function GET(req: NextRequest) {
     //    Creating a lead does NOT trigger this — only changing status does.
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ── Step A: seed map from ALL employee & meeting users ─────────────────
+    // ── Step A: seed map from ALL telecaller & meeting users ─────────────────
     const allStaffRaw = await db
       .collection("users")
-      .find({ role: { $in: ["employee", "meeting"] } })
+      .find({ role: { $in: ["telecaller", "meeting"] } })
       .toArray();
 
     type StaffEntry = {
-      employeeId:        number | string;
-      employeeName:      string;
-      employeeUsername:  string;
+      telecallerId:        number | string;
+      telecallerName:      string;
+      telecallerUsername:  string;
       userRole:          string;
       totalLeads:        number; // currently assigned non-sales leads ONLY
       newLeads:          number;
@@ -192,9 +192,9 @@ export async function GET(req: NextRequest) {
     const staffMap = new Map<string, StaffEntry>();
     for (const u of allStaffRaw) {
       staffMap.set(String(u.id), {
-        employeeId:        u.id,
-        employeeName:      u.name     || "",
-        employeeUsername:  u.username || "",
+        telecallerId:        u.id,
+        telecallerName:      u.name     || "",
+        telecallerUsername:  u.username || "",
         userRole:          u.role,
         totalLeads:        0,
         newLeads:          0,
@@ -234,7 +234,7 @@ export async function GET(req: NextRequest) {
         { $unwind: "$assignedUser" },
         {
           $match: {
-            "assignedUser.role": { $in: ["employee", "meeting"] },
+            "assignedUser.role": { $in: ["telecaller", "meeting"] },
           },
         },
         {
@@ -320,8 +320,8 @@ export async function GET(req: NextRequest) {
         // The performedBy of that entry is the only person who gets credit.
         //
         // This means:
-        //  ✓ Employee changes status → employee +1 sales
-        //  ✓ Admin changes status   → no employee credit (admin not in staffMap)
+        //  ✓ Telecaller changes status → telecaller +1 sales
+        //  ✓ Admin changes status   → no telecaller credit (admin not in staffMap)
         //  ✗ Creating a lead        → never matches this condition at all
         const history: Array<{
           action:           string;
@@ -348,7 +348,7 @@ export async function GET(req: NextRequest) {
         if (salesPerformedBy) {
           const entry = staffMap.get(salesPerformedBy);
           if (entry) {
-            // staffMap only contains employee/meeting users.
+            // staffMap only contains telecaller/meeting users.
             // If performedBy is admin, get() returns undefined → skipped.
             entry.sales += 1; // ← ONLY sales, never totalLeads
           }
@@ -358,7 +358,7 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Step D: map → sorted array ─────────────────────────────────────────
-    const employeePerformance = Array.from(staffMap.values()).sort(
+    const telecallerPerformance = Array.from(staffMap.values()).sort(
       (a, b) => b.totalLeads - a.totalLeads,
     );
 
@@ -366,14 +366,14 @@ export async function GET(req: NextRequest) {
     // RESPONSE
     // ═══════════════════════════════════════════════════════════════════════
     return NextResponse.json({
-      employeesOnline,
+      telecallersOnline,
       leadsCreatedToday,
       leadsWorkedToday,
       assignedLeads,
       unassignedLeads,
       totalMeetings,
       todayMeetings,
-      employeePerformance,
+      telecallerPerformance,
       statusBreakdown,
     });
   } catch (error) {

@@ -63,7 +63,7 @@ export async function POST(
     }
 
     if (
-      (payload.role === "employee" || payload.role === "meeting") &&
+      (payload.role === "telecaller" || payload.role === "meeting") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(

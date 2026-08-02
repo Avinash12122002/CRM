@@ -9,7 +9,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting";
+  role: "admin" | "telecaller" | "meeting";
 }
 
 interface HistoryEntry {
@@ -101,10 +101,10 @@ export default function LeadDetailPage() {
   );
 
   const [meetingUsers, setMeetingUsers] = useState<User[]>([]);
-  const [employeeUsers, setEmployeeUsers] = useState<User[]>([]);
+  const [telecallerUsers, setTelecallerUsers] = useState<User[]>([]);
 
   // ── Assign / book-new-meeting state ──
-  const [selectedEmployee, setSelectedEmployee] = useState("");
+  const [selectedTelecaller, setSelectedTelecaller] = useState("");
   const [selectedAdminUser, setSelectedAdminUser] = useState("");
   const [selectedMeetingDate, setSelectedMeetingDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
@@ -144,13 +144,13 @@ export default function LeadDetailPage() {
   // ─── Derived helpers (stable, no conditional hook calls) ───────────────────
   // These are computed at render time, not used as hooks
   const activeUserSelector =
-    user?.role === "admin" ? selectedAdminUser : selectedEmployee;
+    user?.role === "admin" ? selectedAdminUser : selectedTelecaller;
 
   const setActiveUserSelector = (val: string) => {
     if (user?.role === "admin") {
       setSelectedAdminUser(val);
     } else {
-      setSelectedEmployee(val);
+      setSelectedTelecaller(val);
     }
   };
 
@@ -158,11 +158,11 @@ export default function LeadDetailPage() {
     (m) => String(m.id) === String(activeUserSelector),
   );
 
-  // Employee/meeting user can see the assign section only if the lead is assigned to them
+  // Telecaller/meeting user can see the assign section only if the lead is assigned to them
   const showAssignSection =
     user &&
     lead &&
-    (user.role === "employee" || user.role === "meeting") &&
+    (user.role === "telecaller" || user.role === "meeting") &&
     lead.isOwner;
 
   // Meeting card visible to admin, assignee, or creator
@@ -188,26 +188,26 @@ export default function LeadDetailPage() {
       fetchLead();
       fetchAdminUsers();
       fetchMeetingUsers();
-      fetchEmployeeUsers();
+      fetchTelecallerUsers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // ── Slots: assign/book via employee selector ──────────────────────────────
+  // ── Slots: assign/book via telecaller selector ──────────────────────────────
   useEffect(() => {
     setSelectedSlot("");
     setAvailableSlots([]);
     const isMeeting = meetingUsers.some(
-      (m) => String(m.id) === String(selectedEmployee),
+      (m) => String(m.id) === String(selectedTelecaller),
     );
-    if (isMeeting && selectedEmployee && selectedMeetingDate) {
+    if (isMeeting && selectedTelecaller && selectedMeetingDate) {
       fetchAvailableSlots(
-        selectedEmployee,
+        selectedTelecaller,
         selectedMeetingDate,
         setAvailableSlots,
       );
     }
-  }, [selectedEmployee, selectedMeetingDate, meetingUsers]);
+  }, [selectedTelecaller, selectedMeetingDate, meetingUsers]);
 
   // ── Slots: assign/book via admin selector ─────────────────────────────────
   useEffect(() => {
@@ -285,11 +285,11 @@ export default function LeadDetailPage() {
     }
   };
 
-  const fetchEmployeeUsers = async () => {
+  const fetchTelecallerUsers = async () => {
     try {
-      const res = await fetch("/api/users/by-role?role=employee");
+      const res = await fetch("/api/users/by-role?role=telecaller");
       const data = await res.json();
-      if (res.ok) setEmployeeUsers(data.users || []);
+      if (res.ok) setTelecallerUsers(data.users || []);
     } catch (err) {
       console.error(err);
     }
@@ -784,7 +784,7 @@ export default function LeadDetailPage() {
       toast.success("Lead assigned successfully");
     }
 
-    setSelectedEmployee("");
+    setSelectedTelecaller("");
     setSelectedAdminUser("");
     setSelectedMeetingDate("");
     setSelectedSlot("");
@@ -1316,7 +1316,7 @@ export default function LeadDetailPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phone <span className="text-red-500">*</span>
-                      {(user.role === "employee" ||
+                      {(user.role === "telecaller" ||
                         user.role === "meeting") && (
                         <span className="text-xs text-gray-500 ml-2">
                           (Read-only)
@@ -1334,7 +1334,7 @@ export default function LeadDetailPage() {
                         })
                       }
                       disabled={
-                        user.role === "employee" || user.role === "meeting"
+                        user.role === "telecaller" || user.role === "meeting"
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed cursor-text"
                     />
@@ -1634,7 +1634,7 @@ export default function LeadDetailPage() {
                 )}
               </div>
 
-              {/* ── Assign / Transfer (admin or employee/meeting on their own leads) ── */}
+              {/* ── Assign / Transfer (admin or telecaller/meeting on their own leads) ── */}
               {(user.role === "admin" || showAssignSection) && (
                 <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
                   <h3 className="text-sm font-semibold text-gray-700 mb-3">
@@ -1654,11 +1654,11 @@ export default function LeadDetailPage() {
                       className="border-2 border-gray-300 rounded-lg px-3 py-2 text-gray-900 bg-white focus:outline-none focus:border-blue-500 cursor-pointer"
                     >
                       <option value="">Select User</option>
-                      {employeeUsers
+                      {telecallerUsers
                         .filter((e) => e.id !== lead.assignedTo)
                         .map((emp) => (
                           <option key={emp.id} value={emp.id}>
-                            👨‍💼 Employee — {emp.name}
+                            👨‍💼 Telecaller — {emp.name}
                           </option>
                         ))}
                       {meetingUsers.map((m) => (

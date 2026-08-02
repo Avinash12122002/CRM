@@ -72,9 +72,9 @@ export async function PUT(
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
-    // Check permissions: Admins can edit any lead, employees can only edit leads assigned to them
+    // Check permissions: Admins can edit any lead, telecallers can only edit leads assigned to them
     if (
-      (payload.role === "employee" || payload.role === "meeting") &&
+      (payload.role === "telecaller" || payload.role === "meeting") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(
@@ -108,9 +108,9 @@ export async function PUT(
     const now = new Date();
     const changes: string[] = [];
 
-    // For employees, phone is read-only but name is editable
+    // For telecallers, phone is read-only but name is editable
     const finalPhone =
-      payload.role === "employee" || payload.role === "meeting"
+      payload.role === "telecaller" || payload.role === "meeting"
         ? lead.phone
         : phone;
 

@@ -11,7 +11,7 @@ type User = {
   username: string;
   role:
     | "admin"
-    | "employee"
+    | "telecaller"
     | "meeting"
     | "business_development"
     | "billing"
@@ -25,7 +25,7 @@ type MeResponse = {
   email: string;
   role:
     | "admin"
-    | "employee"
+    | "telecaller"
     | "meeting"
     | "business_development"
     | "billing"
@@ -42,7 +42,7 @@ export default function UsersPage() {
     name: "",
     username: "",
     password: "",
-    role: "employee",
+    role: "telecaller",
   });
   const [addingUser, setAddingUser] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -137,13 +137,13 @@ export default function UsersPage() {
 
       if (res.ok) {
         toast.success("User added successfully");
-        setNewUser({ name: "", username: "", password: "", role: "employee" });
+        setNewUser({ name: "", username: "", password: "", role: "telecaller" });
         setShowAddModal(false);
         setCurrentPage(1);
         fetchUsers();
       } else {
         const data = await res.json();
-        toast.error(data.message || "Failed to add employee or meeting");
+        toast.error(data.message || "Failed to add telecaller or meeting");
       }
     } catch (err) {
       console.error(err);
@@ -256,7 +256,7 @@ export default function UsersPage() {
               User Management
             </h2>
             <p className="mt-1 text-zinc-600 dark:text-zinc-400">
-              Manage employee and meeting accounts
+              Manage telecaller and meeting accounts
             </p>
           </div>
           <button
@@ -612,7 +612,7 @@ export default function UsersPage() {
                   }
                   className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="employee">Employee (Sales Team)</option>
+                  <option value="telecaller">Telecaller (Sales Team)</option>
                   <option value="meeting">Meeting</option>
                   <option value="business_development">Business Development</option>
                   <option value="billing">Billing</option>

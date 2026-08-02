@@ -13,7 +13,7 @@ interface User {
   email?: string;
   role:
     | "admin"
-    | "employee"
+    | "telecaller"
     | "meeting"
     | "business_development"
     | "billing"
@@ -211,7 +211,7 @@ export default function CaseManagerLeadsPage() {
         if (res.ok) {
           const assigners = (data.users || [])
             .filter((u: { role: string }) =>
-              ["admin", "employee", "meeting"].includes(u.role),
+              ["admin", "telecaller", "meeting"].includes(u.role),
             )
             .map((u: { id: number; name: string }) => ({ id: u.id, name: u.name }));
           setAssignerOptions(assigners);

@@ -8,7 +8,7 @@ import ConversationPage from "@/components/chat/ConversationPage";
 import BroadcastPanel from "@/components/chat/BroadcastPanel";
 import { Search, MessageCircle, Globe, Megaphone, Star } from "lucide-react";
 
-type UserRole = "admin" | "employee" | "meeting";
+type UserRole = "admin" | "telecaller" | "meeting";
 
 type User = {
   id: number;
@@ -40,7 +40,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
   const [onlineUsers, setOnlineUsers] = useState<number[]>([]);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const [currentUserName, setCurrentUserName] = useState("");
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>("employee");
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>("telecaller");
   const [globalUnread, setGlobalUnread] = useState(0);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
