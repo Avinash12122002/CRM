@@ -8,7 +8,7 @@ type User = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "meeting" | "business_development" | "billing";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing";
 };
 
 type FunnelItem = {

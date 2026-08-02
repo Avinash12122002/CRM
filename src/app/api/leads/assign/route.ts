@@ -83,7 +83,7 @@ async function handleAssign(req: NextRequest) {
       }
 
       // Telecaller -> Admin or Meeting
-      const allowedRoles = ["admin", "telecaller", "meeting"];
+      const allowedRoles = ["admin", "telecaller", "employee", "meeting"];
 
       if (
         payload.role !== "admin" &&

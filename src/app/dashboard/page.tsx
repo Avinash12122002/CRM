@@ -12,7 +12,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "meeting" | "business_development" | "billing" | "case_manager";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager";
 };
 
 type LeadStats = {
@@ -413,7 +413,7 @@ export default function DashboardPage() {
         if (!res.ok) { router.push("/"); return; }
         const data: MeResponse = await res.json();
         setUser(data);
-        if (data.role === "telecaller") {
+        if (data.role === "telecaller" || data.role === "employee") {
           fetchUserStats();
           fetchWorkHours();
         }
@@ -1202,7 +1202,7 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     {/* Telecaller cards */}
-                    {user.role === "telecaller" && (
+                    {(user.role === "telecaller" || user.role === "employee") && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <button
                           onClick={() => router.push("/dashboard/leads")}

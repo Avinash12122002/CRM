@@ -66,7 +66,7 @@ export default function AssignLeadModal({
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((user: User) =>
-          ["admin", "telecaller", "meeting"].includes(user.role),
+          ["admin", "telecaller", "employee", "meeting"].includes(user.role),
         );
         setUsers(allUsers);
       }

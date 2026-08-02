@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     const { role, id: userId } = payload;
 
     // Telecallers and Meeting users can access this endpoint
-    if (role !== "telecaller" && role !== "meeting") {
+    if (role !== "telecaller" && role !== "employee" && role !== "meeting") {
       return NextResponse.json(
         { error: "Access denied." },
         { status: 403 },

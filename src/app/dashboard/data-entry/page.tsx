@@ -11,7 +11,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "meeting" | "business_development";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development";
 };
 
 type DailyProgress = {
@@ -110,7 +110,7 @@ export default function DataEntryPage() {
           return;
         }
         const me = await res.json();
-        if (!["telecaller", "meeting"].includes(me.role)) {
+        if (!["telecaller", "employee", "meeting"].includes(me.role)) {
           router.push("/dashboard");
           return;
         }

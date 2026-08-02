@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 
     if (payload.role === "meeting") {
       filter["meetingDetails.meetingUserId"] = payload.id;
-    } else if (payload.role === "telecaller") {
+    } else if (payload.role === "telecaller" || payload.role === "employee") {
       filter.assignedTo = payload.id;
     }
 

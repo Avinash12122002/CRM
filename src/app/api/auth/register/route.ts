@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
 
     // Allow telecaller, meeting, business_development, billing, and case_manager roles
     if (
-      !["telecaller", "meeting", "business_development", "billing", "case_manager"].includes(
+      !["telecaller", "employee", "meeting", "business_development", "billing", "case_manager"].includes(
         role,
       )
     ) {

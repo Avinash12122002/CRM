@@ -28,7 +28,7 @@ export const BD_ROLE = "business_development";
 // Roles allowed to use the Data Entry module (daily-quota lead submission).
 // Business Development users create their own leads directly from the BD
 // Pipeline page instead (self-assigned, no daily quota) — see leads/create.
-export const DATA_ENTRY_ROLES = ["telecaller", "meeting"];
+export const DATA_ENTRY_ROLES = ["telecaller", "employee", "meeting"];
 
 export const INDUSTRIES = [
   "Hotel & Resorts",

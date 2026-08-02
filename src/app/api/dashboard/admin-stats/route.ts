@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
           },
         },
         { $unwind: "$assignedUser" },
-        { $match: { "assignedUser.role": { $in: ["telecaller", "meeting"] } } },
+        { $match: { "assignedUser.role": { $in: ["telecaller", "employee", "meeting"] } } },
         { $count: "count" },
       ])
       .toArray();
@@ -168,7 +168,7 @@ export async function GET(req: NextRequest) {
     // ── Step A: seed map from ALL telecaller & meeting users ─────────────────
     const allStaffRaw = await db
       .collection("users")
-      .find({ role: { $in: ["telecaller", "meeting"] } })
+      .find({ role: { $in: ["telecaller", "employee", "meeting"] } })
       .toArray();
 
     type StaffEntry = {
@@ -234,7 +234,7 @@ export async function GET(req: NextRequest) {
         { $unwind: "$assignedUser" },
         {
           $match: {
-            "assignedUser.role": { $in: ["telecaller", "meeting"] },
+            "assignedUser.role": { $in: ["telecaller", "employee", "meeting"] },
           },
         },
         {

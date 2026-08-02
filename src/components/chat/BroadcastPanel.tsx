@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { Megaphone, SendHorizontal } from "lucide-react";
 
 type BroadcastPanelProps = {
-  userRole: "admin" | "telecaller" | "meeting";
+  userRole: "admin" | "telecaller" | "employee" | "meeting";
 };
 
 type Broadcast = {

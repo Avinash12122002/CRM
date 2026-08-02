@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
       .find({})
       .project({ id: 1, name: 1, role: 1 })
       .toArray();
-    const staffUsers = users.filter((u) => u.role === "telecaller" || u.role === "meeting");
+    const staffUsers = users.filter((u) => u.role === "telecaller" || u.role === "employee" || u.role === "meeting");
 
     // Pull every lead once — headline metrics, status distribution, Agent
     // Performance, and both Leaderboards are ALL derived from the same
@@ -330,7 +330,7 @@ export async function GET(req: NextRequest) {
     const allStaff = Array.from(staffMap.values());
 
     const telecallerPerformance = allStaff
-      .filter((s) => s.role === "telecaller")
+      .filter((s) => s.role === "telecaller" || s.role === "employee")
       .map((s) => ({
         userId: s.userId,
         userName: s.userName,
@@ -359,7 +359,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.sales - a.sales);
 
     const telecallerLeaderboard = allStaff
-      .filter((s) => s.role === "telecaller")
+      .filter((s) => s.role === "telecaller" || s.role === "employee")
       .map((s) => ({
         userId: s.userId,
         userName: s.userName,

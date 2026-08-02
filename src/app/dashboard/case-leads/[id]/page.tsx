@@ -14,6 +14,7 @@ interface User {
   role:
     | "admin"
     | "telecaller"
+    | "employee"
     | "meeting"
     | "business_development"
     | "billing"

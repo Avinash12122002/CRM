@@ -89,7 +89,7 @@ const { status, callbackDate } = body;
     }
 
     if (
-      (payload.role === "telecaller" || payload.role === "meeting") &&
+      (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(

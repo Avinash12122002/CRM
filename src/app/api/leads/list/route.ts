@@ -214,7 +214,7 @@ export async function GET(req: NextRequest) {
     // every lead in the system.
     if (
       payload.role !== "admin" &&
-      payload.role !== "telecaller" &&
+      payload.role !== "telecaller" && payload.role !== "employee" &&
       payload.role !== "meeting"
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -242,7 +242,7 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const andConditions: Record<string, any>[] = [];
 
-    if (payload.role === "telecaller" || payload.role === "meeting") {
+    if (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") {
       andConditions.push({
         $or: [{ assignedTo: payload.id }, { visibleTo: payload.id }],
       });
@@ -269,7 +269,7 @@ export async function GET(req: NextRequest) {
     // Apply status filter
     if (status) {
       filter.status = status;
-    } else if (payload.role === "telecaller" || payload.role === "meeting") {
+    } else if (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") {
       filter.status = {
         $nin: ["wrong-number", "not-interested", "sales"],
       };

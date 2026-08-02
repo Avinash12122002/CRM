@@ -11,7 +11,7 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: "admin" | "telecaller" | "meeting";
+  role: "admin" | "telecaller" | "employee" | "meeting";
 }
 
 interface Lead {
@@ -29,10 +29,10 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: "admin" | "telecaller" | "meeting" | "case_manager";
+  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: "admin" | "telecaller" | "meeting" | "case_manager";
+  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
@@ -315,7 +315,7 @@ export default function LeadsPage() {
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((u: { role: string }) =>
-          ["admin", "telecaller", "meeting"].includes(u.role),
+          ["admin", "telecaller", "employee", "meeting"].includes(u.role),
         );
         setUsers(allUsers);
       }
@@ -391,7 +391,7 @@ export default function LeadsPage() {
       if (lead.assignedToRole === "meeting") {
         return "border-l-4 border-l-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      if (lead.assignedToRole === "telecaller") {
+      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee") {
         return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
       if (lead.assignedToRole === "case_manager") {
@@ -413,6 +413,8 @@ export default function LeadsPage() {
         return "Meeting";
       case "telecaller":
         return "Telecaller";
+      case "employee":
+        return "Employee";
       case "case_manager":
         return "Case Manager";
       default:
@@ -428,6 +430,8 @@ export default function LeadsPage() {
         return "bg-purple-100 text-purple-700";
       case "telecaller":
         return "bg-blue-100 text-blue-700";
+      case "employee":
+        return "bg-indigo-100 text-indigo-700";
       case "case_manager":
         return "bg-teal-100 text-teal-700";
       default:

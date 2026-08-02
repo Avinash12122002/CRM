@@ -74,7 +74,7 @@ export async function PUT(
 
     // Check permissions: Admins can edit any lead, telecallers can only edit leads assigned to them
     if (
-      (payload.role === "telecaller" || payload.role === "meeting") &&
+      (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(
@@ -110,7 +110,7 @@ export async function PUT(
 
     // For telecallers, phone is read-only but name is editable
     const finalPhone =
-      payload.role === "telecaller" || payload.role === "meeting"
+      payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting"
         ? lead.phone
         : phone;
 

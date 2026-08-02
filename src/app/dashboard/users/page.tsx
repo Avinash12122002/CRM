@@ -12,6 +12,7 @@ type User = {
   role:
     | "admin"
     | "telecaller"
+    | "employee"
     | "meeting"
     | "business_development"
     | "billing"
@@ -26,6 +27,7 @@ type MeResponse = {
   role:
     | "admin"
     | "telecaller"
+    | "employee"
     | "meeting"
     | "business_development"
     | "billing"
@@ -342,7 +344,9 @@ export default function UsersPage() {
                                       ? "bg-amber-100 text-amber-800"
                                       : user.role === "case_manager"
                                         ? "bg-indigo-100 text-indigo-800"
-                                        : "bg-blue-100 text-blue-800"
+                                        : user.role === "employee"
+                                          ? "bg-cyan-100 text-cyan-800"
+                                          : "bg-blue-100 text-blue-800"
                             }`}
                           >
                             {user.role}
@@ -613,6 +617,7 @@ export default function UsersPage() {
                   className="w-full px-4 py-2 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="telecaller">Telecaller (Sales Team)</option>
+                  <option value="employee">Employee</option>
                   <option value="meeting">Meeting</option>
                   <option value="business_development">Business Development</option>
                   <option value="billing">Billing</option>

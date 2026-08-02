@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-const query = role ? { role } : { role: { $in: ["admin", "telecaller", "meeting"] }};
+const query = role ? { role } : { role: { $in: ["admin", "telecaller", "employee", "meeting"] }};
 
 const users = await db
   .collection("users")

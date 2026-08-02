@@ -9,7 +9,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "meeting" | "billing" | "business_development" | "case_manager";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "billing" | "business_development" | "case_manager";
 };
 
 type Activity = {
@@ -104,7 +104,7 @@ export default function ActivityPage() {
       const data = await res.json();
       const telecallerUsers = (data.users || []).filter(
         (u: { role: string }) =>
-          u.role === "telecaller" || u.role === "meeting" || u.role === "case_manager",
+          u.role === "telecaller" || u.role === "employee" || u.role === "meeting" || u.role === "case_manager",
       );
       setTelecallers(telecallerUsers);
     } catch (error) {
