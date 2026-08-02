@@ -207,6 +207,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    // This endpoint powers the general Leads workspace (admin/employee/meeting
+    // only). Other roles have their own dedicated, properly-scoped lead feeds
+    // (case-manager/leads/list, bd/leads/list, billing/summary) — without this
+    // check they'd fall through to the unrestricted branch below and see
+    // every lead in the system.
+    if (
+      payload.role !== "admin" &&
+      payload.role !== "employee" &&
+      payload.role !== "meeting"
+    ) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");

@@ -19,6 +19,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    // Creating a general lead is part of the admin/employee/meeting workflow
+    // on this page. Case managers, billing, and BD users work through their
+    // own dedicated flows and should never reach this endpoint directly.
+    if (
+      payload.role !== "admin" &&
+      payload.role !== "employee" &&
+      payload.role !== "meeting"
+    ) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
 
     const {

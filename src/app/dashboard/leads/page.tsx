@@ -29,10 +29,10 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: "admin" | "employee" | "meeting";
+  assignedToRole?: "admin" | "employee" | "meeting" | "case_manager";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: "admin" | "employee" | "meeting";
+  assignedByRole?: "admin" | "employee" | "meeting" | "case_manager";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
@@ -394,9 +394,45 @@ export default function LeadsPage() {
       if (lead.assignedToRole === "employee") {
         return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
+      if (lead.assignedToRole === "case_manager") {
+        return "border-l-4 border-l-teal-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
     }
 
     return "border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50";
+  };
+
+  // Shared label/color mapping for role badges (Assigned To / Assigned By /
+  // legend) so admin, meeting, employee, and case_manager all render
+  // consistently instead of each spot hardcoding its own set of roles.
+  const getRoleBadgeLabel = (role?: string) => {
+    switch (role) {
+      case "admin":
+        return "Admin";
+      case "meeting":
+        return "Meeting";
+      case "employee":
+        return "Employee";
+      case "case_manager":
+        return "Case Manager";
+      default:
+        return role || "";
+    }
+  };
+
+  const getRoleBadgeClasses = (role?: string) => {
+    switch (role) {
+      case "admin":
+        return "bg-red-100 text-red-700";
+      case "meeting":
+        return "bg-purple-100 text-purple-700";
+      case "employee":
+        return "bg-blue-100 text-blue-700";
+      case "case_manager":
+        return "bg-teal-100 text-teal-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
   };
 
   const formatStatusText = (status: string) => {
@@ -896,6 +932,10 @@ export default function LeadsPage() {
                     <span className="w-2.5 h-2.5 rounded-sm bg-blue-300" />
                     Assigned to Employee
                   </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-teal-300" />
+                    Assigned to Case Manager
+                  </span>
                 </>
               )}
               <span className="flex items-center gap-1.5">
@@ -1196,23 +1236,15 @@ export default function LeadsPage() {
                             <div className="text-xs text-gray-900 dark:text-gray-100">
                               {lead.assignedToName || "Unassigned"}
                             </div>
-                            <div className="flex flex-wrap gap-1 mt-0.5">
-                              {lead.assignedToRole === "admin" && (
-                                <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
-                                  Admin
-                                </span>
-                              )}
-                              {lead.assignedToRole === "meeting" && (
-                                <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded">
-                                  Meeting
-                                </span>
-                              )}
-                              {lead.assignedToRole === "employee" && (
-                                <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                                  Employee
-                                </span>
-                              )}
-                            </div>
+                            {lead.assignedToRole && (
+                              <span
+                                className={`mt-0.5 inline-block text-[10px] px-1.5 py-0.5 rounded ${getRoleBadgeClasses(
+                                  lead.assignedToRole,
+                                )}`}
+                              >
+                                {getRoleBadgeLabel(lead.assignedToRole)}
+                              </span>
+                            )}
                           </td>
 
                           {/* Assigned By */}
@@ -1222,15 +1254,11 @@ export default function LeadsPage() {
                             </div>
                             {lead.assignedByRole && (
                               <span
-                                className={`mt-0.5 inline-block text-[10px] px-1.5 py-0.5 rounded ${
-                                  lead.assignedByRole === "admin"
-                                    ? "bg-red-100 text-red-700"
-                                    : lead.assignedByRole === "meeting"
-                                      ? "bg-purple-100 text-purple-700"
-                                      : "bg-blue-100 text-blue-700"
-                                }`}
+                                className={`mt-0.5 inline-block text-[10px] px-1.5 py-0.5 rounded ${getRoleBadgeClasses(
+                                  lead.assignedByRole,
+                                )}`}
                               >
-                                {lead.assignedByRole}
+                                {getRoleBadgeLabel(lead.assignedByRole)}
                               </span>
                             )}
                           </td>
