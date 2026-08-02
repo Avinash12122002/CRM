@@ -158,6 +158,7 @@ function EmailPageInner() {
   const [leadWorkflows, setLeadWorkflows] = useState<Record<number, LeadWorkflow>>({});
   const [leadsLoading, setLeadsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [visibleWithoutWorkflowCount, setVisibleWithoutWorkflowCount] = useState(60);
 
   // Selected lead panel
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -242,10 +243,29 @@ function EmailPageInner() {
   const fetchLeadWorkflows = useCallback(async () => {
     setLeadsLoading(true);
     try {
-      // Get all leads the admin has access to
-      const res = await fetch("/api/leads/list?limit=200");
-      const data = await res.json();
-      const allLeads: Lead[] = data.leads || [];
+      // Get all leads the admin has access to. The API paginates, so make an
+      // initial request to learn the true total, then pull any remaining
+      // pages until every lead has been fetched (not just the first 200).
+      const pageSize = 200;
+      const firstRes = await fetch(`/api/leads/list?limit=${pageSize}&page=1`);
+      const firstData = await firstRes.json();
+      let allLeads: Lead[] = firstData.leads || [];
+      const total: number = firstData.pagination?.total ?? allLeads.length;
+
+      const totalPages = Math.ceil(total / pageSize);
+      if (totalPages > 1) {
+        const pagePromises = [];
+        for (let page = 2; page <= totalPages; page++) {
+          pagePromises.push(
+            fetch(`/api/leads/list?limit=${pageSize}&page=${page}`).then((r) => r.json())
+          );
+        }
+        const restResults = await Promise.all(pagePromises);
+        for (const pageData of restResults) {
+          allLeads = allLeads.concat(pageData.leads || []);
+        }
+      }
+
       setLeads(allLeads);
 
       // Fetch workflow state for each lead that has one
@@ -764,7 +784,10 @@ function EmailPageInner() {
                     type="text"
                     placeholder="Search leads by name or email..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setVisibleWithoutWorkflowCount(60);
+                    }}
                     className="w-full pl-9 pr-4 py-2.5 bg-slate-900/60 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30"
                   />
                 </div>
@@ -830,7 +853,7 @@ function EmailPageInner() {
                     <div>
                       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 px-1 mt-4">Start Workflow ({leadsWithoutWorkflow.length})</p>
                       <div className={selectedLead ? "space-y-2" : "grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2"}>
-                        {leadsWithoutWorkflow.slice(0, selectedLead ? 15 : 60).map((lead) => {
+                        {leadsWithoutWorkflow.slice(0, visibleWithoutWorkflowCount).map((lead) => {
                           const isSelected = selectedLead?.id === lead.id;
                           return (
                             <button
@@ -848,6 +871,18 @@ function EmailPageInner() {
                           );
                         })}
                       </div>
+                      {visibleWithoutWorkflowCount < leadsWithoutWorkflow.length && (
+                        <button
+                          onClick={() =>
+                            setVisibleWithoutWorkflowCount((c) =>
+                              Math.min(c + 60, leadsWithoutWorkflow.length)
+                            )
+                          }
+                          className="mt-3 w-full text-center text-xs font-medium text-indigo-400 hover:text-indigo-300 py-2 rounded-lg border border-slate-800 hover:border-slate-700 bg-slate-900/40"
+                        >
+                          Show more ({leadsWithoutWorkflow.length - visibleWithoutWorkflowCount} remaining)
+                        </button>
+                      )}
                     </div>
                   )}
 

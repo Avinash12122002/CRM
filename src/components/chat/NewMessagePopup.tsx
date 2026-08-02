@@ -283,7 +283,7 @@ export default function NewMessagePopup() {
           most common reason a fixed banner like this stops being clickable. */}
       {permission === "default" && !bannerDismissed && (
         <div
-          className="fixed bottom-24 right-6 z-[2147483000] max-w-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-4 pointer-events-auto"
+          className="fixed bottom-24 right-6 z-2147483000 max-w-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-4 pointer-events-auto"
         >
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             Turn on desktop alerts
@@ -319,7 +319,7 @@ export default function NewMessagePopup() {
 
       {permission === "denied" && !bannerDismissed && (
         <div
-          className="fixed bottom-24 right-6 z-[2147483000] max-w-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-4 pointer-events-auto"
+          className="fixed bottom-24 right-6 z-2147483000 max-w-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl p-4 pointer-events-auto"
         >
           <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             Desktop alerts are blocked
@@ -349,7 +349,7 @@ export default function NewMessagePopup() {
           className="
             fixed
             inset-0
-            z-[2147483001]
+            z-2147483001
             flex
             items-start
             justify-center
