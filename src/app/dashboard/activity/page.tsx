@@ -9,7 +9,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "billing" | "business_development";
+  role: "admin" | "employee" | "meeting" | "billing" | "business_development" | "case_manager";
 };
 
 type Activity = {
@@ -103,7 +103,8 @@ export default function ActivityPage() {
       if (!res.ok) return;
       const data = await res.json();
       const employeeUsers = (data.users || []).filter(
-        (u: { role: string }) => u.role === "employee" || u.role === "meeting",
+        (u: { role: string }) =>
+          u.role === "employee" || u.role === "meeting" || u.role === "case_manager",
       );
       setEmployees(employeeUsers);
     } catch (error) {

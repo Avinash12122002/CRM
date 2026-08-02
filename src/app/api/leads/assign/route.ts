@@ -19,6 +19,10 @@ async function handleAssign(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    if (payload.role === "case_manager") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     const { leadId, assignedTo, meetingDate, startTime } = body;
 

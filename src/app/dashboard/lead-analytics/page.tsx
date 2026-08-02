@@ -47,6 +47,7 @@ type Analytics = {
     lost: number;
     meetingEfficiency: number;
     conversionRate: number;
+    meetingConversionRate: number;
     dropRate: number;
   };
   employeeLeaderboard: {
@@ -132,6 +133,7 @@ export default function LeadAnalyticsPage() {
     lines.push(`Lost,${data.metrics.lost}`);
     lines.push(`Meeting Efficiency %,${data.metrics.meetingEfficiency}`);
     lines.push(`Conversion Rate %,${data.metrics.conversionRate}`);
+    lines.push(`Meeting Conversion Rate %,${data.metrics.meetingConversionRate}`);
     lines.push(`Drop Rate %,${data.metrics.dropRate}`);
     lines.push("");
     lines.push(`Employee Performance (${scope})`);
@@ -278,6 +280,7 @@ export default function LeadAnalyticsPage() {
               <MetricCard label="Lost" value={data.metrics.lost} />
               <MetricCard label="Meeting Efficiency" value={`${data.metrics.meetingEfficiency}%`} />
               <MetricCard label="Conversion Rate" value={`${data.metrics.conversionRate}%`} />
+              <MetricCard label="Meeting Conversion Rate" value={`${data.metrics.meetingConversionRate}%`} />
               <MetricCard label="Drop Rate" value={`${data.metrics.dropRate}%`} />
             </div>
 
@@ -438,7 +441,7 @@ function Table({
           rows.map((row, i) => (
             <tr key={i}>
               {row.map((cell, j) => (
-                <td key={j} className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 break-words">
+                <td key={j} className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 wrap-break-word">
                   {cell}
                 </td>
               ))}

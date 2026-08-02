@@ -32,6 +32,8 @@ import { verifyToken } from "@/lib/auth";
 //    the headline "Sales" count itself still counts each lead once.
 //  - Meeting Efficiency = Sales / Meetings Scheduled × 100 (clamped 0-100).
 //  - Conversion Rate = Sales / Total Leads × 100 (clamped 0-100).
+//  - Meeting Conversion Rate = Sales / Meetings Scheduled × 100 (clamped
+//    0-100) — of the leads that reached a meeting, how many closed as sales.
 //  - Drop Rate = (Wrong Number + Not Interested) / Total Leads × 100
 //    (clamped 0-100 — can never be negative).
 //  - Employee Leaderboard % and Meeting Leaderboard % are computed against
@@ -186,6 +188,9 @@ export async function GET(req: NextRequest) {
 
     const meetingEfficiency = pct(meetingsScheduledCount,totalLeads);
     const conversionRate = pct(salesCount, totalLeads);
+    // Meeting Conversion Rate = of the leads that reached a meeting, how many
+    // actually converted into a sale (Sales / Meetings Scheduled x 100).
+    const meetingConversionRate = pct(salesCount, meetingsScheduledCount);
     const dropRate = pct(lostCount, totalLeads);
 
     // ---- Status distribution (scoped to the selected filter, or all-time) --
@@ -394,6 +399,7 @@ export async function GET(req: NextRequest) {
         lost: lostCount,
         meetingEfficiency,
         conversionRate,
+        meetingConversionRate,
         dropRate,
       },
       employeeLeaderboard,

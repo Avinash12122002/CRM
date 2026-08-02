@@ -22,6 +22,10 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    if (payload.role === "case_manager") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
     const { id } = await context.params;
     const leadId = parseInt(id);
 
@@ -93,6 +97,18 @@ const { status, callbackDate } = body;
           message: "You can only update status of leads assigned to you",
         },
         { status: 403 },
+      );
+    }
+
+    // Marking as Sales always requires the signed PDF + Case Manager
+    // selection — that only happens through /convert-to-sales, never here.
+    if (status === "sales") {
+      return NextResponse.json(
+        {
+          message:
+            "Marking a lead as Sales requires a signed document and a Case Manager — use the Sales conversion flow instead.",
+        },
+        { status: 400 },
       );
     }
 

@@ -124,14 +124,16 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               <Link href="/dashboard/activity" className={deskLinkClass(isActive("/dashboard/activity"))}>
                 Activity
               </Link>
-              <Link
-                href="/dashboard/vacancies"
-                className={deskLinkClass(
-                  isActive("/dashboard/vacancies") || pathname.startsWith("/dashboard/vacancies/")
-                )}
-              >
-                Vacancies
-              </Link>
+              {user.role === "admin" && (
+                <Link
+                  href="/dashboard/vacancies"
+                  className={deskLinkClass(
+                    isActive("/dashboard/vacancies") || pathname.startsWith("/dashboard/vacancies/")
+                  )}
+                >
+                  Vacancies
+                </Link>
+              )}
 
               {(user.role === "admin" || user.role === "billing") && (
                 <Link href="/dashboard/billing" className={deskLinkClass(isActive("/dashboard/billing"))}>
@@ -156,6 +158,16 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   )}
                 >
                   BD Pipeline
+                </Link>
+              )}
+              {(user.role === "case_manager" || user.role === "admin") && (
+                <Link
+                  href="/dashboard/case-leads"
+                  className={deskLinkClass(
+                    isActive("/dashboard/case-leads") || pathname.startsWith("/dashboard/case-leads/")
+                  )}
+                >
+                  Case Leads
                 </Link>
               )}
               {user.role === "admin" && (
@@ -290,15 +302,17 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard/activity" className={navLinkClass(isActive("/dashboard/activity"))}>
               Activity
             </Link>
-            <Link
-              href="/dashboard/vacancies"
-              className={navLinkClass(
-                isActive("/dashboard/vacancies") ||
-                  pathname.startsWith("/dashboard/vacancies/")
-              )}
-            >
-              Vacancies
-            </Link>
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/vacancies"
+                className={navLinkClass(
+                  isActive("/dashboard/vacancies") ||
+                    pathname.startsWith("/dashboard/vacancies/")
+                )}
+              >
+                Vacancies
+              </Link>
+            )}
 
             {(user.role === "admin" || user.role === "billing") && (
               <Link
@@ -333,6 +347,17 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 )}
               >
                 BD Pipeline
+              </Link>
+            )}
+            {(user.role === "case_manager" || user.role === "admin") && (
+              <Link
+                href="/dashboard/case-leads"
+                className={navLinkClass(
+                  isActive("/dashboard/case-leads") ||
+                    pathname.startsWith("/dashboard/case-leads/")
+                )}
+              >
+                Case Leads
               </Link>
             )}
             {user.role === "admin" && (

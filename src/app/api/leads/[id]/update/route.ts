@@ -21,6 +21,10 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
+    if (payload.role === "case_manager") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
     const { id } = await context.params;
     const leadId = parseInt(id);
 

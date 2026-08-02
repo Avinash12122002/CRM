@@ -86,6 +86,16 @@ export default function LeadDetailPage() {
   const [movingToAdmin, setMovingToAdmin] = useState(false);
   const [togglingAgent, setTogglingAgent] = useState(false);
 
+  // ── Sales conversion (Case Manager select + PDF upload) modal state ──
+  const [showSalesModal, setShowSalesModal] = useState(false);
+  const [salesFile, setSalesFile] = useState<File | null>(null);
+  const [convertingToSales, setConvertingToSales] = useState(false);
+  const [caseManagerOptions, setCaseManagerOptions] = useState<
+    { id: number; name: string; leadCount: number }[]
+  >([]);
+  const [selectedCaseManagerId, setSelectedCaseManagerId] = useState("");
+  const [loadingCaseManagers, setLoadingCaseManagers] = useState(false);
+
   const [adminUsers, setAdminUsers] = useState<{ id: number; name: string }[]>(
     [],
   );
@@ -419,7 +429,120 @@ export default function LeadDetailPage() {
     return false;
   };
 
+  // Loads Case Managers + how many leads each currently holds, so the Sales
+  // modal's dropdown can show e.g. "Priya — 3 leads".
+  const fetchCaseManagerOptions = async () => {
+    setLoadingCaseManagers(true);
+    try {
+      const res = await fetch(`/api/case-manager/options`);
+      const data = await res.json();
+      if (res.ok) {
+        setCaseManagerOptions(data.caseManagers || []);
+        if (data.caseManagers?.length === 1) {
+          setSelectedCaseManagerId(String(data.caseManagers[0].id));
+        }
+      } else {
+        toast.error(data.message || "Failed to load Case Managers");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong loading Case Managers");
+    } finally {
+      setLoadingCaseManagers(false);
+    }
+  };
+
+  // Converts the lead to "sales" together with the chosen Case Manager and
+  // the required signed PDF — called from the Sales modal's Confirm button.
+  // Also saves the note first (same as the normal flow) so nothing the user
+  // typed is lost.
+  const handleConvertToSales = async () => {
+    if (!selectedCaseManagerId) {
+      toast.error("Please select a Case Manager");
+      return;
+    }
+    if (!salesFile) {
+      toast.error("Please choose a PDF file to upload");
+      return;
+    }
+    if (salesFile.type !== "application/pdf" && !salesFile.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Only PDF files are accepted");
+      return;
+    }
+
+    setConvertingToSales(true);
+    try {
+      if (note.trim()) {
+        const noteAdded = await addNoteOnly();
+        if (!noteAdded) {
+          setConvertingToSales(false);
+          return;
+        }
+      }
+
+      const formData = new FormData();
+      formData.append("file", salesFile);
+      formData.append("caseManagerId", selectedCaseManagerId);
+
+      const res = await fetch(`/api/leads/${leadId}/convert-to-sales`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(
+          data.caseManager
+            ? `Lead marked as Sales and assigned to ${data.caseManager.name}`
+            : "Lead marked as Sales",
+        );
+        setShowSalesModal(false);
+        setSalesFile(null);
+        window.location.href = "/dashboard/leads";
+      } else {
+        toast.error(data.message || "Failed to convert lead to Sales");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setConvertingToSales(false);
+    }
+  };
+
   const handleEditClick = () => setIsEditing(true);
+
+  // Fires the moment "Sales" is picked in the Edit Lead form's status
+  // dropdown — saves any other field edits made so far (status left
+  // untouched) and immediately opens the PDF upload popup.
+  const handleEditStatusChange = async (value: string) => {
+    setEditForm((prev) => ({ ...prev, status: value }));
+
+    if (value === "sales" && lead && lead.status !== "sales") {
+      setUpdating(true);
+      try {
+        const res = await fetch(`/api/leads/${leadId}/update`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...editForm, status: lead.status }),
+        });
+        if (res.ok) {
+          setIsEditing(false);
+          await fetchLead();
+          setShowSalesModal(true);
+          fetchCaseManagerOptions();
+        } else {
+          const data = await res.json();
+          toast.error(data.message || "Failed to update lead");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Something went wrong");
+      } finally {
+        setUpdating(false);
+      }
+    }
+  };
 
   const handleCancelEdit = () => {
     setIsEditing(false);
@@ -449,6 +572,7 @@ export default function LeadDetailPage() {
 
   const handleUpdateLead = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!lead) return;
     if (!editForm.phone.trim()) {
       toast.error("Phone is required");
       return;
@@ -464,6 +588,37 @@ export default function LeadDetailPage() {
       toast.error("Please select callback date");
       return;
     }
+
+    // Changing status to Sales from the Edit Lead form also requires the
+    // signed PDF — save the other field edits first (status untouched),
+    // then hand off to the same Sales upload modal used on the status
+    // selector below.
+    if (editForm.status === "sales" && lead.status !== "sales") {
+      setUpdating(true);
+      try {
+        const res = await fetch(`/api/leads/${leadId}/update`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...editForm, status: lead.status }),
+        });
+        if (res.ok) {
+          setIsEditing(false);
+          await fetchLead();
+          setShowSalesModal(true);
+          fetchCaseManagerOptions();
+        } else {
+          const data = await res.json();
+          toast.error(data.message || "Failed to update lead");
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error("Something went wrong");
+      } finally {
+        setUpdating(false);
+      }
+      return;
+    }
+
     setUpdating(true);
     try {
       const res = await fetch(`/api/leads/${leadId}/update`, {
@@ -873,6 +1028,12 @@ export default function LeadDetailPage() {
     "payment-pending",
     "sales",
   ] as const;
+
+  // A lead marked as "Agent" can't be moved to Sales until it's unmarked —
+  // once unmarked, Sales becomes available again.
+  const visibleStatusOptions = lead.isAgent
+    ? statusOptions.filter((s) => s !== "sales")
+    : statusOptions;
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -1301,12 +1462,10 @@ export default function LeadDetailPage() {
                     </label>
                     <select
                       value={editForm.status}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, status: e.target.value })
-                      }
+                      onChange={(e) => handleEditStatusChange(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-pointer"
                     >
-                      {statusOptions.map((s) => (
+                      {visibleStatusOptions.map((s) => (
                         <option key={s} value={s}>
                           {getStatusLabel(s)}
                         </option>
@@ -1433,10 +1592,18 @@ export default function LeadDetailPage() {
                           callbackDate: "",
                         }));
                       }
+
+                      // Selecting "Sales" immediately opens the Case
+                      // Manager + PDF upload popup — no need to hit
+                      // Submit first.
+                      if (value === "sales" && lead.status !== "sales") {
+                        setShowSalesModal(true);
+                        fetchCaseManagerOptions();
+                      }
                     }}
                     className="w-full sm:w-auto px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
                   >
-                    {statusOptions.map((s) => (
+                    {visibleStatusOptions.map((s) => (
                       <option key={s} value={s}>
                         {getStatusLabel(s)}
                       </option>
@@ -1756,6 +1923,18 @@ export default function LeadDetailPage() {
                       return;
                     }
 
+                    // Converting to Sales requires picking a Case Manager
+                    // and a signed PDF first — hand off to the dedicated
+                    // modal instead of the normal status-update path.
+                    if (
+                      selectedStatus === "sales" &&
+                      lead.status !== "sales"
+                    ) {
+                      setShowSalesModal(true);
+                      fetchCaseManagerOptions();
+                      return;
+                    }
+
                     // Validate meeting fields upfront if a meeting user is selected
                     if (isSelectedMeetingUser && activeUserSelector) {
                       if (!selectedMeetingDate) {
@@ -1870,6 +2049,87 @@ export default function LeadDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ═══════════════════════════════════════
+          SALES CONVERSION — CASE MANAGER + PDF UPLOAD MODAL
+      ═══════════════════════════════════════ */}
+      {showSalesModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-2">
+              Convert Lead to Sales
+            </h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Marking this lead as <span className="font-semibold">Sales</span>{" "}
+              requires choosing a Case Manager to hand it off to, plus the
+              signed document (PDF).
+            </p>
+
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Case Manager <span className="text-red-500">*</span>
+            </label>
+            {loadingCaseManagers ? (
+              <p className="text-sm text-gray-500 mb-4">Loading Case Managers...</p>
+            ) : caseManagerOptions.length === 0 ? (
+              <p className="text-sm text-red-600 mb-4">
+                No Case Manager is set up yet. Please add a Case Manager user
+                first.
+              </p>
+            ) : (
+              <select
+                value={selectedCaseManagerId}
+                onChange={(e) => setSelectedCaseManagerId(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 cursor-pointer"
+              >
+                <option value="">Select a Case Manager</option>
+                {caseManagerOptions.map((cm) => (
+                  <option key={cm.id} value={cm.id}>
+                    {cm.name} — {cm.leadCount} {cm.leadCount === 1 ? "lead" : "leads"}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Signed Document (PDF) <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => setSalesFile(e.target.files?.[0] || null)}
+              className="w-full text-sm text-gray-700 border border-gray-300 rounded-lg p-2 mb-4 cursor-pointer"
+            />
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                disabled={
+                  convertingToSales ||
+                  loadingCaseManagers ||
+                  caseManagerOptions.length === 0
+                }
+                onClick={handleConvertToSales}
+                className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer"
+              >
+                {convertingToSales ? "Uploading..." : "Confirm & Convert to Sales"}
+              </button>
+              <button
+                type="button"
+                disabled={convertingToSales}
+                onClick={() => {
+                  setShowSalesModal(false);
+                  setSalesFile(null);
+                  setSelectedCaseManagerId("");
+                  setCaseManagerOptions([]);
+                }}
+                className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

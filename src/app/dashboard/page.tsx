@@ -12,7 +12,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "employee" | "meeting" | "business_development" | "billing";
+  role: "admin" | "employee" | "meeting" | "business_development" | "billing" | "case_manager";
 };
 
 type LeadStats = {
@@ -93,6 +93,13 @@ type BillingSummary = {
   unpaidAmount: number;
 };
 
+type CaseManagerStats = {
+  totalAssigned: number;
+  newAssigned: number;
+  withDocument: number;
+  missingDocument: number;
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<MeResponse | null>(null);
@@ -140,6 +147,8 @@ export default function DashboardPage() {
   const [loadingBdStats, setLoadingBdStats] = useState(false);
   const [billingSummary, setBillingSummary] = useState<BillingSummary | null>(null);
   const [loadingBillingSummary, setLoadingBillingSummary] = useState(false);
+  const [caseManagerStats, setCaseManagerStats] = useState<CaseManagerStats | null>(null);
+  const [loadingCaseManagerStats, setLoadingCaseManagerStats] = useState(false);
 
   const [showCleanupPrompt, setShowCleanupPrompt] = useState(false);
   const [cleanupCount, setCleanupCount] = useState(0);
@@ -259,6 +268,21 @@ export default function DashboardPage() {
       console.error("Failed to fetch billing summary:", err);
     } finally {
       setLoadingBillingSummary(false);
+    }
+  };
+
+  const fetchCaseManagerStats = async () => {
+    setLoadingCaseManagerStats(true);
+    try {
+      const res = await fetch("/api/dashboard/case-manager-stats");
+      if (res.ok) {
+        const data: CaseManagerStats = await res.json();
+        setCaseManagerStats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch case manager stats:", err);
+    } finally {
+      setLoadingCaseManagerStats(false);
     }
   };
 
@@ -412,6 +436,10 @@ export default function DashboardPage() {
           fetchBillingSummary();
           fetchWorkHours();
         }
+        if (data.role === "case_manager") {
+          fetchCaseManagerStats();
+          fetchWorkHours();
+        }
       } catch (err) {
         console.error(err);
         router.push("/");
@@ -523,6 +551,25 @@ export default function DashboardPage() {
                   />
                 </svg>
                 <span>{loadingBillingSummary ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            )}
+            {user.role === "case_manager" && (
+              <button
+                onClick={() => { fetchCaseManagerStats(); fetchWorkHours(); }}
+                disabled={loadingCaseManagerStats}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              >
+                <svg
+                  className={`w-5 h-5 ${loadingCaseManagerStats ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>{loadingCaseManagerStats ? "Refreshing..." : "Refresh"}</span>
               </button>
             )}
           </div>
@@ -999,6 +1046,110 @@ export default function DashboardPage() {
                       <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
                         {billingSummary ? `${billingSummary.totalBills} bill${billingSummary.totalBills === 1 ? "" : "s"}` : "Loading…"}
                       </p>
+                    </div>
+                  </div>
+
+                  {/* Work Hours */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
+                    <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                      Track your work hours and manage your daily activities.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Today's Hours",  value: `${workHours.today}h`       },
+                        { label: "This Week",      value: `${workHours.thisWeek}h`    },
+                        { label: "This Month",     value: `${workHours.thisMonth}h`   },
+                        { label: "Working Days",   value: String(workHours.workingDays) },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Check-in/Check-out */}
+                <div>
+                  <CheckInOutCard />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : user.role === "case_manager" ? (
+          /* ══════════════════════════════════════════════════
+              CASE MANAGER DASHBOARD
+          ══════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            {loadingCaseManagerStats && !caseManagerStats ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+
+                  {/* Case Lead Overview */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+                      Case Lead Overview
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <button
+                        onClick={() => router.push("/dashboard/case-leads")}
+                        className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                      >
+                        <div className="flex flex-col items-start gap-3 mb-2">
+                          <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2">
+                            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 5v-2a4 4 0 00-3-3.87M9 20v-2a4 4 0 013-3.87" />
+                            </svg>
+                          </div>
+                          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {caseManagerStats?.totalAssigned ?? 0}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Total Case Leads</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Currently assigned to you</p>
+                      </button>
+
+                      <button
+                        onClick={() => router.push("/dashboard/case-leads")}
+                        className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                      >
+                        <div className="flex flex-col items-start gap-3 mb-2">
+                          <div className="bg-emerald-100 dark:bg-emerald-900/40 rounded-full p-2">
+                            <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                          </div>
+                          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                            {caseManagerStats?.newAssigned ?? 0}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">New This Week</p>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Handed to you in the last 7 days</p>
+                      </button>
+
+                      <button
+                        onClick={() => router.push("/dashboard/case-leads")}
+                        className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                      >
+                        <div className="flex flex-col items-start gap-3 mb-2">
+                          <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-2">
+                            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                            {caseManagerStats?.withDocument ?? 0}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-200">With Signed Document</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Sales document on file</p>
+                      </button>
                     </div>
                   </div>
 

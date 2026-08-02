@@ -36,7 +36,8 @@ export async function GET(req: NextRequest) {
       payload.role === "employee" ||
       payload.role === "meeting" ||
       payload.role === "billing" ||
-      payload.role === "business_development"
+      payload.role === "business_development" ||
+      payload.role === "case_manager"
     ) {
       matchFilter.userId = payload.id;
     } else if (userIdFilter) {
