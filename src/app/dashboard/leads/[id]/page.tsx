@@ -513,34 +513,14 @@ export default function LeadDetailPage() {
   const handleEditClick = () => setIsEditing(true);
 
   // Fires the moment "Sales" is picked in the Edit Lead form's status
-  // dropdown — saves any other field edits made so far (status left
-  // untouched) and immediately opens the PDF upload popup.
+  // dropdown — immediately opens the PDF upload popup regardless of previous status.
   const handleEditStatusChange = async (value: string) => {
     setEditForm((prev) => ({ ...prev, status: value }));
 
-    if (value === "sales" && lead && lead.status !== "sales") {
-      setUpdating(true);
-      try {
-        const res = await fetch(`/api/leads/${leadId}/update`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...editForm, status: lead.status }),
-        });
-        if (res.ok) {
-          setIsEditing(false);
-          await fetchLead();
-          setShowSalesModal(true);
-          fetchCaseManagerOptions();
-        } else {
-          const data = await res.json();
-          toast.error(data.message || "Failed to update lead");
-        }
-      } catch (err) {
-        console.error(err);
-        toast.error("Something went wrong");
-      } finally {
-        setUpdating(false);
-      }
+    if (value === "sales") {
+      setIsEditing(false);
+      setShowSalesModal(true);
+      fetchCaseManagerOptions();
     }
   };
 
@@ -1140,6 +1120,31 @@ export default function LeadDetailPage() {
                       </button>
                     )}
 
+                    {(user.role === "admin" || lead.isOwner) && (
+                      <button
+                        onClick={() => {
+                          setShowSalesModal(true);
+                          fetchCaseManagerOptions();
+                        }}
+                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium flex items-center gap-2 cursor-pointer"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                          />
+                        </svg>
+                        Send to Case Manager
+                      </button>
+                    )}
+
                     {user.role === "admin" && (
                       <button
                         onClick={handleDeleteLead}
@@ -1471,6 +1476,20 @@ export default function LeadDetailPage() {
                         </option>
                       ))}
                     </select>
+
+                    {editForm.status === "sales" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEditing(false);
+                          setShowSalesModal(true);
+                          fetchCaseManagerOptions();
+                        }}
+                        className="mt-2 text-xs font-bold text-emerald-600 hover:text-emerald-700 underline flex items-center gap-1 cursor-pointer"
+                      >
+                        📄 Upload Sales PDF &amp; Assign Case Manager
+                      </button>
+                    )}
                   </div>
                   {editForm.status === "call-back" && (
                     <div>
@@ -1593,10 +1612,7 @@ export default function LeadDetailPage() {
                         }));
                       }
 
-                      // Selecting "Sales" immediately opens the Case
-                      // Manager + PDF upload popup — no need to hit
-                      // Submit first.
-                      if (value === "sales" && lead.status !== "sales") {
+                      if (value === "sales") {
                         setShowSalesModal(true);
                         fetchCaseManagerOptions();
                       }
@@ -1609,6 +1625,19 @@ export default function LeadDetailPage() {
                       </option>
                     ))}
                   </select>
+
+                  {selectedStatus === "sales" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowSalesModal(true);
+                        fetchCaseManagerOptions();
+                      }}
+                      className="mt-2 text-xs font-bold text-emerald-600 hover:text-emerald-700 underline flex items-center gap-1 cursor-pointer"
+                    >
+                      📄 Click here to upload Sales PDF / assign Case Manager
+                    </button>
+                  )}
                 </div>
 
                 {selectedStatus === "call-back" && (
