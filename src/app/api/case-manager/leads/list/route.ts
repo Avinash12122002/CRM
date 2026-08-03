@@ -3,6 +3,27 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 
+interface LeadDoc {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  country?: string;
+  jobApplied?: string;
+  status: string;
+  assignedTo: number | null;
+  assignedToName?: string;
+  assignedBy?: number | null;
+  assignedByName?: string;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  salesDocument?: {
+    fileId: string;
+    fileName: string;
+    uploadedAt: Date | string;
+  };
+}
+
 // Read-only lead feed for Case Managers. A case manager only ever sees the
 // leads that were handed to them after conversion to "sales" — they cannot
 // create, edit, or reassign anything from here. Admins can also view this
@@ -79,9 +100,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const total = await db.collection("leads").countDocuments(filter);
-
-    const leads = await db
+    const allMatchingLeads = (await db
       .collection("leads")
       .find(filter)
       .project({
@@ -100,13 +119,57 @@ export async function GET(req: NextRequest) {
         updatedAt: 1,
         salesDocument: 1,
       })
-      .sort({ updatedAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit)
-      .toArray();
+      .toArray()) as unknown as LeadDoc[];
+
+    const leadIds = allMatchingLeads.map((l) => l.id);
+
+    // Fetch employers for all matching leads to check follow-up due status
+    const employers = leadIds.length > 0
+      ? await db.collection("case_marketing_employers").find({ leadId: { $in: leadIds } }).toArray()
+      : [];
+
+    const { getFollowupInfo } = await import("@/lib/caseMarketing");
+
+    // Group employers by leadId and calculate due followups
+    const dueFollowupsByLeadId = new Map<number, Array<{ employerId: number; companyName: string; stage: number }>>();
+
+    for (const emp of employers) {
+      if (!emp.emailSent) continue;
+      const info = getFollowupInfo(emp.emailSentAt, emp.status, emp.lastFollowupAt, emp.followupCount || 0);
+      if (info && !info.closed && info.isDueOrOverdue) {
+        if (!dueFollowupsByLeadId.has(emp.leadId)) {
+          dueFollowupsByLeadId.set(emp.leadId, []);
+        }
+        dueFollowupsByLeadId.get(emp.leadId)!.push({
+          employerId: emp.id,
+          companyName: emp.companyName,
+          stage: info.stage,
+        });
+      }
+    }
+
+    // Attach follow-up info to leads
+    const enrichedLeads = allMatchingLeads.map((lead) => {
+      const dueList = dueFollowupsByLeadId.get(lead.id) || [];
+      return {
+        ...lead,
+        hasFollowupDue: dueList.length > 0,
+        dueFollowups: dueList,
+      };
+    });
+
+    // Sort leads: leads with follow-up due float to top, then sorted by updatedAt
+    enrichedLeads.sort((a, b) => {
+      if (a.hasFollowupDue && !b.hasFollowupDue) return -1;
+      if (!a.hasFollowupDue && b.hasFollowupDue) return 1;
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+
+    const total = enrichedLeads.length;
+    const paginatedLeads = enrichedLeads.slice((page - 1) * limit, page * limit);
 
     return NextResponse.json({
-      leads,
+      leads: paginatedLeads,
       pagination: {
         page,
         limit,

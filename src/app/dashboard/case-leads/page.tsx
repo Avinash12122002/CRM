@@ -40,6 +40,8 @@ interface CaseLead {
     fileName: string;
     uploadedAt: string;
   };
+  hasFollowupDue?: boolean;
+  dueFollowups?: Array<{ employerId: number; companyName: string; stage: number }>;
 }
 
 interface FilterOption {
@@ -312,11 +314,37 @@ export default function CaseManagerLeadsPage() {
       } else {
         toast.error(data.message || "Failed to delete lead");
       }
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const [loggingFollowupId, setLoggingFollowupId] = useState<number | null>(null);
+
+  const handleTakeFollowup = async (lead: CaseLead) => {
+    if (!lead.dueFollowups?.length) return;
+    setLoggingFollowupId(lead.id);
+    try {
+      let successCount = 0;
+      for (const item of lead.dueFollowups) {
+        const res = await fetch(`/api/case-marketing/${lead.id}/employers/${item.employerId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "log_followup" }),
+        });
+        if (res.ok) successCount++;
+      }
+      if (successCount > 0) {
+        toast.success("Follow-up logged successfully! Next follow-up in 10 days.");
+        fetchLeads();
+      } else {
+        toast.error("Failed to log follow-up");
+      }
     } catch (err) {
       console.error(err);
       toast.error("Something went wrong");
     } finally {
-      setDeletingId(null);
+      setLoggingFollowupId(null);
     }
   };
 
@@ -421,6 +449,7 @@ export default function CaseManagerLeadsPage() {
             </label>
             <input
               type="date"
+              max={new Date().toISOString().split("T")[0]}
               value={date}
               onChange={(e) => {
                 setDate(e.target.value);
@@ -487,15 +516,26 @@ export default function CaseManagerLeadsPage() {
                     <tr
                       id={`case-lead-${lead.id}`}
                       key={lead.id}
-                      className="transition-colors duration-700 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      className={`transition-colors duration-700 ${
+                        lead.hasFollowupDue
+                          ? "bg-red-50 dark:bg-red-950/40 border-l-4 border-red-500 hover:bg-red-100 dark:hover:bg-red-900/50"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                      }`}
                     >
                       <td className="px-4 py-3 text-sm font-medium">
-                        <button
-                          onClick={() => goToLead(lead)}
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left"
-                        >
-                          {lead.name || "-"}
-                        </button>
+                        <div className="flex flex-col">
+                          <button
+                            onClick={() => goToLead(lead)}
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left font-semibold"
+                          >
+                            {lead.name || "-"}
+                          </button>
+                          {lead.hasFollowupDue && (
+                            <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-red-600 text-white w-fit shadow-xs">
+                              🔔 Follow-up Due (Day 10+)
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <button
@@ -526,6 +566,15 @@ export default function CaseManagerLeadsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">
+                          {lead.hasFollowupDue && (
+                            <button
+                              onClick={() => handleTakeFollowup(lead)}
+                              disabled={loggingFollowupId === lead.id}
+                              className="px-3 py-1.5 text-xs font-semibold rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              {loggingFollowupId === lead.id ? "Saving..." : "Take Follow-up 🔔"}
+                            </button>
+                          )}
                           <button
                             onClick={() => goToLead(lead)}
                             className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-300"

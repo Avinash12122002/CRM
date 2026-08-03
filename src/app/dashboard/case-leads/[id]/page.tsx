@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import CaseLeadReassignModal from "@/components/CaseLeadReassignModal";
 import CaseLeadEditModal from "@/components/CaseLeadEditModal";
+import CaseMarketingWorkspace from "@/components/CaseMarketingWorkspace";
 
 interface User {
   id: number;
@@ -71,6 +72,7 @@ export default function CaseManagerLeadDetailPage() {
   const [showReassign, setShowReassign] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [activePhase, setActivePhase] = useState<number>(1);
 
   useEffect(() => {
     fetchUser();
@@ -171,7 +173,7 @@ export default function CaseManagerLeadDetailPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <DashboardNavbar user={user} />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <button
           onClick={() => router.back()}
           className="mb-4 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-2 font-medium transition cursor-pointer"
@@ -260,33 +262,14 @@ export default function CaseManagerLeadDetailPage() {
           </div>
         </div>
 
-        {/* Audit trail */}
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6">
-          <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-4">
-            History &amp; Audit Trail
-          </h2>
-          {!lead.history?.length ? (
-            <p className="text-sm text-gray-500">No history recorded yet.</p>
-          ) : (
-            <ul className="space-y-3">
-              {[...lead.history]
-                .sort(
-                  (a, b) =>
-                    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-                )
-                .map((h, idx) => (
-                  <li key={idx} className="text-sm border-l-2 border-gray-200 dark:border-gray-700 pl-3">
-                    <p className="text-gray-900 dark:text-gray-100">
-                      {h.details || h.action}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {h.performedByName} · {new Date(h.timestamp).toLocaleString("en-IN")}
-                    </p>
-                  </li>
-                ))}
-            </ul>
-          )}
-        </div>
+        {/* CV Marketing Workspace */}
+        <CaseMarketingWorkspace
+          leadId={lead.id}
+          canEdit={true}
+          activePhase={activePhase}
+          onPhaseChange={(phase: number) => setActivePhase(phase)}
+          onHistoryUpdate={fetchLead}
+        />
       </main>
 
       {showReassign && (

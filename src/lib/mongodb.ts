@@ -28,6 +28,13 @@ async function ensureIndexes(db: Db) {
     db.collection("email_workflows").createIndex({ name: 1 }),
     db.collection("email_templates").createIndex({ stage: 1 }),
     db.collection("email_templates").createIndex({ mailbox: 1 }),
+    // Case Manager CV Marketing Workspace indexes
+    db.collection("case_marketing_sources").createIndex({ leadId: 1, phase: 1, order: 1 }),
+    db.collection("case_marketing_sources").createIndex({ id: 1 }),
+    db.collection("case_marketing_employers").createIndex({ leadId: 1 }),
+    db.collection("case_marketing_employers").createIndex({ sourceId: 1 }),
+    db.collection("case_marketing_employers").createIndex({ id: 1 }),
+    db.collection("case_marketing_employers").createIndex({ companyName: 1 }),
   ]).catch((err) => console.error("Index creation failed:", err));
 }
 

@@ -27,6 +27,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const pathname = usePathname();
 
   const [unreadCount, setUnreadCount] = useState(0);
+  const [todoCount, setTodoCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -38,6 +39,34 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Case Managers get a live count of pending CV Marketing Workspace tasks
+  useEffect(() => {
+    if (user.role !== "case_manager") return;
+
+    const loadTodoCount = async () => {
+      try {
+        const res = await fetch("/api/case-marketing/todo");
+        const data = await res.json();
+        if (res.ok) {
+          const counts = data.counts || {};
+          const total =
+            (counts.followup || 0) +
+            (counts.interested || 0) +
+            (counts.interview || 0) +
+            (counts.need_cv || 0) +
+            (counts.need_info || 0);
+          setTodoCount(total);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadTodoCount();
+    const interval = setInterval(loadTodoCount, 15000);
+    return () => clearInterval(interval);
+  }, [user.role]);
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -169,6 +198,19 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   )}
                 >
                   Case Leads
+                </Link>
+              )}
+              {user.role === "case_manager" && (
+                <Link
+                  href="/dashboard/todo"
+                  className={`${deskLinkClass(isActive("/dashboard/todo"))} relative`}
+                >
+                  To-Do
+                  {todoCount > 0 && (
+                    <span className="ml-1 bg-red-500 text-white text-[10px] min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
+                      {todoCount}
+                    </span>
+                  )}
                 </Link>
               )}
               {user.role === "admin" && (
@@ -359,6 +401,19 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 )}
               >
                 Case Leads
+              </Link>
+            )}
+            {user.role === "case_manager" && (
+              <Link
+                href="/dashboard/todo"
+                className={`${navLinkClass(isActive("/dashboard/todo"))} flex items-center justify-between pr-4`}
+              >
+                <span>To-Do</span>
+                {todoCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                    {todoCount}
+                  </span>
+                )}
               </Link>
             )}
             {user.role === "admin" && (
