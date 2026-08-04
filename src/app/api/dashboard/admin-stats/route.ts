@@ -99,13 +99,21 @@ export async function GET(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     // 5. MEETINGS
     // ═══════════════════════════════════════════════════════════════════════
-    const totalMeetings = await db
-      .collection("meetingSlots")
-      .countDocuments({ status: "scheduled" });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leadsWithMeeting: any[] = await db
+      .collection("leads")
+      .find({ meetingDetails: { $exists: true, $ne: null } })
+      .toArray();
 
-    const todayMeetings = await db
-      .collection("meetingSlots")
-      .countDocuments({ meetingDate: todayStr, status: "scheduled" });
+    const totalMeetings = leadsWithMeeting.filter(
+      (l) => l.meetingStatus === "scheduled" || (!l.meetingStatus && l.status !== "sales" && l.status !== "lost")
+    ).length;
+
+    const todayMeetings = leadsWithMeeting.filter((l) => {
+      const isToday = l.meetingDetails?.meetingDate === todayStr;
+      const isScheduled = l.meetingStatus === "scheduled" || (!l.meetingStatus && l.status !== "sales" && l.status !== "lost");
+      return isToday && isScheduled;
+    }).length;
 
     // ═══════════════════════════════════════════════════════════════════════
     // 6. LEAD STATUS BREAKDOWN
@@ -274,86 +282,44 @@ export async function GET(req: NextRequest) {
     }
 
     // ── Step C: attribute sales credit ─────────────────────────────────────
-    //  Fetch all leads with status="sales".
-    //  Only entry.sales is touched here — totalLeads is NEVER modified.
-    //  This guarantees: creating a lead → no sales increase.
-    //  Only performing the action of changing status to "sales" increases it.
-    const salesLeads = await db
-      .collection("leads")
-      .find({ status: "sales" })
-      .toArray();
+    //  Fetch all leads with status="sales" from main leads collection only.
+    const salesLeads = await db.collection("leads").find({ status: "sales" }).toArray();
 
     for (const lead of salesLeads) {
-      const bookedBy      = lead.meetingDetails?.bookedBy      != null
-        ? String(lead.meetingDetails.bookedBy)      : null;
-      const meetingUserId = lead.meetingDetails?.meetingUserId != null
-        ? String(lead.meetingDetails.meetingUserId) : null;
+      const credited = new Set<string>();
 
-      const hasMeetingData = !!(bookedBy || meetingUserId);
+      const meetingUserId = lead.meetingDetails?.meetingUserId != null ? String(lead.meetingDetails.meetingUserId) : null;
+      const bookedBy = lead.meetingDetails?.bookedBy != null ? String(lead.meetingDetails.bookedBy) : null;
+      const hasMeetingData = bookedBy != null || meetingUserId != null;
 
       if (hasMeetingData) {
-        // ── Case A: went through a meeting ──────────────────────────────
-        // bookedBy and meetingUserId each get +1 sales.
-        // If they are the same person the Set prevents double counting.
-        const credited = new Set<string>();
-
-        if (bookedBy) {
-          const entry = staffMap.get(bookedBy);
-          if (entry && !credited.has(bookedBy)) {
-            entry.sales += 1; // ← ONLY sales, never totalLeads
-            credited.add(bookedBy);
-          }
-        }
-
-        if (meetingUserId && !credited.has(meetingUserId)) {
-          const entry = staffMap.get(meetingUserId);
-          if (entry) {
-            entry.sales += 1; // ← ONLY sales, never totalLeads
-            credited.add(meetingUserId);
-          }
-        }
+        // Meeting sale: credit both the booking telecaller and the meeting user (+1 each)
+        if (bookedBy) credited.add(bookedBy);
+        if (meetingUserId) credited.add(meetingUserId);
       } else {
-        // ── Case B: direct sale — no meeting was involved ───────────────
-        // Find the LAST history entry where:
-        //   action === "status_updated"  AND  newStatus === "sales"
-        // That is the exact moment someone changed the status to sales.
-        // The performedBy of that entry is the only person who gets credit.
-        //
-        // This means:
-        //  ✓ Telecaller changes status → telecaller +1 sales
-        //  ✓ Admin changes status   → no telecaller credit (admin not in staffMap)
-        //  ✗ Creating a lead        → never matches this condition at all
-        const history: Array<{
-          action:           string;
-          newStatus?:       string;
-          performedBy?:     number | string;
-          performedByRole?: string;
-        }> = Array.isArray(lead.history) ? lead.history : [];
-
+        // Direct sale without meeting: credit the staff member who performed status_updated to sales
         let salesPerformedBy: string | null = null;
-
-        // Scan backwards — use the most recent status→sales change
-        for (let i = history.length - 1; i >= 0; i--) {
-          const h = history[i];
-          if (
-            h.action    === "status_updated" &&
-            h.newStatus === "sales"          &&
-            h.performedBy != null
-          ) {
-            salesPerformedBy = String(h.performedBy);
-            break;
+        if (Array.isArray(lead.history)) {
+          for (let i = lead.history.length - 1; i >= 0; i--) {
+            const h = lead.history[i];
+            if (h.action === "status_updated" && h.newStatus === "sales" && h.performedBy != null) {
+              salesPerformedBy = String(h.performedBy);
+              break;
+            }
           }
         }
-
         if (salesPerformedBy) {
-          const entry = staffMap.get(salesPerformedBy);
-          if (entry) {
-            // staffMap only contains telecaller/meeting users.
-            // If performedBy is admin, get() returns undefined → skipped.
-            entry.sales += 1; // ← ONLY sales, never totalLeads
-          }
+          credited.add(salesPerformedBy);
+        } else if (lead.assignedTo != null) {
+          credited.add(String(lead.assignedTo));
         }
-        // No history match (legacy data) → no credit, no crash.
+      }
+
+      for (const pId of credited) {
+        const entry = staffMap.get(pId);
+        if (entry) {
+          entry.sales += 1;
+        }
       }
     }
 

@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 
-// RECOMMENDED INDEXES (run once in MongoDB shell or a migration script):
-// db.leads.createIndex({ "meetingDetails.meetingDate": -1, "meetingDetails.startTime": -1 })
-// db.leads.createIndex({ "meetingDetails.meetingUserId": 1, "meetingDetails.meetingDate": -1 })
-// db.leads.createIndex({ "assignedTo": 1, "meetingDetails.meetingDate": -1 })
-
 export async function GET(req: NextRequest) {
   try {
     const cookie = req.headers.get("cookie") || "";
@@ -23,98 +18,69 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const page  = parseInt(searchParams.get("page")  || "1");
+    const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "10");
-    const skip  = (page - 1) * limit;
 
     const { db } = await connectToDatabase();
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Record<string, any> = {
       meetingDetails: { $exists: true, $ne: null },
     };
 
+    const uid = payload.id;
+    const uidStr = String(uid);
+    const uidNum = isNaN(Number(uid)) ? null : Number(uid);
+    const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
+
     if (payload.role === "meeting") {
-      filter["meetingDetails.meetingUserId"] = payload.id;
+      filter["$or"] = [
+        { "meetingDetails.meetingUserId": { $in: matchUserIds } },
+        { assignedTo: { $in: matchUserIds } },
+      ];
     } else if (payload.role === "telecaller" || payload.role === "employee") {
-      filter.assignedTo = payload.id;
+      filter["$or"] = [
+        { assignedTo: { $in: matchUserIds } },
+        { "meetingDetails.bookedBy": { $in: matchUserIds } },
+      ];
     }
 
-    // ─── SINGLE AGGREGATION replaces 5 separate queries ───────────────────
-    // Before: countDocuments + find + 3× countDocuments = 5 round-trips
-    // After:  1 $facet pipeline = 1 round-trip
-    const [result] = await db
-      .collection("leads")
-      .aggregate([
-        { $match: filter },
-        {
-          $facet: {
-            // Paginated rows
-            data: [
-              {
-                $sort: {
-                  "meetingDetails.meetingDate": -1,
-                  "meetingDetails.startTime": -1,
-                },
-              },
-              { $skip: skip },
-              { $limit: limit },
-              {
-                $project: {
-                  _id: 0,
-                  id: 1,
-                  name: 1,
-                  phone: 1,
-                  status: 1,
-                  meetingStatus: 1,
-                  meetingDetails: 1,
-                },
-              },
-            ],
-            // Stats — all counted in one pass, no extra queries
-            stats: [
-              {
-                $group: {
-                  _id: null,
-                  total: { $sum: 1 },
-                  scheduled: {
-                    $sum: {
-                      $cond: [
-                        {
-                          $or: [
-                            { $eq: ["$meetingStatus", "scheduled"] },
-                            { $eq: [{ $ifNull: ["$meetingStatus", null] }, null] },
-                          ],
-                        },
-                        1,
-                        0,
-                      ],
-                    },
-                  },
-                  completed: {
-                    $sum: { $cond: [{ $eq: ["$meetingStatus", "completed"] }, 1, 0] },
-                  },
-                  cancelled: {
-                    $sum: { $cond: [{ $eq: ["$meetingStatus", "cancelled"] }, 1, 0] },
-                  },
-                },
-              },
-            ],
-          },
-        },
-      ])
-      .toArray();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leadsMain: any[] = await db.collection("leads").find(filter).toArray();
 
-    const meetings  = result.data;
-    const statsRaw  = result.stats[0] ?? { total: 0, scheduled: 0, completed: 0, cancelled: 0 };
-    const { total, scheduled, completed, cancelled } = statsRaw;
+    const allMeetings = leadsMain.sort((a, b) => {
+      const da = a.meetingDetails?.meetingDate || "";
+      const dbTime = b.meetingDetails?.meetingDate || "";
+      return dbTime.localeCompare(da);
+    });
+
+    const total = allMeetings.length;
+    const scheduled = allMeetings.filter(
+      (l) => l.meetingStatus === "scheduled" || (!l.meetingStatus && l.status !== "sales" && l.status !== "lost")
+    ).length;
+    const completed = allMeetings.filter(
+      (l) => l.meetingStatus === "completed" || l.status === "sales"
+    ).length;
+    const cancelled = allMeetings.filter((l) => l.meetingStatus === "cancelled").length;
+
+    const totalPages = Math.ceil(total / limit) || 0;
+    const startIndex = (page - 1) * limit;
+    const paginatedMeetings = allMeetings.slice(startIndex, startIndex + limit).map((l) => ({
+      id: l.id,
+      name: l.name || "—",
+      phone: l.phone || "—",
+      status: l.status || "—",
+      meetingStatus: l.meetingStatus || (l.status === "sales" ? "completed" : "scheduled"),
+      meetingDetails: l.meetingDetails,
+    }));
 
     return NextResponse.json({
-      meetings,
+      meetings: paginatedMeetings,
       pagination: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
       },
       stats: { total, scheduled, completed, cancelled },
     });
@@ -122,7 +88,7 @@ export async function GET(req: NextRequest) {
     console.error(err);
     return NextResponse.json(
       { message: "Server Error", error: err instanceof Error ? err.message : String(err) },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

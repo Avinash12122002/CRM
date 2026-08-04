@@ -664,7 +664,7 @@ export default function LeadsPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
             {/* Filters */}
             <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-700">
               <div className="flex flex-wrap gap-2">
@@ -719,7 +719,7 @@ export default function LeadsPage() {
                       </button>
                     )}
                     {statusDropdownOpen && (
-                      <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl max-h-96 overflow-y-auto">
                         <button
                           type="button"
                           onClick={() => {
@@ -805,7 +805,7 @@ export default function LeadsPage() {
                         </button>
                       )}
                       {assignedDropdownOpen && (
-                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl max-h-96 overflow-y-auto">
                           <button
                             type="button"
                             onClick={() => {

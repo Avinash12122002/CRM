@@ -246,6 +246,11 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Users
                 </Link>
               )}
+              {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "case_manager" || user.role === "business_development" || user.role === "billing") && (
+                <Link href="/dashboard/my-analytics" className={deskLinkClass(isActive("/dashboard/my-analytics"))}>
+                  My Analytics
+                </Link>
+              )}
             </div>
           </div>
 
@@ -445,6 +450,14 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 className={navLinkClass(isActive("/dashboard/users"))}
               >
                 Users
+              </Link>
+            )}
+            {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "case_manager" || user.role === "business_development" || user.role === "billing") && (
+              <Link
+                href="/dashboard/my-analytics"
+                className={navLinkClass(isActive("/dashboard/my-analytics"))}
+              >
+                My Analytics
               </Link>
             )}
 

@@ -184,13 +184,17 @@ export async function GET(req: NextRequest) {
     const inProgress = cohortLeads.filter((l) => IN_PROGRESS_STATUSES.includes(l.status)).length;
     const salesCount = cohortLeads.filter((l) => l.status === "sales").length;
     const lostCount = cohortLeads.filter((l) => LOST_STATUSES.includes(l.status)).length;
-    const meetingsScheduledCount = cohortLeads.filter(everHadMeeting).length;
+    const currentMeetingsScheduled = cohortLeads.filter((l) => l.status === "meeting-scheduled").length;
 
-    const meetingEfficiency = pct(meetingsScheduledCount,totalLeads);
+    // Leads that went through a meeting
+    const totalLeadsWithMeeting = cohortLeads.filter(everHadMeeting).length;
+    // Sales converted specifically from meetings
+    const meetingSalesCount = cohortLeads.filter((l) => l.status === "sales" && everHadMeeting(l)).length;
+
+    const meetingEfficiency = pct(totalLeadsWithMeeting, totalLeads);
     const conversionRate = pct(salesCount, totalLeads);
-    // Meeting Conversion Rate = of the leads that reached a meeting, how many
-    // actually converted into a sale (Sales / Meetings Scheduled x 100).
-    const meetingConversionRate = pct(salesCount, meetingsScheduledCount);
+    // Meeting Conversion Rate = of the leads that had a meeting, what percentage converted to sales
+    const meetingConversionRate = pct(meetingSalesCount, totalLeadsWithMeeting);
     const dropRate = pct(lostCount, totalLeads);
 
     // ---- Status distribution (scoped to the selected filter, or all-time) --
@@ -255,42 +259,46 @@ export async function GET(req: NextRequest) {
       else if (l.status === "payment-pending") entry.paymentPending += 1;
     }
 
-    // Step C — sales attribution, scoped to the same window. Case A: lead
-    // went through a meeting, credit BOTH the booking telecaller and the
-    // meeting user. Case B: direct sale (no meeting), credit whoever
-    // performed the status_updated -> "sales" transition in history.
+    // Step C — sales attribution, scoped to the same window.
     for (const l of cohortLeads) {
       if (l.status !== "sales") continue;
-      const bookedBy = l.meetingDetails?.bookedBy ?? null;
-      const meetingUserId = l.meetingDetails?.meetingUserId ?? null;
-      const hasMeetingData = bookedBy != null || meetingUserId != null;
+      const credited = new Set<number>();
+
+      const bookedBy = l.meetingDetails?.bookedBy != null ? Number(l.meetingDetails.bookedBy) : null;
+      const meetingUserId = l.meetingDetails?.meetingUserId != null ? Number(l.meetingDetails.meetingUserId) : null;
+      const hasMeetingData = (bookedBy != null && !isNaN(bookedBy)) || (meetingUserId != null && !isNaN(meetingUserId));
 
       if (hasMeetingData) {
-        const credited = new Set<number>();
-        if (bookedBy != null && staffMap.has(bookedBy)) {
-          staffMap.get(bookedBy)!.sales += 1;
-          credited.add(bookedBy);
-        }
-        if (meetingUserId != null && !credited.has(meetingUserId) && staffMap.has(meetingUserId)) {
-          staffMap.get(meetingUserId)!.sales += 1;
-          credited.add(meetingUserId);
-        }
+        // Meeting sale: credit both booking telecaller and meeting user (+1 each)
+        if (bookedBy != null && !isNaN(bookedBy)) credited.add(bookedBy);
+        if (meetingUserId != null && !isNaN(meetingUserId)) credited.add(meetingUserId);
       } else {
-        const history: Array<{ action?: string; newStatus?: string; performedBy?: number }> = Array.isArray(
-          l.history
-        )
-          ? l.history
-          : [];
+        // Direct sale without meeting: credit staff member who performed status_updated to sales
         let salesPerformedBy: number | null = null;
-        for (let i = history.length - 1; i >= 0; i--) {
-          const h = history[i];
-          if (h.action === "status_updated" && h.newStatus === "sales" && h.performedBy != null) {
-            salesPerformedBy = h.performedBy;
-            break;
+        if (Array.isArray(l.history)) {
+          for (let i = l.history.length - 1; i >= 0; i--) {
+            const h = l.history[i];
+            if (h.action === "status_updated" && h.newStatus === "sales" && h.performedBy != null) {
+              const pId = Number(h.performedBy);
+              if (!isNaN(pId)) {
+                salesPerformedBy = pId;
+                break;
+              }
+            }
           }
         }
-        if (salesPerformedBy != null && staffMap.has(salesPerformedBy)) {
-          staffMap.get(salesPerformedBy)!.sales += 1;
+        if (salesPerformedBy != null) {
+          credited.add(salesPerformedBy);
+        } else if (l.assignedTo != null) {
+          const aId = Number(l.assignedTo);
+          if (!isNaN(aId)) credited.add(aId);
+        }
+      }
+
+      for (const userId of credited) {
+        const entry = staffMap.get(userId);
+        if (entry) {
+          entry.sales += 1;
         }
       }
     }
@@ -394,7 +402,7 @@ export async function GET(req: NextRequest) {
         totalLeads,
         newLeads,
         inProgress,
-        meetingsScheduled: meetingsScheduledCount,
+        meetingsScheduled: currentMeetingsScheduled,
         sales: salesCount,
         lost: lostCount,
         meetingEfficiency,

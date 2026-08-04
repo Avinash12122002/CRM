@@ -37,23 +37,20 @@ export async function DELETE(
 
     const { db } = await connectToDatabase();
 
-    const lead = await db.collection("leads").findOne({
-      id: leadId,
-    });
+    const idFilter = { $or: [{ id: leadId }, { id: String(leadId) }] };
+    const leadIdFilter = { $or: [{ leadId: leadId }, { leadId: String(leadId) }] };
 
-    if (!lead) {
-      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
-    }
+    // Delete all linked records across all collections
+    await db.collection("meetingSlots").deleteMany(leadIdFilter);
+    await db.collection("lead_workflows").deleteMany(leadIdFilter);
+    await db.collection("email_history").deleteMany(leadIdFilter);
+    await db.collection("invoices").deleteMany(leadIdFilter);
+    await db.collection("notifications").deleteMany(leadIdFilter);
+    await db.collection("case_marketing_employers").deleteMany(leadIdFilter);
+    await db.collection("case_marketing_sources").deleteMany(leadIdFilter);
 
-    // Delete all meeting slots linked to this lead
-    await db.collection("meetingSlots").deleteMany({
-      leadId,
-    });
-
-    // Delete the lead
-    await db.collection("leads").deleteOne({
-      id: leadId,
-    });
+    // Delete the lead itself from leads collection
+    await db.collection("leads").deleteMany(idFilter);
 
     return NextResponse.json({
       message: "Lead deleted successfully",

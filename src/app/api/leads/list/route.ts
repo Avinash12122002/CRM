@@ -277,7 +277,23 @@ export async function GET(req: NextRequest) {
 
     // Apply assignedTo filter (admin only)
     if (assignedTo && payload.role === "admin") {
-      filter.assignedTo = parseInt(assignedTo);
+      const uid = parseInt(assignedTo);
+      if (!isNaN(uid)) {
+        const uidStr = String(uid);
+        andConditions.push({
+          $or: [
+            { assignedTo: uid },
+            { assignedTo: uidStr },
+            { "meetingDetails.bookedBy": uid },
+            { "meetingDetails.bookedBy": uidStr },
+            { "meetingDetails.meetingUserId": uid },
+            { "meetingDetails.meetingUserId": uidStr },
+            { "salesDocument.uploadedBy": uid },
+            { "salesDocument.uploadedBy": uidStr },
+            { history: { $elemMatch: { action: "status_updated", newStatus: "sales", performedBy: { $in: [uid, uidStr] } } } },
+          ],
+        });
+      }
     }
 
     if (meetingUserId) {
