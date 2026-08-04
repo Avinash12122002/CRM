@@ -261,20 +261,6 @@ export async function GET(req: NextRequest) {
         ],
       });
     }
-
-    if (andConditions.length) {
-      filter.$and = andConditions;
-    }
-
-    // Apply status filter
-    if (status) {
-      filter.status = status;
-    } else if (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") {
-      filter.status = {
-        $nin: ["wrong-number", "not-interested", "sales"],
-      };
-    }
-
     // Apply assignedTo filter (admin only)
     if (assignedTo && payload.role === "admin") {
       const uid = parseInt(assignedTo);
@@ -294,6 +280,19 @@ export async function GET(req: NextRequest) {
           ],
         });
       }
+    }
+
+    if (andConditions.length) {
+      filter.$and = andConditions;
+    }
+
+    // Apply status filter
+    if (status) {
+      filter.status = status;
+    } else if (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") {
+      filter.status = {
+        $nin: ["wrong-number", "not-interested", "sales"],
+      };
     }
 
     if (meetingUserId) {

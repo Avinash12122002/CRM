@@ -105,14 +105,20 @@ export async function GET(req: NextRequest) {
       .find({ meetingDetails: { $exists: true, $ne: null } })
       .toArray();
 
-    const totalMeetings = leadsWithMeeting.filter(
-      (l) => l.meetingStatus === "scheduled" || (!l.meetingStatus && l.status !== "sales" && l.status !== "lost")
-    ).length;
+    const isCompletedMeeting = (l: any) =>
+      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
+    const isCancelledMeeting = (l: any) =>
+      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
+    const isScheduledMeeting = (l: any) =>
+      !isCompletedMeeting(l) &&
+      !isCancelledMeeting(l) &&
+      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+
+    const totalMeetings = leadsWithMeeting.filter(isScheduledMeeting).length;
 
     const todayMeetings = leadsWithMeeting.filter((l) => {
       const isToday = l.meetingDetails?.meetingDate === todayStr;
-      const isScheduled = l.meetingStatus === "scheduled" || (!l.meetingStatus && l.status !== "sales" && l.status !== "lost");
-      return isToday && isScheduled;
+      return isToday && isScheduledMeeting(l);
     }).length;
 
     // ═══════════════════════════════════════════════════════════════════════
