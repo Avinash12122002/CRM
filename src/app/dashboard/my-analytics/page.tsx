@@ -355,6 +355,37 @@ function PaginationControls({
   );
 }
 
+function PaginatedTable({
+  headers,
+  rows,
+  emptyLabel,
+  pageSize = 10,
+  highlightCol,
+}: {
+  headers: string[];
+  rows: (string | React.ReactNode)[][];
+  emptyLabel: string;
+  pageSize?: number;
+  highlightCol?: number;
+}) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.ceil(rows.length / pageSize) || 1;
+  const safePage = Math.min(page, totalPages);
+  const currentRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  return (
+    <div>
+      <Table headers={headers} rows={currentRows} emptyLabel={emptyLabel} highlightCol={highlightCol} />
+      {rows.length > pageSize && (
+        <PaginationControls
+          pagination={{ page: safePage, limit: pageSize, total: rows.length, totalPages }}
+          onPageChange={setPage}
+        />
+      )}
+    </div>
+  );
+}
+
 // Filter bar that allows Date or Month filtering seamlessly
 function FilterBar({
   date, month,
@@ -446,7 +477,7 @@ function TelecallerView({
       </Section>
 
       <Section title="Callbacks Due Today">
-        <Table
+        <PaginatedTable
           headers={["Lead ID", "Name", "Phone", "Callback Date"]}
           rows={data.callbacksDueToday.map((c) => [
             String(c.id),
@@ -493,7 +524,7 @@ function TelecallerView({
       </Section>
 
       <Section title={`Daily Activity Trend (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Date", "Leads Count"]}
           rows={data.dailyTrend.map((t) => [t.date, String(t.count)])}
           emptyLabel="No activity trend data"
@@ -527,7 +558,7 @@ function MeetingView({
       </div>
 
       <Section title="Upcoming Scheduled Meetings">
-        <Table
+        <PaginatedTable
           headers={["Lead ID", "Date", "Start Time", "End Time", "Booked By"]}
           rows={data.upcomingMeetings.map((u) => [
             String(u.leadId),
@@ -570,7 +601,7 @@ function MeetingView({
       </Section>
 
       <Section title={`Daily Meeting Activity (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Date", "Meetings Count"]}
           rows={data.dailyTrend.map((t) => [t.date, String(t.count)])}
           emptyLabel="No activity trend data"
@@ -606,7 +637,7 @@ function CaseManagerView({
       </div>
 
       <Section title={`Phase Breakdown (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Phase", "Employers", "Sources", "Completed Sources", "Emails Sent", "Replies", "Response Rate"]}
           rows={(data.phaseBreakdown || []).map((p) => [
             p.label,
@@ -675,7 +706,7 @@ function CaseManagerView({
       </Section>
 
       <Section title={`Daily Case Activity Trend (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Date", "Leads Assigned"]}
           rows={data.dailyTrend.map((t) => [t.date, String(t.count)])}
           emptyLabel="No activity trend data"
@@ -709,7 +740,7 @@ function BDEView({
       </div>
 
       <Section title={`Pipeline Stage Distribution (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Stage", "Count"]}
           rows={data.stageDistribution.map((s) => [s.stage, String(s.count)])}
           emptyLabel="No BD leads in this range"
@@ -750,7 +781,7 @@ function BDEView({
       </Section>
 
       <Section title={`Daily BD Activity Trend (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Date", "Leads Created"]}
           rows={data.dailyTrend.map((t) => [t.date, String(t.count)])}
           emptyLabel="No activity trend data"
@@ -784,7 +815,7 @@ function BillingView({
       </div>
 
       <Section title={`Outstanding Bills (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Invoice #", "Client", "Passport", "Amount", "Paid", "Remaining", "Status"]}
           rows={data.outstanding.map((b) => [
             b.invoiceNumber || String(b.billId),
@@ -831,7 +862,7 @@ function BillingView({
       </Section>
 
       <Section title={`Daily Billing Activity (${scopeLabel})`}>
-        <Table
+        <PaginatedTable
           headers={["Date", "Bills Count", "Total Amount"]}
           rows={data.dailyTrend.map((t) => [t.date, String(t.count), fmtCurrency(t.amount)])}
           emptyLabel="No activity trend data"

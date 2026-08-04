@@ -55,17 +55,15 @@ export async function GET(req: NextRequest) {
     const uidNum = isNaN(Number(uid)) ? null : Number(uid);
     const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
 
-    // Query leads assigned to, booked by, conducted by, or converted by this meeting user
+    // Query leads with meeting details assigned to or conducted by this meeting user
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allMeetingLeads: any[] = await db
       .collection("leads")
       .find({
+        meetingDetails: { $exists: true, $ne: null },
         $or: [
           { "meetingDetails.meetingUserId": { $in: matchUserIds } },
-          { "meetingDetails.bookedBy": { $in: matchUserIds } },
           { assignedTo: { $in: matchUserIds } },
-          { "salesDocument.uploadedBy": { $in: matchUserIds } },
-          { history: { $elemMatch: { action: "status_updated", newStatus: "sales", performedBy: { $in: matchUserIds } } } },
         ],
       })
       .toArray();
