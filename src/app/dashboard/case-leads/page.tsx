@@ -35,6 +35,7 @@ interface CaseLead {
   assignedByName?: string;
   createdAt: string;
   updatedAt: string;
+  caseManagerAssignedAt?: string | null;
   salesDocument?: {
     fileId: string;
     fileName: string;
@@ -562,7 +563,7 @@ export default function CaseManagerLeadsPage() {
                         </>
                       )}
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {new Date(lead.updatedAt).toLocaleDateString("en-IN")}
+                        {new Date(lead.caseManagerAssignedAt || lead.updatedAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">

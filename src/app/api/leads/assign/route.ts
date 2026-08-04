@@ -212,6 +212,12 @@ async function handleAssign(req: NextRequest) {
           assignedToName: assignedUser?.name || null,
           assignedToRole: assignedUser?.role || null,
 
+          // Stamp caseManagerAssignedAt when assigning/reassigning to a case manager;
+          // clear it when handing back to any other role.
+          ...(assignedUser?.role === "case_manager"
+            ? { caseManagerAssignedAt: now }
+            : { caseManagerAssignedAt: null }),
+
           meetingDetails,
 
           meetingStatus: assignedUser?.role === "meeting" ? "scheduled" : null,

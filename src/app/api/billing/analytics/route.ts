@@ -45,15 +45,19 @@ export async function GET(req: NextRequest) {
     if (validDate) cohortWindow = dayWindow(validDate);
     else if (validMonth) cohortWindow = monthWindow(validMonth);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: Record<string, any> = cohortWindow
-      ? { createdAt: { $gte: cohortWindow.start, $lt: cohortWindow.end } }
-      : {};
-
-    const [bills, totalInDb] = await Promise.all([
-      collection.find(filter).sort({ createdAt: -1 }).toArray(),
+    const [allBills, totalInDb] = await Promise.all([
+      collection.find({}).sort({ createdAt: -1 }).toArray(),
       collection.countDocuments({}),
     ]);
+
+    const bills = cohortWindow
+      ? allBills.filter((b) => {
+          const raw = b.createdAt || b.updatedAt;
+          if (!raw) return false;
+          const d = new Date(raw);
+          return !isNaN(d.getTime()) && d >= cohortWindow!.start && d < cohortWindow!.end;
+        })
+      : allBills;
 
     let totalAmount = 0;
     let paidCount = 0;

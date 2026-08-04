@@ -3,6 +3,13 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 
+// Inclusive-start / exclusive-end window for a single IST calendar day.
+function dayWindow(dateStr: string): { start: Date; end: Date } {
+  const start = new Date(`${dateStr}T00:00:00.000+05:30`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { start, end };
+}
+
 interface LeadDoc {
   id: number;
   name: string;
@@ -17,6 +24,7 @@ interface LeadDoc {
   assignedByName?: string;
   createdAt: Date | string;
   updatedAt: Date | string;
+  caseManagerAssignedAt?: Date | string | null;
   salesDocument?: {
     fileId: string;
     fileName: string;
@@ -92,15 +100,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    if (date) {
-      const dayStart = new Date(date + "T00:00:00");
-      const dayEnd = new Date(date + "T23:59:59.999");
-      if (!isNaN(dayStart.getTime())) {
-        filter.updatedAt = { $gte: dayStart, $lte: dayEnd };
-      }
-    }
-
-    const allMatchingLeads = (await db
+    const allMatchingLeadsRaw = (await db
       .collection("leads")
       .find(filter)
       .project({
@@ -117,9 +117,24 @@ export async function GET(req: NextRequest) {
         assignedByName: 1,
         createdAt: 1,
         updatedAt: 1,
+        caseManagerAssignedAt: 1,
         salesDocument: 1,
       })
       .toArray()) as unknown as LeadDoc[];
+
+    // If date parameter is present, filter using JS date parsing with fallbacks.
+    // Checks caseManagerAssignedAt, then updatedAt, then createdAt.
+    // Handles both ISO strings and BSON Date objects across legacy and new records.
+    let allMatchingLeads = allMatchingLeadsRaw;
+    if (date) {
+      const { start, end } = dayWindow(date);
+      allMatchingLeads = allMatchingLeadsRaw.filter((lead) => {
+        const rawDate = lead.caseManagerAssignedAt || lead.updatedAt || lead.createdAt;
+        if (!rawDate) return false;
+        const d = new Date(rawDate);
+        return !isNaN(d.getTime()) && d >= start && d < end;
+      });
+    }
 
     const leadIds = allMatchingLeads.map((l) => l.id);
 

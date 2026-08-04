@@ -134,14 +134,21 @@ export async function GET(req: NextRequest) {
     // can push the cohort window straight into the query — same pattern
     // /leads/list already uses — instead of loading everything and
     // filtering in JS.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // Build MongoDB filter covering both BSON Date objects and ISO strings
     const leadsFilter: Record<string, any> = cohortWindow
-      ? { createdAt: { $gte: cohortWindow.start, $lt: cohortWindow.end } }
+      ? {
+          $or: [
+            { createdAt: { $gte: cohortWindow.start, $lt: cohortWindow.end } },
+            { createdAt: { $gte: cohortWindow.start.toISOString(), $lt: cohortWindow.end.toISOString() } },
+            { updatedAt: { $gte: cohortWindow.start, $lt: cohortWindow.end } },
+            { updatedAt: { $gte: cohortWindow.start.toISOString(), $lt: cohortWindow.end.toISOString() } },
+          ],
+        }
       : {};
 
-    // These four are fully independent of one another — run them
-    // concurrently instead of one-by-one.
-    const [dailySubmissionRaw, bdUsers, totalInDb, cohortLeads] = await Promise.all([
+    // Run independent initial queries concurrently. When a date/month filter is selected,
+    // leadsFilter scopes the DB query to only matching leads instead of scanning the whole collection.
+    const [dailySubmissionRaw, bdUsers, totalInDb, rawBdLeads] = await Promise.all([
       db
         .collection(BD_COLLECTIONS.dailyTargets)
         .aggregate([
@@ -155,40 +162,45 @@ export async function GET(req: NextRequest) {
       db.collection(BD_COLLECTIONS.leads).find(leadsFilter).toArray(),
     ]);
 
+    const cohortLeads = cohortWindow
+      ? rawBdLeads.filter((l) => {
+          const raw = l.createdAt || l.updatedAt;
+          if (!raw) return false;
+          const d = new Date(raw);
+          return !isNaN(d.getTime()) && d >= cohortWindow!.start && d < cohortWindow!.end;
+        })
+      : rawBdLeads;
+
     const cohortLeadIds = cohortLeads.map((l) => l.id);
     const leadsById = new Map<number, (typeof cohortLeads)[number]>();
     for (const l of cohortLeads) leadsById.set(l.id, l);
 
     const bdNameById = new Map<number, string>(bdUsers.map((u) => [u.id, u.name]));
     const dailySubmission = dailySubmissionRaw
-      // A target row only represents a real submission once totalCreated > 0.
-      // Rows can otherwise exist purely from a reminder check (throttle
-      // bookkeeping) firing before any lead was created that day — those
-      // aren't a BD user's activity and shouldn't appear in this table.
       .filter((d) => (d.totalCreated || 0) > 0)
       .map((d) => ({ ...d, userName: d.userName || bdNameById.get(d._id) || "Unknown" }));
 
-    // Also independent of one another — run concurrently.
+    // Scope history & activity log queries:
+    // - If cohort filter is active & leads matched: query $in cohortLeadIds (very fast)
+    // - If cohort filter is active & 0 leads matched: skip DB query completely
+    // - If no cohort filter (all-time view): query all history records
+    const historyQuery: Record<string, any> | null = cohortWindow
+      ? cohortLeadIds.length > 0
+        ? { leadId: { $in: cohortLeadIds } }
+        : null
+      : {};
+
     const [allHistory, ownerLogs] = await Promise.all([
-      cohortLeadIds.length
+      historyQuery
         ? db
             .collection(BD_COLLECTIONS.pipelineHistory)
-            .find({ leadId: { $in: cohortLeadIds } })
+            .find(historyQuery)
             .toArray()
         : Promise.resolve([]),
-      // ---- Reconstruct real BD ownership (see FIX comment above) ----
-      // "Lead Assigned" (creation) and "Lead Reassigned" (admin moving an
-      // active lead between BD users) are the only two actions that ever
-      // set a BD user as owner; "Ownership Changed" (closure) moves it to
-      // Admin and is deliberately excluded here. Sorted by `id` (sequential,
-      // collision-proof) so the last one wins = the last real BD owner.
-      cohortLeadIds.length
+      historyQuery
         ? db
             .collection(BD_COLLECTIONS.activityLogs)
-            .find({
-              leadId: { $in: cohortLeadIds },
-              action: { $in: ["Lead Assigned", "Lead Reassigned"] },
-            })
+            .find({ ...historyQuery, action: { $in: ["Lead Assigned", "Lead Reassigned"] } })
             .sort({ id: 1 })
             .toArray()
         : Promise.resolve([]),

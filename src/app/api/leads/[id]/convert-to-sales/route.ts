@@ -182,6 +182,7 @@ export async function POST(
           assignedTo: caseManager.id,
           assignedToName: caseManager.name,
           assignedToRole: "case_manager",
+          caseManagerAssignedAt: now,
 
           assignedBy: payload.id,
           assignedByName: payload.name,

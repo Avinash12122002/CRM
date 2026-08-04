@@ -214,11 +214,6 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 </Link>
               )}
               {user.role === "admin" && (
-                <Link href="/dashboard/lead-analytics" className={deskLinkClass(isActive("/dashboard/lead-analytics"))}>
-                  Lead Analytics
-                </Link>
-              )}
-              {user.role === "admin" && (
                 <Link
                   href="/dashboard/bd-leads"
                   className={deskLinkClass(
@@ -229,26 +224,11 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 </Link>
               )}
               {user.role === "admin" && (
-                <Link href="/dashboard/bd-analytics" className={deskLinkClass(isActive("/dashboard/bd-analytics"))}>
-                  BD Analytics
-                </Link>
-              )}
-              {user.role === "admin" && (
-                <Link href="/dashboard/billing-analytics" className={deskLinkClass(isActive("/dashboard/billing-analytics"))}>
-                  Billing Analysis
-                </Link>
-              )}
-              {user.role === "admin" && (
                 <Link
                   href="/dashboard/email"
                   className={deskLinkClass(isActive("/dashboard/email") || pathname.startsWith("/dashboard/email/"))}
                 >
                   Email
-                </Link>
-              )}
-              {user.role === "admin" && (
-                <Link href="/dashboard/email-analytics" className={deskLinkClass(isActive("/dashboard/email-analytics"))}>
-                  Email Analytics
                 </Link>
               )}
               {user.role === "admin" && (
@@ -418,14 +398,6 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             )}
             {user.role === "admin" && (
               <Link
-                href="/dashboard/lead-analytics"
-                className={navLinkClass(isActive("/dashboard/lead-analytics"))}
-              >
-                Lead Analytics
-              </Link>
-            )}
-            {user.role === "admin" && (
-              <Link
                 href="/dashboard/bd-leads"
                 className={navLinkClass(
                   isActive("/dashboard/bd-leads") ||
@@ -437,22 +409,6 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             )}
             {user.role === "admin" && (
               <Link
-                href="/dashboard/bd-analytics"
-                className={navLinkClass(isActive("/dashboard/bd-analytics"))}
-              >
-                BD Analytics
-              </Link>
-            )}
-            {user.role === "admin" && (
-              <Link
-                href="/dashboard/billing-analytics"
-                className={navLinkClass(isActive("/dashboard/billing-analytics"))}
-              >
-                Billing Analysis
-              </Link>
-            )}
-            {user.role === "admin" && (
-              <Link
                 href="/dashboard/email"
                 className={navLinkClass(
                   isActive("/dashboard/email") ||
@@ -460,14 +416,6 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 )}
               >
                 Email
-              </Link>
-            )}
-            {user.role === "admin" && (
-              <Link
-                href="/dashboard/email-analytics"
-                className={navLinkClass(isActive("/dashboard/email-analytics"))}
-              >
-                Email Analytics
               </Link>
             )}
             {user.role === "admin" && (

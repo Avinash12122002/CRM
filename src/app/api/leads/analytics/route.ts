@@ -147,12 +147,12 @@ export async function GET(req: NextRequest) {
     else if (validMonth) cohortWindow = monthWindow(validMonth);
 
     const cohortLeads = cohortWindow
-      ? allLeads.filter(
-          (l) =>
-            l.createdAt &&
-            new Date(l.createdAt) >= cohortWindow!.start &&
-            new Date(l.createdAt) < cohortWindow!.end
-        )
+      ? allLeads.filter((l) => {
+          const raw = l.createdAt || l.updatedAt;
+          if (!raw) return false;
+          const d = new Date(raw);
+          return !isNaN(d.getTime()) && d >= cohortWindow!.start && d < cohortWindow!.end;
+        })
       : allLeads; // no filter selected -> whole dataset
 
     // ---- Helpers -----------------------------------------------------
