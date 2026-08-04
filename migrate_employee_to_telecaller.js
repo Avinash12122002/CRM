@@ -1,97 +1,125 @@
-// migrate_employee_to_telecaller.js
+// rename_mohit_to_mohittest.js
 //
-// Recursively walks every document in the listed collections and replaces
-// any field whose value is EXACTLY the string "employee" with "telecaller"
-// (including inside nested objects and arrays, e.g. targetRoles: ["employee", "meeting"]).
+// Scoped rename: only touches records belonging to Mohit (user id 3,
+// current username "mohit"). Renames both his `name` and `username` in
+// the users collection, and every "name snapshot" of him stored in other
+// collections (including nested arrays like a lead's `history`).
 //
-// It does NOT touch substrings inside longer text (e.g. an email template
-// paragraph that happens to contain the word "employee" won't be altered) —
-// only fields whose entire value equals "employee".
+// Note: `username` itself is never copied into other collections in this
+// codebase (chat/leads screens look it up live from the users collection),
+// so only `name` snapshots need to be found and fixed elsewhere.
+//
+// Known id-field <-> name-field pairings in this codebase:
+//   assignedTo        <-> assignedToName
+//   assignedBy         <-> assignedByName
+//   performedBy         <-> performedByName
+//   newAssignee         <-> newAssigneeName
+//   createdBy           <-> createdByName
+//   changedBy           <-> changedByName
+//   userId               <-> userName
+//   uploadedBy           <-> uploadedByName
+//   sentBy               <-> sentByName
+//   senderId             <-> senderName
+//   bookedBy             <-> bookedByName
+//   meetingUserId        <-> meetingUserName
 //
 // USAGE:
-//   1. BACK UP YOUR DATABASE FIRST (mongodump) — this script writes in place.
-//   2. Run with mongosh, pointed at your database:
-//        mongosh "mongodb+srv://<user>:<pass>@<cluster>/<dbname>" --file migrate_employee_to_telecaller.js
-//      or, if already inside mongosh connected to the right db:
-//        load("migrate_employee_to_telecaller.js")
+//   mongosh "<your MONGODB_URI>" --file rename_mohit_to_mohittest.js
 
-const collections = [
-  "activities",
-  "bdactivitylogs",
-  "bdconfig",
-  "bdleadnotes",
-  "bdleads",
-  "bdpipelinehistory",
-  "billinginvoices",
-  "broadcasts",
-  "chatFiles.chunks",
-  "chatFiles.files",
-  "conversations",
-  "counters",
-  "dailyleadtargets",
-  "email_history",
-  "email_mailboxes",
-  "email_templates",
-  "email_workflows",
-  "globalChatReads",
-  "globalMessages",
-  "invoices",
-  "lead_workflows",
-  "leads",
-  "meetingSlots",
-  "messages",
-  "notifications",
-  "starredMessages",
-  "typingStatus",
-  "users",
-  "vacancies",
-];
+const MOHIT_ID = 3;
+const OLD_NAME = "mohit";
+const NEW_NAME = "mohittest";
 
-function deepReplace(value) {
-  if (typeof value === "string") {
-    return value === "employee" ? "telecaller" : value;
+// Maps a name-field to the id-field it's paired with
+const NAME_TO_ID_FIELD = {
+  assignedToName: "assignedTo",
+  assignedByName: "assignedBy",
+  performedByName: "performedBy",
+  newAssigneeName: "newAssignee",
+  createdByName: "createdBy",
+  changedByName: "changedBy",
+  userName: "userId",
+  uploadedByName: "uploadedBy",
+  sentByName: "sentBy",
+  senderName: "senderId",
+  bookedByName: "bookedBy",
+  meetingUserName: "meetingUserId",
+};
+
+// 1. Update his own user record — both name and username
+const userResult = db.users.updateOne(
+  { id: MOHIT_ID },
+  { $set: { name: NEW_NAME, username: NEW_NAME } }
+);
+print(
+  `users: matched ${userResult.matchedCount}, modified ${userResult.modifiedCount}`
+);
+
+// 2. Recursively walk a document/subdocument/array and fix matching name snapshots.
+function recurseAndFix(node) {
+  let changed = false;
+
+  if (Array.isArray(node)) {
+    node.forEach((item) => {
+      if (item !== null && typeof item === "object") {
+        if (recurseAndFix(item)) changed = true;
+      }
+    });
+    return changed;
   }
-  if (Array.isArray(value)) {
-    return value.map(deepReplace);
-  }
-  if (value !== null && typeof value === "object") {
-    // Leave BSON types (ObjectId, Date, binary data, etc.) untouched
+
+  if (node !== null && typeof node === "object") {
     if (
-      value instanceof ObjectId ||
-      value instanceof Date ||
-      value instanceof BinData ||
-      value instanceof NumberLong ||
-      value instanceof NumberDecimal
+      node instanceof ObjectId ||
+      node instanceof Date ||
+      node instanceof BinData ||
+      node instanceof NumberLong ||
+      node instanceof NumberDecimal
     ) {
-      return value;
+      return false;
     }
-    const out = {};
-    for (const key of Object.keys(value)) {
-      out[key] = deepReplace(value[key]);
-    }
-    return out;
+
+    Object.keys(node).forEach((key) => {
+      const idField = NAME_TO_ID_FIELD[key];
+      if (idField && node[key] === OLD_NAME) {
+        const whoValue = node[idField];
+        if (whoValue === MOHIT_ID) {
+          node[key] = NEW_NAME;
+          changed = true;
+        }
+      } else if (node[key] !== null && typeof node[key] === "object") {
+        if (recurseAndFix(node[key])) changed = true;
+      }
+    });
   }
-  return value;
+
+  return changed;
 }
 
+// 3. Scan every other collection in the database
+const allCollections = db.getCollectionNames();
 let grandTotal = 0;
 
-collections.forEach((collName) => {
+allCollections.forEach((collName) => {
+  if (collName === "users") return; // handled above
+  if (collName.startsWith("system.")) return;
+
   const coll = db.getCollection(collName);
   let updated = 0;
   let scanned = 0;
 
   coll.find({}).forEach((doc) => {
     scanned++;
-    const newDoc = deepReplace(doc);
-    if (JSON.stringify(newDoc) !== JSON.stringify(doc)) {
-      coll.replaceOne({ _id: doc._id }, newDoc);
+    if (recurseAndFix(doc)) {
+      coll.replaceOne({ _id: doc._id }, doc);
       updated++;
     }
   });
 
-  grandTotal += updated;
   print(`${collName}: scanned ${scanned}, updated ${updated}`);
+  grandTotal += updated;
 });
 
-print(`\nDone. Total documents updated across all collections: ${grandTotal}`);
+print(
+  `\nDone. Total records (outside users) updated for Mohit: ${grandTotal}`
+);

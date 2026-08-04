@@ -34,36 +34,37 @@ export async function PATCH(
     const phaseConfig = getPhaseConfig(source.phase);
     const now = new Date();
 
-    if (action === "select") {
-      if (source.status === "completed") {
-        return NextResponse.json({ message: "This one is already completed" }, { status: 400 });
-      }
+    if (action === "select" || action === "reopen") {
       if (source.status === "active") {
         return NextResponse.json({ message: "Already active", source });
       }
 
-      const phaseSources = await db
-        .collection("case_marketing_sources")
-        .find({ leadId, phase: source.phase })
-        .sort({ order: 1 })
-        .toArray();
+      // If starting a pending source, enforce strict sequential locking
+      if (source.status === "pending") {
+        const phaseSources = await db
+          .collection("case_marketing_sources")
+          .find({ leadId, phase: source.phase })
+          .sort({ order: 1 })
+          .toArray();
 
-      const firstUnlocked = phaseSources.find((s) => s.status !== "completed");
-      if (!firstUnlocked || firstUnlocked.id !== sourceId) {
-        return NextResponse.json(
-          {
-            message: `Locked. Complete "${firstUnlocked?.name}" first before starting this one.`,
-          },
-          { status: 400 },
-        );
+        const firstUnlocked = phaseSources.find((s) => s.status !== "completed");
+        if (!firstUnlocked || firstUnlocked.id !== sourceId) {
+          return NextResponse.json(
+            {
+              message: `Locked. Complete "${firstUnlocked?.name || "the previous source"}" first before starting this one.`,
+            },
+            { status: 400 },
+          );
+        }
       }
 
-      // Only one active source per phase — demote any stray active ones.
+      // Only one active source per phase — demote any currently active ones to "pending"
       await db.collection("case_marketing_sources").updateMany(
         { leadId, phase: source.phase, status: "active" },
         { $set: { status: "pending" } },
       );
 
+      // Set target source to active
       await db.collection("case_marketing_sources").updateOne(
         { id: sourceId },
         { $set: { status: "active", startedAt: source.startedAt || now } },
@@ -79,7 +80,9 @@ export async function PATCH(
               performedBy: payload.id,
               performedByName: payload.name,
               timestamp: now,
-              details: `Phase ${source.phase} · ${phaseConfig?.label}: started research on "${source.name}"`,
+              details: `Phase ${source.phase} · ${phaseConfig?.label}: ${
+                source.status === "completed" ? "re-opened research on" : "started research on"
+              } "${source.name}"`,
             },
           },
         },

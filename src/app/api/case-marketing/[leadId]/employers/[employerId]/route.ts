@@ -199,12 +199,10 @@ export async function PATCH(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateDoc: Record<string, any> = {
         companyName,
-        occupation: typeof body.occupation === "string" ? body.occupation.trim() : "",
         jobTitle: typeof body.jobTitle === "string" ? body.jobTitle.trim() : "",
         website: typeof body.website === "string" ? body.website.trim() : "",
         jobUrl: typeof body.jobUrl === "string" ? body.jobUrl.trim() : "",
         hrEmail: typeof body.hrEmail === "string" ? body.hrEmail.trim() : "",
-        careersEmail: typeof body.careersEmail === "string" ? body.careersEmail.trim() : "",
         generalEmail: typeof body.generalEmail === "string" ? body.generalEmail.trim() : "",
         contactPerson: typeof body.contactPerson === "string" ? body.contactPerson.trim() : "",
         phone: typeof body.phone === "string" ? body.phone.trim() : "",

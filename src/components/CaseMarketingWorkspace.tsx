@@ -28,12 +28,10 @@ interface MarketingEmployer {
   sourceId: number;
   sourceName: string;
   companyName: string;
-  occupation?: string;
   jobTitle?: string;
   website?: string;
   jobUrl?: string;
   hrEmail?: string;
-  careersEmail?: string;
   generalEmail?: string;
   contactPerson?: string;
   phone?: string;
@@ -58,10 +56,8 @@ const EMPLOYER_FIELD_DEFS: { key: keyof MarketingEmployer; label: string; requir
   { key: "companyName", label: "Company Name", required: true },
   { key: "website", label: "Website", required: true },
   { key: "jobUrl", label: "Job Advertisement URL", required: true },
-  { key: "occupation", label: "Occupation" },
   { key: "jobTitle", label: "Job Title" },
   { key: "hrEmail", label: "HR Email" },
-  { key: "careersEmail", label: "Careers Email" },
   { key: "generalEmail", label: "General Email" },
   { key: "contactPerson", label: "Contact Person" },
   { key: "phone", label: "Phone" },
@@ -82,12 +78,14 @@ export default function CaseMarketingWorkspace({
   onHistoryUpdate,
   activePhase: externalActivePhase,
   onPhaseChange,
+  onSummaryLoaded,
 }: {
   leadId: number;
   canEdit: boolean;
   onHistoryUpdate?: () => void;
   activePhase?: number;
   onPhaseChange?: (phase: number) => void;
+  onSummaryLoaded?: (summary: MarketingSummary) => void;
 }) {
   const [summary, setSummary] = useState<MarketingSummary | null>(null);
   const [internalActivePhase, setInternalActivePhase] = useState<number>(1);
@@ -106,9 +104,8 @@ export default function CaseMarketingWorkspace({
   // ── Filters state for Step 3 Employers Table ──
   const [filterSourceId, setFilterSourceId] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterDate, setFilterDate] = useState("");
+  const [filterWebsite, setFilterWebsite] = useState("");
   const [filterCompanyName, setFilterCompanyName] = useState("");
-  const [filterOccupation, setFilterOccupation] = useState("");
   const [filterJobTitle, setFilterJobTitle] = useState("");
   const [filterEmails, setFilterEmails] = useState("");
   const [filterContactPerson, setFilterContactPerson] = useState("");
@@ -127,9 +124,8 @@ export default function CaseMarketingWorkspace({
     activePhase,
     filterSourceId,
     filterStatus,
-    filterDate,
+    filterWebsite,
     filterCompanyName,
-    filterOccupation,
     filterJobTitle,
     filterEmails,
     filterContactPerson,
@@ -141,9 +137,8 @@ export default function CaseMarketingWorkspace({
   const hasActiveFilters =
     Boolean(filterSourceId) ||
     Boolean(filterStatus) ||
-    Boolean(filterDate) ||
+    Boolean(filterWebsite) ||
     Boolean(filterCompanyName) ||
-    Boolean(filterOccupation) ||
     Boolean(filterJobTitle) ||
     Boolean(filterEmails) ||
     Boolean(filterContactPerson) ||
@@ -154,9 +149,8 @@ export default function CaseMarketingWorkspace({
   const clearAllFilters = () => {
     setFilterSourceId("");
     setFilterStatus("");
-    setFilterDate("");
+    setFilterWebsite("");
     setFilterCompanyName("");
-    setFilterOccupation("");
     setFilterJobTitle("");
     setFilterEmails("");
     setFilterContactPerson("");
@@ -178,19 +172,15 @@ export default function CaseMarketingWorkspace({
         return false;
       }
     }
-    if (filterDate) {
-      const empDate = emp.createdAt ? new Date(emp.createdAt).toISOString().split("T")[0] : "";
-      if (empDate !== filterDate) return false;
-    }
     if (
-      filterCompanyName &&
-      !emp.companyName?.toLowerCase().includes(filterCompanyName.toLowerCase().trim())
+      filterWebsite &&
+      !emp.website?.toLowerCase().includes(filterWebsite.toLowerCase().trim())
     ) {
       return false;
     }
     if (
-      filterOccupation &&
-      !emp.occupation?.toLowerCase().includes(filterOccupation.toLowerCase().trim())
+      filterCompanyName &&
+      !emp.companyName?.toLowerCase().includes(filterCompanyName.toLowerCase().trim())
     ) {
       return false;
     }
@@ -203,9 +193,8 @@ export default function CaseMarketingWorkspace({
     if (filterEmails) {
       const q = filterEmails.toLowerCase().trim();
       const matchHr = emp.hrEmail?.toLowerCase().includes(q);
-      const matchCareers = emp.careersEmail?.toLowerCase().includes(q);
       const matchGeneral = emp.generalEmail?.toLowerCase().includes(q);
-      if (!matchHr && !matchCareers && !matchGeneral) return false;
+      if (!matchHr && !matchGeneral) return false;
     }
     if (
       filterContactPerson &&
@@ -235,7 +224,7 @@ export default function CaseMarketingWorkspace({
   // Track if user clicked "Done Adding Job Boards" per phase
   const [step1FinishedMap, setStep1FinishedMap] = useState<Record<number, boolean>>({});
 
-  const [showEmployerForm, setShowEmployerForm] = useState(false);
+  const [showEmployerForm, setShowEmployerForm] = useState(true);
   const [employerForm, setEmployerForm] = useState(emptyEmployerForm());
   const [savingEmployer, setSavingEmployer] = useState(false);
 
@@ -248,12 +237,10 @@ export default function CaseMarketingWorkspace({
     setEditEmployerModal(emp);
     setEditEmployerForm({
       companyName: emp.companyName || "",
-      occupation: emp.occupation || "",
       jobTitle: emp.jobTitle || "",
       website: emp.website || "",
       jobUrl: emp.jobUrl || "",
       hrEmail: emp.hrEmail || "",
-      careersEmail: emp.careersEmail || "",
       generalEmail: emp.generalEmail || "",
       contactPerson: emp.contactPerson || "",
       phone: emp.phone || "",
@@ -297,8 +284,7 @@ export default function CaseMarketingWorkspace({
       setSavingEditEmployer(false);
     }
   };
-  const [emailModalEmployer, setEmailModalEmployer] = useState<MarketingEmployer | null>(null);
-  const [sendingEmail, setSendingEmail] = useState(false);
+
 
   const [statusModalEmployer, setStatusModalEmployer] = useState<MarketingEmployer | null>(null);
   const [statusValue, setStatusValue] = useState("");
@@ -365,11 +351,14 @@ export default function CaseMarketingWorkspace({
     try {
       const res = await fetch(`/api/case-marketing/${leadId}/summary`);
       const data = await res.json();
-      if (res.ok) setSummary(data.summary);
+      if (res.ok) {
+        setSummary(data.summary);
+        onSummaryLoaded?.(data.summary);
+      }
     } catch (err) {
       console.error(err);
     }
-  }, [leadId]);
+  }, [leadId, onSummaryLoaded]);
 
   const fetchPhaseData = useCallback(
     async (phase: number) => {
@@ -410,7 +399,6 @@ export default function CaseMarketingWorkspace({
 
   useEffect(() => {
     fetchPhaseData(activePhase);
-    setShowEmployerForm(false);
   }, [activePhase, fetchPhaseData]);
 
   const refreshAll = () => {
@@ -485,7 +473,7 @@ export default function CaseMarketingWorkspace({
   };
 
   const handleCompleteSource = async (source: MarketingSource) => {
-    if (!window.confirm(`Mark "${source.name}" as complete? You won't be able to add more employers to it.`)) return;
+    if (!window.confirm(`Mark "${source.name}" as complete? You can re-open it at any time.`)) return;
     setBusySourceId(source.id);
     try {
       const res = await fetch(`/api/case-marketing/${leadId}/sources/${source.id}`, {
@@ -499,6 +487,29 @@ export default function CaseMarketingWorkspace({
         refreshAll();
       } else {
         toast.error(data.message || "Could not complete this source");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setBusySourceId(null);
+    }
+  };
+
+  const handleReopenSource = async (source: MarketingSource) => {
+    setBusySourceId(source.id);
+    try {
+      const res = await fetch(`/api/case-marketing/${leadId}/sources/${source.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reopen" }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Re-opened research on ${source.name}`);
+        refreshAll();
+      } else {
+        toast.error(data.message || "Could not re-open this source");
       }
     } catch (err) {
       console.error(err);
@@ -553,9 +564,14 @@ export default function CaseMarketingWorkspace({
       });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Employer saved");
+        const currentScrollY = window.scrollY;
+        toast.success("Employer saved — ready for next employer");
         setEmployerForm(emptyEmployerForm());
+        setShowEmployerForm(true);
         refreshAll();
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: currentScrollY });
+        });
       } else {
         toast.error(data.message || "Failed to save employer");
       }
@@ -567,25 +583,24 @@ export default function CaseMarketingWorkspace({
     }
   };
 
-  const handleMarkEmailSent = async () => {
-    if (!emailModalEmployer) return;
-    setSendingEmail(true);
+  const [markingEmailSentEmpId, setMarkingEmailSentEmpId] = useState<number | null>(null);
+
+  const handleMarkEmailSentDirect = async (employerId: number, companyName: string) => {
+    const currentScrollY = window.scrollY;
+    setMarkingEmailSentEmpId(employerId);
     try {
-      const res = await fetch(
-        `/api/case-marketing/${leadId}/employers/${emailModalEmployer.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "email_sent",
-          }),
-        },
-      );
+      const res = await fetch(`/api/case-marketing/${leadId}/employers/${employerId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "email_sent" }),
+      });
       const data = await res.json();
       if (res.ok) {
-        toast.success("Email marked as sent — follow-ups scheduled");
-        setEmailModalEmployer(null);
+        toast.success(`Email marked as sent for ${companyName}`);
         refreshAll();
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: currentScrollY });
+        });
       } else {
         toast.error(data.message || "Failed to update");
       }
@@ -593,6 +608,7 @@ export default function CaseMarketingWorkspace({
       console.error(err);
       toast.error("Something went wrong");
     } finally {
+      setMarkingEmailSentEmpId(null);
     }
   };
 
@@ -648,39 +664,22 @@ export default function CaseMarketingWorkspace({
     <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
       <h2 className="text-sm font-bold text-gray-900 dark:text-gray-100 mb-4">CV Marketing Workspace</h2>
 
-      {/* Marketing Summary panel */}
-      {summary && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          {[
-            { label: "Employers", value: summary.totalEmployers },
-            { label: "Emails Sent", value: summary.initialEmailsSent },
-            { label: "Follow-ups Due", value: summary.followupsDueToday, alert: summary.followupsDueToday > 0 },
-            { label: "Interviews", value: summary.interviewsScheduled },
-            { label: "Replies", value: summary.totalReplies },
-            { label: "Interested", value: summary.interestedEmployers },
-            { label: "Response Rate", value: `${summary.averageResponseRate}%` },
-            { label: "Completion", value: `${summary.completionPercent}%` },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className={`rounded-lg border px-3 py-2 ${
-                stat.alert
-                  ? "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-900/20"
-                  : "border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50"
-              }`}
-            >
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">{stat.label}</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{stat.value}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Phase tabs — locked until previous phase is fully complete */}
       <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-100 dark:border-gray-800 pb-3">
         {PHASES.map((p) => {
           const accessible = isPhaseAccessible(p.phase);
           const active = activePhase === p.phase;
+          const completed = isPhaseComplete(p.phase);
+
+          let buttonStyle = "bg-gray-50 text-gray-400 dark:bg-gray-800/50 dark:text-gray-600 cursor-not-allowed opacity-60";
+          if (active) {
+            buttonStyle = "bg-red-600 text-white font-bold shadow-md hover:bg-red-700";
+          } else if (completed) {
+            buttonStyle = "bg-emerald-600 text-white font-bold shadow-md hover:bg-emerald-700";
+          } else if (accessible) {
+            buttonStyle = "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 font-medium";
+          }
+
           return (
             <button
               key={p.phase}
@@ -693,22 +692,20 @@ export default function CaseMarketingWorkspace({
               title={
                 !accessible
                   ? `Complete Phase ${p.phase - 1} first to unlock this phase`
+                  : completed
+                  ? `Phase ${p.phase} Completed ✓`
                   : undefined
               }
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                active
-                  ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
-                  : accessible
-                  ? "bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-                  : "bg-gray-50 text-gray-400 dark:bg-gray-800/50 dark:text-gray-600 cursor-not-allowed opacity-60"
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs transition ${buttonStyle}`}
             >
-              {!accessible && (
+              {!accessible ? (
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                     d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
-              )}
+              ) : completed ? (
+                <span className="font-bold">✓</span>
+              ) : null}
               Phase {p.phase} · {p.label}
             </button>
           );
@@ -826,18 +823,32 @@ export default function CaseMarketingWorkspace({
                             <button
                               onClick={() => handleSelectSource(s)}
                               disabled={busySourceId === s.id}
-                              className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50"
+                              className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 cursor-pointer"
                             >
                               {busySourceId === s.id ? "Starting..." : "Start"}
                             </button>
+                          )}
+                          {s.status === "pending" && firstUnlocked?.id !== s.id && (
+                            <span className="px-2.5 py-1 text-xs rounded-md bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-600 opacity-60 flex items-center gap-1 font-normal select-none">
+                              🔒 Locked
+                            </span>
                           )}
                           {s.status === "active" && (
                             <button
                               onClick={() => handleCompleteSource(s)}
                               disabled={busySourceId === s.id}
-                              className="px-2.5 py-1 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                              className="px-2.5 py-1 text-xs font-medium rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 cursor-pointer"
                             >
                               {busySourceId === s.id ? "Completing..." : `Complete ${phaseConfig.sourceLabel}`}
+                            </button>
+                          )}
+                          {s.status === "completed" && (
+                            <button
+                              onClick={() => handleReopenSource(s)}
+                              disabled={busySourceId === s.id}
+                              className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300 disabled:opacity-50 cursor-pointer"
+                            >
+                              {busySourceId === s.id ? "Opening..." : "↩️ Re-open / Continue"}
                             </button>
                           )}
                         </div>
@@ -952,214 +963,122 @@ export default function CaseMarketingWorkspace({
 
           {/* Unified Employers Section for Phase */}
           <div className="space-y-4">
-            {/* Interactive Filters Bar */}
-            <div className="bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-800 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide flex items-center gap-1.5">
-                  🔍 Phase {activePhase} Employers ({filteredEmployers.length} of {employers.length} Total)
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearAllFilters}
-                    className="text-xs font-semibold text-red-600 dark:text-red-400 hover:underline cursor-pointer"
-                  >
-                    Clear All Filters ✖
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
-                {/* 1. Job Board / Source */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    {phaseConfig.sourceLabel}
-                  </label>
-                  <select
-                    value={filterSourceId}
-                    onChange={(e) => setFilterSourceId(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">All {phaseConfig.sourceLabelPlural}</option>
-                    {sources.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 2. Status */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">All Statuses</option>
-                    <option value="Not Emailed Yet">Not Emailed Yet</option>
-                    <option value="Email Sent">Email Sent (Awaiting Reply)</option>
-                    {STATUS_OPTIONS.map((st) => (
-                      <option key={st.value} value={st.value}>
-                        {st.value}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* 3. Date Added */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Date Added
-                  </label>
-                  <input
-                    type="date"
-                    max={new Date().toISOString().split("T")[0]}
-                    value={filterDate}
-                    onChange={(e) => setFilterDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 4. Company Name */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Company Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Search company..."
-                    value={filterCompanyName}
-                    onChange={(e) => setFilterCompanyName(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 5. Occupation */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Occupation
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Filter occupation..."
-                    value={filterOccupation}
-                    onChange={(e) => setFilterOccupation(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 6. Job Title */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Job Title
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Filter job title..."
-                    value={filterJobTitle}
-                    onChange={(e) => setFilterJobTitle(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 7. Emails (HR/Careers/General in one) */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Emails (HR/Careers/Gen)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Filter emails..."
-                    value={filterEmails}
-                    onChange={(e) => setFilterEmails(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 8. Contact Person */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Contact Person
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Filter contact..."
-                    value={filterContactPerson}
-                    onChange={(e) => setFilterContactPerson(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 9. Phone */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    Phone
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Filter phone..."
-                    value={filterPhone}
-                    onChange={(e) => setFilterPhone(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 10. City */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Filter city..."
-                    value={filterCity}
-                    onChange={(e) => setFilterCity(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-
-                {/* 11. State */}
-                <div>
-                  <label className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Filter state..."
-                    value={filterState}
-                    onChange={(e) => setFilterState(e.target.value)}
-                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-              </div>
-            </div>
-
             {/* Single Unified Data Table Box */}
-            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-xs">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-                  <thead className="bg-gray-50 dark:bg-gray-800/80">
+                <table className="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
+                  <thead className="bg-zinc-100/90 dark:bg-zinc-800/90">
+                    {/* Header Titles */}
                     <tr>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[130px]">
                         Job Board
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-40">
                         Company Name
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
-                        Website
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[130px]">
+                        Website / Date
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[150px]">
                         Contact &amp; Phone
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[140px]">
                         Emails
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wide">
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[200px]">
                         Status &amp; Actions
+                      </th>
+                    </tr>
+
+                    {/* Integrated In-Table Column Filters */}
+                    <tr className="bg-zinc-200/60 dark:bg-zinc-800/60 border-t border-zinc-200 dark:border-zinc-700">
+                      {/* 1. Job Board Filter */}
+                      <th className="p-1.5 align-middle">
+                        <select
+                          value={filterSourceId}
+                          onChange={(e) => setFilterSourceId(e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
+                        >
+                          <option value="">All {phaseConfig.sourceLabelPlural}</option>
+                          {sources.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </th>
+
+                      {/* 2. Company Name Filter */}
+                      <th className="p-1.5 align-middle">
+                        <input
+                          type="text"
+                          placeholder="Filter company..."
+                          value={filterCompanyName}
+                          onChange={(e) => setFilterCompanyName(e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
+                        />
+                      </th>
+
+                      {/* 3. Website Filter */}
+                      <th className="p-1.5 align-middle">
+                        <input
+                          type="text"
+                          placeholder="Filter website..."
+                          value={filterWebsite}
+                          onChange={(e) => setFilterWebsite(e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
+                        />
+                      </th>
+
+                      {/* 4. Contact & Phone Filter */}
+                      <th className="p-1.5 align-middle">
+                        <input
+                          type="text"
+                          placeholder="Filter contact..."
+                          value={filterContactPerson}
+                          onChange={(e) => setFilterContactPerson(e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
+                        />
+                      </th>
+
+                      {/* 5. Emails Filter */}
+                      <th className="p-1.5 align-middle">
+                        <input
+                          type="text"
+                          placeholder="Filter email..."
+                          value={filterEmails}
+                          onChange={(e) => setFilterEmails(e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
+                        />
+                      </th>
+
+                      {/* 6. Status Filter & Clear Button */}
+                      <th className="p-1.5 align-middle">
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
+                          >
+                            <option value="">All Statuses</option>
+                            <option value="Not Emailed Yet">Not Emailed Yet</option>
+                            <option value="Email Sent">Email Sent</option>
+                            {STATUS_OPTIONS.map((st) => (
+                              <option key={st.value} value={st.value}>
+                                {st.value}
+                              </option>
+                            ))}
+                          </select>
+                          {hasActiveFilters && (
+                            <button
+                              onClick={clearAllFilters}
+                              title="Clear all filters"
+                              className="px-2 py-1 text-[10px] font-bold rounded bg-red-600 text-white hover:bg-red-700 cursor-pointer whitespace-nowrap"
+                            >
+                              ✖ Clear
+                            </button>
+                          )}
+                        </div>
                       </th>
                     </tr>
                   </thead>
@@ -1182,7 +1101,7 @@ export default function CaseMarketingWorkspace({
                         );
 
                         const primaryEmail =
-                          emp.hrEmail || emp.careersEmail || emp.generalEmail || "-";
+                          emp.hrEmail || emp.generalEmail || "-";
 
                         return (
                           <tr
@@ -1316,10 +1235,11 @@ export default function CaseMarketingWorkspace({
 
                                     {!emp.emailSent ? (
                                       <button
-                                        onClick={() => setEmailModalEmployer(emp)}
-                                        className="px-2 py-0.5 text-[10px] font-medium rounded bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+                                        onClick={() => handleMarkEmailSentDirect(emp.id, emp.companyName)}
+                                        disabled={markingEmailSentEmpId === emp.id}
+                                        className="px-2 py-0.5 text-[10px] font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
                                       >
-                                        Mark Email Sent
+                                        {markingEmailSentEmpId === emp.id ? "Saving..." : "Mark Email Sent"}
                                       </button>
                                     ) : (
                                       <button
@@ -1459,34 +1379,7 @@ export default function CaseMarketingWorkspace({
         </div>
       )}
 
-      {/* Simplified Email Confirmation Modal */}
-      {emailModalEmployer && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 w-full max-w-sm">
-            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-2">
-              Confirm Email Sent
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to mark email as sent to <strong className="text-gray-900 dark:text-gray-100">{emailModalEmployer.companyName}</strong>?
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setEmailModalEmployer(null)}
-                className="px-3.5 py-1.5 text-xs font-medium rounded-md bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleMarkEmailSent}
-                disabled={sendingEmail}
-                className="px-3.5 py-1.5 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {sendingEmail ? "Saving..." : "Yes, Mark Email Sent"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Status Update modal */}
       {statusModalEmployer && (
@@ -1555,66 +1448,58 @@ export default function CaseMarketingWorkspace({
               </button>
             </div>
 
-            {/* 3-Column Compact Grid for All 13 Fields */}
+            {/* Compact Grid for Employer Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs bg-gray-50/70 dark:bg-gray-800/40 p-3 rounded-lg border border-gray-100 dark:border-gray-800">
               <div>
                 <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">1. Company Name</span>
                 <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{viewDetailsEmployer.companyName || "-"}</p>
               </div>
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">2. Occupation</span>
-                <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.occupation || "-"}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">3. Job Title</span>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">2. Job Title</span>
                 <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.jobTitle || "-"}</p>
               </div>
-
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">4. Website URL</span>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">3. Website URL</span>
                 <p className="truncate">
                   {viewDetailsEmployer.website ? (
                     <a href={viewDetailsEmployer.website.startsWith("http") ? viewDetailsEmployer.website : `https://${viewDetailsEmployer.website}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline font-medium">{viewDetailsEmployer.website}</a>
                   ) : "-"}
                 </p>
               </div>
+
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">5. HR Email</span>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">4. HR Email</span>
                 <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.hrEmail || "-"}</p>
               </div>
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">6. Careers Email</span>
-                <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.careersEmail || "-"}</p>
-              </div>
-
-              <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">7. General Email</span>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">5. General Email</span>
                 <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.generalEmail || "-"}</p>
               </div>
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">8. Contact Person</span>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">6. Contact Person</span>
                 <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.contactPerson || "-"}</p>
-              </div>
-              <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">9. Phone</span>
-                <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.phone || "-"}</p>
               </div>
 
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">10. City</span>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">7. Phone</span>
+                <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.phone || "-"}</p>
+              </div>
+              <div>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">8. City</span>
                 <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.city || "-"}</p>
               </div>
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">11. State</span>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">9. State</span>
                 <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.state || "-"}</p>
               </div>
+
               <div>
                 <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">Status</span>
                 <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{viewDetailsEmployer.status || (viewDetailsEmployer.emailSent ? "✓ Email Sent" : "✉️ Not Emailed Yet")}</p>
               </div>
 
-              <div className="sm:col-span-3">
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">12. Job Advertisement URL</span>
+              <div className="sm:col-span-2">
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">10. Job Advertisement URL</span>
                 <p className="truncate">
                   {viewDetailsEmployer.jobUrl ? (
                     <a href={viewDetailsEmployer.jobUrl.startsWith("http") ? viewDetailsEmployer.jobUrl : `https://${viewDetailsEmployer.jobUrl}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline font-medium">{viewDetailsEmployer.jobUrl}</a>
@@ -1624,7 +1509,7 @@ export default function CaseMarketingWorkspace({
 
               {(viewDetailsEmployer.notes || viewDetailsEmployer.statusNotes) && (
                 <div className="sm:col-span-3">
-                  <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">13. Notes</span>
+                  <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">11. Notes</span>
                   <p className="font-medium text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{viewDetailsEmployer.notes || viewDetailsEmployer.statusNotes || "-"}</p>
                 </div>
               )}

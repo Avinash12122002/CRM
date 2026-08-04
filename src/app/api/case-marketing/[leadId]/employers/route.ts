@@ -7,12 +7,10 @@ import { getPhaseConfig } from "@/lib/caseMarketing";
 
 const EMPLOYER_FIELDS = [
   "companyName",
-  "occupation",
   "jobTitle",
   "website",
   "jobUrl",
   "hrEmail",
-  "careersEmail",
   "generalEmail",
   "contactPerson",
   "phone",

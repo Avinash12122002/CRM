@@ -28,18 +28,7 @@ export const PHASES: PhaseConfig[] = [
     label: "Job Boards",
     sourceLabel: "Job Board",
     sourceLabelPlural: "Job Boards",
-    presets: [
-      "Seek",
-      "Indeed",
-      "LinkedIn Jobs",
-      "Jora",
-      "CareerOne",
-      "Workforce Australia",
-      "Naukri",
-      "Monster",
-      "LinkedIn Companies",
-      "Other",
-    ],
+    presets: [],
     description: "Add every job board (including LinkedIn) and work through them one at a time.",
   },
   {
@@ -57,7 +46,7 @@ export const PHASES: PhaseConfig[] = [
     label: "Core Employers",
     sourceLabel: "Category",
     sourceLabelPlural: "Categories",
-    presets: ["Hotels", "Resorts", "Restaurant Chains", "Mining Camps", "Airlines", "Cruise Companies", "Hospitals"],
+    presets: [],
     description: "Add core employer categories relevant to the candidate's occupation.",
   },
   {
