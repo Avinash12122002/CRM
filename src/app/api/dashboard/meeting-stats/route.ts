@@ -31,39 +31,45 @@ export async function GET(req: NextRequest) {
     const uidNum = isNaN(Number(uid)) ? null : Number(uid);
     const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
 
-    // Fetch leads assigned to, booked by, conducted by, or converted by this meeting user
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allLeads: any[] = await db
-      .collection("leads")
-      .find({
-        $or: [
-          { "meetingDetails.meetingUserId": { $in: matchUserIds } },
-          { "meetingDetails.bookedBy": { $in: matchUserIds } },
-          { assignedTo: { $in: matchUserIds } },
-          { "salesDocument.uploadedBy": { $in: matchUserIds } },
-          { history: { $elemMatch: { action: "status_updated", newStatus: "sales", performedBy: { $in: matchUserIds } } } },
-        ],
-      })
-      .toArray();
+    // Find only leads that have meeting details, just like /api/meetings
+    const filter: Record<string, any> = {
+      meetingDetails: { $exists: true, $ne: null },
+    };
 
-    // Today's scheduled meetings
+    if (payload.role === "meeting") {
+      filter["$or"] = [
+        { "meetingDetails.meetingUserId": { $in: matchUserIds } },
+        { assignedTo: { $in: matchUserIds } },
+      ];
+    } else if (payload.role === "telecaller" || payload.role === "employee") {
+      filter["$or"] = [
+        { assignedTo: { $in: matchUserIds } },
+        { "meetingDetails.bookedBy": { $in: matchUserIds } },
+      ];
+    }
+
+    const allLeads: any[] = await db.collection("leads").find(filter).toArray();
+
+    const isCompleted = (l: any) =>
+      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
+    const isCancelled = (l: any) =>
+      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
+    const isScheduled = (l: any) =>
+      !isCompleted(l) &&
+      !isCancelled(l) &&
+      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+
+    // Today's scheduled meetings (or total scheduled, depending on what we want, but the UI says "Today's Meetings")
     const todayMeetingSlots = allLeads.filter((l) => {
       const isToday = l.meetingDetails?.meetingDate === todayStr;
-      const isScheduled =
-        l.meetingStatus === "scheduled" ||
-        (!l.meetingStatus && l.status !== "sales" && l.status !== "lost");
-      return isToday && isScheduled;
+      return isToday && isScheduled(l);
     }).length;
 
     // Completed meetings
-    const completedMeetings = allLeads.filter(
-      (l) => l.meetingStatus === "completed" || l.status === "sales"
-    ).length;
+    const completedMeetings = allLeads.filter(isCompleted).length;
 
     // Cancelled meetings
-    const cancelledMeetings = allLeads.filter(
-      (l) => l.meetingStatus === "cancelled"
-    ).length;
+    const cancelledMeetings = allLeads.filter(isCancelled).length;
 
     return NextResponse.json({
       todayMeetingSlots,
