@@ -151,6 +151,16 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Leads
                 </Link>
               )}
+              {(user.role === "admin" || user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+                <Link
+                  href="/dashboard/triloknath-leads"
+                  className={deskLinkClass(
+                    isActive("/dashboard/triloknath-leads") || pathname.startsWith("/dashboard/triloknath-leads/")
+                  )}
+                >
+                  Triloknath Leads
+                </Link>
+              )}
               <Link href="/dashboard/activity" className={deskLinkClass(isActive("/dashboard/activity"))}>
                 Activity
               </Link>
@@ -320,6 +330,17 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             {(user.role === "admin" || user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
               <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
                 Leads
+              </Link>
+            )}
+            {(user.role === "admin" || user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+              <Link
+                href="/dashboard/triloknath-leads"
+                className={navLinkClass(
+                  isActive("/dashboard/triloknath-leads") ||
+                    pathname.startsWith("/dashboard/triloknath-leads/")
+                )}
+              >
+                Triloknath Leads
               </Link>
             )}
             <Link href="/dashboard/activity" className={navLinkClass(isActive("/dashboard/activity"))}>
