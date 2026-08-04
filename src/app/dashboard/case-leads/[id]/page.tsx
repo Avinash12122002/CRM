@@ -249,7 +249,7 @@ export default function CaseManagerLeadDetailPage() {
             {/* Signed Document */}
             <div className="flex items-center gap-2 shrink-0 border-r border-gray-200 dark:border-gray-800 pr-3">
               <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wide">
-                Signed Doc:
+                CV :
               </span>
               {lead.salesDocument?.fileId ? (
                 <a
