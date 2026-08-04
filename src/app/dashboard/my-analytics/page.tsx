@@ -51,9 +51,8 @@ type TelecallerData = {
 type MeetingData = {
   date: string | null; month: string | null; filtered: boolean; totalInDb: number;
   metrics: {
-    totalMeetings: number; completed: number; cancelled: number; scheduled: number;
-    salesConverted: number; totalLeadsAssigned: number;
-    conversionRate: number; meetingEfficiency: number;
+    totalLeads: number; totalMeetings: number; completed: number; cancelled: number; scheduled: number;
+    salesConverted: number; conversionRate: number; meetingEfficiency: number;
   };
   upcomingMeetings: {
     leadId: number; meetingDate: string; startTime: string; endTime: string; bookedByName: string;
@@ -547,12 +546,12 @@ function MeetingView({
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        <MetricCard label="Total Meetings" value={m.totalMeetings} color="blue" />
+        <MetricCard label="Total Leads" value={m.totalLeads} color="blue" />
+        <MetricCard label="Total Meetings" value={m.totalMeetings} color="sky" />
         <MetricCard label="Completed" value={m.completed} color="emerald" />
         <MetricCard label="Cancelled" value={m.cancelled} color="red" />
         <MetricCard label="Scheduled (Pending)" value={m.scheduled} color="amber" />
         <MetricCard label="Sales Converted" value={m.salesConverted} color="green" />
-        <MetricCard label="Leads Assigned" value={m.totalLeadsAssigned} color="sky" />
         <MetricCard label="Conversion Rate" value={`${m.conversionRate}%`} color="violet" />
         <MetricCard label="Meeting Efficiency" value={`${m.meetingEfficiency}%`} color="teal" />
       </div>

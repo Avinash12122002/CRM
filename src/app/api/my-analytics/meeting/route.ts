@@ -55,61 +55,69 @@ export async function GET(req: NextRequest) {
     const uidNum = isNaN(Number(uid)) ? null : Number(uid);
     const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
 
-    // Query leads with meeting details assigned to or conducted by this meeting user
+    // 1. Fetch ALL leads associated with this meeting user (assigned, booked, conducted, or converted)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allMeetingLeads: any[] = await db
+    const allLeadsRaw: any[] = await db
       .collection("leads")
       .find({
-        meetingDetails: { $exists: true, $ne: null },
         $or: [
           { "meetingDetails.meetingUserId": { $in: matchUserIds } },
+          { "meetingDetails.bookedBy": { $in: matchUserIds } },
           { assignedTo: { $in: matchUserIds } },
+          { "salesDocument.uploadedBy": { $in: matchUserIds } },
+          { history: { $elemMatch: { action: "status_updated", newStatus: "sales", performedBy: { $in: matchUserIds } } } },
         ],
       })
       .toArray();
 
-    allMeetingLeads.sort((a, b) => {
+    allLeadsRaw.sort((a, b) => {
       const da = new Date(a.meetingDetails?.meetingDate || a.createdAt || 0).getTime();
       const dbTime = new Date(b.meetingDetails?.meetingDate || b.createdAt || 0).getTime();
       return dbTime - da;
     });
 
-    const totalInDb = allMeetingLeads.length;
     const isFiltered = !!(validDate || validMonth);
 
-    // Filter by cohort date/month (check meetingDate first, fallback to createdAt/updatedAt)
+    // Cohort leads
     const cohortLeads = isFiltered
-      ? allMeetingLeads.filter((l) =>
+      ? allLeadsRaw.filter((l) =>
           isDateInCohort(l.meetingDetails?.meetingDate || l.createdAt || l.updatedAt, validDate, validMonth)
         )
-      : allMeetingLeads;
+      : allLeadsRaw;
 
-    // Metrics matching the Meetings page (/dashboard/meetings) exactly:
-    const totalMeetings = cohortLeads.length;
-    const completed = cohortLeads.filter(
-      (l) => l.meetingStatus === "completed" || l.status === "sales"
-    ).length;
-    const cancelled = cohortLeads.filter((l) => l.meetingStatus === "cancelled").length;
-    const scheduled = cohortLeads.filter(
-      (l) =>
-        l.meetingStatus === "scheduled" ||
-        (!l.meetingStatus && l.status !== "sales" && l.status !== "lost")
-    ).length;
+    // Separate cohort for leads that actually sit in meetingDetails (true meeting leads)
+    const cohortMeetingLeads = cohortLeads.filter((l) => l.meetingDetails != null);
+
+    // Total leads & Total meetings metrics
+    const totalLeads = cohortLeads.length;
+    const totalMeetings = cohortMeetingLeads.length;
+
+    const isCompleted = (l: any) =>
+      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
+    const isCancelled = (l: any) =>
+      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
+    const isScheduled = (l: any) =>
+      !isCompleted(l) &&
+      !isCancelled(l) &&
+      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+
+    const completed = cohortMeetingLeads.filter(isCompleted).length;
+    const cancelled = cohortMeetingLeads.filter(isCancelled).length;
+    const scheduled = cohortMeetingLeads.filter(isScheduled).length;
 
     // Sales attributed to this meeting user
     const salesConverted = cohortLeads.filter((l) => l.status === "sales").length;
-    const conversionRate = pct(salesConverted, cohortLeads.length);
+    const conversionRate = pct(salesConverted, totalLeads);
     const meetingEfficiency = pct(salesConverted, totalMeetings);
 
     // Upcoming meetings (scheduled, future or today)
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const upcomingMeetings = allMeetingLeads
-      .filter((l) => {
-        const isScheduled = l.meetingStatus === "scheduled" || (!l.meetingStatus && l.status !== "sales" && l.status !== "lost");
+    const upcomingMeetings = allLeadsRaw
+      .filter((l: any) => {
         const mDate = l.meetingDetails?.meetingDate || "";
-        return isScheduled && mDate >= todayStr;
+        return isScheduled(l) && mDate >= todayStr;
       })
-      .sort((a, b) => ((a.meetingDetails?.meetingDate || "") > (b.meetingDetails?.meetingDate || "") ? 1 : -1))
+      .sort((a: any, b: any) => ((a.meetingDetails?.meetingDate || "") > (b.meetingDetails?.meetingDate || "") ? 1 : -1))
       .slice(0, 10)
       .map((l) => ({
         leadId: l.id,
@@ -147,11 +155,10 @@ export async function GET(req: NextRequest) {
     }));
 
     return NextResponse.json({
-      date: validDate || null, month: validMonth || null, filtered: isFiltered, totalInDb,
+      date: validDate || null, month: validMonth || null, filtered: isFiltered, totalInDb: allLeadsRaw.length,
       metrics: {
-        totalMeetings, completed, cancelled, scheduled,
-        salesConverted, totalLeadsAssigned: cohortLeads.length,
-        conversionRate, meetingEfficiency,
+        totalLeads, totalMeetings, completed, cancelled, scheduled,
+        salesConverted, conversionRate, meetingEfficiency,
       },
       upcomingMeetings, dailyTrend,
       history: {

@@ -55,13 +55,18 @@ export async function GET(req: NextRequest) {
     });
 
     const total = allMeetings.length;
-    const scheduled = allMeetings.filter(
-      (l) => l.meetingStatus === "scheduled" || (!l.meetingStatus && l.status !== "sales" && l.status !== "lost")
-    ).length;
-    const completed = allMeetings.filter(
-      (l) => l.meetingStatus === "completed" || l.status === "sales"
-    ).length;
-    const cancelled = allMeetings.filter((l) => l.meetingStatus === "cancelled").length;
+    const isCompleted = (l: any) =>
+      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
+    const isCancelled = (l: any) =>
+      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
+    const isScheduled = (l: any) =>
+      !isCompleted(l) &&
+      !isCancelled(l) &&
+      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+
+    const completed = allMeetings.filter(isCompleted).length;
+    const cancelled = allMeetings.filter(isCancelled).length;
+    const scheduled = allMeetings.filter(isScheduled).length;
 
     const totalPages = Math.ceil(total / limit) || 0;
     const startIndex = (page - 1) * limit;
