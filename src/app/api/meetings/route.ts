@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
       const timeA = a.meetingDetails?.startTime || "";
       const timeB = b.meetingDetails?.startTime || "";
-      return timeA.localeCompare(timeB);
+      return timeB.localeCompare(timeA);
     });
 
     const total = allMeetings.length;

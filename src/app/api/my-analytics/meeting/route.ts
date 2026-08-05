@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 
       const timeA = a.meetingDetails?.startTime || "";
       const timeB = b.meetingDetails?.startTime || "";
-      return timeA.localeCompare(timeB);
+      return timeB.localeCompare(timeA);
     });
 
     const isFiltered = !!(validDate || validMonth);
@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
         if (dateCmp !== 0) return dateCmp;
         const timeA = a.meetingDetails?.startTime || "";
         const timeB = b.meetingDetails?.startTime || "";
-        return timeA.localeCompare(timeB);
+        return timeB.localeCompare(timeA);
       })
       .slice(0, 10)
       .map((l) => ({
