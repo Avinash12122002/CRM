@@ -532,18 +532,6 @@ export default function CaseManagerLeadsPage() {
                           >
                             {lead.name || "-"}
                           </button>
-                          {lead.occupations && lead.occupations.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-0.5">
-                              {lead.occupations.map((occ, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
-                                >
-                                  💼 {occ}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                           {lead.hasFollowupDue && (
                             <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-red-600 text-white w-fit shadow-xs">
                               🔔 Follow-up Due (Day 10+)

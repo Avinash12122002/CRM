@@ -87,6 +87,10 @@ export default function CaseManagerLeadDetailPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [savingCredentials, setSavingCredentials] = useState(false);
 
+  const [showOccupationEdit, setShowOccupationEdit] = useState(false);
+  const [editOccupations, setEditOccupations] = useState<string[]>([]);
+  const [savingOccupations, setSavingOccupations] = useState(false);
+
   useEffect(() => {
     fetchUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,6 +166,58 @@ export default function CaseManagerLeadDetailPage() {
       toast.error("Something went wrong saving credentials");
     } finally {
       setSavingCredentials(false);
+    }
+  };
+
+  const handleStartEditOccupations = () => {
+    setEditOccupations(
+      lead?.occupations && lead.occupations.length > 0 ? [...lead.occupations] : [""]
+    );
+    setShowOccupationEdit(true);
+  };
+
+  const handleAddOccupationInput = () => {
+    setEditOccupations((prev) => [...prev, ""]);
+  };
+
+  const handleRemoveOccupationInput = (index: number) => {
+    setEditOccupations((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleOccupationChange = (index: number, value: string) => {
+    setEditOccupations((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  const handleSaveOccupations = async () => {
+    const clean = editOccupations.map((o) => o.trim()).filter(Boolean);
+    if (clean.length === 0) {
+      toast.error("Please add at least one occupation");
+      return;
+    }
+    setSavingOccupations(true);
+    try {
+      const res = await fetch(`/api/case-manager/leads/${leadId}/occupations`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ occupations: clean }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Occupations updated successfully!");
+        setLead((prev) => (prev ? { ...prev, occupations: clean } : prev));
+        setShowOccupationEdit(false);
+      } else {
+        toast.error(data.message || "Failed to update occupations");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong updating occupations");
+    } finally {
+      setSavingOccupations(false);
     }
   };
 
@@ -346,23 +402,105 @@ export default function CaseManagerLeadDetailPage() {
             </div>
 
             {/* Candidate Occupations — Displayed directly below the View PDF section */}
-            {lead.occupations && lead.occupations.length > 0 && (
-              <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-800/60">
-                <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Candidate Occupations:
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {lead.occupations.map((occ, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2.5 py-0.5 text-xs font-semibold rounded-md bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+            <div className="pt-2 border-t border-gray-100 dark:border-gray-800/60">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Candidate Occupations:
+                  </span>
+                  {user.role === "admin" && !showOccupationEdit && (
+                    <button
+                      type="button"
+                      onClick={handleStartEditOccupations}
+                      className="px-2 py-0.5 text-xs font-semibold rounded bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/60 dark:text-purple-300 border border-purple-200 dark:border-purple-800 transition cursor-pointer"
                     >
-                      💼 {occ}
-                    </span>
-                  ))}
+                      {lead.occupations && lead.occupations.length > 0 ? "✏️ Edit Occupations" : "+ Add Occupation"}
+                    </button>
+                  )}
                 </div>
+                {user.role === "admin" && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 font-semibold border border-purple-200 dark:border-purple-800/60">
+                    Admin Editable
+                  </span>
+                )}
               </div>
-            )}
+
+              {showOccupationEdit ? (
+                <div className="bg-purple-50/50 dark:bg-purple-950/20 p-3 rounded-lg border border-purple-200 dark:border-purple-900/60 mt-1">
+                  <p className="text-xs text-purple-900 dark:text-purple-300 font-medium mb-2">
+                    Add or update candidate occupations (Admin only):
+                  </p>
+                  <div className="space-y-2 mb-3">
+                    {editOccupations.map((occ, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={occ}
+                          onChange={(e) => handleOccupationChange(idx, e.target.value)}
+                          placeholder="e.g. Registered Nurse, Aged Care Worker"
+                          className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                        {editOccupations.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveOccupationInput(idx)}
+                            className="p-1.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                            title="Remove occupation"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddOccupationInput}
+                      className="px-2.5 py-1 text-xs font-semibold rounded bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-700 hover:bg-purple-100/50 transition cursor-pointer"
+                    >
+                      + Add More Occupation
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowOccupationEdit(false)}
+                        disabled={savingOccupations}
+                        className="px-3 py-1 text-xs font-semibold rounded bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 transition cursor-pointer disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveOccupations}
+                        disabled={savingOccupations}
+                        className="px-3 py-1 text-xs font-semibold rounded bg-purple-600 hover:bg-purple-700 text-white transition cursor-pointer disabled:opacity-50"
+                      >
+                        {savingOccupations ? "Saving..." : "💾 Save Occupations"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-row flex-nowrap items-center gap-1.5 mt-1 whitespace-nowrap overflow-x-auto">
+                  {lead.occupations && lead.occupations.length > 0 ? (
+                    lead.occupations.map((occ, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center shrink-0 px-2.5 py-0.5 text-xs font-semibold rounded-md bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap"
+                      >
+                        💼 {occ}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs italic text-gray-400">
+                      No occupations added yet {user.role === "admin" ? "(Click '+ Add Occupation' above to add)" : ""}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Case Manager Email & Password — Displayed directly below Occupations */}
             <div className="pt-2.5 border-t border-gray-100 dark:border-gray-800/60">
