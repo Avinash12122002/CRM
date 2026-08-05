@@ -98,6 +98,8 @@ export async function GET(
             meetingCancelledAt: 1,
             notes: 1,
             salesDocument: 1,
+            occupations: 1,
+            caseManagerAssignedAt: 1,
           },
         },
       ])

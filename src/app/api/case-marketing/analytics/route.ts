@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
 
     const leads = cohortWindow
       ? allLeads.filter((l) => {
-          const rawDate = l.caseManagerAssignedAt || l.updatedAt || l.createdAt;
+          const rawDate = l.caseManagerAssignedAt || l.createdAt;
           if (!rawDate) return false;
           const d = new Date(rawDate);
           return !isNaN(d.getTime()) && d >= cohortWindow!.start && d < cohortWindow!.end;

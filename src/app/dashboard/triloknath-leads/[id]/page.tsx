@@ -69,6 +69,13 @@ interface Lead {
   createdByName?: string;
   createdAt: string;
   updatedAt: string;
+  occupations?: string[];
+  salesDocument?: {
+    fileId: string;
+    fileName: string;
+    uploadedAt: string;
+    uploadedByName?: string;
+  };
   history: HistoryEntry[];
   isOwner: boolean;
 }
@@ -89,12 +96,32 @@ export default function TriloknathLeadDetailPage() {
   // ── Sales conversion (Case Manager select + PDF upload) modal state ──
   const [showSalesModal, setShowSalesModal] = useState(false);
   const [salesFile, setSalesFile] = useState<File | null>(null);
+  const [salesOccupations, setSalesOccupations] = useState<string[]>([""]);
   const [convertingToSales, setConvertingToSales] = useState(false);
   const [caseManagerOptions, setCaseManagerOptions] = useState<
     { id: number; name: string; leadCount: number }[]
   >([]);
   const [selectedCaseManagerId, setSelectedCaseManagerId] = useState("");
   const [loadingCaseManagers, setLoadingCaseManagers] = useState(false);
+
+  const handleAddOccupationInput = () => {
+    setSalesOccupations((prev) => [...prev, ""]);
+  };
+
+  const handleOccupationChange = (index: number, val: string) => {
+    setSalesOccupations((prev) => {
+      const copy = [...prev];
+      copy[index] = val;
+      return copy;
+    });
+  };
+
+  const handleRemoveOccupationInput = (index: number) => {
+    setSalesOccupations((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   const [adminUsers, setAdminUsers] = useState<{ id: number; name: string }[]>(
     [],
@@ -449,6 +476,16 @@ export default function TriloknathLeadDetailPage() {
       toast.error("Please select a Case Manager");
       return;
     }
+
+    const validOccupations = salesOccupations
+      .map((o) => o.trim())
+      .filter((o) => o.length > 0);
+
+    if (validOccupations.length === 0) {
+      toast.error("Please enter at least one occupation");
+      return;
+    }
+
     if (!salesFile) {
       toast.error("Please choose a PDF file to upload");
       return;
@@ -471,6 +508,7 @@ export default function TriloknathLeadDetailPage() {
       const formData = new FormData();
       formData.append("file", salesFile);
       formData.append("caseManagerId", selectedCaseManagerId);
+      formData.append("occupations", JSON.stringify(validOccupations));
 
       const res = await fetch(`/api/triloknath/leads/${leadId}/convert-to-sales`, {
         method: "POST",
@@ -1185,6 +1223,10 @@ export default function TriloknathLeadDetailPage() {
                     { label: "Passport Type", value: lead.passportType },
                     { label: "Lead Source", value: lead.leadSource },
                     { label: "Job Applied", value: lead.jobApplied },
+                    {
+                      label: "Occupations",
+                      value: lead.occupations && lead.occupations.length > 0 ? lead.occupations.join(", ") : null,
+                    },
                     {
                       label: "Due Date",
                       value: lead.dueDate
@@ -2031,25 +2073,24 @@ export default function TriloknathLeadDetailPage() {
             </h2>
             <p className="text-sm text-gray-600 mb-4">
               Marking this lead as <span className="font-semibold">Sales</span>{" "}
-              requires choosing a Case Manager to hand it off to, plus the
-              signed document (PDF).
+              requires picking a Case Manager, entering the candidate&apos;s occupation(s), and uploading the signed document (PDF).
             </p>
 
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Case Manager <span className="text-red-500">*</span>
+            {/* Field 1: Case Manager */}
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              1. Case Manager <span className="text-red-500">*</span>
             </label>
             {loadingCaseManagers ? (
               <p className="text-sm text-gray-500 mb-4">Loading Case Managers...</p>
             ) : caseManagerOptions.length === 0 ? (
               <p className="text-sm text-red-600 mb-4">
-                No Case Manager is set up yet. Please add a Case Manager user
-                first.
+                No Case Manager is set up yet. Please add a Case Manager user first.
               </p>
             ) : (
               <select
                 value={selectedCaseManagerId}
                 onChange={(e) => setSelectedCaseManagerId(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 cursor-pointer"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4 cursor-pointer"
               >
                 <option value="">Select a Case Manager</option>
                 {caseManagerOptions.map((cm) => (
@@ -2060,8 +2101,48 @@ export default function TriloknathLeadDetailPage() {
               </select>
             )}
 
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Signed Document (PDF) <span className="text-red-500">*</span>
+            {/* Field 2: Occupations (Multiple inputs + Add button) */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700">
+                  2. Occupations <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAddOccupationInput}
+                  className="text-xs font-semibold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  + Add Occupation
+                </button>
+              </div>
+              <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
+                {salesOccupations.map((occ, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder={`Occupation ${idx + 1} (e.g. Cook, Welder)`}
+                      value={occ}
+                      onChange={(e) => handleOccupationChange(idx, e.target.value)}
+                      className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {salesOccupations.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveOccupationInput(idx)}
+                        className="px-2 py-1 text-xs font-bold text-red-500 hover:text-red-700 cursor-pointer"
+                        title="Remove occupation"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Field 3: Signed Document / Resume (PDF) */}
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+              3. Signed Document / Resume (PDF) <span className="text-red-500">*</span>
             </label>
             <input
               type="file"
@@ -2070,7 +2151,8 @@ export default function TriloknathLeadDetailPage() {
               className="w-full text-sm text-gray-700 border border-gray-300 rounded-lg p-2 mb-4 cursor-pointer"
             />
 
-            <div className="flex gap-3">
+            {/* Field 4: Submit & Cancel Buttons */}
+            <div className="flex gap-3 pt-2 border-t border-gray-100">
               <button
                 type="button"
                 disabled={
@@ -2090,6 +2172,7 @@ export default function TriloknathLeadDetailPage() {
                   setShowSalesModal(false);
                   setSalesFile(null);
                   setSelectedCaseManagerId("");
+                  setSalesOccupations([""]);
                   setCaseManagerOptions([]);
                 }}
                 className="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition disabled:opacity-50 cursor-pointer"

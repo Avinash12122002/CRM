@@ -60,8 +60,8 @@ export async function GET(req: NextRequest) {
       .toArray();
 
     const allCaseLeads = leadsMain.sort((a, b) => {
-      const da = new Date(a.caseManagerAssignedAt || a.updatedAt || a.createdAt || 0).getTime();
-      const dbTime = new Date(b.caseManagerAssignedAt || b.updatedAt || b.createdAt || 0).getTime();
+      const da = new Date(a.caseManagerAssignedAt || a.createdAt || 0).getTime();
+      const dbTime = new Date(b.caseManagerAssignedAt || b.createdAt || 0).getTime();
       return dbTime - da;
     });
 
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 
     // Filter case leads by caseManagerAssignedAt (or fallback date) in date/month window
     const cohortLeads = isFiltered
-      ? allCaseLeads.filter((l) => isDateInCohort(l.caseManagerAssignedAt || l.updatedAt || l.createdAt, validDate, validMonth))
+      ? allCaseLeads.filter((l) => isDateInCohort(l.caseManagerAssignedAt || l.createdAt, validDate, validMonth))
       : allCaseLeads;
 
     const totalCaseLeads = cohortLeads.length;
@@ -142,7 +142,7 @@ export async function GET(req: NextRequest) {
     // Full daily history trend (ALL dates in cohort)
     const trendMap = new Map<string, number>();
     for (const l of cohortLeads) {
-      const day = getISTDateStr(l.caseManagerAssignedAt || l.updatedAt || l.createdAt);
+      const day = getISTDateStr(l.caseManagerAssignedAt || l.createdAt);
       if (!day) continue;
       trendMap.set(day, (trendMap.get(day) || 0) + 1);
     }

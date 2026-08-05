@@ -119,6 +119,7 @@ export async function GET(req: NextRequest) {
         updatedAt: 1,
         caseManagerAssignedAt: 1,
         salesDocument: 1,
+        occupations: 1,
       })
       .toArray()) as unknown as LeadDoc[];
 
@@ -129,7 +130,7 @@ export async function GET(req: NextRequest) {
     if (date) {
       const { start, end } = dayWindow(date);
       allMatchingLeads = allMatchingLeadsRaw.filter((lead) => {
-        const rawDate = lead.caseManagerAssignedAt || lead.updatedAt || lead.createdAt;
+        const rawDate = lead.caseManagerAssignedAt || lead.createdAt;
         if (!rawDate) return false;
         const d = new Date(rawDate);
         return !isNaN(d.getTime()) && d >= start && d < end;

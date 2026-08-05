@@ -36,6 +36,7 @@ interface CaseLead {
   createdAt: string;
   updatedAt: string;
   caseManagerAssignedAt?: string | null;
+  occupations?: string[];
   salesDocument?: {
     fileId: string;
     fileName: string;
@@ -531,6 +532,18 @@ export default function CaseManagerLeadsPage() {
                           >
                             {lead.name || "-"}
                           </button>
+                          {lead.occupations && lead.occupations.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-0.5">
+                              {lead.occupations.map((occ, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+                                >
+                                  💼 {occ}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {lead.hasFollowupDue && (
                             <span className="inline-flex items-center gap-1 mt-0.5 px-2 py-0.5 text-[10px] font-bold uppercase rounded bg-red-600 text-white w-fit shadow-xs">
                               🔔 Follow-up Due (Day 10+)
@@ -563,7 +576,7 @@ export default function CaseManagerLeadsPage() {
                         </>
                       )}
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {new Date(lead.caseManagerAssignedAt || lead.updatedAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
+                        {new Date(lead.caseManagerAssignedAt || lead.createdAt).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <div className="flex items-center gap-2">

@@ -36,6 +36,28 @@ export async function POST(
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const caseManagerIdRaw = formData.get("caseManagerId") as string | null;
+    const occupationsRaw = formData.get("occupations") as string | null;
+
+    let occupations: string[] = [];
+    if (occupationsRaw) {
+      try {
+        const parsed = JSON.parse(occupationsRaw);
+        if (Array.isArray(parsed)) {
+          occupations = parsed.map((x) => String(x).trim()).filter(Boolean);
+        }
+      } catch {
+        if (typeof occupationsRaw === "string" && occupationsRaw.trim()) {
+          occupations = [occupationsRaw.trim()];
+        }
+      }
+    }
+
+    if (!occupations.length) {
+      return NextResponse.json(
+        { message: "At least one occupation is required to convert a lead to Sales" },
+        { status: 400 },
+      );
+    }
 
     if (!file) {
       return NextResponse.json(
@@ -171,6 +193,7 @@ export async function POST(
       {
         $set: {
           status: "sales",
+          occupations,
           callbackDate: null,
           callbackSeen: false,
 
