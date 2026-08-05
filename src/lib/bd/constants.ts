@@ -42,7 +42,6 @@ export const INDUSTRIES = [
   "Retail & Supermarkets",
   "Immigration Lawyers",
   "Recruitment Companies",
-  "Job Portals",
 ] as const;
 
 export const LEAD_SOURCES = [
@@ -52,6 +51,13 @@ export const LEAD_SOURCES = [
   "Job Portals",
 ] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
+
+export const DATA_ENTRY_PHASES = [
+  { phase: 1, source: "Google Maps", label: "Google Maps" },
+  { phase: 2, source: "Search Engines", label: "Search Engines" },
+  { phase: 3, source: "Business Directories", label: "Business Directories" },
+  { phase: 4, source: "Job Portals", label: "Job Portals" },
+] as const;
 
 export const BD_COLLECTIONS = {
   leads: "bdleads",

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
-import { INDUSTRIES, LEAD_SOURCES } from "@/lib/bd/constants";
+import { INDUSTRIES, DATA_ENTRY_PHASES } from "@/lib/bd/constants";
 import { useDuplicateCheck } from "@/lib/bd/useDuplicateCheck";
 
 type MeResponse = {
@@ -26,6 +26,8 @@ type SubmittedLead = {
   id: number;
   companyName: string;
   industry: string;
+  leadSource?: string;
+  leadSourceOther?: string;
   assignedToName: string;
   createdAt: string;
 };
@@ -36,10 +38,6 @@ function todayISO() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
-// Working date is locked to today — reps can't past-date or future-date a lead
-// (which would otherwise let them spin up a fresh 25-lead quota bucket on an
-// arbitrary date to "reset" or backdate their target tracking).
-
 const emptyForm = {
   industry: "",
   country: "",
@@ -49,7 +47,6 @@ const emptyForm = {
   phoneNumber: "",
   decisionMakerName: "",
   decisionMakerPosition: "",
-  leadSource: "",
   leadSourceOther: "",
   address: "",
   linkedin: "",
@@ -58,9 +55,6 @@ const emptyForm = {
   remarks: "",
 };
 
-// Draft is kept in localStorage so an accidental refresh/tab-close doesn't
-// wipe in-progress data entry. It's only cleared once the lead is actually
-// submitted successfully.
 const FORM_DRAFT_KEY = "bd_data_entry_form_draft";
 
 type FormState = typeof emptyForm;
@@ -77,27 +71,51 @@ function loadDraft(): FormState {
   }
 }
 
+function loadCompletedPhases(date: string): number[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const saved = window.localStorage.getItem(`bd_completed_phases_${date}`);
+    if (!saved) return [];
+    return JSON.parse(saved) as number[];
+  } catch {
+    return [];
+  }
+}
+
 export default function DataEntryPage() {
   const router = useRouter();
   const [user, setUser] = useState<MeResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [workingDate, setWorkingDate] = useState(todayISO());
+  const [workingDate] = useState(todayISO());
   const [historyDate, setHistoryDate] = useState(todayISO());
   const [progress, setProgress] = useState<DailyProgress | null>(null);
   const [form, setForm] = useState<FormState>(() => loadDraft());
   const [submitting, setSubmitting] = useState(false);
+
+  // Phase tab state: 1 (Google Maps), 2 (Search Engines), 3 (Business Directories), 4 (Job Portals)
+  const [completedPhases, setCompletedPhases] = useState<number[]>(() => loadCompletedPhases(todayISO()));
+  const [activePhase, setActivePhase] = useState<number>(() => {
+    const done = loadCompletedPhases(todayISO());
+    if (done.length === 0) return 1;
+    // Default to the first uncompleted phase, or 4 if all completed
+    const nextUncompleted = [1, 2, 3, 4].find((p) => !done.includes(p));
+    return nextUncompleted || 4;
+  });
+
   const companyDup = useDuplicateCheck("companyName", form.companyName);
   const websiteDup = useDuplicateCheck("website", form.website);
   const [history, setHistory] = useState<SubmittedLead[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const reminderTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Persist every keystroke as a draft so a refresh restores the in-progress form.
+  const currentPhaseConfig =
+    DATA_ENTRY_PHASES.find((p) => p.phase === activePhase) || DATA_ENTRY_PHASES[0];
+
   useEffect(() => {
     try {
       window.localStorage.setItem(FORM_DRAFT_KEY, JSON.stringify(form));
     } catch {
-      // ignore storage errors (e.g. private browsing quota)
+      // ignore storage errors
     }
   }, [form]);
 
@@ -152,15 +170,11 @@ export default function DataEntryPage() {
     loadProgress(workingDate);
   }, [user, workingDate, loadProgress]);
 
-  // History has its own date picker so reps can look back at previous days'
-  // leads without affecting the working date (which stays locked to today
-  // for actually creating leads).
   useEffect(() => {
     if (!user) return;
     loadHistory(historyDate);
   }, [user, historyDate, loadHistory]);
 
-  // Reminder: check every 2 hours while the page stays open
   useEffect(() => {
     if (!user) return;
 
@@ -191,6 +205,43 @@ export default function DataEntryPage() {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleSelectPhase = (pNum: number, isAccessible: boolean) => {
+    if (activePhase === pNum) return;
+    if (!isAccessible) {
+      toast.error(`Phase ${pNum} is locked. Complete Phase ${pNum - 1} first to unlock it!`, {
+        icon: "🔒",
+      });
+      return;
+    }
+    setActivePhase(pNum);
+  };
+
+  const handleCompletePhase = () => {
+    let updated = completedPhases;
+    if (!completedPhases.includes(activePhase)) {
+      updated = [...completedPhases, activePhase];
+      setCompletedPhases(updated);
+      try {
+        window.localStorage.setItem(`bd_completed_phases_${workingDate}`, JSON.stringify(updated));
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    if (activePhase < 4) {
+      const nextP = activePhase + 1;
+      setActivePhase(nextP);
+      toast.success(`🎉 Phase ${activePhase} Completed! Moved to Phase ${nextP} (${DATA_ENTRY_PHASES[nextP - 1].label})`, {
+        duration: 5000,
+      });
+    } else {
+      toast.success(`🎉 Congratulations! All 4 Phases Completed for Today!`, {
+        icon: "🏆",
+        duration: 6000,
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -203,7 +254,7 @@ export default function DataEntryPage() {
       return;
     }
 
-    if (form.leadSource === "Job Portals" && !form.leadSourceOther.trim()) {
+    if (activePhase === 4 && !form.leadSourceOther.trim()) {
       toast.error("Please enter the job portal name");
       return;
     }
@@ -218,7 +269,11 @@ export default function DataEntryPage() {
       const res = await fetch("/api/bd/leads/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workingDate, ...form }),
+        body: JSON.stringify({
+          workingDate,
+          ...form,
+          leadSource: currentPhaseConfig.source,
+        }),
       });
       const data = await res.json();
 
@@ -267,33 +322,32 @@ export default function DataEntryPage() {
           Data Entry
         </h1>
 
-        {/* Working date + target */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Top bar: Date (Read-only) + Target */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs">
           <div>
-            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-              Working Date
-            </label>
-            <input
-              type="date"
-              value={workingDate}
-              min={todayISO()}
-              max={todayISO()}
-              onChange={(e) => {
-                const picked = e.target.value;
-                if (picked !== todayISO()) {
-                  toast.error("Working date is locked to today");
-                  return;
-                }
-                setWorkingDate(picked);
-              }}
-              className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Today&apos;s Date
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                {new Date(workingDate + "T00:00:00.000+05:30").toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </span>
+              <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                Today
+              </span>
+            </div>
           </div>
 
-          <div className="text-right">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Today&apos;s Target</p>
+          <div className="text-left sm:text-right">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Today&apos;s Target (25 Leads)
+            </p>
             <p
-              className={`text-3xl font-bold ${
+              className={`text-3xl font-extrabold ${
                 progress?.targetCompleted
                   ? "text-green-600 dark:text-green-400"
                   : "text-gray-800 dark:text-gray-100"
@@ -302,21 +356,120 @@ export default function DataEntryPage() {
               {counterLabel || "25 Remaining"}
             </p>
             {progress?.targetCompleted && (
-              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+              <p className="text-xs font-semibold text-green-600 dark:text-green-400 mt-1">
                 Daily target completed 🎉
               </p>
             )}
           </div>
         </div>
 
+        {/* 4 Phase Tabs: Red = Active, Green = Completed, Grey = Locked */}
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wide flex items-center gap-2">
+                <span>Phase Progress</span>
+                <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  Phase {activePhase} Active ({completedPhases.length}/4 Completed)
+                </span>
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Current phase shows in <span className="font-bold text-red-600">RED</span>. Click &quot;Complete Phase&quot; to finish and unlock the next phase! Completed phases show in <span className="font-bold text-emerald-600">GREEN</span>.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCompletePhase}
+              className="self-start sm:self-auto px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition cursor-pointer flex items-center gap-1.5 shadow-2xs"
+            >
+              {completedPhases.includes(activePhase)
+                ? `✓ Phase ${activePhase} Completed`
+                : activePhase < 4
+                ? `✓ Complete Phase ${activePhase} & Next Phase ➔`
+                : `🎉 Complete Final Phase (Phase 4)`}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {DATA_ENTRY_PHASES.map((p) => {
+              const isCompleted = completedPhases.includes(p.phase);
+              const isActive = activePhase === p.phase;
+              const isAccessible = p.phase === 1 || isCompleted || completedPhases.includes(p.phase - 1);
+
+              let tabStyle = "";
+              let badgeText = "";
+
+              if (isActive) {
+                // CURRENT ACTIVE PHASE: RED
+                tabStyle = "bg-red-600 text-white border-red-600 shadow-md ring-2 ring-red-400/40 cursor-pointer";
+                badgeText = "Current";
+              } else if (isCompleted) {
+                // COMPLETED PHASE: GREEN
+                tabStyle = "bg-emerald-600 text-white border-emerald-600 shadow-xs hover:bg-emerald-700 cursor-pointer";
+                badgeText = "✓ Done";
+              } else if (isAccessible) {
+                // UNLOCKED BUT NOT ACTIVE/COMPLETED YET
+                tabStyle = "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:border-red-400 hover:bg-red-50/40 cursor-pointer";
+                badgeText = "Unlocked";
+              } else {
+                // LOCKED FUTURE PHASE
+                tabStyle = "bg-gray-100 dark:bg-gray-800/60 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700/60 cursor-not-allowed";
+                badgeText = "🔒 Locked";
+              }
+
+              return (
+                <button
+                  key={p.phase}
+                  type="button"
+                  onClick={() => handleSelectPhase(p.phase, isAccessible)}
+                  title={
+                    isActive
+                      ? `Current Active Phase ${p.phase}`
+                      : isCompleted
+                      ? `Phase ${p.phase} Completed (Click to view/switch back)`
+                      : isAccessible
+                      ? `Phase ${p.phase} Unlocked (Click to switch)`
+                      : `Phase ${p.phase} is locked. Complete Phase ${p.phase - 1} first!`
+                  }
+                  className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition ${tabStyle}`}
+                >
+                  <div className="flex flex-col">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isActive || isCompleted ? "text-white/80" : "text-gray-400"}`}>
+                      Phase {p.phase}
+                    </span>
+                    <span className="text-sm font-extrabold">{p.label}</span>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded font-bold ${isActive || isCompleted ? "bg-white/20 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-500"}`}>
+                    {badgeText}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Lead form */}
         <form
           onSubmit={handleSubmit}
-          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-8"
+          className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-8 shadow-2xs"
         >
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-            New Lead
-          </h2>
+          <div className="flex items-center justify-between mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
+                New Lead Submission
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Active Source: <span className="font-bold text-red-600 dark:text-red-400">Phase {activePhase} · {currentPhaseConfig.source}</span>
+              </p>
+            </div>
+
+            {completedPhases.includes(activePhase) && (
+              <span className="px-3 py-1 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                ✓ Phase {activePhase} Marked Completed
+              </span>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -365,28 +518,16 @@ export default function DataEntryPage() {
               value={form.decisionMakerPosition}
               onChange={(v) => handleChange("decisionMakerPosition", v)}
             />
-            <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Lead Source</label>
-              <select
-                value={form.leadSource}
-                onChange={(e) => handleChange("leadSource", e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select lead source</option>
-                {LEAD_SOURCES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {form.leadSource === "Job Portals" && (
+
+            {/* If Phase 4 (Job Portals), render Job Portal Name required input */}
+            {activePhase === 4 && (
               <Field
                 label="Job Portal Name *"
                 value={form.leadSourceOther}
                 onChange={(v) => handleChange("leadSourceOther", v)}
               />
             )}
+
             <Field label="Address" value={form.address} onChange={(v) => handleChange("address", v)} />
             <Field label="LinkedIn" value={form.linkedin} onChange={(v) => handleChange("linkedin", v)} />
             <Field label="Instagram" value={form.instagram} onChange={(v) => handleChange("instagram", v)} />
@@ -405,19 +546,33 @@ export default function DataEntryPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={submitting || companyDup.exists || websiteDup.exists}
-            className="mt-6 w-full sm:w-auto px-6 py-2.5 rounded-lg bg-foreground text-background font-medium hover:opacity-90 disabled:opacity-50"
-          >
-            {submitting ? "Submitting..." : "Submit Lead"}
-          </button>
+          <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <button
+              type="submit"
+              disabled={submitting || companyDup.exists || websiteDup.exists}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition disabled:opacity-50 cursor-pointer shadow-xs"
+            >
+              {submitting ? "Submitting..." : `Submit Lead (Phase ${activePhase})`}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCompletePhase}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            >
+              {completedPhases.includes(activePhase) ? (
+                <>✓ Phase {activePhase} Completed</>
+              ) : activePhase < 4 ? (
+                <>✓ Complete Phase {activePhase} &amp; Move to Phase {activePhase + 1} ➔</>
+              ) : (
+                <>🎉 Complete Final Phase (Phase 4)</>
+              )}
+            </button>
+          </div>
         </form>
 
-        {/* Submitted leads history — browsable by date, but this never affects
-            the working date above, so new leads can still only be created
-            on today's date. */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {/* Submitted leads history */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden shadow-2xs">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
@@ -457,19 +612,20 @@ export default function DataEntryPage() {
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Company</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Industry</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Phase / Lead Source</th>
                   <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Assigned To</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {historyLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       Loading…
                     </td>
                   </tr>
                 ) : history.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       No leads submitted for this date
                     </td>
                   </tr>
@@ -479,8 +635,18 @@ export default function DataEntryPage() {
                       <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">
                         {new Date(lead.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                       </td>
-                      <td className="px-4 py-2 text-xs text-gray-800 dark:text-gray-100 wrap-break-word">{lead.companyName || "—"}</td>
+                      <td className="px-4 py-2 text-xs font-semibold text-gray-800 dark:text-gray-100 wrap-break-word">{lead.companyName || "—"}</td>
                       <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 wrap-break-word">{lead.industry}</td>
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 wrap-break-word">
+                        {lead.leadSource ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                            {lead.leadSource}
+                            {lead.leadSource === "Job Portals" && lead.leadSourceOther ? ` (${lead.leadSourceOther})` : ""}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 wrap-break-word">{lead.assignedToName}</td>
                     </tr>
                   ))
