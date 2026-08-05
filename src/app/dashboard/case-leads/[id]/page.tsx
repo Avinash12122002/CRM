@@ -56,6 +56,10 @@ interface Lead {
   caseManagerAssignedAt?: string | null;
   history: HistoryEntry[];
   occupations?: string[];
+  caseManagerEmail?: string;
+  caseManagerPassword?: string;
+  candidateEmail?: string;
+  candidatePassword?: string;
   salesDocument?: {
     fileId: string;
     fileName: string;
@@ -77,6 +81,11 @@ export default function CaseManagerLeadDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [activePhase, setActivePhase] = useState<number>(1);
   const [marketingSummary, setMarketingSummary] = useState<MarketingSummary | null>(null);
+
+  const [caseManagerEmailInput, setCaseManagerEmailInput] = useState("");
+  const [caseManagerPasswordInput, setCaseManagerPasswordInput] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [savingCredentials, setSavingCredentials] = useState(false);
 
   useEffect(() => {
     fetchUser();
@@ -106,10 +115,12 @@ export default function CaseManagerLeadDetailPage() {
   const fetchLead = async (showLoadingSpinner = true) => {
     if (showLoadingSpinner) setLoading(true);
     try {
-      const res = await fetch(`/api/leads/${leadId}`);
+      const res = await fetch(`/api/case-manager/leads/${leadId}`);
       const data = await res.json();
       if (res.ok) {
         setLead(data.lead);
+        setCaseManagerEmailInput(data.lead.caseManagerEmail || data.lead.candidateEmail || "");
+        setCaseManagerPasswordInput(data.lead.caseManagerPassword || data.lead.candidatePassword || "");
       } else {
         toast.error(data.message || "Failed to load lead");
         router.push("/dashboard/case-leads");
@@ -119,6 +130,38 @@ export default function CaseManagerLeadDetailPage() {
       toast.error("Something went wrong");
     } finally {
       if (showLoadingSpinner) setLoading(false);
+    }
+  };
+
+  const handleSaveCredentials = async () => {
+    setSavingCredentials(true);
+    try {
+      const res = await fetch(`/api/case-marketing/${leadId}/credentials`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          caseManagerEmail: caseManagerEmailInput,
+          caseManagerPassword: caseManagerPasswordInput,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success("Case Manager Email & Password saved successfully!");
+        if (lead) {
+          setLead({
+            ...lead,
+            caseManagerEmail: data.caseManagerEmail,
+            caseManagerPassword: data.caseManagerPassword,
+          });
+        }
+      } else {
+        toast.error(data.message || "Failed to save credentials");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong saving credentials");
+    } finally {
+      setSavingCredentials(false);
     }
   };
 
@@ -320,6 +363,68 @@ export default function CaseManagerLeadDetailPage() {
                 </div>
               </div>
             )}
+
+            {/* Case Manager Email & Password — Displayed directly below Occupations */}
+            <div className="pt-2.5 border-t border-gray-100 dark:border-gray-800/60">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    🔑 Case Manager Email &amp; Password (Used to send mails):
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold border border-blue-200 dark:border-blue-800/60">
+                    Visible to Case Manager &amp; Admin
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveCredentials}
+                  disabled={savingCredentials}
+                  className="px-3 py-1 text-xs font-semibold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition disabled:opacity-50 shadow-2xs cursor-pointer flex items-center gap-1"
+                >
+                  {savingCredentials ? "Saving..." : "💾 Save Credentials"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-gray-50/80 dark:bg-gray-800/40 p-3 rounded-lg border border-gray-200/80 dark:border-gray-800">
+                {/* Case Manager Email Field */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-600 dark:text-gray-300 mb-1 uppercase tracking-wider">
+                    Case Manager Email
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="Enter email used to send mails..."
+                    value={caseManagerEmailInput}
+                    onChange={(e) => setCaseManagerEmailInput(e.target.value)}
+                    className="w-full px-3 py-1.5 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Case Manager Password Field with Show/Hide toggle */}
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-600 dark:text-gray-300 mb-1 uppercase tracking-wider">
+                    Case Manager Password
+                  </label>
+                  <div className="relative flex items-center">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter password used to send mails..."
+                      value={caseManagerPasswordInput}
+                      onChange={(e) => setCaseManagerPasswordInput(e.target.value)}
+                      className="w-full px-3 py-1.5 pr-9 text-xs font-medium border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2.5 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 cursor-pointer"
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
