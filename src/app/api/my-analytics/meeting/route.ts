@@ -71,9 +71,14 @@ export async function GET(req: NextRequest) {
       .toArray();
 
     allLeadsRaw.sort((a, b) => {
-      const da = new Date(a.meetingDetails?.meetingDate || a.createdAt || 0).getTime();
-      const dbTime = new Date(b.meetingDetails?.meetingDate || b.createdAt || 0).getTime();
-      return dbTime - da;
+      const dateA = a.meetingDetails?.meetingDate || (a.createdAt ? getISTDateStr(a.createdAt) : "") || "";
+      const dateB = b.meetingDetails?.meetingDate || (b.createdAt ? getISTDateStr(b.createdAt) : "") || "";
+      const dateCmp = dateB.localeCompare(dateA);
+      if (dateCmp !== 0) return dateCmp;
+
+      const timeA = a.meetingDetails?.startTime || "";
+      const timeB = b.meetingDetails?.startTime || "";
+      return timeA.localeCompare(timeB);
     });
 
     const isFiltered = !!(validDate || validMonth);
@@ -117,7 +122,15 @@ export async function GET(req: NextRequest) {
         const mDate = l.meetingDetails?.meetingDate || "";
         return isScheduled(l) && mDate >= todayStr;
       })
-      .sort((a: any, b: any) => ((a.meetingDetails?.meetingDate || "") > (b.meetingDetails?.meetingDate || "") ? 1 : -1))
+      .sort((a: any, b: any) => {
+        const dateA = a.meetingDetails?.meetingDate || "";
+        const dateB = b.meetingDetails?.meetingDate || "";
+        const dateCmp = dateA.localeCompare(dateB);
+        if (dateCmp !== 0) return dateCmp;
+        const timeA = a.meetingDetails?.startTime || "";
+        const timeB = b.meetingDetails?.startTime || "";
+        return timeA.localeCompare(timeB);
+      })
       .slice(0, 10)
       .map((l) => ({
         leadId: l.id,

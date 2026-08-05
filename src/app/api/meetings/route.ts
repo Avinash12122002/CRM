@@ -49,9 +49,14 @@ export async function GET(req: NextRequest) {
     const leadsMain: any[] = await db.collection("leads").find(filter).toArray();
 
     const allMeetings = leadsMain.sort((a, b) => {
-      const da = a.meetingDetails?.meetingDate || "";
-      const dbTime = b.meetingDetails?.meetingDate || "";
-      return dbTime.localeCompare(da);
+      const dateA = a.meetingDetails?.meetingDate || "";
+      const dateB = b.meetingDetails?.meetingDate || "";
+      const dateCmp = dateB.localeCompare(dateA);
+      if (dateCmp !== 0) return dateCmp;
+
+      const timeA = a.meetingDetails?.startTime || "";
+      const timeB = b.meetingDetails?.startTime || "";
+      return timeA.localeCompare(timeB);
     });
 
     const total = allMeetings.length;

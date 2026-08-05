@@ -28,7 +28,7 @@ interface MarketingEmployer {
   sourceId: number;
   sourceName: string;
   companyName: string;
-  jobTitle?: string;
+  occupation?: string;
   website?: string;
   jobUrl?: string;
   hrEmail?: string;
@@ -56,7 +56,7 @@ const EMPLOYER_FIELD_DEFS: { key: keyof MarketingEmployer; label: string; requir
   { key: "companyName", label: "Company Name", required: true },
   { key: "website", label: "Website", required: true },
   { key: "jobUrl", label: "Job Advertisement URL", required: true },
-  { key: "jobTitle", label: "Job Title" },
+  { key: "occupation", label: "Occupation" },
   { key: "hrEmail", label: "HR Email" },
   { key: "generalEmail", label: "General Email" },
   { key: "contactPerson", label: "Contact Person" },
@@ -106,7 +106,7 @@ export default function CaseMarketingWorkspace({
   const [filterStatus, setFilterStatus] = useState("");
   const [filterWebsite, setFilterWebsite] = useState("");
   const [filterCompanyName, setFilterCompanyName] = useState("");
-  const [filterJobTitle, setFilterJobTitle] = useState("");
+  const [filterOccupation, setFilterOccupation] = useState("");
   const [filterEmails, setFilterEmails] = useState("");
   const [filterContactPerson, setFilterContactPerson] = useState("");
   const [filterPhone, setFilterPhone] = useState("");
@@ -126,7 +126,7 @@ export default function CaseMarketingWorkspace({
     filterStatus,
     filterWebsite,
     filterCompanyName,
-    filterJobTitle,
+    filterOccupation,
     filterEmails,
     filterContactPerson,
     filterPhone,
@@ -139,7 +139,7 @@ export default function CaseMarketingWorkspace({
     Boolean(filterStatus) ||
     Boolean(filterWebsite) ||
     Boolean(filterCompanyName) ||
-    Boolean(filterJobTitle) ||
+    Boolean(filterOccupation) ||
     Boolean(filterEmails) ||
     Boolean(filterContactPerson) ||
     Boolean(filterPhone) ||
@@ -151,7 +151,7 @@ export default function CaseMarketingWorkspace({
     setFilterStatus("");
     setFilterWebsite("");
     setFilterCompanyName("");
-    setFilterJobTitle("");
+    setFilterOccupation("");
     setFilterEmails("");
     setFilterContactPerson("");
     setFilterPhone("");
@@ -185,8 +185,8 @@ export default function CaseMarketingWorkspace({
       return false;
     }
     if (
-      filterJobTitle &&
-      !emp.jobTitle?.toLowerCase().includes(filterJobTitle.toLowerCase().trim())
+      filterOccupation &&
+      !emp.occupation?.toLowerCase().includes(filterOccupation.toLowerCase().trim())
     ) {
       return false;
     }
@@ -237,7 +237,7 @@ export default function CaseMarketingWorkspace({
     setEditEmployerModal(emp);
     setEditEmployerForm({
       companyName: emp.companyName || "",
-      jobTitle: emp.jobTitle || "",
+      occupation: emp.occupation || "",
       website: emp.website || "",
       jobUrl: emp.jobUrl || "",
       hrEmail: emp.hrEmail || "",
@@ -1455,8 +1455,8 @@ export default function CaseMarketingWorkspace({
                 <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{viewDetailsEmployer.companyName || "-"}</p>
               </div>
               <div>
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">2. Job Title</span>
-                <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.jobTitle || "-"}</p>
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">2. Occupation</span>
+                <p className="font-medium text-gray-800 dark:text-gray-200 truncate">{viewDetailsEmployer.occupation || "-"}</p>
               </div>
               <div>
                 <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase">3. Website URL</span>
