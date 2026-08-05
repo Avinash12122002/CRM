@@ -34,13 +34,13 @@ The system has **7 distinct roles**. Every API route and page checks `payload.ro
 
 | Role | Slug | Description |
 |---|---|---|
-| **Admin** | `admin` | Full access. Manages users, views all leads, all analytics, email system, BD leads, case leads, billing, vacancies, announcements. |
-| **Telecaller** | `telecaller` | Creates leads (auto-assigned to self), manages own leads, data entry module (25/day quota), views own analytics. |
+| **Admin** | `admin` | Full access. Manages users, views all leads, all analytics, email system, BD leads, case leads, billing, vacancies, announcements. Can add/edit candidate occupations directly on case leads. |
+| **Telecaller** | `telecaller` | Creates leads (auto-assigned to self), manages own leads, data entry module (25/day quota, 4 sequential phases), views own analytics. |
 | **Employee** | `employee` | Same as telecaller — legacy name, functionally identical. |
 | **Meeting** | `meeting` | Creates leads (auto-assigned to self), manages own leads, data entry, meeting booking/scheduling module. |
 | **Business Development** | `business_development` | BD Pipeline page — self-assigns own leads, pipeline stages, no daily quota. Does NOT use Data Entry module. |
 | **Billing** | `billing` | Creates/manages invoices and billing for candidates. |
-| **Case Manager** | `case_manager` | Receives converted "Sales" leads. Manages CV Marketing Workspace (4-phase employer outreach). Stores email/password credentials for marketing emails. |
+| **Case Manager** | `case_manager` | Receives converted "Sales" leads. Manages CV Marketing Workspace (4-phase employer outreach). Stores email/password credentials for marketing emails. Reads occupations added by admin/sales. |
 
 ### Role Groupings Used in Code
 
@@ -72,7 +72,7 @@ BILLING_ROLES = ["admin", "billing"]
 | Collection | Purpose | Key Fields |
 |---|---|---|
 | `users` | All user accounts | `id`, `username`, `password_hash`, `name`, `email`, `role` |
-| `leads` | Main candidate leads (telecaller/meeting pipeline) | `id`, `name`, `phone`, `email`, `status`, `assignedTo`, `history[]`, `notes[]`, `meetingDetails`, `salesDocument`, `occupations[]`, `caseManagerAssignedAt` |
+| `leads` | Main candidate leads (telecaller/meeting pipeline) | `id`, `name`, `phone`, `email`, `status`, `assignedTo`, `history[]`, `notes[]`, `meetingDetails`, `salesDocument`, `occupations[]`, `caseManagerAssignedAt`, `caseManagerEmail`, `caseManagerPassword` |
 | `counters` | Auto-increment ID sequences | `_id` (collection name), `seq` |
 | `notifications` | In-app notification system | `id`, `userId`, `title`, `message`, `type`, `link`, `read` |
 | `bdleads` | Business Development pipeline leads | `id`, `industry`, `companyName`, `website`, `leadSource`, `pipelineStage`, `status`, `assignedTo`, `priority`, `workingDate` |
@@ -160,23 +160,29 @@ Each phase: Add sources → Research employers per source → Send initial email
 - Terminal: `Interested`, `Interview Scheduled`, `Need Updated CV`, `Future Requirement`, `Position Filled`, `Not Interested`, `Invalid Email`, `Wrong Contact`, `No Response`
 - Non-terminal (follow-ups continue): `Need More Information`, `Not Hiring Overseas`, `Other`
 
-### 4.4 Data Entry Phases
+### 4.4 Data Entry Sequential Phase System
 
-Data Entry module (telecaller/employee/meeting) uses **4 sequential phases** corresponding to lead sources:
+Data Entry module (`/dashboard/data-entry`) uses **4 sequential phases** corresponding to lead sources:
 
-| Phase | Lead Source |
-|---|---|
-| Phase 1 | Google Maps |
-| Phase 2 | Search Engines |
-| Phase 3 | Business Directories |
-| Phase 4 | Job Portals |
+| Phase | Lead Source | Tab UI Color |
+|---|---|---|
+| Phase 1 | Google Maps | **RED** when active, **GREEN** when completed |
+| Phase 2 | Search Engines | **RED** when active, **GREEN** when completed, **GREY** when locked |
+| Phase 3 | Business Directories | **RED** when active, **GREEN** when completed, **GREY** when locked |
+| Phase 4 | Job Portals | **RED** when active, **GREEN** when completed, **GREY** when locked |
 
-**Rules:**
-- Must complete current phase before moving to next (sequential only)
-- Active phase shows in **RED**, completed phases show in **GREEN**, locked future phases are **GREY**
-- Daily target: **25 leads/day** (`DAILY_LEAD_TARGET = 25`)
-- Completed phases are persisted in `localStorage` per day
-- Lead source is set automatically from the active phase tab (no dropdown)
+**Rules & Flow:**
+- **Sequential Progression:** Must complete current phase before moving to next. Clicking **`✓ Complete Phase`** marks current phase completed and unlocks the next phase.
+- **Tab Color Coding:**
+  - Active phase tab: **RED** (`bg-red-600`)
+  - Completed phase tabs: **GREEN** (`bg-emerald-600`)
+  - Locked future phases: **GREY** (`bg-gray-100 dark:bg-gray-800 cursor-not-allowed`)
+- **Daily target:** **25 leads/day** (`DAILY_LEAD_TARGET = 25`)
+- **Date Header:** Read-only today date label (`Today: 5 August 2026`).
+- **Phase Persistence:** Completed phases are saved in `localStorage` per day (`bd_completed_phases_${workingDate}`).
+- **Automated Lead Source:** `leadSource` is set programmatically from active phase tab. No dropdown select input.
+- **Job Portals:** Phase 4 displays required `Job Portal Name *` input field (`leadSourceOther`).
+- **History Table:** Includes a **Phase / Lead Source** column.
 
 ---
 
@@ -251,7 +257,8 @@ src/
 │   │   ├── leads/                    # [id], analytics, assign, create, list (General Leads)
 │   │   ├── triloknath/leads/         # [id], assign, create, list (Triloknath-specific leads)
 │   │   ├── bd/                       # leads (CRUD, check-duplicate, countries), analytics, targets, activity-logs
-│   │   ├── case-manager/leads/[id]/  # Dedicated case manager lead detail endpoint
+│   │   ├── case-manager/leads/       # Dedicated Case Manager APIs:
+│   │   │   └── [id]/                 # GET lead details + occupations PUT endpoint
 │   │   ├── case-marketing/           # [leadId] (sources, employers, credentials, summary), analytics, todo
 │   │   ├── email/                    # lead, templates, workflows, workflows-list, mailboxes, analytics, cron
 │   │   ├── billing/                  # [id], create, list, analytics, summary
@@ -271,8 +278,8 @@ src/
 │       ├── leads/[id]/                # Lead detail page
 │       ├── triloknath-leads/          # Triloknath-specific lead pages
 │       ├── case-leads/                # Case Manager lead list
-│       ├── case-leads/[id]/           # Case Manager lead detail + CV Marketing Workspace
-│       ├── data-entry/                # Data Entry module (4-phase tabs, 25/day target)
+│       ├── case-leads/[id]/           # Case Manager lead detail + CV Marketing Workspace + Credentials + Admin Occupations Editor
+│       ├── data-entry/                # Data Entry module (4-phase sequential tabs, 25/day target)
 │       ├── bd-pipeline/               # BD Pipeline page (personal pipeline view)
 │       ├── bd-pipeline/[id]/          # BD Lead detail
 │       ├── bd-leads/                  # Admin: all BD leads
@@ -301,7 +308,7 @@ src/
 │   ├── BDReassignModal.tsx            # BD lead reassignment
 │   ├── CaseLeadEditModal.tsx          # Case lead editing
 │   ├── CaseLeadReassignModal.tsx      # Case lead reassignment
-│   ├── CaseMarketingWorkspace.tsx     # CV Marketing Workspace (4 phases, employer management, ~80KB)
+│   ├── CaseMarketingWorkspace.tsx     # CV Marketing Workspace (4 phases, employer management)
 │   ├── CheckInOutCard.tsx             # Employee check-in/out card
 │   ├── CreateVacancyModal.tsx         # Vacancy creation modal
 │   ├── LexicalEditor.tsx             # Rich text editor for email templates
@@ -319,7 +326,7 @@ src/
     ├── caseMarketing.ts               # Case Marketing phases config, status options, follow-up engine
     ├── caseMarketingAuth.ts           # Auth + authorization for case marketing APIs
     ├── bd/
-    │   ├── constants.ts               # BD constants (stages, industries, lead sources, phases, collections)
+    │   ├── constants.ts               # BD constants (stages, 11 industries, 4 lead sources, phases, collections)
     │   ├── helpers.ts                 # BD helpers (round-robin, admin lookup, activity logging)
     │   └── useDuplicateCheck.ts       # React hook for live duplicate detection (company/website)
     └── billing/
@@ -352,7 +359,7 @@ const payload = verifyToken(token);
 - **Telecaller/Employee/Meeting:** Can only access leads assigned to them (`lead.assignedTo === payload.id`)
 - **Case Manager:** Can only access case leads assigned to them; read-only on general leads
 - **Business Development:** Can only access BD leads assigned to them
-- **Admin:** Full access to everything
+- **Admin:** Full access to everything. Only Admin can edit/add candidate occupations on Case Lead detail page.
 - **Billing:** Only billing-related routes
 
 ---
@@ -377,15 +384,19 @@ const payload = verifyToken(token);
 - Case Managers store `caseManagerEmail` and `caseManagerPassword` per lead
 - These are the email credentials the Case Manager uses to send marketing emails for that candidate
 - Admin can view these credentials to know which email/password the Case Manager is using
-- Stored directly on the lead document (not a separate collection)
-- API endpoint: `/api/case-marketing/[leadId]/credentials`
+- Stored directly on the lead document (`caseManagerEmail`, `caseManagerPassword`)
+- API endpoint: `PATCH /api/case-marketing/[leadId]/credentials`
+- Rendered on `/dashboard/case-leads/[id]` below Occupations with 👁️ password toggle
 
-### 9.4 Candidate Occupations
+### 9.4 Candidate Occupations & Admin Editing
 
 - When converting a lead to "Sales" and sending to Case Manager, occupations are mandatory
 - Multiple occupations can be added
 - Stored as `occupations[]` array on the lead document
-- Displayed on the case lead detail page below the "View PDF" button
+- Rendered **EXCLUSIVELY on `/dashboard/case-leads/[id]`** (removed from case leads list table)
+- **Admin Only Editing:** Admin can add or update occupations directly from `/dashboard/case-leads/[id]` if missed during conversion:
+  - API endpoint: `PUT /api/case-manager/leads/[id]/occupations`
+  - Restrictive permission: Returns `403 Forbidden` if invoked by non-admin.
 
 ### 9.5 Phone Number Uniqueness
 
@@ -475,7 +486,7 @@ Full-featured chat with:
 When modifying features:
 - **Never modify general lead routes** (`/api/leads/`) when working on case manager features
 - **Never modify general lead pages** when working on case lead pages
-- Case manager features use dedicated endpoints: `/api/case-manager/leads/[id]/`, `/api/case-marketing/`
+- Case manager features use dedicated endpoints: `/api/case-manager/leads/[id]`, `/api/case-marketing/`
 - BD features are fully isolated in `src/lib/bd/` and `/api/bd/`
 - Billing features are isolated in `src/lib/billing/` and `/api/billing/`
 
@@ -559,7 +570,7 @@ npm start
 4. **Working date lock** — Data Entry's `workingDate` is locked to today server-side (`todayISO()` check in create route). UI also enforces this.
 5. **Email simulation** — If SMTP is not configured, emails are "simulated" (logged but not sent). Check `sendEmail()` return value for `simulated: true`.
 6. **Round-robin atomicity** — BD lead assignment uses `$inc` on `bdconfig.assignSeq` to prevent race conditions. Never use read-then-write.
-7. **Data Entry phase persistence** — Completed phases are stored in `localStorage` per date, not in the database. A different browser/device starts fresh.
+7. **Data Entry phase persistence** — Completed phases are stored in `localStorage` per date (`bd_completed_phases_${workingDate}`). A different browser/device starts fresh.
 8. **Industries list** — `"Job Portals"` was removed from `INDUSTRIES` (it's now a lead source phase only). Existing BD leads with `industry: "Job Portals"` remain as historical data.
-9. **Case Marketing employer follow-ups** — Computed client-side from `emailSentAt` + `followupCount`. No server-side cron — follow-up due dates are derived at render time via `getFollowupInfo()`.
-10. **Lexical editor** — Used only in the email template editor. Don't import Lexical components elsewhere.
+9. **Admin-only Occupation Editing Security** — `PUT /api/case-manager/leads/[id]/occupations` rejects any non-admin call with 403 Forbidden.
+10. **Case Lead file isolation** — `/dashboard/case-leads/[id]` uses `/api/case-manager/leads/[id]` to fetch lead data, ensuring non-case lead endpoints (`/api/leads/[id]`) remain clean and untouched.
