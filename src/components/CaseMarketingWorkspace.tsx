@@ -321,6 +321,76 @@ export default function CaseMarketingWorkspace({
   const activeSource = sources.find((s) => s.status === "active") || null;
   const firstUnlocked = [...sources].sort((a, b) => a.order - b.order).find((s) => s.status !== "completed") || null;
 
+  // ── Auto-save & Restore Employer Form Draft in LocalStorage ──
+  const draftKey = activeSource
+    ? `cm_employer_draft_lead_${leadId}_src_${activeSource.id}`
+    : `cm_employer_draft_lead_${leadId}_phase_${activePhase}`;
+
+  // Restore saved draft on load or source change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = localStorage.getItem(draftKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === "object") {
+          setEmployerForm(parsed);
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to parse employer draft", err);
+      }
+    }
+    setEmployerForm(emptyEmployerForm());
+  }, [draftKey]);
+
+  // Auto-save draft on form input change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const hasContent = Object.values(employerForm).some(
+      (val) => val && String(val).trim() !== ""
+    );
+    if (hasContent) {
+      localStorage.setItem(draftKey, JSON.stringify(employerForm));
+    } else {
+      localStorage.removeItem(draftKey);
+    }
+  }, [employerForm, draftKey]);
+
+  // Prevent accidental tab closure if unsaved text exists
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasContent = Object.values(employerForm).some(
+        (val) => val && String(val).trim() !== ""
+      );
+      if (hasContent) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [employerForm]);
+
+  const isDraftRestored = Object.values(employerForm).some(
+    (v) => v && String(v).trim() !== ""
+  );
+
+  const handleToggleOrCancelEmployerForm = () => {
+    if (showEmployerForm) {
+      if (isDraftRestored) {
+        if (!window.confirm("Discard unsaved employer data?")) return;
+      }
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(draftKey);
+      }
+      setEmployerForm(emptyEmployerForm());
+      setShowEmployerForm(false);
+    } else {
+      setShowEmployerForm(true);
+    }
+  };
+
   // ── Phase locking: phase N is accessible only when phase N-1 is fully complete ──
   // Build completion map: for the active phase use live sources data (most up-to-date).
   // For all other phases use the phaseCompletionStatus from the summary API,
@@ -566,6 +636,9 @@ export default function CaseMarketingWorkspace({
       if (res.ok) {
         const currentScrollY = window.scrollY;
         toast.success("Employer saved — ready for next employer");
+        if (typeof window !== "undefined") {
+          localStorage.removeItem(draftKey);
+        }
         setEmployerForm(emptyEmployerForm());
         setShowEmployerForm(true);
         refreshAll();
@@ -863,13 +936,21 @@ export default function CaseMarketingWorkspace({
           {activeSource && (
             <div className="rounded-lg border border-blue-100 dark:border-blue-900/40 p-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                  Working on: {activeSource.name}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Working on: {activeSource.name}
+                  </p>
+                  {isDraftRestored && (
+                    <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      📝 Draft Auto-Saved
+                    </span>
+                  )}
+                </div>
                 {canEdit && (
                   <button
-                    onClick={() => setShowEmployerForm((v) => !v)}
-                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                    type="button"
+                    onClick={handleToggleOrCancelEmployerForm}
+                    className="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
                   >
                     {showEmployerForm ? "Cancel" : "+ Add Employer"}
                   </button>
