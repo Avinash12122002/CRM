@@ -164,6 +164,10 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               <Link href="/dashboard/activity" className={deskLinkClass(isActive("/dashboard/activity"))}>
                 Activity
               </Link>
+              {/* Attendance — all roles */}
+              <Link href="/dashboard/attendance" className={deskLinkClass(isActive("/dashboard/attendance"))}>
+                Attendance
+              </Link>
               {user.role === "admin" && (
                 <Link
                   href="/dashboard/vacancies"
@@ -244,6 +248,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               {user.role === "admin" && (
                 <Link href="/dashboard/users" className={deskLinkClass(isActive("/dashboard/users"))}>
                   Users
+                </Link>
+              )}
+              {/* All Attendance — admin only */}
+              {user.role === "admin" && (
+                <Link href="/dashboard/attendance-admin" className={deskLinkClass(isActive("/dashboard/attendance-admin"))}>
+                  All Attendance
                 </Link>
               )}
               {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "case_manager" || user.role === "business_development" || user.role === "billing") && (
@@ -351,6 +361,10 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard/activity" className={navLinkClass(isActive("/dashboard/activity"))}>
               Activity
             </Link>
+            {/* Attendance — all roles */}
+            <Link href="/dashboard/attendance" className={navLinkClass(isActive("/dashboard/attendance"))}>
+              Attendance
+            </Link>
             {user.role === "admin" && (
               <Link
                 href="/dashboard/vacancies"
@@ -450,6 +464,15 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 className={navLinkClass(isActive("/dashboard/users"))}
               >
                 Users
+              </Link>
+            )}
+            {/* All Attendance — admin only */}
+            {user.role === "admin" && (
+              <Link
+                href="/dashboard/attendance-admin"
+                className={navLinkClass(isActive("/dashboard/attendance-admin"))}
+              >
+                All Attendance
               </Link>
             )}
             {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "case_manager" || user.role === "business_development" || user.role === "billing") && (

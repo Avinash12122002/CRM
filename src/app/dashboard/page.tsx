@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import CheckInOutCard from "@/components/CheckInOutCard";
+import AttendanceStatusCard from "@/components/attendance/AttendanceStatusCard";
 import AnnouncementBanner from "@/components/chat/AnnouncementBanner";
 // import BroadcastPanel from "@/components/chat/BroadcastPanel";
 // import OnlineUsers from "@/components/chat/OnlineUsers";
@@ -1064,9 +1065,10 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Check-in/Check-out — FIX: added so BD role can clock in/out like telecaller/meeting roles */}
-                <div>
+                {/* Check-in/Check-out & Attendance mark card */}
+                <div className="space-y-4">
                   <CheckInOutCard />
+                  <AttendanceStatusCard />
                 </div>
               </div>
             )}
@@ -1281,9 +1283,10 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Check-in/Check-out */}
-                <div>
+                {/* Check-in/Check-out & Attendance mark card */}
+                <div className="space-y-4">
                   <CheckInOutCard />
+                  <AttendanceStatusCard />
                 </div>
               </div>
             )}
@@ -1402,8 +1405,10 @@ export default function DashboardPage() {
             </div>
 
             {/* Check-in/Check-out */}
-            <div>
+            <div className="space-y-4">
               <CheckInOutCard />
+              {/* Attendance mark card */}
+              <AttendanceStatusCard />
             </div>
           </div>
         )}
