@@ -90,9 +90,7 @@ export default function TriloknathLeadsPage() {
   const [assignedSearchQuery, setAssignedSearchQuery] = useState("");
   const [assignedDropdownOpen, setAssignedDropdownOpen] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedYear, setSelectedYear] = useState<string>(
-    new Date().getFullYear().toString(),
-  );
+  const [selectedYear, setSelectedYear] = useState<string>("");
   const [agentFilter, setAgentFilter] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -119,7 +117,7 @@ export default function TriloknathLeadsPage() {
           setAssignedSearchQuery(filters.assignedSearchQuery || "");
           setSelectedMonth(filters.selectedMonth || "");
           setSelectedYear(
-            filters.selectedYear || new Date().getFullYear().toString(),
+            filters.selectedYear !== undefined ? filters.selectedYear : "",
           );
           setAgentFilter(filters.agentFilter || "");
           setPagination((prev) => ({
