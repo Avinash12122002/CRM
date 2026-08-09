@@ -21,6 +21,7 @@
     "@vercel/speed-insights": "^1.2.0",
     "axios": "^1.17.0",
     "bcryptjs": "^2.4.3",
+    "cheerio": "^1.2.0",
     "jsonwebtoken": "^9.0.0",
     "jspdf": "^4.2.1",
     "lexical": "^0.38.2",
