@@ -45,13 +45,15 @@ export async function POST(req: NextRequest) {
       username: user.username,
     });
 
-    // Set HttpOnly cookie
+    // Set HttpOnly cookie (SameSite=Lax for proper cross-page navigation, Secure conditionally for HTTPS)
+    const isHttps = req.nextUrl.protocol === "https:";
+    const secureFlag = isHttps ? "; Secure" : "";
     const res = NextResponse.json({ ok: true });
     res.headers.append(
       "Set-Cookie",
       `token=${token}; HttpOnly; Path=/; Max-Age=${
         60 * 60 * 24 * 7
-      }; SameSite=Strict; Secure`
+      }; SameSite=Lax${secureFlag}`,
     );
     return res;
   } catch (err) {

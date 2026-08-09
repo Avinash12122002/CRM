@@ -507,6 +507,14 @@ export default function LeadDetailPage() {
       return;
     }
 
+    const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
+    if (salesFile.size > MAX_FILE_SIZE) {
+      toast.error(
+        `File size (${(salesFile.size / (1024 * 1024)).toFixed(1)}MB) exceeds Vercel limit of 4.5MB. Please choose a compressed PDF.`,
+      );
+      return;
+    }
+
     setConvertingToSales(true);
     try {
       if (note.trim()) {
