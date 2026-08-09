@@ -86,12 +86,21 @@ export async function POST(
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
-    if (
-      (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
-      String(lead.assignedTo) !== String(payload.id)
-    ) {
+    const canConvert =
+      payload.role === "admin" ||
+      payload.role === "telecaller" ||
+      payload.role === "employee" ||
+      payload.role === "meeting" ||
+      !lead.assignedTo ||
+      String(lead.assignedTo) === String(payload.id) ||
+      String(lead.assignedBy) === String(payload.id) ||
+      String(lead.createdBy) === String(payload.id) ||
+      (Array.isArray(lead.visibleTo) &&
+        lead.visibleTo.some((v: unknown) => String(v) === String(payload.id)));
+
+    if (!canConvert) {
       return NextResponse.json(
-        { message: "You can only update status of leads assigned to you" },
+        { message: "You do not have permission to convert this lead to Sales" },
         { status: 403 },
       );
     }

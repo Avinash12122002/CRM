@@ -526,7 +526,13 @@ export default function LeadDetailPage() {
         method: "POST",
         body: formData,
       });
-      const data = await res.json();
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = { message: `Server error (${res.status})` };
+      }
 
       if (res.ok) {
         toast.success(
