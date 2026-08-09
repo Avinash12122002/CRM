@@ -90,7 +90,7 @@ const { status, callbackDate } = body;
 
     if (
       (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
-      lead.assignedTo !== payload.id
+      String(lead.assignedTo) !== String(payload.id)
     ) {
       return NextResponse.json(
         {

@@ -164,10 +164,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               <Link href="/dashboard/activity" className={deskLinkClass(isActive("/dashboard/activity"))}>
                 Activity
               </Link>
-              {/* Attendance — all roles */}
-              <Link href="/dashboard/attendance" className={deskLinkClass(isActive("/dashboard/attendance"))}>
-                Attendance
-              </Link>
+              {/* Attendance — non-admin roles */}
+              {user.role !== "admin" && (
+                <Link href="/dashboard/attendance" className={deskLinkClass(isActive("/dashboard/attendance"))}>
+                  Attendance
+                </Link>
+              )}
               {user.role === "admin" && (
                 <Link
                   href="/dashboard/vacancies"
@@ -361,10 +363,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard/activity" className={navLinkClass(isActive("/dashboard/activity"))}>
               Activity
             </Link>
-            {/* Attendance — all roles */}
-            <Link href="/dashboard/attendance" className={navLinkClass(isActive("/dashboard/attendance"))}>
-              Attendance
-            </Link>
+            {/* Attendance — non-admin roles */}
+            {user.role !== "admin" && (
+              <Link href="/dashboard/attendance" className={navLinkClass(isActive("/dashboard/attendance"))}>
+                Attendance
+              </Link>
+            )}
             {user.role === "admin" && (
               <Link
                 href="/dashboard/vacancies"

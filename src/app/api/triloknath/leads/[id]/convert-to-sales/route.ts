@@ -67,7 +67,11 @@ export async function POST(
     }
 
     const isPdf =
-      file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf");
+      !file.type ||
+      file.type === "application/pdf" ||
+      file.type === "application/x-pdf" ||
+      file.type === "application/octet-stream" ||
+      file.name?.toLowerCase().endsWith(".pdf");
     if (!isPdf) {
       return NextResponse.json(
         { message: "Only PDF files are accepted" },
@@ -84,7 +88,7 @@ export async function POST(
 
     if (
       (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
-      lead.assignedTo !== payload.id
+      String(lead.assignedTo) !== String(payload.id)
     ) {
       return NextResponse.json(
         { message: "You can only update status of leads assigned to you" },
@@ -116,7 +120,9 @@ export async function POST(
 
     if (caseManagerIdRaw) {
       const caseManagerId = parseInt(caseManagerIdRaw);
-      caseManager = caseManagers.find((cm) => cm.id === caseManagerId);
+      caseManager = caseManagers.find(
+        (cm) => cm.id === caseManagerId || String(cm.id) === String(caseManagerIdRaw),
+      );
       if (!caseManager) {
         return NextResponse.json(
           { message: "Selected Case Manager not found" },

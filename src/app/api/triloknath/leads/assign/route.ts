@@ -69,7 +69,7 @@ async function handleAssign(req: NextRequest) {
     }
 
     if (payload.role !== "admin") {
-      if (lead.assignedTo !== payload.id) {
+      if (String(lead.assignedTo) !== String(payload.id)) {
         return NextResponse.json(
           {
             message: "Forbidden: You can only reassign your own leads",
@@ -78,7 +78,7 @@ async function handleAssign(req: NextRequest) {
         );
       }
 
-      const allowedRoles = ["admin", "telecaller", "employee", "meeting"];
+      const allowedRoles = ["admin", "telecaller", "employee", "meeting", "case_manager"];
 
       if (
         payload.role !== "admin" &&

@@ -66,7 +66,7 @@ export default function AssignLeadModal({
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((user: User) =>
-          ["admin", "telecaller", "employee", "meeting"].includes(user.role),
+          ["admin", "telecaller", "employee", "meeting", "case_manager"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -170,9 +170,10 @@ export default function AssignLeadModal({
 
   const roleBadgeClass = (role: string) => {
     switch (role) {
-      case "admin":   return "bg-red-100 text-red-700";
-      case "meeting": return "bg-purple-100 text-purple-700";
-      default:        return "bg-blue-100 text-blue-700";
+      case "admin":        return "bg-red-100 text-red-700";
+      case "case_manager": return "bg-emerald-100 text-emerald-700";
+      case "meeting":      return "bg-purple-100 text-purple-700";
+      default:             return "bg-blue-100 text-blue-700";
     }
   };
 
