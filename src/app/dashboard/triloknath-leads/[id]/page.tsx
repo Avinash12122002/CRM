@@ -513,8 +513,13 @@ export default function TriloknathLeadDetailPage() {
         }
       }
 
+      const safeFileName = salesFile.name.replace(/['"\\/]/g, "_");
+      const safeFile = new File([salesFile], safeFileName, {
+        type: salesFile.type || "application/pdf",
+      });
+
       const formData = new FormData();
-      formData.append("file", salesFile);
+      formData.append("file", safeFile);
       formData.append("caseManagerId", selectedCaseManagerId);
       formData.append("occupations", JSON.stringify(validOccupations));
 

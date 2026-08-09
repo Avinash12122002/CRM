@@ -1,3 +1,4 @@
+import { ObjectId } from "mongodb";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { Readable } from "stream";
@@ -168,7 +169,19 @@ export async function POST(
     const buffer = Buffer.from(bytes);
     const bucket = await getGridFSBucket();
 
-    const uploadStream = bucket.openUploadStream(file.name, {
+    // Delete old PDF file from GridFS if it exists to cleanly replace it
+    const oldFileId = lead.salesDocument?.fileId;
+    if (oldFileId && ObjectId.isValid(oldFileId)) {
+      try {
+        await bucket.delete(new ObjectId(oldFileId));
+      } catch (delErr) {
+        console.error("Could not delete old PDF from GridFS:", delErr);
+      }
+    }
+
+    const sanitizedFileName = (file.name || "document.pdf").replace(/['"\\/]/g, "_");
+
+    const uploadStream = bucket.openUploadStream(sanitizedFileName, {
       contentType: "application/pdf",
       metadata: {
         leadId,
@@ -223,7 +236,7 @@ export async function POST(
 
           salesDocument: {
             fileId,
-            fileName: file.name,
+            fileName: sanitizedFileName,
             uploadedAt: now,
             uploadedBy: payload.id,
             uploadedByName: payload.name,

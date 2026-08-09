@@ -91,6 +91,113 @@ export default function CaseManagerLeadDetailPage() {
   const [editOccupations, setEditOccupations] = useState<string[]>([]);
   const [savingOccupations, setSavingOccupations] = useState(false);
 
+  const [showPdfReuploadModal, setShowPdfReuploadModal] = useState(false);
+  const [reuploadFile, setReuploadFile] = useState<File | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+
+  const handlePdfReupload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reuploadFile) {
+      toast.error("Please choose a PDF file to upload");
+      return;
+    }
+
+    const MAX_FILE_SIZE = 4.5 * 1024 * 1024;
+    if (reuploadFile.size > MAX_FILE_SIZE) {
+      toast.error(
+        `File size (${(reuploadFile.size / (1024 * 1024)).toFixed(1)}MB) exceeds limit of 4.5MB. Please choose a compressed PDF.`,
+      );
+      return;
+    }
+
+    setUploadingPdf(true);
+    try {
+      const safeFileName = reuploadFile.name.replace(/['"\\/]/g, "_");
+      const safeFile = new File([reuploadFile], safeFileName, {
+        type: reuploadFile.type || "application/pdf",
+      });
+
+      const formData = new FormData();
+      formData.append("file", safeFile);
+
+      const res = await fetch(`/api/case-manager/leads/${leadId}/document`, {
+        method: "PUT",
+        body: formData,
+      });
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = { message: `Server error (${res.status})` };
+      }
+
+      if (res.ok) {
+        toast.success("PDF document updated successfully!");
+        setLead((prev) =>
+          prev
+            ? {
+                ...prev,
+                salesDocument: data.salesDocument || {
+                  fileId: data.fileId || "updated",
+                  fileName: safeFileName,
+                  uploadedAt: new Date().toISOString(),
+                },
+              }
+            : prev,
+        );
+        setShowPdfReuploadModal(false);
+        setReuploadFile(null);
+      } else {
+        toast.error(data.message || "Failed to upload PDF");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong uploading PDF");
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const [deletingPdf, setDeletingPdf] = useState(false);
+
+  const handleDeletePdf = async () => {
+    if (!lead || !lead.salesDocument?.fileId) return;
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this PDF document? The file will be removed.",
+      )
+    ) {
+      return;
+    }
+
+    setDeletingPdf(true);
+    try {
+      const res = await fetch(`/api/case-manager/leads/${lead.id}/document`, {
+        method: "DELETE",
+      });
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = { message: `Server error (${res.status})` };
+      }
+
+      if (res.ok) {
+        toast.success("PDF document deleted successfully!");
+        setLead((prev) => (prev ? { ...prev, salesDocument: undefined } : prev));
+      } else {
+        toast.error(data.message || "Failed to delete PDF");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong deleting PDF");
+    } finally {
+      setDeletingPdf(false);
+    }
+  };
+
   useEffect(() => {
     fetchUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -355,16 +462,42 @@ export default function CaseManagerLeadDetailPage() {
                   CV :
                 </span>
                 {lead.salesDocument?.fileId ? (
-                  <a
-                    href={`/api/leads/${lead.id}/document`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition shadow-2xs"
-                  >
-                    View PDF
-                  </a>
+                  <>
+                    <a
+                      href={`/api/leads/${lead.id}/document?v=${lead.salesDocument?.fileId || Date.now()}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-600 text-white hover:bg-blue-700 transition shadow-2xs"
+                    >
+                      View PDF
+                    </a>
+                    {user?.role === "admin" && (
+                      <button
+                        onClick={handleDeletePdf}
+                        disabled={deletingPdf}
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition shadow-2xs cursor-pointer"
+                        title="Delete candidate PDF document"
+                      >
+                        {deletingPdf ? "Deleting..." : "🗑️ Delete PDF"}
+                      </button>
+                    )}
+                  </>
                 ) : (
-                  <span className="text-xs text-gray-400">None</span>
+                  <>
+                    <span className="text-xs text-gray-400">None</span>
+                    {user?.role === "admin" && (
+                      <button
+                        onClick={() => {
+                          setReuploadFile(null);
+                          setShowPdfReuploadModal(true);
+                        }}
+                        className="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-2xs cursor-pointer"
+                        title="Upload candidate PDF document"
+                      >
+                        + Upload PDF
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -602,6 +735,60 @@ export default function CaseManagerLeadDetailPage() {
             fetchLead();
           }}
         />
+      )}
+
+      {/* Admin Re-upload PDF Modal */}
+      {showPdfReuploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-md w-full p-6 border border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between pb-4 border-b border-zinc-200 dark:border-zinc-800">
+              <h3 className="text-lg font-bold text-zinc-900 dark:text-white">
+                Re-upload Candidate PDF / Resume
+              </h3>
+              <button
+                onClick={() => setShowPdfReuploadModal(false)}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 text-xl font-bold cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+            <form onSubmit={handlePdfReupload} className="mt-4 flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Select New Signed PDF / Resume *
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  onChange={(e) => setReuploadFile(e.target.files?.[0] || null)}
+                  className="w-full text-xs text-zinc-700 dark:text-zinc-300 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-zinc-800 dark:file:text-zinc-200"
+                  required
+                />
+                {reuploadFile && (
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Selected: {reuploadFile.name} ({(reuploadFile.size / (1024 * 1024)).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                <button
+                  type="button"
+                  onClick={() => setShowPdfReuploadModal(false)}
+                  className="px-3 py-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-md transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingPdf || !reuploadFile}
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 rounded-md transition shadow-2xs cursor-pointer"
+                >
+                  {uploadingPdf ? "Uploading..." : "Upload & Update PDF"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

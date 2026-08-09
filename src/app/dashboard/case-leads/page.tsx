@@ -293,7 +293,7 @@ export default function CaseManagerLeadsPage() {
       toast.error("No document has been uploaded for this lead yet");
       return;
     }
-    window.open(`/api/leads/${lead.id}/document`, "_blank");
+    window.open(`/api/leads/${lead.id}/document?v=${lead.salesDocument?.fileId || Date.now()}`, "_blank");
   };
 
   const handleDelete = async (lead: CaseLead) => {

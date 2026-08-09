@@ -41,6 +41,7 @@ export async function GET(
       payload.role === "case_manager" ||
       String(lead.assignedTo) === String(payload.id) ||
       String(lead.assignedBy) === String(payload.id) ||
+      String(lead.createdBy) === String(payload.id) ||
       String(lead.salesDocument?.uploadedBy) === String(payload.id) ||
       (Array.isArray(lead.visibleTo) &&
         lead.visibleTo.some((v: unknown) => String(v) === String(payload.id)));
@@ -85,7 +86,9 @@ export async function GET(
         "Content-Type": contentType,
         "Content-Disposition": `inline; filename="${safeFilename}"; filename*=UTF-8''${safeFilename}`,
         "Content-Length": pdfBuffer.length.toString(),
-        "Cache-Control": "private, max-age=3600",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
       },
     });
   } catch (err) {
