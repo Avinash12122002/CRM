@@ -37,6 +37,23 @@ export function todayIST(): string {
   return `${y}-${m}-${d}`;
 }
 
+/**
+ * Returns yesterday's date string in "YYYY-MM-DD" format (IST).
+ * Used by the midnight cron — when the cron fires at 00:00 IST the "new day"
+ * has already started, so absent records must be written for the day that
+ * just ended (i.e. yesterday IST).
+ */
+export function yesterdayIST(): string {
+  const now = new Date();
+  const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+  // Subtract one day
+  const yesterdayIST = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000);
+  const y = yesterdayIST.getUTCFullYear();
+  const m = String(yesterdayIST.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(yesterdayIST.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 // ── Safe ID helper (MongoDB v5 compatible) ───────────────────────────────────
 
 /**
@@ -100,7 +117,10 @@ export async function ensureAttendanceIndexes(db: Db): Promise<void> {
  * Returns the count of newly-inserted absent records.
  */
 export async function autoMarkAbsentees(db: Db): Promise<number> {
-  const today = todayIST();
+  // The cron fires at 00:00 IST (midnight). At that moment the "new day" has
+  // already begun in IST, so we must mark absent for the day that just ended
+  // (yesterday IST), not today.
+  const today = yesterdayIST();
   const now = new Date();
 
   // Load all non-admin users
