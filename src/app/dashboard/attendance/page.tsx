@@ -25,7 +25,10 @@ type MeResponse = {
     | "meeting"
     | "billing"
     | "business_development"
-    | "case_manager";
+    | "case_manager"
+    | "wm"
+    | "wcm"
+    | "wtc";
 };
 
 export default function AttendancePage() {

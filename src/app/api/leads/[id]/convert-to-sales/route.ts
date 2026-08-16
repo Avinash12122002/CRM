@@ -94,6 +94,8 @@ export async function POST(
       payload.role === "telecaller" ||
       payload.role === "employee" ||
       payload.role === "meeting" ||
+      payload.role === "wtc" ||
+      payload.role === "wm" ||
       !lead.assignedTo ||
       String(lead.assignedTo) === String(payload.id) ||
       String(lead.assignedBy) === String(payload.id) ||
@@ -117,7 +119,7 @@ export async function POST(
 
     const caseManagers = await db
       .collection("users")
-      .find({ role: "case_manager" })
+      .find({ role: { $in: ["case_manager", "wcm"] } })
       .project({ id: 1, name: 1 })
       .toArray();
 
@@ -148,7 +150,7 @@ export async function POST(
       const loadCounts = await db
         .collection("leads")
         .aggregate([
-          { $match: { assignedToRole: "case_manager" } },
+          { $match: { assignedToRole: { $in: ["case_manager", "wcm"] } } },
           { $group: { _id: "$assignedTo", count: { $sum: 1 } } },
         ])
         .toArray();

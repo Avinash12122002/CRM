@@ -20,7 +20,10 @@ interface User {
     | "meeting"
     | "business_development"
     | "billing"
-    | "case_manager";
+    | "case_manager"
+    | "wm"
+    | "wcm"
+    | "wtc";
 }
 
 interface HistoryEntry {
@@ -211,7 +214,7 @@ export default function CaseManagerLeadDetailPage() {
         return;
       }
       const data = await res.json();
-      if (data.role !== "case_manager" && data.role !== "admin") {
+      if (data.role !== "case_manager" && data.role !== "wcm" && data.role !== "admin") {
         router.push("/dashboard");
         return;
       }

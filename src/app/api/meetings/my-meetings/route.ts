@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
     // Only Meeting users and Admins
     if (
       payload.role !== "meeting" &&
+      payload.role !== "wm" &&
       payload.role !== "admin"
     ) {
       return NextResponse.json(

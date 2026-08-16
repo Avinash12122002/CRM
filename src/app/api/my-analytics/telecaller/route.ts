@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     if (!token) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     const payload = verifyToken(token);
     if (!payload) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    if (payload.role !== "telecaller" && payload.role !== "employee") {
+    if (payload.role !== "telecaller" && payload.role !== "employee" && payload.role !== "wtc") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

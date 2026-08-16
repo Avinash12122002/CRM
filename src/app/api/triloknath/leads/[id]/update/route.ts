@@ -21,7 +21,7 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (payload.role === "case_manager") {
+    if (payload.role === "case_manager" || payload.role === "wcm") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -73,7 +73,11 @@ export async function PUT(
 
     // Check permissions: Admins can edit any lead, telecallers can only edit leads assigned to them
     if (
-      (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
+      (payload.role === "telecaller" ||
+        payload.role === "employee" ||
+        payload.role === "meeting" ||
+        payload.role === "wtc" ||
+        payload.role === "wm") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(
@@ -106,7 +110,11 @@ export async function PUT(
     const changes: string[] = [];
 
     const finalPhone =
-      payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting"
+      payload.role === "telecaller" ||
+      payload.role === "employee" ||
+      payload.role === "meeting" ||
+      payload.role === "wtc" ||
+      payload.role === "wm"
         ? lead.phone
         : phone;
 

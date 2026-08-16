@@ -13,7 +13,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager" | "wm" | "wcm" | "wtc";
 };
 
 type LeadStats = {
@@ -414,11 +414,11 @@ export default function DashboardPage() {
         if (!res.ok) { router.push("/"); return; }
         const data: MeResponse = await res.json();
         setUser(data);
-        if (data.role === "telecaller" || data.role === "employee") {
+        if (data.role === "telecaller" || data.role === "employee" || data.role === "wtc") {
           fetchUserStats();
           fetchWorkHours();
         }
-        if (data.role === "meeting") {
+        if (data.role === "meeting" || data.role === "wm") {
           fetchUserStats();
           fetchMeetingStats();
           fetchWorkHours();
@@ -437,7 +437,7 @@ export default function DashboardPage() {
           fetchBillingSummary();
           fetchWorkHours();
         }
-        if (data.role === "case_manager") {
+        if (data.role === "case_manager" || data.role === "wcm") {
           fetchCaseManagerStats();
           fetchWorkHours();
         }
@@ -453,6 +453,8 @@ export default function DashboardPage() {
 
   if (loading) return <div className="p-8">Loading...</div>;
   if (!user) return null;
+
+  const role = (user.role || "").trim().toLowerCase();
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -497,7 +499,7 @@ export default function DashboardPage() {
                 Here&apos;s what&apos;s happening with your account today.
               </p>
             </div>
-            {user.role === "admin" && (
+            {role === "admin" && (
               <button
                 onClick={fetchAdminStats}
                 disabled={loadingAdminStats}
@@ -516,7 +518,7 @@ export default function DashboardPage() {
                 <span>{loadingAdminStats ? "Refreshing..." : "Refresh"}</span>
               </button>
             )}
-            {user.role === "business_development" && (
+            {role === "business_development" && (
               <button
                 onClick={() => { fetchBDStats(); fetchWorkHours(); }}
                 disabled={loadingBdStats}
@@ -535,7 +537,7 @@ export default function DashboardPage() {
                 <span>{loadingBdStats ? "Refreshing..." : "Refresh"}</span>
               </button>
             )}
-            {user.role === "billing" && (
+            {role === "billing" && (
               <button
                 onClick={() => { fetchBillingSummary(); fetchWorkHours(); }}
                 disabled={loadingBillingSummary}
@@ -554,7 +556,7 @@ export default function DashboardPage() {
                 <span>{loadingBillingSummary ? "Refreshing..." : "Refresh"}</span>
               </button>
             )}
-            {user.role === "case_manager" && (
+            {(role === "case_manager" || role === "wcm") && (
               <button
                 onClick={() => { fetchCaseManagerStats(); fetchWorkHours(); }}
                 disabled={loadingCaseManagerStats}
@@ -579,7 +581,7 @@ export default function DashboardPage() {
         {/* ══════════════════════════════════════════════════
             ADMIN DASHBOARD
         ══════════════════════════════════════════════════ */}
-        {user.role === "admin" ? (
+        {role === "admin" ? (
           <div className="space-y-6">
             {loadingAdminStats ? (
               <div className="flex justify-center py-12">
@@ -1186,7 +1188,7 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-        ) : user.role === "case_manager" ? (
+        ) : (role === "case_manager" || role === "wcm") ? (
           /* ══════════════════════════════════════════════════
               CASE MANAGER DASHBOARD
           ══════════════════════════════════════════════════ */
@@ -1301,7 +1303,7 @@ export default function DashboardPage() {
               {/* Lead / Meeting Overview */}
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
                 <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                  {user.role === "meeting" ? "Meeting Overview" : "Lead Overview"}
+                  {role === "meeting" || role === "wm" ? "Meeting Overview" : "Lead Overview"}
                 </h3>
 
                 {loadingStats || loadingMeetingStats ? (
@@ -1311,7 +1313,7 @@ export default function DashboardPage() {
                 ) : (
                   <>
                     {/* Telecaller cards */}
-                    {(user.role === "telecaller" || user.role === "employee") && (
+                    {(role === "telecaller" || role === "employee" || role === "wtc") && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <button
                           onClick={() => router.push("/dashboard/leads")}
@@ -1348,7 +1350,7 @@ export default function DashboardPage() {
                     )}
 
                     {/* Meeting user cards */}
-                    {user.role === "meeting" && (
+                    {(role === "meeting" || role === "wm") && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <button onClick={() => router.push("/dashboard/meetings")} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left">
                           <div className="flex flex-col items-start gap-3 mb-2">

@@ -18,7 +18,10 @@ type DashboardNavbarProps = {
       | "meeting"
       | "business_development"
       | "billing"
-      | "case_manager";
+      | "case_manager"
+      | "wm"
+      | "wcm"
+      | "wtc";
   };
 };
 
@@ -29,6 +32,8 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [todoCount, setTodoCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const role = (user.role || "").trim().toLowerCase();
 
   useEffect(() => {
     loadUnreadCount();
@@ -42,7 +47,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
 
   // Case Managers get a live count of pending CV Marketing Workspace tasks
   useEffect(() => {
-    if (user.role !== "case_manager") return;
+    if (role !== "case_manager" && role !== "wcm") return;
 
     const loadTodoCount = async () => {
       try {
@@ -146,12 +151,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               <Link href="/dashboard" className={deskLinkClass(isActive("/dashboard"))}>
                 Dashboard
               </Link>
-              {(user.role === "admin" || user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+              {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
                 <Link href="/dashboard/leads" className={deskLinkClass(isActive("/dashboard/leads"))}>
                   Leads
                 </Link>
               )}
-              {(user.role === "admin" || user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+              {role === "admin" && (
                 <Link
                   href="/dashboard/triloknath-leads"
                   className={deskLinkClass(
@@ -165,12 +170,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Activity
               </Link>
               {/* Attendance — non-admin roles */}
-              {user.role !== "admin" && (
+              {role !== "admin" && (
                 <Link href="/dashboard/attendance" className={deskLinkClass(isActive("/dashboard/attendance"))}>
                   Attendance
                 </Link>
               )}
-              {user.role === "admin" && (
+              {role === "admin" && (
                 <Link
                   href="/dashboard/vacancies"
                   className={deskLinkClass(
@@ -181,22 +186,22 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 </Link>
               )}
 
-              {(user.role === "admin" || user.role === "billing") && (
+              {(role === "admin" || role === "billing") && (
                 <Link href="/dashboard/billing" className={deskLinkClass(isActive("/dashboard/billing"))}>
                   Billing
                 </Link>
               )}
-              {user.role === "meeting" && (
+              {(role === "meeting" || role === "wm") && (
                 <Link href="/dashboard/meetings" className={deskLinkClass(isActive("/dashboard/meetings"))}>
                   Meetings
                 </Link>
               )}
-              {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
                 <Link href="/dashboard/data-entry" className={deskLinkClass(isActive("/dashboard/data-entry"))}>
                   Data Entry
                 </Link>
               )}
-              {user.role === "business_development" && (
+              {role === "business_development" && (
                 <Link
                   href="/dashboard/bd-pipeline"
                   className={deskLinkClass(
@@ -206,7 +211,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   BD Pipeline
                 </Link>
               )}
-              {(user.role === "case_manager" || user.role === "admin") && (
+              {(role === "case_manager" || role === "wcm" || role === "admin") && (
                 <Link
                   href="/dashboard/case-leads"
                   className={deskLinkClass(
@@ -216,7 +221,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Case Leads
                 </Link>
               )}
-              {user.role === "case_manager" && (
+              {(role === "case_manager" || role === "wcm") && (
                 <Link
                   href="/dashboard/todo"
                   className={`${deskLinkClass(isActive("/dashboard/todo"))} relative`}
@@ -229,7 +234,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   )}
                 </Link>
               )}
-              {user.role === "admin" && (
+              {role === "admin" && (
                 <Link
                   href="/dashboard/bd-leads"
                   className={deskLinkClass(
@@ -239,7 +244,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   BD Leads
                 </Link>
               )}
-              {user.role === "admin" && (
+              {role === "admin" && (
                 <Link
                   href="/dashboard/email"
                   className={deskLinkClass(isActive("/dashboard/email") || pathname.startsWith("/dashboard/email/"))}
@@ -247,18 +252,18 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Email
                 </Link>
               )}
-              {user.role === "admin" && (
+              {role === "admin" && (
                 <Link href="/dashboard/users" className={deskLinkClass(isActive("/dashboard/users"))}>
                   Users
                 </Link>
               )}
               {/* All Attendance — admin only */}
-              {user.role === "admin" && (
+              {role === "admin" && (
                 <Link href="/dashboard/attendance-admin" className={deskLinkClass(isActive("/dashboard/attendance-admin"))}>
                   All Attendance
                 </Link>
               )}
-              {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "case_manager" || user.role === "business_development" || user.role === "billing") && (
+              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm") && (
                 <Link href="/dashboard/my-analytics" className={deskLinkClass(isActive("/dashboard/my-analytics"))}>
                   My Analytics
                 </Link>
@@ -344,12 +349,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard" className={navLinkClass(isActive("/dashboard"))}>
               Dashboard
             </Link>
-            {(user.role === "admin" || user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+            {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
               <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
                 Leads
               </Link>
             )}
-            {(user.role === "admin" || user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+            {role === "admin" && (
               <Link
                 href="/dashboard/triloknath-leads"
                 className={navLinkClass(
@@ -364,12 +369,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               Activity
             </Link>
             {/* Attendance — non-admin roles */}
-            {user.role !== "admin" && (
+            {role !== "admin" && (
               <Link href="/dashboard/attendance" className={navLinkClass(isActive("/dashboard/attendance"))}>
                 Attendance
               </Link>
             )}
-            {user.role === "admin" && (
+            {role === "admin" && (
               <Link
                 href="/dashboard/vacancies"
                 className={navLinkClass(
@@ -381,7 +386,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               </Link>
             )}
 
-            {(user.role === "admin" || user.role === "billing") && (
+            {(role === "admin" || role === "billing") && (
               <Link
                 href="/dashboard/billing"
                 className={navLinkClass(isActive("/dashboard/billing"))}
@@ -389,7 +394,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Billing
               </Link>
             )}
-            {user.role === "meeting" && (
+            {(role === "meeting" || role === "wm") && (
               <Link
                 href="/dashboard/meetings"
                 className={navLinkClass(isActive("/dashboard/meetings"))}
@@ -397,7 +402,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Meetings
               </Link>
             )}
-            {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting") && (
+            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
               <Link
                 href="/dashboard/data-entry"
                 className={navLinkClass(isActive("/dashboard/data-entry"))}
@@ -405,7 +410,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Data Entry
               </Link>
             )}
-            {user.role === "business_development" && (
+            {role === "business_development" && (
               <Link
                 href="/dashboard/bd-pipeline"
                 className={navLinkClass(
@@ -416,7 +421,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 BD Pipeline
               </Link>
             )}
-            {(user.role === "case_manager" || user.role === "admin") && (
+            {(role === "case_manager" || role === "wcm" || role === "admin") && (
               <Link
                 href="/dashboard/case-leads"
                 className={navLinkClass(
@@ -427,7 +432,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Case Leads
               </Link>
             )}
-            {user.role === "case_manager" && (
+            {(role === "case_manager" || role === "wcm") && (
               <Link
                 href="/dashboard/todo"
                 className={`${navLinkClass(isActive("/dashboard/todo"))} flex items-center justify-between pr-4`}
@@ -440,7 +445,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 )}
               </Link>
             )}
-            {user.role === "admin" && (
+            {role === "admin" && (
               <Link
                 href="/dashboard/bd-leads"
                 className={navLinkClass(
@@ -451,7 +456,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 BD Leads
               </Link>
             )}
-            {user.role === "admin" && (
+            {role === "admin" && (
               <Link
                 href="/dashboard/email"
                 className={navLinkClass(
@@ -462,7 +467,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Email
               </Link>
             )}
-            {user.role === "admin" && (
+            {role === "admin" && (
               <Link
                 href="/dashboard/users"
                 className={navLinkClass(isActive("/dashboard/users"))}
@@ -471,7 +476,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               </Link>
             )}
             {/* All Attendance — admin only */}
-            {user.role === "admin" && (
+            {role === "admin" && (
               <Link
                 href="/dashboard/attendance-admin"
                 className={navLinkClass(isActive("/dashboard/attendance-admin"))}
@@ -479,7 +484,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 All Attendance
               </Link>
             )}
-            {(user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "case_manager" || user.role === "business_development" || user.role === "billing") && (
+            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm") && (
               <Link
                 href="/dashboard/my-analytics"
                 className={navLinkClass(isActive("/dashboard/my-analytics"))}

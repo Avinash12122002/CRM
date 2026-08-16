@@ -30,7 +30,10 @@ type MeResponse = {
     | "meeting"
     | "billing"
     | "business_development"
-    | "case_manager";
+    | "case_manager"
+    | "wm"
+    | "wcm"
+    | "wtc";
 };
 
 type UserOption = { id: number; name: string; role: string };

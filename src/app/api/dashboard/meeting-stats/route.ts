@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (payload.role !== "meeting") {
+    if (payload.role !== "meeting" && payload.role !== "wm") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -36,12 +36,12 @@ export async function GET(req: NextRequest) {
       meetingDetails: { $exists: true, $ne: null },
     };
 
-    if (payload.role === "meeting") {
+    if (payload.role === "meeting" || payload.role === "wm") {
       filter["$or"] = [
         { "meetingDetails.meetingUserId": { $in: matchUserIds } },
         { assignedTo: { $in: matchUserIds } },
       ];
-    } else if (payload.role === "telecaller" || payload.role === "employee") {
+    } else if (payload.role === "telecaller" || payload.role === "employee" || payload.role === "wtc") {
       filter["$or"] = [
         { assignedTo: { $in: matchUserIds } },
         { "meetingDetails.bookedBy": { $in: matchUserIds } },

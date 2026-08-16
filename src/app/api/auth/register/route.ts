@@ -27,11 +27,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Missing fields" }, { status: 400 });
     }
 
-    // Allow telecaller, meeting, business_development, billing, and case_manager roles
+    // Allow telecaller, meeting, business_development, billing, case_manager, wm, wcm, and wtc roles
     if (
-      !["telecaller", "employee", "meeting", "business_development", "billing", "case_manager"].includes(
-        role,
-      )
+      ![
+        "telecaller",
+        "employee",
+        "meeting",
+        "business_development",
+        "billing",
+        "case_manager",
+        "wm",
+        "wcm",
+        "wtc",
+      ].includes(role)
     ) {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
     }
@@ -63,14 +71,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         message: `${
-          role === "meeting"
+          role === "wm"
+            ? "WM (WFH Meeting) user"
+            : role === "meeting"
             ? "Meeting user"
             : role === "business_development"
             ? "Business Development user"
             : role === "billing"
             ? "Billing user"
+            : role === "wcm"
+            ? "WCM (WFH Case Manager) user"
             : role === "case_manager"
             ? "Case Manager user"
+            : role === "wtc"
+            ? "WTC (WFH Telecaller) user"
             : "Telecaller"
         } created successfully`,
         user: {

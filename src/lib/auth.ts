@@ -38,10 +38,11 @@ export async function getNextId(db: Db, name: string) {
     { upsert: true, returnDocument: "after" }
   );
 
-  if (!result || !result.value) {
+  const doc = (result as any)?.value ?? result;
+  if (!doc || (doc as any).seq === undefined) {
     throw new Error("Failed to generate ID");
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (result.value as any).seq as number;
+  return (doc as any).seq as number;
 }

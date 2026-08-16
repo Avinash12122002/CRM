@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     const caseManagers = await db
       .collection("users")
-      .find({ role: "case_manager" })
+      .find({ role: { $in: ["case_manager", "wcm"] } })
       .project({ id: 1, name: 1 })
       .sort({ name: 1 })
       .toArray();
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     const loadCounts = await db
       .collection("leads")
       .aggregate([
-        { $match: { assignedToRole: "case_manager" } },
+        { $match: { assignedToRole: { $in: ["case_manager", "wcm"] } } },
         { $group: { _id: "$assignedTo", count: { $sum: 1 } } },
       ])
       .toArray();

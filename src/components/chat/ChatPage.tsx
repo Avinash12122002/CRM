@@ -8,7 +8,7 @@ import ConversationPage from "@/components/chat/ConversationPage";
 import BroadcastPanel from "@/components/chat/BroadcastPanel";
 import { Search, MessageCircle, Globe, Megaphone, Star } from "lucide-react";
 
-type UserRole = "admin" | "telecaller" | "employee" | "meeting";
+type UserRole = "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "business_development" | "billing" | "wm" | "wcm" | "wtc";
 
 type User = {
   id: number;

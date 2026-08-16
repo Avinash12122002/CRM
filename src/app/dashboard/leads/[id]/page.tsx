@@ -9,7 +9,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "employee" | "meeting";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc";
 }
 
 interface HistoryEntry {
@@ -189,7 +189,7 @@ export default function LeadDetailPage() {
   const showAssignSection =
     user &&
     lead &&
-    (user.role === "telecaller" || user.role === "employee" || user.role === "meeting") &&
+    (user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "wtc" || user.role === "wm") &&
     lead.isOwner;
 
   // Meeting card visible to admin, assignee, or creator
@@ -200,7 +200,7 @@ export default function LeadDetailPage() {
 
   // Only the assigned meeting user can act on the meeting
   const canManageMeeting =
-    user?.role === "meeting" &&
+    (user?.role === "meeting" || user?.role === "wm") &&
     lead?.isOwner &&
     lead?.meetingDetails?.meetingUserId === user?.id;
 
@@ -1383,7 +1383,7 @@ export default function LeadDetailPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phone <span className="text-red-500">*</span>
                       {(user.role === "telecaller" || user.role === "employee" ||
-                        user.role === "meeting") && (
+                        user.role === "meeting" || user.role === "wtc" || user.role === "wm") && (
                         <span className="text-xs text-gray-500 ml-2">
                           (Read-only)
                         </span>
@@ -1400,7 +1400,7 @@ export default function LeadDetailPage() {
                         })
                       }
                       disabled={
-                        user.role === "telecaller" || user.role === "employee" || user.role === "meeting"
+                        user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "wtc" || user.role === "wm"
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed cursor-text"
                     />

@@ -11,7 +11,7 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: "admin" | "telecaller" | "employee" | "meeting";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc";
 }
 
 interface Lead {
@@ -29,10 +29,10 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager";
+  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager";
+  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
@@ -385,13 +385,13 @@ export default function TriloknathLeadsPage() {
       if (lead.assignedToRole === "admin") {
         return "border-l-4 border-l-red-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      if (lead.assignedToRole === "meeting") {
+      if (lead.assignedToRole === "meeting" || lead.assignedToRole === "wm") {
         return "border-l-4 border-l-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee") {
+      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee" || lead.assignedToRole === "wtc") {
         return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      if (lead.assignedToRole === "case_manager") {
+      if (lead.assignedToRole === "case_manager" || lead.assignedToRole === "wcm") {
         return "border-l-4 border-l-teal-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
     }
@@ -411,6 +411,12 @@ export default function TriloknathLeadsPage() {
         return "Employee";
       case "case_manager":
         return "Case Manager";
+      case "wm":
+        return "WM";
+      case "wcm":
+        return "WCM";
+      case "wtc":
+        return "WTC";
       default:
         return role || "";
     }
@@ -421,12 +427,15 @@ export default function TriloknathLeadsPage() {
       case "admin":
         return "bg-red-100 text-red-700";
       case "meeting":
+      case "wm":
         return "bg-purple-100 text-purple-700";
       case "telecaller":
+      case "wtc":
         return "bg-blue-100 text-blue-700";
       case "employee":
         return "bg-indigo-100 text-indigo-700";
       case "case_manager":
+      case "wcm":
         return "bg-teal-100 text-teal-700";
       default:
         return "bg-gray-100 text-gray-700";

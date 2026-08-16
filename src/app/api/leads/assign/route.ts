@@ -19,7 +19,7 @@ async function handleAssign(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (payload.role === "case_manager") {
+    if (payload.role === "case_manager" || payload.role === "wcm") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -58,7 +58,7 @@ async function handleAssign(req: NextRequest) {
       }
     }
 
-    if (assignedUser?.role === "meeting" && (!meetingDate || !startTime)) {
+    if ((assignedUser?.role === "meeting" || assignedUser?.role === "wm") && (!meetingDate || !startTime)) {
       return NextResponse.json(
         {
           message: "Meeting date and slot are required for meeting users",
@@ -82,8 +82,17 @@ async function handleAssign(req: NextRequest) {
         );
       }
 
-      // Telecaller / Staff -> Admin, Telecaller, Employee, Meeting, or Case Manager
-      const allowedRoles = ["admin", "telecaller", "employee", "meeting", "case_manager"];
+      // Telecaller / Staff -> Admin, Telecaller, Employee, Meeting, Case Manager, WM, WCM, WTC
+      const allowedRoles = [
+        "admin",
+        "telecaller",
+        "employee",
+        "meeting",
+        "case_manager",
+        "wm",
+        "wcm",
+        "wtc",
+      ];
 
       if (
         payload.role !== "admin" &&
@@ -103,11 +112,11 @@ async function handleAssign(req: NextRequest) {
 
     const historyEntry = {
       action:
-  assignedUser?.role === "meeting"
-    ? "meeting_scheduled"
-    : assignedTo
-      ? "assigned"
-      : "unassigned",
+        assignedUser?.role === "meeting" || assignedUser?.role === "wm"
+          ? "meeting_scheduled"
+          : assignedTo
+            ? "assigned"
+            : "unassigned",
 
       performedBy: payload.id,
       performedByName: payload.name,
@@ -118,7 +127,7 @@ async function handleAssign(req: NextRequest) {
       startTime,
 
       details:
-        assignedUser?.role === "meeting"
+        assignedUser?.role === "meeting" || assignedUser?.role === "wm"
           ? `Meeting booked with ${assignedUser?.name} on ${meetingDate} at ${startTime}`
           : assignedTo
             ? `Lead assigned to ${assignedUser?.name} (${assignedUser?.role})`
@@ -135,7 +144,7 @@ async function handleAssign(req: NextRequest) {
 
     let meetingDetails = null;
 
-    if (assignedUser && assignedUser.role === "meeting") {
+    if (assignedUser && (assignedUser.role === "meeting" || assignedUser.role === "wm")) {
       const existingSlot = await db.collection("meetingSlots").findOne({
         meetingUserId: assignedUser.id,
         meetingDate,
@@ -214,22 +223,22 @@ async function handleAssign(req: NextRequest) {
 
           // Stamp caseManagerAssignedAt when assigning/reassigning to a case manager;
           // clear it when handing back to any other role.
-          ...(assignedUser?.role === "case_manager"
+          ...(assignedUser?.role === "case_manager" || assignedUser?.role === "wcm"
             ? { caseManagerAssignedAt: now }
             : { caseManagerAssignedAt: null }),
 
           meetingDetails,
 
-          meetingStatus: assignedUser?.role === "meeting" ? "scheduled" : null,
+          meetingStatus: assignedUser?.role === "meeting" || assignedUser?.role === "wm" ? "scheduled" : null,
 
           meetingCompletedAt: null,
           meetingCancelledAt: null,
 
         status:
-  assignedUser?.role === "meeting"
+  assignedUser?.role === "meeting" || assignedUser?.role === "wm"
     ? "meeting-scheduled"
     : lead.status,
-...(assignedUser?.role === "meeting"
+...(assignedUser?.role === "meeting" || assignedUser?.role === "wm"
   ? { callbackDate: null, callbackSeen: false }
   : { callbackSeen: false }),
 

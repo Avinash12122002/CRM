@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const meetingUser = await db.collection("users").findOne({
       id: meetingUserId,
-      role: "meeting",
+      role: { $in: ["meeting", "wm"] },
     });
 
     if (!meetingUser) {

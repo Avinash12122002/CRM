@@ -21,7 +21,34 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-const query = role ? { role } : { role: { $in: ["admin", "telecaller", "employee", "meeting"] }};
+    let query: Record<string, any> = {
+      role: {
+        $in: [
+          "admin",
+          "telecaller",
+          "employee",
+          "meeting",
+          "wtc",
+          "wm",
+          "case_manager",
+          "wcm",
+        ],
+      },
+    };
+
+    if (role) {
+      if (role === "meeting") {
+        query = { role: { $in: ["meeting", "wm"] } };
+      } else if (role === "telecaller") {
+        query = { role: { $in: ["telecaller", "employee", "wtc"] } };
+      } else if (role === "case_manager") {
+        query = { role: { $in: ["case_manager", "wcm"] } };
+      } else if (role.includes(",")) {
+        query = { role: { $in: role.split(",").map((r) => r.trim()) } };
+      } else {
+        query = { role };
+      }
+    }
 
 const users = await db
   .collection("users")

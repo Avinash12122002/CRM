@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (payload.role !== "case_manager") {
+    if (payload.role !== "case_manager" && payload.role !== "wcm") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
         {
           $match: {
             assignedTo: payload.id,
-            assignedToRole: "case_manager",
+            assignedToRole: { $in: ["case_manager", "wcm"] },
           },
         },
         {

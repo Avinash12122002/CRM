@@ -16,7 +16,10 @@ type User = {
     | "meeting"
     | "business_development"
     | "billing"
-    | "case_manager";
+    | "case_manager"
+    | "wm"
+    | "wcm"
+    | "wtc";
   createdAt: string;
 };
 
@@ -31,7 +34,10 @@ type MeResponse = {
     | "meeting"
     | "business_development"
     | "billing"
-    | "case_manager";
+    | "case_manager"
+    | "wm"
+    | "wcm"
+    | "wtc";
 };
 
 export default function UsersPage() {
@@ -336,20 +342,26 @@ export default function UsersPage() {
                             className={`px-2 py-1 text-xs font-semibold rounded-full ${
                               user.role === "admin"
                                 ? "bg-red-100 text-red-800"
-                                : user.role === "meeting"
+                                : user.role === "meeting" || user.role === "wm"
                                   ? "bg-purple-100 text-purple-800"
                                   : user.role === "business_development"
                                     ? "bg-teal-100 text-teal-800"
                                     : user.role === "billing"
                                       ? "bg-amber-100 text-amber-800"
-                                      : user.role === "case_manager"
+                                      : user.role === "case_manager" || user.role === "wcm"
                                         ? "bg-indigo-100 text-indigo-800"
                                         : user.role === "employee"
                                           ? "bg-cyan-100 text-cyan-800"
                                           : "bg-blue-100 text-blue-800"
                             }`}
                           >
-                            {user.role}
+                            {user.role === "wm"
+                              ? "WM"
+                              : user.role === "wcm"
+                                ? "WCM"
+                                : user.role === "wtc"
+                                  ? "WTC"
+                                  : user.role}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
@@ -622,6 +634,9 @@ export default function UsersPage() {
                   <option value="business_development">Business Development</option>
                   <option value="billing">Billing</option>
                   <option value="case_manager">Case Manager</option>
+                  <option value="wm">WM (WFH Meeting)</option>
+                  <option value="wcm">WCM (WFH Case Manager)</option>
+                  <option value="wtc">WTC (WFH Telecaller)</option>
                 </select>
               </div>
 

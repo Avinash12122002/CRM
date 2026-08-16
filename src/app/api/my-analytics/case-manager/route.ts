@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     if (!token) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     const payload = verifyToken(token);
     if (!payload) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    if (payload.role !== "case_manager") return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    if (payload.role !== "case_manager" && payload.role !== "wcm") return NextResponse.json({ message: "Forbidden" }, { status: 403 });
 
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date") || "";

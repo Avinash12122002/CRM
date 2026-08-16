@@ -12,7 +12,10 @@ type Role =
   | "meeting"
   | "business_development"
   | "billing"
-  | "case_manager";
+  | "case_manager"
+  | "wm"
+  | "wcm"
+  | "wtc";
 
 type MeResponse = {
   id: number;
@@ -902,10 +905,13 @@ export default function MyAnalyticsPage() {
     switch (role) {
       case "telecaller":
       case "employee":
+      case "wtc":
         return "/api/my-analytics/telecaller";
       case "meeting":
+      case "wm":
         return "/api/my-analytics/meeting";
       case "case_manager":
+      case "wcm":
         return "/api/my-analytics/case-manager";
       case "business_development":
         return "/api/my-analytics/bde";
@@ -981,7 +987,7 @@ export default function MyAnalyticsPage() {
       d.callbacksDueToday.forEach((c) =>
         lines.push(`${c.id},${csv(c.name || "")},${csv(c.phone || "")},${c.callbackDate}`)
       );
-    } else if (user.role === "meeting") {
+    } else if (user.role === "meeting" || user.role === "wm") {
       const d = data as MeetingData;
       lines.push(`My Meeting Analytics (${user.name}),${scope}`);
       lines.push("");
@@ -999,7 +1005,7 @@ export default function MyAnalyticsPage() {
       d.upcomingMeetings.forEach((u) =>
         lines.push(`${u.leadId},${u.meetingDate},${u.startTime},${u.endTime},${csv(u.bookedByName || "")}`)
       );
-    } else if (user.role === "case_manager") {
+    } else if (user.role === "case_manager" || user.role === "wcm") {
       const d = data as CaseManagerData;
       lines.push(`My Case Manager Analytics (${user.name}),${scope}`);
       lines.push("");
@@ -1070,10 +1076,13 @@ export default function MyAnalyticsPage() {
     switch (role) {
       case "telecaller":
       case "employee":
+      case "wtc":
         return "My Lead Analytics";
       case "meeting":
+      case "wm":
         return "My Meeting Analytics";
       case "case_manager":
+      case "wcm":
         return "My Case Analytics";
       case "business_development":
         return "My BD Analytics";
@@ -1100,10 +1109,13 @@ export default function MyAnalyticsPage() {
     switch (user.role) {
       case "telecaller":
       case "employee":
+      case "wtc":
         return (data as TelecallerData).metrics.totalLeads === 0;
       case "meeting":
+      case "wm":
         return (data as MeetingData).metrics.totalMeetings === 0;
       case "case_manager":
+      case "wcm":
         return (data as CaseManagerData).metrics.totalCaseLeads === 0;
       case "business_development":
         return (data as BDEData).metrics.totalLeads === 0;
@@ -1160,21 +1172,21 @@ export default function MyAnalyticsPage() {
             )}
 
             {/* Role-specific content */}
-            {(user.role === "telecaller" || user.role === "employee") && (
+            {(user.role === "telecaller" || user.role === "employee" || user.role === "wtc") && (
               <TelecallerView
                 data={data as TelecallerData}
                 scopeLabel={scopeLabel}
                 onPageChange={(p) => setPage(p)}
               />
             )}
-            {user.role === "meeting" && (
+            {(user.role === "meeting" || user.role === "wm") && (
               <MeetingView
                 data={data as MeetingData}
                 scopeLabel={scopeLabel}
                 onPageChange={(p) => setPage(p)}
               />
             )}
-            {user.role === "case_manager" && (
+            {(user.role === "case_manager" || user.role === "wcm") && (
               <CaseManagerView
                 data={data as CaseManagerData}
                 scopeLabel={scopeLabel}

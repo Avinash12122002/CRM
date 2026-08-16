@@ -113,9 +113,13 @@ export async function GET(
     lead.isOwner = lead.assignedTo === payload.id;
 
     if (
-      (payload.role === "telecaller" || payload.role === "employee" ||
+      (payload.role === "telecaller" ||
+        payload.role === "employee" ||
         payload.role === "meeting" ||
-        payload.role === "case_manager") &&
+        payload.role === "case_manager" ||
+        payload.role === "wtc" ||
+        payload.role === "wm" ||
+        payload.role === "wcm") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -183,11 +187,15 @@ export async function PUT(
 
     // Check permissions — Case Managers are read-only and can never add
     // notes or otherwise modify a lead, regardless of assignment.
-    if (payload.role === "case_manager") {
+    if (payload.role === "case_manager" || payload.role === "wcm") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
     if (
-      (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
+      (payload.role === "telecaller" ||
+        payload.role === "employee" ||
+        payload.role === "meeting" ||
+        payload.role === "wtc" ||
+        payload.role === "wm") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });

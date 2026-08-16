@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (payload.role !== "case_manager" && payload.role !== "admin") {
+    if (payload.role !== "case_manager" && payload.role !== "wcm" && payload.role !== "admin") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -66,9 +66,9 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: Record<string, any> = { assignedToRole: "case_manager" };
+    const filter: Record<string, any> = { assignedToRole: { $in: ["case_manager", "wcm"] } };
 
-    if (payload.role === "case_manager") {
+    if (payload.role === "case_manager" || payload.role === "wcm") {
       filter.assignedTo = payload.id;
     }
 

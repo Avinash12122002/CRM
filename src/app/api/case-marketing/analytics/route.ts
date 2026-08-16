@@ -40,9 +40,9 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    // Build lead filter — always scoped to case_manager assigned leads
+    // Build lead filter — always scoped to case_manager / wcm assigned leads
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const leadFilter: Record<string, any> = { assignedToRole: "case_manager" };
+    const leadFilter: Record<string, any> = { assignedToRole: { $in: ["case_manager", "wcm"] } };
 
     if (assignedTo) {
       const id = parseInt(assignedTo);
@@ -232,7 +232,7 @@ export async function GET(req: NextRequest) {
     // Fetch all case managers for filter dropdown
     const caseManagers = await db
       .collection("users")
-      .find({ role: "case_manager" })
+      .find({ role: { $in: ["case_manager", "wcm"] } })
       .project({ id: 1, name: 1 })
       .toArray();
 

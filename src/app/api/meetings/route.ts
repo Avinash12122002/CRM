@@ -33,12 +33,12 @@ export async function GET(req: NextRequest) {
     const uidNum = isNaN(Number(uid)) ? null : Number(uid);
     const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
 
-    if (payload.role === "meeting") {
+    if (payload.role === "meeting" || payload.role === "wm") {
       filter["$or"] = [
         { "meetingDetails.meetingUserId": { $in: matchUserIds } },
         { assignedTo: { $in: matchUserIds } },
       ];
-    } else if (payload.role === "telecaller" || payload.role === "employee") {
+    } else if (payload.role === "telecaller" || payload.role === "employee" || payload.role === "wtc") {
       filter["$or"] = [
         { assignedTo: { $in: matchUserIds } },
         { "meetingDetails.bookedBy": { $in: matchUserIds } },

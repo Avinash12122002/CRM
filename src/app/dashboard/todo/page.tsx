@@ -15,7 +15,10 @@ interface User {
     | "meeting"
     | "business_development"
     | "billing"
-    | "case_manager";
+    | "case_manager"
+    | "wm"
+    | "wcm"
+    | "wtc";
 }
 
 interface TodoTask {
@@ -76,7 +79,7 @@ export default function TodoPage() {
         return;
       }
       const data = await res.json();
-      if (data.role !== "case_manager") {
+      if (data.role !== "case_manager" && data.role !== "wcm") {
         router.push("/dashboard");
         return;
       }

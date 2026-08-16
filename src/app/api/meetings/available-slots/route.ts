@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
     let hour = 10;
     let minute = 0;
 
-    while (hour < 18 || (hour === 18 && minute === 0)) {
+    while (hour < 20 || (hour === 20 && minute === 0)) {
       const startTime = `${String(hour).padStart(
         2,
         "0",

@@ -21,15 +21,15 @@ export async function GET(req: NextRequest) {
     const payload = getTokenPayload(req);
     if (!payload) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
 
-    if (payload.role !== "case_manager") {
+    if (payload.role !== "case_manager" && payload.role !== "wcm") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
     const { db } = await connectToDatabase();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const leadFilter: Record<string, any> = { assignedToRole: "case_manager" };
-    if (payload.role === "case_manager") {
+    const leadFilter: Record<string, any> = { assignedToRole: { $in: ["case_manager", "wcm"] } };
+    if (payload.role === "case_manager" || payload.role === "wcm") {
       leadFilter.assignedTo = payload.id;
     } else {
       const { searchParams } = new URL(req.url);

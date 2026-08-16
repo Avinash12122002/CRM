@@ -32,13 +32,7 @@ export async function GET(req: NextRequest) {
 
     const matchFilter: Record<string, any> = {};
 
-    if (
-      payload.role === "telecaller" || payload.role === "employee" ||
-      payload.role === "meeting" ||
-      payload.role === "billing" ||
-      payload.role === "business_development" ||
-      payload.role === "case_manager"
-    ) {
+    if (payload.role !== "admin") {
       matchFilter.userId = payload.id;
     } else if (userIdFilter) {
       matchFilter.userId = parseInt(userIdFilter);

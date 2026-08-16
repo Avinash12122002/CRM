@@ -66,7 +66,7 @@ export default function AssignLeadModal({
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((user: User) =>
-          ["admin", "telecaller", "employee", "meeting", "case_manager"].includes(user.role),
+          ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -80,7 +80,7 @@ export default function AssignLeadModal({
   );
 
   const selectedUser = users.find((emp) => emp.id === assignedTo);
-  const isMeetingUser = selectedUser?.role === "meeting";
+  const isMeetingUser = selectedUser?.role === "meeting" || selectedUser?.role === "wm";
 
   useEffect(() => {
     setStartTime("");
@@ -95,7 +95,7 @@ export default function AssignLeadModal({
     setShowDropdown(false);
     const selected = users.find((e) => e.id === userId);
     setSearchTerm(selected ? selected.name : "");
-    if (selected?.role !== "meeting") {
+    if (selected?.role !== "meeting" && selected?.role !== "wm") {
       setMeetingDate("");
       setStartTime("");
       setAvailableSlots([]);
@@ -171,9 +171,20 @@ export default function AssignLeadModal({
   const roleBadgeClass = (role: string) => {
     switch (role) {
       case "admin":        return "bg-red-100 text-red-700";
-      case "case_manager": return "bg-emerald-100 text-emerald-700";
-      case "meeting":      return "bg-purple-100 text-purple-700";
+      case "case_manager":
+      case "wcm":          return "bg-emerald-100 text-emerald-700";
+      case "meeting":
+      case "wm":           return "bg-purple-100 text-purple-700";
       default:             return "bg-blue-100 text-blue-700";
+    }
+  };
+
+  const roleBadgeLabel = (role: string) => {
+    switch (role) {
+      case "wm":  return "WM";
+      case "wcm": return "WCM";
+      case "wtc": return "WTC";
+      default:    return role;
     }
   };
 
@@ -268,7 +279,7 @@ export default function AssignLeadModal({
                         )}
                       </div>
                       <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium capitalize ${roleBadgeClass(emp.role)}`}>
-                        {emp.role}
+                        {roleBadgeLabel(emp.role)}
                       </span>
                     </div>
                   </button>

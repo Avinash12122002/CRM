@@ -27,7 +27,13 @@ export async function GET(req: NextRequest) {
     const { role, id: userId } = payload;
 
     // Telecallers and Meeting users can access this endpoint
-    if (role !== "telecaller" && role !== "employee" && role !== "meeting") {
+    if (
+      role !== "telecaller" &&
+      role !== "employee" &&
+      role !== "meeting" &&
+      role !== "wtc" &&
+      role !== "wm"
+    ) {
       return NextResponse.json(
         { error: "Access denied." },
         { status: 403 },
@@ -59,7 +65,7 @@ export async function GET(req: NextRequest) {
     const todayMeetingSlots =
       await leadsCollection.countDocuments({
         assignedTo: userId,
-        assignedToRole: "meeting",
+        assignedToRole: { $in: ["meeting", "wm"] },
         meetingStatus: "scheduled",
         "meetingDetails.meetingDate":
           todayString,

@@ -92,11 +92,11 @@ export default function CreateTriloknathLeadModal({
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("/api/leads/users");
+      const res = await fetch("/api/auth/users");
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((user: User) =>
-          ["telecaller", "employee", "meeting"].includes(user.role),
+          ["telecaller", "employee", "meeting", "wtc", "wm"].includes(user.role),
         );
         setUsers(allUsers);
       }

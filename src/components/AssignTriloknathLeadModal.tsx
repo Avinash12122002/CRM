@@ -34,10 +34,13 @@ export default function AssignTriloknathLeadModal({
       setAssignedTo(currentAssigneeId ? currentAssigneeId.toString() : "");
       (async () => {
         try {
-          const res = await fetch("/api/leads/users");
+          const res = await fetch("/api/auth/users");
           const data = await res.json();
           if (res.ok) {
-            setUsers(data.users || []);
+            const allUsers = (data.users || []).filter((user: UserOption) =>
+              ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc"].includes(user.role),
+            );
+            setUsers(allUsers);
           } else {
             toast.error(data.message || "Failed to load users");
           }
@@ -100,7 +103,15 @@ export default function AssignTriloknathLeadModal({
                 <option value="">Unassigned</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>
-                    {u.name} ({u.role})
+                    {u.name} (
+                    {u.role === "wm"
+                      ? "WM"
+                      : u.role === "wcm"
+                      ? "WCM"
+                      : u.role === "wtc"
+                      ? "WTC"
+                      : u.role.replace(/_/g, " ")}
+                    )
                   </option>
                 ))}
               </select>

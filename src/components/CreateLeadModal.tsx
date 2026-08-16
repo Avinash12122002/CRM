@@ -74,7 +74,13 @@ export default function CreateLeadModal({
         if (userData && userData.id) {
           setCurrentUser(userData);
           // If users, set their name in search term for display
-          if (userData.role === "telecaller" || userData.role === "employee" || userData.role === "meeting") {
+          if (
+            userData.role === "telecaller" ||
+            userData.role === "employee" ||
+            userData.role === "meeting" ||
+            userData.role === "wtc" ||
+            userData.role === "wm"
+          ) {
             setSearchTerm(userData.name);
             setAssignedTo(userData.id);
           }
@@ -107,7 +113,7 @@ export default function CreateLeadModal({
         const data = await res.json();
         // Filter to show users
         const allUsers = (data.users || []).filter((user: User) =>
-          ["telecaller", "employee", "meeting"].includes(user.role),
+          ["telecaller", "employee", "meeting", "wtc", "wm"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -188,8 +194,11 @@ export default function CreateLeadModal({
         setNote("");
         setStatus("new-lead");
         if (
-          currentUser?.role === "telecaller" || currentUser?.role === "employee" ||
-          currentUser?.role === "meeting"
+          currentUser?.role === "telecaller" ||
+          currentUser?.role === "employee" ||
+          currentUser?.role === "meeting" ||
+          currentUser?.role === "wtc" ||
+          currentUser?.role === "wm"
         ) {
           setAssignedTo(currentUser.id);
           setSearchTerm(currentUser.name);
@@ -278,8 +287,11 @@ export default function CreateLeadModal({
                 Assign To (Admin / Telecaller / Meeting)
               </label>
 
-              {currentUser?.role === "telecaller" || currentUser?.role === "employee" ||
-              currentUser?.role === "meeting" ? (
+              {currentUser?.role === "telecaller" ||
+              currentUser?.role === "employee" ||
+              currentUser?.role === "meeting" ||
+              currentUser?.role === "wtc" ||
+              currentUser?.role === "wm" ? (
                 // Telecaller view - show their name as assigned, read-only
                 <div className="w-full px-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
                   <div className="flex items-center justify-between">

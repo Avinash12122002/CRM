@@ -21,7 +21,7 @@ export async function PUT(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (payload.role === "case_manager") {
+    if (payload.role === "case_manager" || payload.role === "wcm") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -51,7 +51,11 @@ export async function PUT(
 
     // Only admins or the lead's current owner can flag/unflag an agent
     if (
-      (payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting") &&
+      (payload.role === "telecaller" ||
+        payload.role === "employee" ||
+        payload.role === "meeting" ||
+        payload.role === "wtc" ||
+        payload.role === "wm") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(

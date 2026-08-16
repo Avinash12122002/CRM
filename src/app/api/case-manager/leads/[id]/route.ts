@@ -102,7 +102,7 @@ export async function GET(
 
     const lead = leads[0];
 
-    if (payload.role === "case_manager" && String(lead.assignedTo) !== String(payload.id)) {
+    if ((payload.role === "case_manager" || payload.role === "wcm") && String(lead.assignedTo) !== String(payload.id)) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

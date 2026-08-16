@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
     if (
       payload.role !== "admin" &&
       payload.role !== "telecaller" && payload.role !== "employee" &&
-      payload.role !== "meeting"
+      payload.role !== "meeting" &&
+      payload.role !== "wtc" && payload.role !== "wm"
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
@@ -107,7 +108,11 @@ export async function POST(req: NextRequest) {
 
     // Telecaller & Meeting users auto-assign to themselves
     const finalAssignedTo =
-      payload.role === "telecaller" || payload.role === "employee" || payload.role === "meeting"
+      payload.role === "telecaller" ||
+      payload.role === "employee" ||
+      payload.role === "meeting" ||
+      payload.role === "wtc" ||
+      payload.role === "wm"
         ? payload.id
         : assignedTo;
 

@@ -18,7 +18,10 @@ interface User {
     | "meeting"
     | "business_development"
     | "billing"
-    | "case_manager";
+    | "case_manager"
+    | "wm"
+    | "wcm"
+    | "wtc";
 }
 
 interface CaseLead {
@@ -178,7 +181,7 @@ export default function CaseManagerLeadsPage() {
         return;
       }
       const data = await res.json();
-      if (data.role !== "case_manager" && data.role !== "admin") {
+      if (data.role !== "case_manager" && data.role !== "wcm" && data.role !== "admin") {
         router.push("/dashboard");
         return;
       }
@@ -216,7 +219,7 @@ export default function CaseManagerLeadsPage() {
         if (res.ok) {
           const assigners = (data.users || [])
             .filter((u: { role: string }) =>
-              ["admin", "telecaller", "employee", "meeting"].includes(u.role),
+              ["admin", "telecaller", "employee", "meeting", "wtc", "wm"].includes(u.role),
             )
             .map((u: { id: number; name: string }) => ({ id: u.id, name: u.name }));
           setAssignerOptions(assigners);

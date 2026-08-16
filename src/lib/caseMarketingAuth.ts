@@ -23,7 +23,7 @@ export async function getAuthorizedCandidateLead(
   leadId: number,
   payload: AuthPayload,
 ) {
-  if (payload.role !== "case_manager" && payload.role !== "admin") {
+  if (payload.role !== "case_manager" && payload.role !== "wcm" && payload.role !== "admin") {
     return { error: "Forbidden", status: 403 as const, lead: null };
   }
 
@@ -32,7 +32,7 @@ export async function getAuthorizedCandidateLead(
     return { error: "Candidate lead not found", status: 404 as const, lead: null };
   }
 
-  if (payload.role === "case_manager" && lead.assignedTo !== payload.id) {
+  if ((payload.role === "case_manager" || payload.role === "wcm") && lead.assignedTo !== payload.id) {
     return { error: "Forbidden", status: 403 as const, lead: null };
   }
 
