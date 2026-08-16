@@ -1,7 +1,7 @@
 // Billing module — shared constants
 
 export const BILLING_ROLE = "billing";
-export const BILLING_ROLES = ["admin", "billing"];
+export const BILLING_ROLES = ["admin", "billing", "telecaller"];
 export const BILLING_COLLECTION = "billinginvoices";
 
 // Used whenever comparing money amounts to avoid floating point issues.

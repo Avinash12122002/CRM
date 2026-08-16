@@ -187,7 +187,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 </Link>
               )}
 
-              {(role === "admin" || role === "billing") && (
+              {(role === "admin" || role === "billing" || role === "telecaller") && (
                 <Link href="/dashboard/billing" className={deskLinkClass(isActive("/dashboard/billing"))}>
                   Billing
                 </Link>
@@ -408,7 +408,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               </Link>
             )}
 
-            {(role === "admin" || role === "billing") && (
+            {(role === "admin" || role === "billing" || role === "telecaller") && (
               <Link
                 href="/dashboard/billing"
                 className={navLinkClass(isActive("/dashboard/billing"))}

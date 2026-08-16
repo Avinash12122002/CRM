@@ -105,7 +105,7 @@ export default function BillingPage() {
           return;
         }
         const me = await res.json();
-        if (!["admin", "billing"].includes(me.role)) {
+        if (!["admin", "billing", "telecaller"].includes(me.role)) {
           router.push("/dashboard");
           return;
         }
