@@ -210,7 +210,15 @@ export default function AttendanceFilterBar({
               .filter((u) => u.role !== "admin")
               .map((u) => (
                 <option key={u.id} value={String(u.id)}>
-                  {u.name} ({u.role.replace(/_/g, " ")})
+                  {u.name} (
+                  {u.role === "wm"
+                    ? "WM"
+                    : u.role === "wcm"
+                    ? "WCM"
+                    : u.role === "wtc"
+                    ? "WTC"
+                    : u.role.replace(/_/g, " ")}
+                  )
                 </option>
               ))}
           </select>

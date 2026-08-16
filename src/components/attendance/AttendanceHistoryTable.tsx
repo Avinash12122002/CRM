@@ -402,7 +402,13 @@ function getTodayIST(): string {
                               {rec.userName}
                             </div>
                             <div className="text-[10px] text-zinc-400 capitalize">
-                              {rec.role.replace(/_/g, " ")}
+                              {rec.role === "wm"
+                                ? "WM"
+                                : rec.role === "wcm"
+                                ? "WCM"
+                                : rec.role === "wtc"
+                                ? "WTC"
+                                : rec.role.replace(/_/g, " ")}
                             </div>
                           </td>
                         )}

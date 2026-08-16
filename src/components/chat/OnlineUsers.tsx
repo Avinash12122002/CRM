@@ -75,8 +75,14 @@ export default function OnlineUsers() {
           @{user.username}
         </div>
 
-        <div className="text-xs text-zinc-400">
-          {user.role}
+        <div className="text-xs text-zinc-400 capitalize">
+          {user.role === "wm"
+            ? "WM"
+            : user.role === "wcm"
+            ? "WCM"
+            : user.role === "wtc"
+            ? "WTC"
+            : user.role.replace(/_/g, " ")}
         </div>
       </div>
 

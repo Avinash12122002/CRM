@@ -274,7 +274,18 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
           {/* Right side: notification + user + sign out + hamburger */}
           <div className="flex items-center gap-3 shrink-0">
             <span className="hidden sm:block text-sm text-zinc-600 dark:text-zinc-400">
-              {user.name} <span className="text-xs">({user.role})</span>
+              {user.name}{" "}
+              <span className="text-xs font-semibold">
+                (
+                {role === "wm"
+                  ? "WM"
+                  : role === "wcm"
+                  ? "WCM"
+                  : role === "wtc"
+                  ? "WTC"
+                  : user.role.replace(/_/g, " ")}
+                )
+              </span>
             </span>
             <button
               onClick={handleSignOut}
@@ -339,8 +350,14 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {user.name}
             </p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 capitalize">
-              {user.role}
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 capitalize font-medium">
+              {role === "wm"
+                ? "WM"
+                : role === "wcm"
+                ? "WCM"
+                : role === "wtc"
+                ? "WTC"
+                : user.role.replace(/_/g, " ")}
             </p>
           </div>
 

@@ -360,7 +360,18 @@ export default function CreateTriloknathLeadModal({
                             : "text-gray-800 dark:text-gray-200"
                         }`}
                       >
-                        {u.name} <span className="text-[10px] text-gray-400">({u.role})</span>
+                        {u.name}{" "}
+                        <span className="text-[10px] text-gray-400">
+                          (
+                          {u.role === "wm"
+                            ? "WM"
+                            : u.role === "wcm"
+                            ? "WCM"
+                            : u.role === "wtc"
+                            ? "WTC"
+                            : u.role}
+                          )
+                        </span>
                       </div>
                     ))}
                   </div>

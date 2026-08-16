@@ -92,9 +92,15 @@ export default function AttendanceOverrideModal({ record, onSuccess, onClose }: 
             </p>
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {record.userName}{" "}
-              <span className="text-xs font-normal text-zinc-500">
-                ({record.role.replace(/_/g, " ")})
-              </span>
+                (
+                {record.role === "wm"
+                  ? "WM"
+                  : record.role === "wcm"
+                  ? "WCM"
+                  : record.role === "wtc"
+                  ? "WTC"
+                  : record.role.replace(/_/g, " ")}
+                )
             </p>
             <p className="text-sm text-zinc-600 dark:text-zinc-300">{formattedDate}</p>
           </div>

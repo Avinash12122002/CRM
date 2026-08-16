@@ -450,15 +450,30 @@ function UserCard({
 
         {compact ? (
           <div className="text-xs text-zinc-400 truncate">
-            {lastMessage || `@${user.username} · ${user.role}`}
+            {lastMessage ||
+              `@${user.username} · ${
+                user.role === "wm"
+                  ? "WM"
+                  : user.role === "wcm"
+                  ? "WCM"
+                  : user.role === "wtc"
+                  ? "WTC"
+                  : user.role.replace(/_/g, " ")
+              }`}
           </div>
         ) : (
           <>
             <div className="text-xs text-zinc-400 truncate">
               {lastMessage || `@${user.username}`}
             </div>
-            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 capitalize">
-              {user.role}
+            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-medium">
+              {user.role === "wm"
+                ? "WM"
+                : user.role === "wcm"
+                ? "WCM"
+                : user.role === "wtc"
+                ? "WTC"
+                : user.role.replace(/_/g, " ")}
             </span>
           </>
         )}

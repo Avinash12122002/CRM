@@ -351,8 +351,14 @@ export default function CreateLeadModal({
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-gray-900">{emp.name}</span>
 
-                            <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">
-                              {emp.role}
+                            <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700 font-medium">
+                              {emp.role === "wm"
+                                ? "WM"
+                                : emp.role === "wcm"
+                                ? "WCM"
+                                : emp.role === "wtc"
+                                ? "WTC"
+                                : emp.role}
                             </span>
                           </div>
                           <div className="text-sm text-gray-600">

@@ -99,7 +99,7 @@ export default function TriloknathLeadDetailPage() {
   const [salesOccupations, setSalesOccupations] = useState<string[]>([""]);
   const [convertingToSales, setConvertingToSales] = useState(false);
   const [caseManagerOptions, setCaseManagerOptions] = useState<
-    { id: number; name: string; leadCount: number }[]
+    { id: number; name: string; role?: string; leadCount: number }[]
   >([]);
   const [selectedCaseManagerId, setSelectedCaseManagerId] = useState("");
   const [loadingCaseManagers, setLoadingCaseManagers] = useState(false);
@@ -1710,12 +1710,12 @@ export default function TriloknathLeadDetailPage() {
                         .filter((e) => e.id !== lead.assignedTo)
                         .map((emp) => (
                           <option key={emp.id} value={emp.id}>
-                            👨‍💼 Telecaller — {emp.name}
+                            👨‍💼 {emp.role === "wtc" ? "WTC" : "Telecaller"} — {emp.name}
                           </option>
                         ))}
                       {meetingUsers.map((m) => (
                         <option key={m.id} value={m.id}>
-                          📅 Meeting — {m.name}
+                          📅 {m.role === "wm" ? "WM" : "Meeting"} — {m.name}
                           {m.id === user?.id ? " (Me)" : ""}
                         </option>
                       ))}
@@ -2114,7 +2114,7 @@ export default function TriloknathLeadDetailPage() {
                 <option value="">Select a Case Manager</option>
                 {caseManagerOptions.map((cm) => (
                   <option key={cm.id} value={cm.id}>
-                    {cm.name} — {cm.leadCount} {cm.leadCount === 1 ? "lead" : "leads"}
+                    {cm.role === "wcm" ? "WCM" : "Case Manager"} — {cm.name} ({cm.leadCount} {cm.leadCount === 1 ? "lead" : "leads"})
                   </option>
                 ))}
               </select>

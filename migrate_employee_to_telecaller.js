@@ -48,13 +48,23 @@ const NAME_TO_ID_FIELD = {
   completedByName: "completedBy",
 };
 
-// Role updates: just changes the `role` field on the users collection.
-// (Role isn't snapshotted into other collections like name/username are,
-// so no recursive scan is needed for these.)
+// Role updates: changes the `role` field on the users collection, plus
+// any `*Role` snapshot fields stored elsewhere (e.g. a lead's
+// assignedToRole). oldRole is required so the recursive scan below knows
+// what stale value to look for.
 const ROLE_UPDATES = [
-  { id: 20, newRole: "wm" },
-  { id: 21, newRole: "wm" },
+  { id: 20, oldRole: "meeting", newRole: "wm" },
+  { id: 21, oldRole: "meeting", newRole: "wm" },
 ];
+
+// Maps a role-field to the id-field it's paired with.
+// Confirmed from a lead document: assignedTo/assignedToRole and
+// assignedBy/assignedByRole. Add more here if you spot other *Role
+// snapshot fields elsewhere.
+const ROLE_TO_ID_FIELD = {
+  assignedToRole: "assignedTo",
+  assignedByRole: "assignedBy",
+};
 
 // 1. Update each user's own record — both name and username
 RENAMES.forEach(({ id, newValue }) => {
@@ -84,6 +94,12 @@ RENAMES.forEach((r) => {
   RENAMES_BY_ID[r.id] = r;
 });
 
+// Lookup by id -> { oldRole, newRole }, for fast matching below
+const ROLE_UPDATES_BY_ID = {};
+ROLE_UPDATES.forEach((r) => {
+  ROLE_UPDATES_BY_ID[r.id] = r;
+});
+
 // 2. Recursively walk a document/subdocument/array and fix matching name snapshots.
 function recurseAndFix(node) {
   let changed = false;
@@ -109,17 +125,31 @@ function recurseAndFix(node) {
     }
 
     Object.keys(node).forEach((key) => {
-      const idField = NAME_TO_ID_FIELD[key];
-      if (idField) {
-        const whoValue = node[idField];
+      let handled = false;
+
+      const nameIdField = NAME_TO_ID_FIELD[key];
+      if (nameIdField) {
+        const whoValue = node[nameIdField];
         const rename = RENAMES_BY_ID[whoValue];
         if (rename && node[key] === rename.oldDisplayName) {
           node[key] = rename.newValue;
           changed = true;
-        } else if (node[key] !== null && typeof node[key] === "object") {
-          if (recurseAndFix(node[key])) changed = true;
+          handled = true;
         }
-      } else if (node[key] !== null && typeof node[key] === "object") {
+      }
+
+      const roleIdField = ROLE_TO_ID_FIELD[key];
+      if (!handled && roleIdField) {
+        const whoValue = node[roleIdField];
+        const roleUpdate = ROLE_UPDATES_BY_ID[whoValue];
+        if (roleUpdate && node[key] === roleUpdate.oldRole) {
+          node[key] = roleUpdate.newRole;
+          changed = true;
+          handled = true;
+        }
+      }
+
+      if (!handled && node[key] !== null && typeof node[key] === "object") {
         if (recurseAndFix(node[key])) changed = true;
       }
     });
@@ -174,5 +204,5 @@ allCollections.forEach((collName) => {
 });
 
 print(
-  `\nDone. Total records (outside users) updated for ${RENAMES.map((r) => r.newValue).join(", ")}: ${grandTotal}`
+  `\nDone. Total records (outside users) updated for renames [${RENAMES.map((r) => r.newValue).join(", ") || "none"}] and role updates [${ROLE_UPDATES.map((r) => `${r.id}->${r.newRole}`).join(", ") || "none"}]: ${grandTotal}`
 );

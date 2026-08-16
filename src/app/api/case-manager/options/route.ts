@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     const caseManagers = await db
       .collection("users")
       .find({ role: { $in: ["case_manager", "wcm"] } })
-      .project({ id: 1, name: 1 })
+      .project({ id: 1, name: 1, role: 1 })
       .sort({ name: 1 })
       .toArray();
 
@@ -45,6 +45,7 @@ export async function GET(req: NextRequest) {
     const result = caseManagers.map((cm) => ({
       id: cm.id,
       name: cm.name,
+      role: cm.role,
       leadCount: loadMap.get(cm.id) || 0,
     }));
 

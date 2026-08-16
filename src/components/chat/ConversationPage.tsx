@@ -351,8 +351,15 @@ export default function ConversationPage({
                 )}
                 {otherUser?.role && (
                   <>
-                    <span className="text-zinc-300 dark:text-zinc-600">·</span>
-                    <span className="capitalize text-zinc-500 truncate">{otherUser.role}</span>
+                    <span className="text-zinc-500 truncate">
+                      {otherUser.role === "wm"
+                        ? "WM"
+                        : otherUser.role === "wcm"
+                        ? "WCM"
+                        : otherUser.role === "wtc"
+                        ? "WTC"
+                        : otherUser.role.replace(/_/g, " ")}
+                    </span>
                   </>
                 )}
               </div>
