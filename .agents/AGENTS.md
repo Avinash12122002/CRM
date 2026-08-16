@@ -41,15 +41,19 @@ The system has **7 distinct roles**. Every API route and page checks `payload.ro
 | **Business Development** | `business_development` | BD Pipeline page — self-assigns own leads, pipeline stages, no daily quota. Does NOT use Data Entry module. |
 | **Billing** | `billing` | Creates/manages invoices and billing for candidates. |
 | **Case Manager** | `case_manager` | Receives converted "Sales" leads. Manages CV Marketing Workspace (4-phase employer outreach). Stores email/password credentials for marketing emails. Reads occupations added by admin/sales. |
+| **Supervisor** | `supervisor` | Same functionality as telecaller (auto-assign on create, status updates, lead notes, convert to sales, data entry, personal analytics, attendance). |
+| **WM (WFH Meeting)** | `wm` | Work-from-home meeting role (same functionality as meeting). |
+| **WCM (WFH Case Manager)** | `wcm` | Work-from-home case manager role (same functionality as case manager). |
+| **WTC (WFH Telecaller)** | `wtc` | Work-from-home telecaller role (same functionality as telecaller). |
 
 ### Role Groupings Used in Code
 
 ```typescript
 // Data Entry (daily quota lead submission)
-DATA_ENTRY_ROLES = ["telecaller", "employee", "meeting"]
+DATA_ENTRY_ROLES = ["telecaller", "employee", "meeting", "wtc", "wm", "supervisor"]
 
 // Lead creation access (general leads)
-["admin", "telecaller", "employee", "meeting"]
+["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor"]
 
 // Billing access
 BILLING_ROLES = ["admin", "billing"]

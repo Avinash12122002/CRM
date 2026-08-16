@@ -9,7 +9,7 @@ interface User {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc" | "supervisor";
 }
 
 interface HistoryEntry {
@@ -187,7 +187,7 @@ export default function TriloknathLeadDetailPage() {
   const showAssignSection =
     user &&
     lead &&
-    (user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "wtc" || user.role === "wm") &&
+    (user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "wtc" || user.role === "wm" || user.role === "supervisor") &&
     lead.isOwner;
 
   const canSeeMeeting =
@@ -1353,7 +1353,7 @@ export default function TriloknathLeadDetailPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phone <span className="text-red-500">*</span>
                       {(user.role === "telecaller" || user.role === "employee" ||
-                        user.role === "meeting" || user.role === "wtc" || user.role === "wm") && (
+                        user.role === "meeting" || user.role === "wtc" || user.role === "wm" || user.role === "supervisor") && (
                         <span className="text-xs text-gray-500 ml-2">
                           (Read-only)
                         </span>
@@ -1370,7 +1370,7 @@ export default function TriloknathLeadDetailPage() {
                         })
                       }
                       disabled={
-                        user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "wtc" || user.role === "wm"
+                        user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "wtc" || user.role === "wm" || user.role === "supervisor"
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed cursor-text"
                     />
@@ -1710,7 +1710,7 @@ export default function TriloknathLeadDetailPage() {
                         .filter((e) => e.id !== lead.assignedTo)
                         .map((emp) => (
                           <option key={emp.id} value={emp.id}>
-                            👨‍💼 {emp.role === "wtc" ? "WTC" : "Telecaller"} — {emp.name}
+                            👨‍💼 {emp.role === "wtc" ? "WTC" : emp.role === "supervisor" ? "Supervisor" : "Telecaller"} — {emp.name}
                           </option>
                         ))}
                       {meetingUsers.map((m) => (

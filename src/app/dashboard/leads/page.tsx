@@ -11,7 +11,7 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc" | "supervisor";
 }
 
 interface Lead {
@@ -29,10 +29,10 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc";
+  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc";
+  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
@@ -313,7 +313,7 @@ export default function LeadsPage() {
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((u: { role: string }) =>
-          ["admin", "telecaller", "employee", "meeting", "wtc", "wm"].includes(u.role),
+          ["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor"].includes(u.role),
         );
         setUsers(allUsers);
       }
@@ -376,7 +376,7 @@ export default function LeadsPage() {
         new Date(lead.callbackDate).setHours(0, 0, 0, 0) <
           new Date().setHours(0, 0, 0, 0);
       if (isOverdue) {
-        return "border-l-4 border-l-rose-400 bg-rose-50/60 dark:bg-rose-900/10 hover:bg-rose-50 dark:hover:bg-rose-900/20";
+        return "border-l-4 border-l-rose-400 bg-rose-50/60 dark:rose-900/10 hover:bg-rose-50 dark:hover:bg-rose-900/20";
       }
       return "border-l-4 border-l-amber-300 bg-amber-50/30 dark:bg-amber-900/5 hover:bg-amber-50/60 dark:hover:bg-amber-900/10";
     }
@@ -389,7 +389,7 @@ export default function LeadsPage() {
       if (lead.assignedToRole === "meeting" || lead.assignedToRole === "wm") {
         return "border-l-4 border-l-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee" || lead.assignedToRole === "wtc") {
+      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee" || lead.assignedToRole === "wtc" || lead.assignedToRole === "supervisor") {
         return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
       if (lead.assignedToRole === "case_manager" || lead.assignedToRole === "wcm") {
@@ -421,6 +421,8 @@ export default function LeadsPage() {
         return "WCM";
       case "wtc":
         return "WTC";
+      case "supervisor":
+        return "Supervisor";
       default:
         return role || "";
     }
@@ -435,6 +437,7 @@ export default function LeadsPage() {
         return "bg-purple-100 text-purple-700";
       case "telecaller":
       case "wtc":
+      case "supervisor":
         return "bg-blue-100 text-blue-700";
       case "employee":
         return "bg-indigo-100 text-indigo-700";

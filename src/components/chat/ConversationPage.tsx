@@ -358,6 +358,8 @@ export default function ConversationPage({
                         ? "WCM"
                         : otherUser.role === "wtc"
                         ? "WTC"
+                        : otherUser.role === "supervisor"
+                        ? "Supervisor"
                         : otherUser.role.replace(/_/g, " ")}
                     </span>
                   </>

@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
       payload.role !== "employee" &&
       payload.role !== "meeting" &&
       payload.role !== "wtc" &&
-      payload.role !== "wm"
+      payload.role !== "wm" &&
+      payload.role !== "supervisor"
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
@@ -108,7 +109,8 @@ export async function POST(req: NextRequest) {
       payload.role === "employee" ||
       payload.role === "meeting" ||
       payload.role === "wtc" ||
-      payload.role === "wm"
+      payload.role === "wm" ||
+      payload.role === "supervisor"
         ? payload.id
         : assignedTo;
 

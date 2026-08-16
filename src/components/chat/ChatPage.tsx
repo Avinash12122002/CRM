@@ -8,7 +8,7 @@ import ConversationPage from "@/components/chat/ConversationPage";
 import BroadcastPanel from "@/components/chat/BroadcastPanel";
 import { Search, MessageCircle, Globe, Megaphone, Star } from "lucide-react";
 
-type UserRole = "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "business_development" | "billing" | "wm" | "wcm" | "wtc";
+type UserRole = "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "business_development" | "billing" | "wm" | "wcm" | "wtc" | "supervisor";
 
 type User = {
   id: number;
@@ -33,6 +33,20 @@ type ChatPageProps = {
   initialConversationId?: number | null;
 };
 
+const ROLE_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "telecaller", label: "Telecaller" },
+  { key: "supervisor", label: "Supervisor" },
+  { key: "meeting", label: "Meeting" },
+  { key: "wm", label: "WM" },
+  { key: "wtc", label: "WTC" },
+  { key: "wcm", label: "WCM" },
+  { key: "case_manager", label: "Case Manager" },
+  { key: "business_development", label: "BD" },
+  { key: "billing", label: "Billing" },
+  { key: "admin", label: "Admin" },
+];
+
 export default function ChatPage({ compact = false, initialConversationId }: ChatPageProps) {
   const [activeTab, setActiveTab] = useState<"messages" | "global" | "broadcast" | "starred">("messages");
   const [users, setUsers] = useState<User[]>([]);
@@ -43,6 +57,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>("telecaller");
   const [globalUnread, setGlobalUnread] = useState(0);
   const [search, setSearch] = useState("");
+  const [selectedRole, setSelectedRole] = useState("all");
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<number | null>(
     initialConversationId ?? null
@@ -145,12 +160,44 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
 
   // Merge users with their conversation data so we can show last message + unread
   const filteredUsers = users
-    .filter(
-      (u) =>
-        u.id !== currentUserId &&
-        (u.name.toLowerCase().includes(search.toLowerCase()) ||
-          u.username.toLowerCase().includes(search.toLowerCase()))
-    )
+    .filter((u) => {
+      if (u.id === currentUserId) return false;
+
+      // Role filter
+      if (selectedRole !== "all") {
+        if (selectedRole === "telecaller") {
+          if (u.role !== "telecaller" && u.role !== "employee") return false;
+        } else if (u.role !== selectedRole) {
+          return false;
+        }
+      }
+
+      // Search filter
+      if (search.trim()) {
+        const q = search.toLowerCase().trim();
+        const formattedRole = (
+          u.role === "wm"
+            ? "wm"
+            : u.role === "wcm"
+            ? "wcm"
+            : u.role === "wtc"
+            ? "wtc"
+            : u.role === "supervisor"
+            ? "supervisor"
+            : u.role.replace(/_/g, " ")
+        ).toLowerCase();
+
+        const matchesName = u.name.toLowerCase().includes(q);
+        const matchesUsername = u.username.toLowerCase().includes(q);
+        const matchesRole = formattedRole.includes(q);
+
+        if (!matchesName && !matchesUsername && !matchesRole) {
+          return false;
+        }
+      }
+
+      return true;
+    })
     .map((u) => {
       // Match by otherUserId if present, otherwise fall back to name matching
       const conv =
@@ -211,7 +258,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
             <div className="flex-1 min-h-0 overflow-hidden flex">
               {/* Left: user list */}
               <div className="w-72 shrink-0 border-r flex flex-col min-h-0">
-                <div className="p-3 border-b shrink-0">
+                <div className="p-3 border-b shrink-0 space-y-2">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                     <input
@@ -222,13 +269,33 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
                       className="w-full rounded-full border pl-9 pr-4 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 focus:ring-2 focus:ring-blue-500 outline-none transition"
                     />
                   </div>
+                  {/* Role filter chips */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pt-1 pb-0.5">
+                    {ROLE_FILTERS.map((rf) => {
+                      const isSelected = selectedRole === rf.key;
+                      return (
+                        <button
+                          key={rf.key}
+                          type="button"
+                          onClick={() => setSelectedRole(rf.key)}
+                          className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap transition-all shrink-0 ${
+                            isSelected
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100"
+                          }`}
+                        >
+                          {rf.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
                 <div className="flex-1 min-h-0 overflow-y-auto">
                   {loading ? (
                     <SkeletonList count={4} />
                   ) : filteredUsers.length === 0 ? (
-                    <EmptyState search={search} />
+                    <EmptyState search={search} selectedRole={selectedRole} />
                   ) : (
                     filteredUsers.map((user) => (
                       <UserCard
@@ -282,7 +349,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
                 />
               ) : (
                 <>
-                  <div className="p-2.5 border-b shrink-0">
+                  <div className="p-2.5 border-b shrink-0 space-y-2">
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
                       <input
@@ -293,13 +360,33 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
                         className="w-full rounded-full border pl-9 pr-4 py-2 text-sm bg-zinc-50 dark:bg-zinc-900 focus:ring-2 focus:ring-blue-500 outline-none"
                       />
                     </div>
+                    {/* Role filter chips */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pt-0.5 pb-0.5">
+                      {ROLE_FILTERS.map((rf) => {
+                        const isSelected = selectedRole === rf.key;
+                        return (
+                          <button
+                            key={rf.key}
+                            type="button"
+                            onClick={() => setSelectedRole(rf.key)}
+                            className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap transition-all shrink-0 ${
+                              isSelected
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100"
+                            }`}
+                          >
+                            {rf.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   <div className="flex-1 min-h-0 overflow-y-auto">
                     {loading ? (
                       <SkeletonList count={3} compact />
                     ) : filteredUsers.length === 0 ? (
-                      <EmptyState search={search} />
+                      <EmptyState search={search} selectedRole={selectedRole} />
                     ) : (
                       filteredUsers.map((user) => (
                         <UserCard
@@ -458,6 +545,8 @@ function UserCard({
                   ? "WCM"
                   : user.role === "wtc"
                   ? "WTC"
+                  : user.role === "supervisor"
+                  ? "Supervisor"
                   : user.role.replace(/_/g, " ")
               }`}
           </div>
@@ -473,6 +562,8 @@ function UserCard({
                 ? "WCM"
                 : user.role === "wtc"
                 ? "WTC"
+                : user.role === "supervisor"
+                ? "Supervisor"
                 : user.role.replace(/_/g, " ")}
             </span>
           </>
@@ -503,10 +594,18 @@ function SkeletonList({ count, compact = false }: { count: number; compact?: boo
   );
 }
 
-function EmptyState({ search }: { search: string }) {
+function EmptyState({ search, selectedRole = "all" }: { search: string; selectedRole?: string }) {
+  let message = "No users available";
+  if (search && selectedRole !== "all") {
+    message = `No users matching "${search}" in this role`;
+  } else if (search) {
+    message = `No results for "${search}"`;
+  } else if (selectedRole !== "all") {
+    message = "No users found in this role";
+  }
   return (
     <div className="py-12 text-center text-zinc-400 text-sm">
-      {search ? `No results for "${search}"` : "No users available"}
+      {message}
     </div>
   );
 }

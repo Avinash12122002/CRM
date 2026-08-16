@@ -9,7 +9,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "billing" | "business_development" | "case_manager" | "wm" | "wcm" | "wtc";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "billing" | "business_development" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
 };
 
 type Activity = {

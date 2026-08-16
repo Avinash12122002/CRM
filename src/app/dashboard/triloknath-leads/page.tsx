@@ -11,7 +11,7 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc" | "supervisor";
 }
 
 interface Lead {
@@ -29,10 +29,10 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc";
+  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc";
+  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
@@ -388,7 +388,7 @@ export default function TriloknathLeadsPage() {
       if (lead.assignedToRole === "meeting" || lead.assignedToRole === "wm") {
         return "border-l-4 border-l-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee" || lead.assignedToRole === "wtc") {
+      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee" || lead.assignedToRole === "wtc" || lead.assignedToRole === "supervisor") {
         return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
       if (lead.assignedToRole === "case_manager" || lead.assignedToRole === "wcm") {
@@ -417,6 +417,8 @@ export default function TriloknathLeadsPage() {
         return "WCM";
       case "wtc":
         return "WTC";
+      case "supervisor":
+        return "Supervisor";
       default:
         return role || "";
     }
@@ -431,6 +433,7 @@ export default function TriloknathLeadsPage() {
         return "bg-purple-100 text-purple-700";
       case "telecaller":
       case "wtc":
+      case "supervisor":
         return "bg-blue-100 text-blue-700";
       case "employee":
         return "bg-indigo-100 text-indigo-700";

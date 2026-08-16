@@ -120,7 +120,8 @@ export async function GET(
         payload.role === "case_manager" ||
         payload.role === "wtc" ||
         payload.role === "wm" ||
-        payload.role === "wcm") &&
+        payload.role === "wcm" ||
+        payload.role === "supervisor") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -196,7 +197,8 @@ export async function PUT(
         payload.role === "employee" ||
         payload.role === "meeting" ||
         payload.role === "wtc" ||
-        payload.role === "wm") &&
+        payload.role === "wm" ||
+        payload.role === "supervisor") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });

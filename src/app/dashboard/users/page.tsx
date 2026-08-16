@@ -19,7 +19,8 @@ type User = {
     | "case_manager"
     | "wm"
     | "wcm"
-    | "wtc";
+    | "wtc"
+    | "supervisor";
   createdAt: string;
 };
 
@@ -37,7 +38,8 @@ type MeResponse = {
     | "case_manager"
     | "wm"
     | "wcm"
-    | "wtc";
+    | "wtc"
+    | "supervisor";
 };
 
 export default function UsersPage() {
@@ -361,7 +363,9 @@ export default function UsersPage() {
                                 ? "WCM"
                                 : user.role === "wtc"
                                   ? "WTC"
-                                  : user.role}
+                                  : user.role === "supervisor"
+                                    ? "Supervisor"
+                                    : user.role}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
@@ -637,6 +641,7 @@ export default function UsersPage() {
                   <option value="wm">WM (WFH Meeting)</option>
                   <option value="wcm">WCM (WFH Case Manager)</option>
                   <option value="wtc">WTC (WFH Telecaller)</option>
+                  <option value="supervisor">Supervisor (Sales Team)</option>
                 </select>
               </div>
 

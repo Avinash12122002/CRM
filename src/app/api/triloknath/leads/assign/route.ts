@@ -87,6 +87,7 @@ async function handleAssign(req: NextRequest) {
         "wm",
         "wcm",
         "wtc",
+        "supervisor",
       ];
 
       if (

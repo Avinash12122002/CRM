@@ -21,7 +21,8 @@ type DashboardNavbarProps = {
       | "case_manager"
       | "wm"
       | "wcm"
-      | "wtc";
+      | "wtc"
+      | "supervisor";
   };
 };
 
@@ -151,7 +152,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               <Link href="/dashboard" className={deskLinkClass(isActive("/dashboard"))}>
                 Dashboard
               </Link>
-              {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
+              {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor") && (
                 <Link href="/dashboard/leads" className={deskLinkClass(isActive("/dashboard/leads"))}>
                   Leads
                 </Link>
@@ -196,7 +197,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Meetings
                 </Link>
               )}
-              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
+              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor") && (
                 <Link href="/dashboard/data-entry" className={deskLinkClass(isActive("/dashboard/data-entry"))}>
                   Data Entry
                 </Link>
@@ -263,7 +264,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   All Attendance
                 </Link>
               )}
-              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm") && (
+              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm" || role === "supervisor") && (
                 <Link href="/dashboard/my-analytics" className={deskLinkClass(isActive("/dashboard/my-analytics"))}>
                   My Analytics
                 </Link>
@@ -283,6 +284,8 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   ? "WCM"
                   : role === "wtc"
                   ? "WTC"
+                  : role === "supervisor"
+                  ? "Supervisor"
                   : user.role.replace(/_/g, " ")}
                 )
               </span>
@@ -357,6 +360,8 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 ? "WCM"
                 : role === "wtc"
                 ? "WTC"
+                : role === "supervisor"
+                ? "Supervisor"
                 : user.role.replace(/_/g, " ")}
             </p>
           </div>
@@ -366,7 +371,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             <Link href="/dashboard" className={navLinkClass(isActive("/dashboard"))}>
               Dashboard
             </Link>
-            {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
+            {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor") && (
               <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
                 Leads
               </Link>
@@ -419,7 +424,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Meetings
               </Link>
             )}
-            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm") && (
+            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor") && (
               <Link
                 href="/dashboard/data-entry"
                 className={navLinkClass(isActive("/dashboard/data-entry"))}
@@ -501,7 +506,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 All Attendance
               </Link>
             )}
-            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm") && (
+            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm" || role === "supervisor") && (
               <Link
                 href="/dashboard/my-analytics"
                 className={navLinkClass(isActive("/dashboard/my-analytics"))}

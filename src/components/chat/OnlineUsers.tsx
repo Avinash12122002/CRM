@@ -82,6 +82,8 @@ export default function OnlineUsers() {
             ? "WCM"
             : user.role === "wtc"
             ? "WTC"
+            : user.role === "supervisor"
+            ? "Supervisor"
             : user.role.replace(/_/g, " ")}
         </div>
       </div>

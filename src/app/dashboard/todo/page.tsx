@@ -18,7 +18,8 @@ interface User {
     | "case_manager"
     | "wm"
     | "wcm"
-    | "wtc";
+    | "wtc"
+    | "supervisor";
 }
 
 interface TodoTask {

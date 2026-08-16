@@ -216,7 +216,8 @@ export async function GET(req: NextRequest) {
       payload.role !== "admin" &&
       payload.role !== "telecaller" && payload.role !== "employee" &&
       payload.role !== "meeting" &&
-      payload.role !== "wtc" && payload.role !== "wm"
+      payload.role !== "wtc" && payload.role !== "wm" &&
+      payload.role !== "supervisor"
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
@@ -248,7 +249,8 @@ export async function GET(req: NextRequest) {
       payload.role === "employee" ||
       payload.role === "meeting" ||
       payload.role === "wtc" ||
-      payload.role === "wm"
+      payload.role === "wm" ||
+      payload.role === "supervisor"
     ) {
       andConditions.push({
         $or: [{ assignedTo: payload.id }, { visibleTo: payload.id }],
@@ -301,7 +303,8 @@ export async function GET(req: NextRequest) {
       payload.role === "employee" ||
       payload.role === "meeting" ||
       payload.role === "wtc" ||
-      payload.role === "wm"
+      payload.role === "wm" ||
+      payload.role === "supervisor"
     ) {
       filter.status = {
         $nin: ["wrong-number", "not-interested", "sales"],

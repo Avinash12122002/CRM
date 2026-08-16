@@ -99,6 +99,8 @@ export default function AttendanceOverrideModal({ record, onSuccess, onClose }: 
                   ? "WCM"
                   : record.role === "wtc"
                   ? "WTC"
+                  : record.role === "supervisor"
+                  ? "Supervisor"
                   : record.role.replace(/_/g, " ")}
                 )
             </p>

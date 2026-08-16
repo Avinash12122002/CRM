@@ -66,7 +66,7 @@ export default function AssignLeadModal({
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((user: User) =>
-          ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc"].includes(user.role),
+          ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc", "supervisor"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -181,10 +181,11 @@ export default function AssignLeadModal({
 
   const roleBadgeLabel = (role: string) => {
     switch (role) {
-      case "wm":  return "WM";
-      case "wcm": return "WCM";
-      case "wtc": return "WTC";
-      default:    return role;
+      case "wm":         return "WM";
+      case "wcm":        return "WCM";
+      case "wtc":        return "WTC";
+      case "supervisor": return "Supervisor";
+      default:           return role.replace(/_/g, " ");
     }
   };
 

@@ -28,7 +28,8 @@ type MeResponse = {
     | "case_manager"
     | "wm"
     | "wcm"
-    | "wtc";
+    | "wtc"
+    | "supervisor";
 };
 
 export default function AttendancePage() {

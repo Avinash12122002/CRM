@@ -94,6 +94,7 @@ export async function POST(
       payload.role === "meeting" ||
       payload.role === "wtc" ||
       payload.role === "wm" ||
+      payload.role === "supervisor" ||
       !lead.assignedTo ||
       String(lead.assignedTo) === String(payload.id) ||
       String(lead.assignedBy) === String(payload.id) ||

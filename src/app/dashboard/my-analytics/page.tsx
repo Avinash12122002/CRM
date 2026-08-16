@@ -15,7 +15,8 @@ type Role =
   | "case_manager"
   | "wm"
   | "wcm"
-  | "wtc";
+  | "wtc"
+  | "supervisor";
 
 type MeResponse = {
   id: number;
@@ -906,6 +907,7 @@ export default function MyAnalyticsPage() {
       case "telecaller":
       case "employee":
       case "wtc":
+      case "supervisor":
         return "/api/my-analytics/telecaller";
       case "meeting":
       case "wm":
@@ -964,7 +966,7 @@ export default function MyAnalyticsPage() {
     const lines: string[] = [];
     const scope = data.date ? `Date ${data.date}` : data.month ? `Month ${data.month}` : "All Time";
 
-    if (user.role === "telecaller" || user.role === "employee") {
+    if (user.role === "telecaller" || user.role === "employee" || user.role === "wtc" || user.role === "supervisor") {
       const d = data as TelecallerData;
       lines.push(`My Lead Analytics (${user.name}),${scope}`);
       lines.push("");
@@ -1077,6 +1079,7 @@ export default function MyAnalyticsPage() {
       case "telecaller":
       case "employee":
       case "wtc":
+      case "supervisor":
         return "My Lead Analytics";
       case "meeting":
       case "wm":
@@ -1110,6 +1113,7 @@ export default function MyAnalyticsPage() {
       case "telecaller":
       case "employee":
       case "wtc":
+      case "supervisor":
         return (data as TelecallerData).metrics.totalLeads === 0;
       case "meeting":
       case "wm":
@@ -1172,7 +1176,7 @@ export default function MyAnalyticsPage() {
             )}
 
             {/* Role-specific content */}
-            {(user.role === "telecaller" || user.role === "employee" || user.role === "wtc") && (
+            {(user.role === "telecaller" || user.role === "employee" || user.role === "wtc" || user.role === "supervisor") && (
               <TelecallerView
                 data={data as TelecallerData}
                 scopeLabel={scopeLabel}

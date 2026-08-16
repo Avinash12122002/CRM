@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
       role !== "employee" &&
       role !== "meeting" &&
       role !== "wtc" &&
-      role !== "wm"
+      role !== "wm" &&
+      role !== "supervisor"
     ) {
       return NextResponse.json(
         { error: "Access denied." },

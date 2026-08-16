@@ -82,7 +82,7 @@ async function handleAssign(req: NextRequest) {
         );
       }
 
-      // Telecaller / Staff -> Admin, Telecaller, Employee, Meeting, Case Manager, WM, WCM, WTC
+      // Telecaller / Staff -> Admin, Telecaller, Employee, Meeting, Case Manager, WM, WCM, WTC, Supervisor
       const allowedRoles = [
         "admin",
         "telecaller",
@@ -92,6 +92,7 @@ async function handleAssign(req: NextRequest) {
         "wm",
         "wcm",
         "wtc",
+        "supervisor",
       ];
 
       if (

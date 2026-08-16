@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
           "meeting",
           "wtc",
           "wm",
+          "supervisor",
           "case_manager",
           "wcm",
         ],
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
       if (role === "meeting") {
         query = { role: { $in: ["meeting", "wm"] } };
       } else if (role === "telecaller") {
-        query = { role: { $in: ["telecaller", "employee", "wtc"] } };
+        query = { role: { $in: ["telecaller", "employee", "wtc", "supervisor"] } };
       } else if (role === "case_manager") {
         query = { role: { $in: ["case_manager", "wcm"] } };
       } else if (role.includes(",")) {

@@ -95,7 +95,8 @@ export async function PUT(
         payload.role === "employee" ||
         payload.role === "meeting" ||
         payload.role === "wtc" ||
-        payload.role === "wm") &&
+        payload.role === "wm" ||
+        payload.role === "supervisor") &&
       String(lead.assignedTo) !== String(payload.id)
     ) {
       return NextResponse.json(

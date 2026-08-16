@@ -33,7 +33,8 @@ type MeResponse = {
     | "case_manager"
     | "wm"
     | "wcm"
-    | "wtc";
+    | "wtc"
+    | "supervisor";
 };
 
 type UserOption = { id: number; name: string; role: string };

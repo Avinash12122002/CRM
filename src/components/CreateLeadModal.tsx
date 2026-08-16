@@ -79,7 +79,8 @@ export default function CreateLeadModal({
             userData.role === "employee" ||
             userData.role === "meeting" ||
             userData.role === "wtc" ||
-            userData.role === "wm"
+            userData.role === "wm" ||
+            userData.role === "supervisor"
           ) {
             setSearchTerm(userData.name);
             setAssignedTo(userData.id);
@@ -113,7 +114,7 @@ export default function CreateLeadModal({
         const data = await res.json();
         // Filter to show users
         const allUsers = (data.users || []).filter((user: User) =>
-          ["telecaller", "employee", "meeting", "wtc", "wm"].includes(user.role),
+          ["telecaller", "employee", "meeting", "wtc", "wm", "supervisor"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -143,43 +144,44 @@ export default function CreateLeadModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+
     if (!phone.trim()) {
       toast.error("Phone number is required");
       return;
     }
 
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-
     setLoading(true);
+
     try {
       const res = await fetch("/api/leads/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
-          phone,
+          name: name.trim(),
+          phone: phone.trim(),
           email: email.trim() || undefined,
+          status,
           dueDate: dueDate || undefined,
-          state: state || undefined,
-          city: city || undefined,
-          country: country || undefined,
+          assignedTo: assignedTo || undefined,
+          state: state.trim() || undefined,
+          city: city.trim() || undefined,
+          country: country.trim() || undefined,
           age: age ? parseInt(age) : undefined,
           passportType: passportType || undefined,
           leadSource: leadSource || undefined,
-          jobApplied: jobApplied || undefined,
+          jobApplied: jobApplied.trim() || undefined,
           note: note.trim() || undefined,
-          status,
-          assignedTo: assignedTo || undefined,
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("Lead created successfully");
+        toast.success(data.message || "Lead created successfully");
         setName("");
         setPhone("");
         setEmail("");
@@ -198,7 +200,8 @@ export default function CreateLeadModal({
           currentUser?.role === "employee" ||
           currentUser?.role === "meeting" ||
           currentUser?.role === "wtc" ||
-          currentUser?.role === "wm"
+          currentUser?.role === "wm" ||
+          currentUser?.role === "supervisor"
         ) {
           setAssignedTo(currentUser.id);
           setSearchTerm(currentUser.name);
@@ -291,7 +294,8 @@ export default function CreateLeadModal({
               currentUser?.role === "employee" ||
               currentUser?.role === "meeting" ||
               currentUser?.role === "wtc" ||
-              currentUser?.role === "wm" ? (
+              currentUser?.role === "wm" ||
+              currentUser?.role === "supervisor" ? (
                 // Telecaller view - show their name as assigned, read-only
                 <div className="w-full px-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
                   <div className="flex items-center justify-between">
@@ -358,6 +362,8 @@ export default function CreateLeadModal({
                                 ? "WCM"
                                 : emp.role === "wtc"
                                 ? "WTC"
+                                : emp.role === "supervisor"
+                                ? "Supervisor"
                                 : emp.role}
                             </span>
                           </div>

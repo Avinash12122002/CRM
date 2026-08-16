@@ -21,7 +21,8 @@ interface User {
     | "case_manager"
     | "wm"
     | "wcm"
-    | "wtc";
+    | "wtc"
+    | "supervisor";
 }
 
 interface CaseLead {
@@ -219,7 +220,7 @@ export default function CaseManagerLeadsPage() {
         if (res.ok) {
           const assigners = (data.users || [])
             .filter((u: { role: string }) =>
-              ["admin", "telecaller", "employee", "meeting", "wtc", "wm"].includes(u.role),
+              ["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor"].includes(u.role),
             )
             .map((u: { id: number; name: string }) => ({ id: u.id, name: u.name }));
           setAssignerOptions(assigners);
