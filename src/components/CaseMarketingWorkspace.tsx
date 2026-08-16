@@ -1106,9 +1106,6 @@ export default function CaseMarketingWorkspace({
                       <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[130px]">
                         Website / Date
                       </th>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[150px]">
-                        Contact &amp; Phone
-                      </th>
                       <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[140px]">
                         Emails
                       </th>
@@ -1181,18 +1178,7 @@ export default function CaseMarketingWorkspace({
                         />
                       </th>
 
-                      {/* 5. Contact & Phone Filter */}
-                      <th className="p-1.5 align-middle">
-                        <input
-                          type="text"
-                          placeholder="Filter contact..."
-                          value={filterContactPerson}
-                          onChange={(e) => setFilterContactPerson(e.target.value)}
-                          className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
-                        />
-                      </th>
-
-                      {/* 6. Emails Filter */}
+                      {/* 5. Emails Filter */}
                       <th className="p-1.5 align-middle">
                         <input
                           type="text"
@@ -1203,7 +1189,7 @@ export default function CaseMarketingWorkspace({
                         />
                       </th>
 
-                      {/* 7. Status Filter & Clear Button */}
+                      {/* 6. Status Filter & Clear Button */}
                       <th className="p-1.5 align-middle">
                         <div className="flex items-center gap-1">
                           <select
@@ -1236,7 +1222,7 @@ export default function CaseMarketingWorkspace({
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                     {filteredEmployers.length === 0 ? (
                       <tr>
-                        <td colSpan={7} className="px-4 py-6 text-center text-xs text-gray-500">
+                        <td colSpan={6} className="px-4 py-6 text-center text-xs text-gray-500">
                           {employers.length === 0
                             ? `No employers added yet for Phase ${activePhase}.`
                             : "No employers match the selected filters."}
@@ -1325,12 +1311,6 @@ export default function CaseMarketingWorkspace({
                               ) : (
                                 <span className="text-gray-400 text-xs">-</span>
                               )}
-                            </td>
-
-                            {/* Contact Person & Phone */}
-                            <td className="px-3 py-1.5 text-xs align-middle text-gray-700 dark:text-gray-300">
-                              <span className="font-medium">{emp.contactPerson || "-"}</span>
-                              {emp.phone && <span className="text-[10px] text-gray-500 block">{emp.phone}</span>}
                             </td>
 
                             {/* Emails */}
