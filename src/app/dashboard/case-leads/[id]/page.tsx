@@ -706,6 +706,7 @@ export default function CaseManagerLeadDetailPage() {
         {/* CV Marketing Workspace */}
         <CaseMarketingWorkspace
           leadId={lead.id}
+          occupations={lead.occupations || []}
           canEdit={true}
           activePhase={activePhase}
           onPhaseChange={(phase: number) => setActivePhase(phase)}

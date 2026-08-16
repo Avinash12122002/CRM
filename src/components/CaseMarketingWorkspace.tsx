@@ -66,14 +66,18 @@ const EMPLOYER_FIELD_DEFS: { key: keyof MarketingEmployer; label: string; requir
   { key: "notes", label: "Notes" },
 ];
 
-const emptyEmployerForm = () =>
-  EMPLOYER_FIELD_DEFS.reduce((acc, f) => ({ ...acc, [f.key]: "" }), {} as Record<string, string>);
+const emptyEmployerForm = (defaultOccupation = "") =>
+  EMPLOYER_FIELD_DEFS.reduce(
+    (acc, f) => ({ ...acc, [f.key]: f.key === "occupation" ? defaultOccupation : "" }),
+    {} as Record<string, string>
+  );
 
 const normalizeUrl = (url: string) =>
   url.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/+$/, "").trim();
 
 export default function CaseMarketingWorkspace({
   leadId,
+  occupations = [],
   canEdit,
   onHistoryUpdate,
   activePhase: externalActivePhase,
@@ -81,6 +85,7 @@ export default function CaseMarketingWorkspace({
   onSummaryLoaded,
 }: {
   leadId: number;
+  occupations?: string[];
   canEdit: boolean;
   onHistoryUpdate?: () => void;
   activePhase?: number;
@@ -161,6 +166,16 @@ export default function CaseMarketingWorkspace({
 
   const filteredEmployers = employers.filter((emp) => {
     if (filterSourceId && String(emp.sourceId) !== filterSourceId) return false;
+
+    // Filter by table occupation column filter
+    if (filterOccupation) {
+      if (filterOccupation === "__unspecified__") {
+        if (emp.occupation && emp.occupation.trim().length > 0) return false;
+      } else if ((emp.occupation || "").trim().toLowerCase() !== filterOccupation.trim().toLowerCase()) {
+        return false;
+      }
+    }
+
     if (filterStatus) {
       if (filterStatus === "Email Sent" && !emp.emailSent) return false;
       if (filterStatus === "Not Emailed Yet" && emp.emailSent) return false;
@@ -181,12 +196,6 @@ export default function CaseMarketingWorkspace({
     if (
       filterCompanyName &&
       !emp.companyName?.toLowerCase().includes(filterCompanyName.toLowerCase().trim())
-    ) {
-      return false;
-    }
-    if (
-      filterOccupation &&
-      !emp.occupation?.toLowerCase().includes(filterOccupation.toLowerCase().trim())
     ) {
       return false;
     }
@@ -982,6 +991,40 @@ export default function CaseMarketingWorkspace({
                       }
                     }
 
+                    if (f.key === "occupation") {
+                      return (
+                        <div key={f.key}>
+                          <label className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
+                            {f.label}{f.required ? " *" : ""}
+                          </label>
+                          {occupations && occupations.length > 0 ? (
+                            <select
+                              value={val}
+                              onChange={(e) => setEmployerForm((prev) => ({ ...prev, occupation: e.target.value }))}
+                              className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500"
+                            >
+                              <option value="">-- Select Candidate Occupation --</option>
+                              {occupations.map((occ) => (
+                                <option key={occ} value={occ}>
+                                  💼 {occ}
+                                </option>
+                              ))}
+                              {val && !occupations.includes(val) && (
+                                <option value={val}>💼 {val} (Custom)</option>
+                              )}
+                            </select>
+                          ) : (
+                            <input
+                              value={val}
+                              onChange={(e) => setEmployerForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                              placeholder="e.g. Registered Nurse"
+                              className="w-full text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5"
+                            />
+                          )}
+                        </div>
+                      );
+                    }
+
                     return (
                       <div key={f.key} className={f.key === "notes" ? "sm:col-span-2" : ""}>
                         <label className="text-[11px] font-medium text-gray-700 dark:text-gray-300">
@@ -1051,8 +1094,11 @@ export default function CaseMarketingWorkspace({
                   <thead className="bg-zinc-100/90 dark:bg-zinc-800/90">
                     {/* Header Titles */}
                     <tr>
-                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[130px]">
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[120px]">
                         Job Board
+                      </th>
+                      <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-[140px]">
+                        Occupation
                       </th>
                       <th className="px-3 py-2 text-left text-[10px] font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wide min-w-40">
                         Company Name
@@ -1089,7 +1135,31 @@ export default function CaseMarketingWorkspace({
                         </select>
                       </th>
 
-                      {/* 2. Company Name Filter */}
+                      {/* 2. Occupation Filter */}
+                      <th className="p-1.5 align-middle">
+                        <select
+                          value={filterOccupation}
+                          onChange={(e) => setFilterOccupation(e.target.value)}
+                          className="w-full px-2 py-1 text-[11px] border border-zinc-300 dark:border-zinc-700 rounded bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 font-normal focus:ring-1 focus:ring-red-500"
+                        >
+                          <option value="">All Occupations</option>
+                          {occupations && occupations.map((occ) => (
+                            <option key={occ} value={occ}>
+                              💼 {occ}
+                            </option>
+                          ))}
+                          {Array.from(new Set(employers.map((e) => e.occupation?.trim()).filter(Boolean)))
+                            .filter((occ) => !occupations?.includes(occ!))
+                            .map((occ) => (
+                              <option key={occ} value={occ}>
+                                💼 {occ}
+                              </option>
+                            ))}
+                          <option value="__unspecified__">Unspecified</option>
+                        </select>
+                      </th>
+
+                      {/* 3. Company Name Filter */}
                       <th className="p-1.5 align-middle">
                         <input
                           type="text"
@@ -1100,7 +1170,7 @@ export default function CaseMarketingWorkspace({
                         />
                       </th>
 
-                      {/* 3. Website Filter */}
+                      {/* 4. Website Filter */}
                       <th className="p-1.5 align-middle">
                         <input
                           type="text"
@@ -1111,7 +1181,7 @@ export default function CaseMarketingWorkspace({
                         />
                       </th>
 
-                      {/* 4. Contact & Phone Filter */}
+                      {/* 5. Contact & Phone Filter */}
                       <th className="p-1.5 align-middle">
                         <input
                           type="text"
@@ -1122,7 +1192,7 @@ export default function CaseMarketingWorkspace({
                         />
                       </th>
 
-                      {/* 5. Emails Filter */}
+                      {/* 6. Emails Filter */}
                       <th className="p-1.5 align-middle">
                         <input
                           type="text"
@@ -1133,7 +1203,7 @@ export default function CaseMarketingWorkspace({
                         />
                       </th>
 
-                      {/* 6. Status Filter & Clear Button */}
+                      {/* 7. Status Filter & Clear Button */}
                       <th className="p-1.5 align-middle">
                         <div className="flex items-center gap-1">
                           <select
@@ -1166,7 +1236,7 @@ export default function CaseMarketingWorkspace({
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                     {filteredEmployers.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="px-4 py-6 text-center text-xs text-gray-500">
+                        <td colSpan={7} className="px-4 py-6 text-center text-xs text-gray-500">
                           {employers.length === 0
                             ? `No employers added yet for Phase ${activePhase}.`
                             : "No employers match the selected filters."}
@@ -1195,9 +1265,20 @@ export default function CaseMarketingWorkspace({
                           >
                             {/* Job Board Badge */}
                             <td className="px-3 py-1.5 text-xs align-middle">
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap">
                                 📌 {emp.sourceName || "Source"}
                               </span>
+                            </td>
+
+                            {/* Occupation Badge */}
+                            <td className="px-3 py-1.5 text-xs align-middle">
+                              {emp.occupation ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap">
+                                  💼 {emp.occupation}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 text-xs italic">-</span>
+                              )}
                             </td>
 
                             {/* Company Name */}
@@ -1671,6 +1752,44 @@ export default function CaseMarketingWorkspace({
                       (emp) => emp.id !== editEmployerModal.id && normalizeUrl(emp.jobUrl || "") === norm
                     );
                     if (isDup) dupWarning = "Duplicate Job Link!";
+                  }
+
+                  if (field.key === "occupation") {
+                    return (
+                      <div key={field.key}>
+                        <label className="block text-[10px] font-semibold text-gray-600 dark:text-gray-400 mb-0.5">
+                          {field.label} {field.required && <span className="text-red-500">*</span>}
+                        </label>
+                        {occupations && occupations.length > 0 ? (
+                          <select
+                            value={val}
+                            onChange={(e) =>
+                              setEditEmployerForm((prev) => ({ ...prev, occupation: e.target.value }))
+                            }
+                            className="w-full text-xs rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1 focus:ring-1 focus:ring-blue-500 text-gray-900 dark:text-gray-100"
+                          >
+                            <option value="">-- Select Candidate Occupation --</option>
+                            {occupations.map((occ) => (
+                              <option key={occ} value={occ}>
+                                💼 {occ}
+                              </option>
+                            ))}
+                            {val && !occupations.includes(val) && (
+                              <option value={val}>💼 {val} (Custom)</option>
+                            )}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={val}
+                            onChange={(e) =>
+                              setEditEmployerForm((prev) => ({ ...prev, [field.key]: e.target.value }))
+                            }
+                            className="w-full text-xs rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1 focus:ring-1 focus:ring-blue-500"
+                          />
+                        )}
+                      </div>
+                    );
                   }
 
                   const isTextArea = field.key === "notes";
