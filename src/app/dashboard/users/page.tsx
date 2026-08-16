@@ -641,7 +641,7 @@ export default function UsersPage() {
                   <option value="wm">WM (WFH Meeting)</option>
                   <option value="wcm">WCM (WFH Case Manager)</option>
                   <option value="wtc">WTC (WFH Telecaller)</option>
-                  <option value="supervisor">Supervisor (Sales Team)</option>
+                  <option value="supervisor">Supervisor</option>
                 </select>
               </div>
 
