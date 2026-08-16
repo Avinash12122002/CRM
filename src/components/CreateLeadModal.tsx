@@ -515,6 +515,7 @@ export default function CreateLeadModal({
                 <option value="document-pending">Document Pending</option>
                 <option value="payment-pending">Payment Pending</option>
                 <option value="sales">Sales</option>
+                <option value="follow-up">Follow Up</option>
               </select>
             </div>
 

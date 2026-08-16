@@ -936,6 +936,8 @@ export default function LeadDetailPage() {
         return "bg-amber-100 text-amber-800";
       case "sales":
         return "bg-green-100 text-green-800";
+      case "follow-up":
+        return "bg-teal-100 text-teal-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -961,6 +963,8 @@ export default function LeadDetailPage() {
         return "💰 Payment Pending";
       case "sales":
         return "🎉 Sales";
+      case "follow-up":
+        return "🔄 Follow Up";
       default:
         return status;
     }
@@ -986,6 +990,8 @@ export default function LeadDetailPage() {
         return "bg-amber-100 text-amber-700";
       case "sales":
         return "bg-emerald-100 text-emerald-700";
+      case "follow-up":
+        return "bg-teal-100 text-teal-700";
       default:
         return "bg-gray-100 text-gray-700";
     }
@@ -1064,6 +1070,7 @@ export default function LeadDetailPage() {
     "document-pending",
     "payment-pending",
     "sales",
+    "follow-up",
   ] as const;
 
   // A lead marked as "Agent" can't be moved to Sales until it's unmarked —

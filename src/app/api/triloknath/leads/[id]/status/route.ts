@@ -46,13 +46,14 @@ export async function PUT(
       "document-pending",
       "payment-pending",
       "sales",
+      "follow-up",
     ];
 
     if (!status || !validStatuses.includes(status)) {
       return NextResponse.json(
         {
           message:
-            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, not-interested, wrong-number, document-pending, payment-pending, sales",
+            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, not-interested, wrong-number, document-pending, payment-pending, sales, follow-up",
         },
         { status: 400 },
       );

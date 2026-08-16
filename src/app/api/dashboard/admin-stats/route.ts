@@ -139,6 +139,7 @@ export async function GET(req: NextRequest) {
       "document-pending": 0,
       "payment-pending":  0,
       sales:              0,
+      "follow-up":        0,
     };
 
     statusBreakdownRaw.forEach((item) => {
@@ -201,6 +202,7 @@ export async function GET(req: NextRequest) {
       documentPending:   number;
       paymentPending:    number;
       sales:             number; // only increments via Step C attribution
+      followUp:          number;
     };
 
     const staffMap = new Map<string, StaffEntry>();
@@ -221,6 +223,7 @@ export async function GET(req: NextRequest) {
         documentPending:   0,
         paymentPending:    0,
         sales:             0,
+        followUp:          0,
       });
     }
 
@@ -264,6 +267,7 @@ export async function GET(req: NextRequest) {
             wrongNumber:       { $sum: { $cond: [{ $eq: ["$status", "wrong-number"]      }, 1, 0] } },
             documentPending:   { $sum: { $cond: [{ $eq: ["$status", "document-pending"]  }, 1, 0] } },
             paymentPending:    { $sum: { $cond: [{ $eq: ["$status", "payment-pending"]   }, 1, 0] } },
+            followUp:          { $sum: { $cond: [{ $eq: ["$status", "follow-up"]         }, 1, 0] } },
           },
         },
         { $sort: { totalLeads: -1 } },
@@ -284,6 +288,7 @@ export async function GET(req: NextRequest) {
         entry.wrongNumber       = row.wrongNumber       ?? 0;
         entry.documentPending   = row.documentPending   ?? 0;
         entry.paymentPending    = row.paymentPending    ?? 0;
+        entry.followUp          = row.followUp          ?? 0;
       }
     }
 

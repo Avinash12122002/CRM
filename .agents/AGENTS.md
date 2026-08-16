@@ -122,7 +122,7 @@ The general lead pipeline in `leads` collection uses these statuses:
 
 ```
 new-lead → call-back → not-answering → meeting-scheduled → 
-not-interested → wrong-number → document-pending → payment-pending → sales
+not-interested → wrong-number → document-pending → payment-pending → sales → follow-up
 ```
 
 **Key lifecycle transitions:**

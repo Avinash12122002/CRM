@@ -25,6 +25,7 @@ type Analytics = {
     notAnswering: number;
     documentPending: number;
     paymentPending: number;
+    followUp: number;
     sales: number;
   }[];
   meetingPerformance: {
@@ -36,6 +37,7 @@ type Analytics = {
     meetingScheduled: number;
     documentPending: number;
     paymentPending: number;
+    followUp: number;
     sales: number;
   }[];
   metrics: {
@@ -292,6 +294,7 @@ export default function LeadAnalyticsPage() {
                   "New Lead",
                   "Call Back",
                   "Not Answering",
+                  "Follow Up",
                   "Document Pending",
                   "Payment Pending",
                   "Total Sales",
@@ -301,6 +304,7 @@ export default function LeadAnalyticsPage() {
                   String(a.newLeads),
                   String(a.callBack),
                   String(a.notAnswering),
+                  String(a.followUp),
                   String(a.documentPending),
                   String(a.paymentPending),
                   String(a.sales),
@@ -318,6 +322,7 @@ export default function LeadAnalyticsPage() {
                   "Call Back",
                   "Not Answering",
                   "Meeting Scheduled",
+                  "Follow Up",
                   "Document Pending",
                   "Payment Pending",
                   "Total Sales",
@@ -328,6 +333,7 @@ export default function LeadAnalyticsPage() {
                   String(a.callBack),
                   String(a.notAnswering),
                   String(a.meetingScheduled),
+                  String(a.followUp),
                   String(a.documentPending),
                   String(a.paymentPending),
                   String(a.sales),

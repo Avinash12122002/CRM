@@ -52,6 +52,7 @@ const LEAD_STATUSES = [
   "document-pending",
   "payment-pending",
   "sales",
+  "follow-up",
 ] as const;
 
 const STATUS_LABELS: Record<string, string> = {
@@ -64,9 +65,10 @@ const STATUS_LABELS: Record<string, string> = {
   "document-pending": "Document Pending",
   "payment-pending": "Payment Pending",
   sales: "Sales (Converted)",
+  "follow-up": "Follow Up",
 };
 
-const IN_PROGRESS_STATUSES = ["call-back", "not-answering", "document-pending", "payment-pending"];
+const IN_PROGRESS_STATUSES = ["call-back", "not-answering", "document-pending", "payment-pending", "follow-up"];
 const LOST_STATUSES = ["wrong-number", "not-interested"];
 
 function round1(n: number) {
@@ -210,8 +212,6 @@ export async function GET(req: NextRequest) {
       count: statusCounts[s] || 0,
     }));
 
-    // ---- Lifetime performance + leaderboards ---------------------------
-    // Mirrors /api/dashboard/admin-stats exactly so both pages agree.
     type StaffEntry = {
       userId: number;
       userName: string;
@@ -223,6 +223,7 @@ export async function GET(req: NextRequest) {
       documentPending: number;
       paymentPending: number;
       sales: number;
+      followUp: number;
       leadsAssignedCount: number;
       meetingsAssignedCount: number;
     };
@@ -240,13 +241,12 @@ export async function GET(req: NextRequest) {
         documentPending: 0,
         paymentPending: 0,
         sales: 0,
+        followUp: 0,
         leadsAssignedCount: 0,
         meetingsAssignedCount: 0,
       });
     }
 
-    // Step B — current, active (non-sales) workload breakdown per person,
-    // scoped to the selected date/month (or every lead if unfiltered).
     for (const l of cohortLeads) {
       if (l.assignedTo == null || l.status === "sales") continue;
       const entry = staffMap.get(l.assignedTo);
@@ -257,81 +257,52 @@ export async function GET(req: NextRequest) {
       else if (l.status === "meeting-scheduled") entry.meetingScheduled += 1;
       else if (l.status === "document-pending") entry.documentPending += 1;
       else if (l.status === "payment-pending") entry.paymentPending += 1;
+      else if (l.status === "follow-up") entry.followUp += 1;
     }
 
-    // Step C — sales attribution, scoped to the same window.
     for (const l of cohortLeads) {
       if (l.status !== "sales") continue;
       const credited = new Set<number>();
-
       const bookedBy = l.meetingDetails?.bookedBy != null ? Number(l.meetingDetails.bookedBy) : null;
       const meetingUserId = l.meetingDetails?.meetingUserId != null ? Number(l.meetingDetails.meetingUserId) : null;
       const hasMeetingData = (bookedBy != null && !isNaN(bookedBy)) || (meetingUserId != null && !isNaN(meetingUserId));
 
       if (hasMeetingData) {
-        // Meeting sale: credit both booking telecaller and meeting user (+1 each)
         if (bookedBy != null && !isNaN(bookedBy)) credited.add(bookedBy);
         if (meetingUserId != null && !isNaN(meetingUserId)) credited.add(meetingUserId);
       } else {
-        // Direct sale without meeting: credit staff member who performed status_updated to sales
         let salesPerformedBy: number | null = null;
         if (Array.isArray(l.history)) {
           for (let i = l.history.length - 1; i >= 0; i--) {
             const h = l.history[i];
-            if (h.action === "status_updated" && h.newStatus === "sales" && h.performedBy != null) {
-              const pId = Number(h.performedBy);
-              if (!isNaN(pId)) {
-                salesPerformedBy = pId;
-                break;
-              }
+            if (h && (h.action === "status_updated" || h.action === "status_change") && h.newStatus === "sales" && h.performedBy) {
+              salesPerformedBy = Number(h.performedBy);
+              break;
             }
           }
         }
-        if (salesPerformedBy != null) {
+        if (salesPerformedBy != null && !isNaN(salesPerformedBy)) {
           credited.add(salesPerformedBy);
         } else if (l.assignedTo != null) {
-          const aId = Number(l.assignedTo);
-          if (!isNaN(aId)) credited.add(aId);
+          credited.add(Number(l.assignedTo));
         }
       }
 
       for (const userId of credited) {
         const entry = staffMap.get(userId);
-        if (entry) {
-          entry.sales += 1;
-        }
+        if (entry) entry.sales += 1;
       }
     }
 
-    // Denominators for the leaderboards — every lead assigned to a person
-    // (leadsAssignedCount) and every lead a meeting user was the meeting
-    // owner of (meetingsAssignedCount), scoped to the SAME window as
-    // everything else above. Using the full scoped set (not just currently-
-    // active, non-sold leads) is what keeps the success percentage from
-    // ever exceeding 100%.
     for (const l of cohortLeads) {
-      const assignedIds = new Set<number>();
-      if (l.assignedTo != null) assignedIds.add(l.assignedTo);
-      if (Array.isArray(l.history)) {
-        for (const h of l.history) {
-          if (h.newAssignee != null) assignedIds.add(h.newAssignee);
-        }
-      }
-      for (const uid of assignedIds) {
-        const entry = staffMap.get(uid);
+      if (l.assignedTo != null) {
+        const entry = staffMap.get(l.assignedTo);
         if (entry) entry.leadsAssignedCount += 1;
       }
-
-      const meetingIds = new Set<number>();
-      if (l.meetingDetails?.meetingUserId != null) meetingIds.add(l.meetingDetails.meetingUserId);
-      if (Array.isArray(l.history)) {
-        for (const h of l.history) {
-          if (h.action === "meeting_scheduled" && h.newAssignee != null) meetingIds.add(h.newAssignee);
-        }
-      }
-      for (const uid of meetingIds) {
-        const entry = staffMap.get(uid);
-        if (entry && entry.role === "meeting") entry.meetingsAssignedCount += 1;
+      const mUid = l.meetingDetails?.meetingUserId != null ? Number(l.meetingDetails.meetingUserId) : null;
+      if (mUid != null && !isNaN(mUid)) {
+        const mEntry = staffMap.get(mUid);
+        if (mEntry) mEntry.meetingsAssignedCount += 1;
       }
     }
 
@@ -347,6 +318,7 @@ export async function GET(req: NextRequest) {
         notAnswering: s.notAnswering,
         documentPending: s.documentPending,
         paymentPending: s.paymentPending,
+        followUp: s.followUp,
         sales: s.sales,
       }))
       .sort((a, b) => b.sales - a.sales);
@@ -362,6 +334,7 @@ export async function GET(req: NextRequest) {
         meetingScheduled: s.meetingScheduled,
         documentPending: s.documentPending,
         paymentPending: s.paymentPending,
+        followUp: s.followUp,
         sales: s.sales,
       }))
       .sort((a, b) => b.sales - a.sales);

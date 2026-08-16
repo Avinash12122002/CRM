@@ -362,6 +362,8 @@ export default function TriloknathLeadsPage() {
         return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300";
       case "sales":
         return "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300";
+      case "follow-up":
+        return "bg-teal-100 text-teal-800 dark:bg-teal-900/50 dark:text-teal-300";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     }
@@ -465,6 +467,8 @@ export default function TriloknathLeadsPage() {
         return "Pay Pending";
       case "sales":
         return "Sales";
+      case "follow-up":
+        return "Follow Up";
       default:
         return status;
     }
@@ -601,6 +605,7 @@ export default function TriloknathLeadsPage() {
     { value: "document-pending", label: "Document Pending" },
     { value: "payment-pending", label: "Payment Pending" },
     { value: "sales", label: "Sales" },
+    { value: "follow-up", label: "Follow Up" },
   ];
 
   const statuses = [

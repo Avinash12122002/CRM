@@ -61,6 +61,7 @@ type TelecallerPerformance = {
   paymentPending: number;
   // Sales credited via meetingDetails or history — never includes totalLeads
   sales: number;
+  followUp: number;
 };
 
 type AdminStats = {
@@ -82,6 +83,7 @@ type AdminStats = {
     "document-pending": number;
     "payment-pending": number;
     sales: number;
+    "follow-up": number;
   };
 };
 
@@ -141,6 +143,7 @@ export default function DashboardPage() {
       "document-pending": 0,
       "payment-pending": 0,
       sales: 0,
+      "follow-up": 0,
     },
   });
   const [loadingAdminStats, setLoadingAdminStats] = useState(false);
@@ -817,6 +820,7 @@ export default function DashboardPage() {
                         { key: "document-pending",   label: "Document Pending",  color: "bg-indigo-500" },
                         { key: "payment-pending",    label: "Payment Pending",   color: "bg-pink-500"   },
                         { key: "sales",              label: "Sales",             color: "bg-emerald-500"},
+                        { key: "follow-up",          label: "Follow Up",         color: "bg-teal-500"   },
                       ].map(({ key, label, color }) => (
                         <div key={key} className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
@@ -929,6 +933,11 @@ export default function DashboardPage() {
                                 {emp.wrongNumber > 0 && (
                                   <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
                                     📵 {emp.wrongNumber}
+                                  </span>
+                                )}
+                                {emp.followUp > 0 && (
+                                  <span className="px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded">
+                                    🔄 {emp.followUp}
                                   </span>
                                 )}
                               </div>

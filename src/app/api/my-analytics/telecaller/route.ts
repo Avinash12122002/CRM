@@ -30,7 +30,7 @@ function pct(n: number, d: number) {
   return Math.round(Math.min(100, Math.max(0, (n / d) * 100)) * 10) / 10;
 }
 
-const IN_PROGRESS = ["call-back", "not-answering", "document-pending", "payment-pending"];
+const IN_PROGRESS = ["call-back", "not-answering", "document-pending", "payment-pending", "follow-up"];
 const LOST = ["wrong-number", "not-interested"];
 const ALL_STATUSES = [
   { key: "new-lead", label: "New Lead" },
@@ -42,6 +42,7 @@ const ALL_STATUSES = [
   { key: "document-pending", label: "Document Pending" },
   { key: "payment-pending", label: "Payment Pending" },
   { key: "sales", label: "Sales (Converted)" },
+  { key: "follow-up", label: "Follow Up" },
 ];
 
 export async function GET(req: NextRequest) {

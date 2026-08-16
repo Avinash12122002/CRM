@@ -348,6 +348,8 @@ export default function LeadsPage() {
         return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-100";
       case "sales":
         return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
+      case "follow-up":
+        return "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-100";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100";
     }
@@ -469,6 +471,8 @@ export default function LeadsPage() {
         return "Pay Pending";
       case "sales":
         return "Sales";
+      case "follow-up":
+        return "Follow Up";
       default:
         return status;
     }
@@ -633,6 +637,7 @@ export default function LeadsPage() {
     { value: "document-pending", label: "Document Pending" },
     { value: "payment-pending", label: "Payment Pending" },
     { value: "sales", label: "Sales" },
+    { value: "follow-up", label: "Follow Up" },
   ];
 
   return (
