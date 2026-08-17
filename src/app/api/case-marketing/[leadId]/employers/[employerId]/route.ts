@@ -192,16 +192,29 @@ export async function PATCH(
 
     if (action === "update_details") {
       const companyName = String(body.companyName || "").trim();
+      const website = String(body.website || "").trim();
+      const jobUrl = String(body.jobUrl || "").trim();
+      const occupation = String(body.occupation || "").trim();
+
       if (!companyName) {
         return NextResponse.json({ message: "Company name is required" }, { status: 400 });
+      }
+      if (!website) {
+        return NextResponse.json({ message: "Website is required" }, { status: 400 });
+      }
+      if (!jobUrl) {
+        return NextResponse.json({ message: "Job advertisement URL is required" }, { status: 400 });
+      }
+      if (!occupation) {
+        return NextResponse.json({ message: "Occupation is required" }, { status: 400 });
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const updateDoc: Record<string, any> = {
         companyName,
-        occupation: typeof body.occupation === "string" ? body.occupation.trim() : "",
-        website: typeof body.website === "string" ? body.website.trim() : "",
-        jobUrl: typeof body.jobUrl === "string" ? body.jobUrl.trim() : "",
+        occupation,
+        website,
+        jobUrl,
         hrEmail: typeof body.hrEmail === "string" ? body.hrEmail.trim() : "",
         generalEmail: typeof body.generalEmail === "string" ? body.generalEmail.trim() : "",
         contactPerson: typeof body.contactPerson === "string" ? body.contactPerson.trim() : "",

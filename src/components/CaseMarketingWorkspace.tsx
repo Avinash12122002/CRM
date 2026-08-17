@@ -56,7 +56,7 @@ const EMPLOYER_FIELD_DEFS: { key: keyof MarketingEmployer; label: string; requir
   { key: "companyName", label: "Company Name", required: true },
   { key: "website", label: "Website", required: true },
   { key: "jobUrl", label: "Job Advertisement URL", required: true },
-  { key: "occupation", label: "Occupation" },
+  { key: "occupation", label: "Occupation", required: true },
   { key: "hrEmail", label: "HR Email" },
   { key: "generalEmail", label: "General Email" },
   { key: "contactPerson", label: "Contact Person" },
@@ -74,6 +74,14 @@ const emptyEmployerForm = (defaultOccupation = "") =>
 
 const normalizeUrl = (url: string) =>
   url.toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, "").replace(/\/+$/, "").trim();
+
+const formatTruncatedOccupation = (occ?: string) => {
+  if (!occ) return "";
+  const trimmed = occ.trim();
+  if (trimmed.length === 0) return "";
+  const halfLen = Math.ceil(trimmed.length / 2);
+  return `${trimmed.slice(0, halfLen).trim()}....`;
+};
 
 export default function CaseMarketingWorkspace({
   leadId,
@@ -261,8 +269,13 @@ export default function CaseMarketingWorkspace({
 
   const handleSaveEditEmployer = async () => {
     if (!editEmployerModal) return;
-    if (!editEmployerForm.companyName?.trim() || !editEmployerForm.website?.trim() || !editEmployerForm.jobUrl?.trim()) {
-      toast.error("Company Name, Website, and Job Link are required");
+    if (
+      !editEmployerForm.companyName?.trim() ||
+      !editEmployerForm.website?.trim() ||
+      !editEmployerForm.jobUrl?.trim() ||
+      !editEmployerForm.occupation?.trim()
+    ) {
+      toast.error("Company Name, Website, Job Link, and Occupation are required");
       return;
     }
     setSavingEditEmployer(true);
@@ -613,8 +626,13 @@ export default function CaseMarketingWorkspace({
   const handleAddEmployer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeSource) return;
-    if (!employerForm.companyName?.trim() || !employerForm.website?.trim() || !employerForm.jobUrl?.trim()) {
-      toast.error("Company Name, Website, and Job Advertisement URL are required");
+    if (
+      !employerForm.companyName?.trim() ||
+      !employerForm.website?.trim() ||
+      !employerForm.jobUrl?.trim() ||
+      !employerForm.occupation?.trim()
+    ) {
+      toast.error("Company Name, Website, Job Advertisement URL, and Occupation are required");
       return;
     }
     const normName = employerForm.companyName.trim().toLowerCase();
@@ -1066,7 +1084,11 @@ export default function CaseMarketingWorkspace({
                       const isDupWeb = normWeb.length > 0 && employers.some((emp) => normalizeUrl(emp.website || "") === normWeb);
                       const isDupJob = normJob.length > 0 && employers.some((emp) => normalizeUrl(emp.jobUrl || "") === normJob);
 
-                      const missingRequired = !employerForm.companyName?.trim() || !employerForm.website?.trim() || !employerForm.jobUrl?.trim();
+                      const missingRequired =
+                        !employerForm.companyName?.trim() ||
+                        !employerForm.website?.trim() ||
+                        !employerForm.jobUrl?.trim() ||
+                        !employerForm.occupation?.trim();
                       const isDisabled = savingEmployer || isDupName || isDupWeb || isDupJob || missingRequired;
 
                       return (
@@ -1259,8 +1281,11 @@ export default function CaseMarketingWorkspace({
                             {/* Occupation Badge */}
                             <td className="px-3 py-1.5 text-xs align-middle">
                               {emp.occupation ? (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap">
-                                  💼 {emp.occupation}
+                                <span
+                                  title={emp.occupation}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap"
+                                >
+                                  💼 {formatTruncatedOccupation(emp.occupation)}
                                 </span>
                               ) : (
                                 <span className="text-gray-400 text-xs italic">-</span>
@@ -1831,7 +1856,11 @@ export default function CaseMarketingWorkspace({
                   const isDupWeb = normWeb.length > 0 && targetList.some((emp) => emp.id !== editEmployerModal.id && normalizeUrl(emp.website || "") === normWeb);
                   const isDupJob = normJob.length > 0 && targetList.some((emp) => emp.id !== editEmployerModal.id && normalizeUrl(emp.jobUrl || "") === normJob);
 
-                  const missingRequired = !editEmployerForm.companyName?.trim() || !editEmployerForm.website?.trim() || !editEmployerForm.jobUrl?.trim();
+                  const missingRequired =
+                    !editEmployerForm.companyName?.trim() ||
+                    !editEmployerForm.website?.trim() ||
+                    !editEmployerForm.jobUrl?.trim() ||
+                    !editEmployerForm.occupation?.trim();
                   const isDisabled = savingEditEmployer || isDupName || isDupWeb || isDupJob || missingRequired;
 
                   return (

@@ -90,8 +90,21 @@ export async function POST(
     }
 
     const companyName = String(body.companyName || "").trim();
+    const website = String(body.website || "").trim();
+    const jobUrl = String(body.jobUrl || "").trim();
+    const occupation = String(body.occupation || "").trim();
+
     if (!companyName) {
       return NextResponse.json({ message: "Company name is required" }, { status: 400 });
+    }
+    if (!website) {
+      return NextResponse.json({ message: "Website is required" }, { status: 400 });
+    }
+    if (!jobUrl) {
+      return NextResponse.json({ message: "Job advertisement URL is required" }, { status: 400 });
+    }
+    if (!occupation) {
+      return NextResponse.json({ message: "Occupation is required" }, { status: 400 });
     }
 
     // Auto duplicate detection — same employer cannot be added twice for
