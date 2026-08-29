@@ -2,7 +2,7 @@
  * Next.js Instrumentation Hook — runs once on server startup (Node.js runtime only).
  *
  * Schedules a nightly cron job that auto-marks absent every non-admin user
- * who has no attendance record for the day that just ended.
+ * who has no attendance record for past days that have ended.
  *
  * Schedule: 00:00 IST every day   →  cron expression "0 0 * * *" in IST
  *           = "30 18 * * *" in UTC  (IST is UTC+5:30)
@@ -11,9 +11,8 @@
  * `timezone` option, so we pass "Asia/Kolkata" and use the plain
  * midnight expression "0 0 * * *".
  *
- * The job calls the same helper used by the manual /api/attendance/cron
- * endpoint, so behaviour is identical and idempotent ($setOnInsert ensures
- * running it twice never overwrites an existing attendance record).
+ * The job calls autoMarkMissingDays to ensure self-healing and catch up any
+ * missed days even if the server was restarted or temporarily offline.
  */
 
 export async function register() {
@@ -23,9 +22,23 @@ export async function register() {
 
   const { default: cron } = await import("node-cron");
   const { connectToDatabase } = await import("@/lib/mongodb");
-  const { ensureAttendanceIndexes, autoMarkAbsentees } = await import(
+  const { ensureAttendanceIndexes, autoMarkMissingDays } = await import(
     "@/lib/attendance/helpers"
   );
+
+  // Catch-up run on server startup (non-blocking)
+  (async () => {
+    try {
+      const { db } = await connectToDatabase();
+      await ensureAttendanceIndexes(db);
+      const marked = await autoMarkMissingDays(db, 7);
+      if (marked > 0) {
+        console.log(`[attendance-startup] Auto-marked ${marked} missing absent record(s).`);
+      }
+    } catch (err) {
+      console.error("[attendance-startup] Catch-up check failed:", err);
+    }
+  })();
 
   // Fires every day at 00:00 IST (midnight India time)
   cron.schedule(
@@ -35,7 +48,7 @@ export async function register() {
         console.log("[attendance-cron] Starting nightly absent-marking job…");
         const { db } = await connectToDatabase();
         await ensureAttendanceIndexes(db);
-        const marked = await autoMarkAbsentees(db);
+        const marked = await autoMarkMissingDays(db, 3);
         console.log(
           `[attendance-cron] Done — marked ${marked} user(s) absent.`
         );

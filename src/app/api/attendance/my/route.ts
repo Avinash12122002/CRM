@@ -15,7 +15,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
-import { todayIST, ensureAttendanceIndexes } from "@/lib/attendance/helpers";
+import { todayIST, ensureAttendanceIndexes, ensureUserAttendanceForPastDays } from "@/lib/attendance/helpers";
 import { ATTENDANCE_COLLECTION, ATTENDANCE_STATUSES } from "@/lib/attendance/constants";
 import type { AttendanceStatus } from "@/lib/attendance/types";
 
@@ -50,10 +50,6 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
     await ensureAttendanceIndexes(db);
 
-    // Build filter
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: Record<string, any> = { userId: payload.id };
-
     const today = todayIST();
     let dFrom = dateFrom;
     let dTo = dateTo;
@@ -62,6 +58,35 @@ export async function GET(req: NextRequest) {
       dFrom = dTo;
       dTo = temp;
     }
+
+    // Auto-mark absent for any missing past days up to yesterday (e.g. date 28)
+    try {
+      const userDoc = await db
+        .collection("users")
+        .findOne({ id: payload.id }, { projection: { name: 1, role: 1, createdAt: 1 } });
+
+      const effectiveTargetMonth = month || defaultMonth;
+      const pastStart = dFrom || (effectiveTargetMonth ? `${effectiveTargetMonth}-01` : undefined);
+      const pastEnd = dTo || undefined;
+
+      await ensureUserAttendanceForPastDays(
+        db,
+        payload.id,
+        {
+          name: (userDoc?.name as string) || payload.name || "Unknown",
+          role: (userDoc?.role as string) || payload.role || "unknown",
+          createdAt: userDoc?.createdAt ? new Date(userDoc.createdAt) : undefined,
+        },
+        pastStart,
+        pastEnd
+      );
+    } catch (backfillErr) {
+      console.error("[attendance/my] Auto-mark backfill error:", backfillErr);
+    }
+
+    // Build filter
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const filter: Record<string, any> = { userId: payload.id };
 
     if (dFrom || dTo) {
       filter.date = {};

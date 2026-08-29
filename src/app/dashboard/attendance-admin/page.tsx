@@ -77,8 +77,26 @@ export default function AttendanceAdminPage() {
   });
   const [dataLoading, setDataLoading] = useState(false);
 
-  // Override modal
   const [overrideRecord, setOverrideRecord] = useState<AttendanceRecord | null>(null);
+  const [autoMarking, setAutoMarking] = useState(false);
+
+  async function handleAutoMark() {
+    setAutoMarking(true);
+    try {
+      const res = await fetch("/api/attendance/cron", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(`Absent check completed: ${data.absentMarked ?? 0} record(s) marked`);
+        fetchData(pagination.page);
+      } else {
+        toast.error(data.message || "Failed to run auto-mark");
+      }
+    } catch {
+      toast.error("Network error running auto-mark");
+    } finally {
+      setAutoMarking(false);
+    }
+  }
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -190,26 +208,49 @@ export default function AttendanceAdminPage() {
               View and manage attendance records for all employees.
             </p>
           </div>
-          <button
-            onClick={() => fetchData(pagination.page)}
-            disabled={dataLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <svg
-              className={`w-4 h-4 ${dataLoading ? "animate-spin" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleAutoMark}
+              disabled={autoMarking || dataLoading}
+              title="Checks and auto-marks absent for all users who missed past days"
+              className="flex items-center gap-2 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            {dataLoading ? "Loading…" : "Refresh"}
-          </button>
+              <svg
+                className={`w-4 h-4 ${autoMarking ? "animate-spin" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              {autoMarking ? "Checking…" : "Auto-mark Absentees"}
+            </button>
+            <button
+              onClick={() => fetchData(pagination.page)}
+              disabled={dataLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+            >
+              <svg
+                className={`w-4 h-4 ${dataLoading ? "animate-spin" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              {dataLoading ? "Loading…" : "Refresh"}
+            </button>
+          </div>
         </div>
 
         {/* Filter bar */}

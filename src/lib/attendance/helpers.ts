@@ -2,26 +2,31 @@
  * Attendance Module — Helpers
  *
  * Provides:
- *  - todayIST()               — "YYYY-MM-DD" in Asia/Kolkata (matches IST_OFFSET_MS convention)
- *  - ensureAttendanceIndexes(db) — lazy, once-per-warm-instance index bootstrap
- *  - autoMarkAbsentees(db)      — inserts absent for every user missing today's record
+ *  - todayIST()                          — "YYYY-MM-DD" in Asia/Kolkata (matches IST_OFFSET_MS convention)
+ *  - yesterdayIST()                      — "YYYY-MM-DD" in Asia/Kolkata for the day that just ended
+ *  - dateToISTString(date)               — Converts a Date object to "YYYY-MM-DD" in Asia/Kolkata
+ *  - getDatesBetween(startDate, endDate) — Array of "YYYY-MM-DD" strings between start and end inclusive
+ *  - ensureAttendanceIndexes(db)         — lazy, once-per-warm-instance index bootstrap
+ *  - autoMarkAbsenteesForDate(db, date)  — inserts absent for all non-admin users missing a record for a specific past date
+ *  - autoMarkAbsentees(db, targetDate?)  — inserts absent for every user missing targetDate (defaults to yesterday)
+ *  - autoMarkMissingDays(db, daysBack?)  — catches up missing absent records across the last N days up to yesterday
+ *  - ensureUserAttendanceForPastDays()   — ensures a specific user has absent records for any past dates they missed
  *
  * IST date calculation matches the exact same IST_OFFSET_MS arithmetic already
  * used throughout this codebase (e.g. src/app/api/activity/checkin/route.ts).
  *
  * NOTE: We do NOT use getNextId() from @/lib/auth here.
  * auth.ts checks `result.value` which is undefined on MongoDB driver v5+
- * (your installed version: ^5.9.0). Instead we use an inline findOneAndUpdate
- * that reads the result directly — same approach the rest of the app actually
- * relies on at runtime (billing, BD all hit the same driver behavior).
+ * (installed version: ^5.9.0). Instead we use an inline findOneAndUpdate
+ * that reads the result directly.
  */
 
 import type { Db } from "mongodb";
 import { ATTENDANCE_COLLECTION } from "./constants";
 
-// ── Timezone helper ──────────────────────────────────────────────────────────
+// ── Timezone helpers ─────────────────────────────────────────────────────────
 
-const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000; // 5h 30m in ms
+export const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000; // 5h 30m in ms
 
 /**
  * Returns today's date string in "YYYY-MM-DD" format using Asia/Kolkata timezone.
@@ -46,37 +51,39 @@ export function todayIST(): string {
 export function yesterdayIST(): string {
   const now = new Date();
   const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
-  // Subtract one day
-  const yesterdayIST = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000);
-  const y = yesterdayIST.getUTCFullYear();
-  const m = String(yesterdayIST.getUTCMonth() + 1).padStart(2, "0");
-  const d = String(yesterdayIST.getUTCDate()).padStart(2, "0");
+  const yest = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000);
+  const y = yest.getUTCFullYear();
+  const m = String(yest.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(yest.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
-// ── Safe ID helper (MongoDB v5 compatible) ───────────────────────────────────
+/**
+ * Converts any Date object to "YYYY-MM-DD" in IST.
+ */
+export function dateToISTString(date: Date): string {
+  const istDate = new Date(date.getTime() + IST_OFFSET_MS);
+  const y = istDate.getUTCFullYear();
+  const m = String(istDate.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(istDate.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
 /**
- * Gets the next auto-increment ID for the given collection name.
- *
- * MongoDB driver v5 returns the document directly from findOneAndUpdate
- * (not wrapped in { value: ... } as in v4). We read the result directly
- * to avoid the `!result.value` check in auth.ts which always fails on v5.
+ * Returns array of "YYYY-MM-DD" strings between start and end (inclusive).
  */
-async function getNextAttendanceId(db: Db): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await db.collection("counters").findOneAndUpdate(
-    { _id: ATTENDANCE_COLLECTION } as never,
-    { $inc: { seq: 1 } },
-    { upsert: true, returnDocument: "after" }
-  );
-  // Driver v5: result is the document directly
-  // Driver v4: result is { value: document }
-  const doc = result?.value ?? result;
-  if (!doc || doc.seq === undefined) {
-    throw new Error("[attendance] Failed to generate ID from counters");
+export function getDatesBetween(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const curr = new Date(startDate + "T00:00:00Z");
+  const end = new Date(endDate + "T00:00:00Z");
+  while (curr <= end) {
+    const y = curr.getUTCFullYear();
+    const m = String(curr.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(curr.getUTCDate()).padStart(2, "0");
+    dates.push(`${y}-${m}-${d}`);
+    curr.setUTCDate(curr.getUTCDate() + 1);
   }
-  return doc.seq as number;
+  return dates;
 }
 
 // ── Index bootstrap ──────────────────────────────────────────────────────────
@@ -105,77 +112,217 @@ export async function ensureAttendanceIndexes(db: Db): Promise<void> {
   );
 }
 
-// ── Auto-absent job ──────────────────────────────────────────────────────────
+// ── Auto-absent core logic ───────────────────────────────────────────────────
 
 /**
- * Called by the nightly cron endpoint.
+ * Marks absent for all active non-admin users who have no attendance record
+ * for a specific past date. Never marks for today or future dates.
  *
- * For every active user who has NO attendance record for today, inserts an
- * "absent" record. Uses $setOnInsert inside an upsert so it is completely
- * safe to call multiple times — it will never overwrite an existing record.
- *
- * Returns the count of newly-inserted absent records.
+ * Fully idempotent using { userId, date } upsert with $setOnInsert.
  */
-export async function autoMarkAbsentees(db: Db): Promise<number> {
-  // The cron fires at 00:00 IST (midnight). At that moment the "new day" has
-  // already begun in IST, so we must mark absent for the day that just ended
-  // (yesterday IST), not today.
-  const today = yesterdayIST();
+export async function autoMarkAbsenteesForDate(db: Db, date: string): Promise<number> {
+  const today = todayIST();
+  // Never auto-mark absent for today or future dates (today's shift is ongoing)
+  if (date >= today) return 0;
+
   const now = new Date();
 
   // Load all non-admin users
   const users = await db
     .collection("users")
     .find({ role: { $ne: "admin" } })
-    .project({ id: 1, name: 1, role: 1 })
+    .project({ id: 1, name: 1, role: 1, createdAt: 1 })
     .toArray();
 
-  // Find which users already have a record for today
+  if (users.length === 0) return 0;
+
+  // Find existing attendance records for this date
   const existing = await db
     .collection(ATTENDANCE_COLLECTION)
-    .find({ date: today })
+    .find({ date })
     .project({ userId: 1 })
     .toArray();
 
   const markedUserIds = new Set(existing.map((r) => r.userId as number));
 
-  let inserted = 0;
-  for (const user of users) {
-    const uid = user.id as number;
-    if (markedUserIds.has(uid)) continue;
+  // Filter to users missing this date who were created on or before this date
+  const missingUsers = users.filter((u) => {
+    const uid = u.id as number;
+    if (markedUserIds.has(uid)) return false;
+    if (u.createdAt) {
+      const createdStr = dateToISTString(new Date(u.createdAt));
+      if (createdStr > date) return false;
+    }
+    return true;
+  });
 
-    try {
-      const id = await getNextAttendanceId(db);
-      const result = await db.collection(ATTENDANCE_COLLECTION).updateOne(
-        { userId: uid, date: today },
-        {
-          $setOnInsert: {
-            id,
-            userId: uid,
-            userName: user.name as string,
-            role: user.role as string,
-            date: today,
-            status: "absent",
-            markedBy: "system",
-            checkInTime: null,
-            note: "Auto-marked absent by system",
-            createdAt: now,
-            updatedAt: now,
-          },
+  if (missingUsers.length === 0) return 0;
+
+  // Allocate auto-increment IDs atomically
+  const count = missingUsers.length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const counterResult: any = await db.collection("counters").findOneAndUpdate(
+    { _id: ATTENDANCE_COLLECTION } as never,
+    { $inc: { seq: count } },
+    { upsert: true, returnDocument: "after" }
+  );
+  const counterDoc = counterResult?.value ?? counterResult;
+  if (!counterDoc || counterDoc.seq === undefined) {
+    throw new Error("[attendance] Failed to generate ID from counters");
+  }
+  const endSeq = counterDoc.seq as number;
+  const startSeq = endSeq - count + 1;
+
+  const ops = missingUsers.map((user, idx) => ({
+    updateOne: {
+      filter: { userId: user.id as number, date },
+      update: {
+        $setOnInsert: {
+          id: startSeq + idx,
+          userId: user.id as number,
+          userName: (user.name as string) || "Unknown",
+          role: (user.role as string) || "unknown",
+          date,
+          status: "absent",
+          markedBy: "system",
+          checkInTime: null,
+          note: "Auto-marked absent by system",
+          createdAt: now,
+          updatedAt: now,
         },
-        { upsert: true }
-      );
-      // Only count if a new document was actually inserted (upsertedCount === 1)
-      if (result.upsertedCount === 1) {
-        inserted++;
-      }
+      },
+      upsert: true,
+    },
+  }));
+
+  const res = await db.collection(ATTENDANCE_COLLECTION).bulkWrite(ops, { ordered: false });
+  return res.upsertedCount;
+}
+
+/**
+ * Called by cron or manual triggers.
+ * Defaults to yesterdayIST() if targetDate is omitted.
+ */
+export async function autoMarkAbsentees(db: Db, targetDate?: string): Promise<number> {
+  const date = targetDate || yesterdayIST();
+  return autoMarkAbsenteesForDate(db, date);
+}
+
+/**
+ * Iterates through the last `daysBack` days up to yesterday and ensures
+ * absent records are marked for any user missing a record.
+ * Self-healing: handles cases where cron failed or server was down.
+ */
+export async function autoMarkMissingDays(db: Db, daysBack = 7): Promise<number> {
+  const yesterday = yesterdayIST();
+  const now = new Date();
+  const nowIST = new Date(now.getTime() + IST_OFFSET_MS);
+  const startObj = new Date(nowIST.getTime() - (daysBack + 1) * 24 * 60 * 60 * 1000);
+  const y = startObj.getUTCFullYear();
+  const m = String(startObj.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(startObj.getUTCDate()).padStart(2, "0");
+  const startDate = `${y}-${m}-${d}`;
+
+  const dates = getDatesBetween(startDate, yesterday);
+  let totalMarked = 0;
+  for (const dt of dates) {
+    try {
+      totalMarked += await autoMarkAbsenteesForDate(db, dt);
     } catch (err) {
-      // E11000 = duplicate key = already marked between query and upsert — safe to ignore
-      const isdup =
-        err instanceof Error && err.message.includes("E11000");
-      if (!isdup) console.error(`[attendance] Failed to mark absent userId=${uid}:`, err);
+      console.error(`[attendance] Failed autoMarkAbsenteesForDate for ${dt}:`, err);
+    }
+  }
+  return totalMarked;
+}
+
+/**
+ * Ensures a single user has absent records for any past days they missed
+ * within a date range (up to yesterday).
+ * Used by /api/attendance/my when an employee loads their attendance page.
+ */
+export async function ensureUserAttendanceForPastDays(
+  db: Db,
+  userId: number,
+  user: { name: string; role: string; createdAt?: Date },
+  startDate?: string,
+  endDate?: string
+): Promise<number> {
+  const yesterday = yesterdayIST();
+  const effectiveEnd = endDate && endDate < yesterday ? endDate : yesterday;
+
+  // Default to start of current month or 31 days back
+  const defaultStart = yesterday.slice(0, 7) + "-01";
+  const effectiveStart = startDate && startDate <= effectiveEnd ? startDate : defaultStart;
+
+  if (effectiveStart > effectiveEnd) return 0;
+
+  // If user was created recently, do not backfill before their registration date
+  let userMinDate = effectiveStart;
+  if (user.createdAt) {
+    const userCreatedStr = dateToISTString(new Date(user.createdAt));
+    if (userCreatedStr > userMinDate) {
+      userMinDate = userCreatedStr;
     }
   }
 
-  return inserted;
+  if (userMinDate > effectiveEnd) return 0;
+
+  const dates = getDatesBetween(userMinDate, effectiveEnd);
+  if (dates.length === 0) return 0;
+
+  // Find existing records for this user in this range
+  const existing = await db
+    .collection(ATTENDANCE_COLLECTION)
+    .find({
+      userId,
+      date: { $gte: userMinDate, $lte: effectiveEnd },
+    })
+    .project({ date: 1 })
+    .toArray();
+
+  const markedDates = new Set(existing.map((r) => r.date as string));
+  const missingDates = dates.filter((d) => !markedDates.has(d));
+
+  if (missingDates.length === 0) return 0;
+
+  // Allocate IDs in batch
+  const count = missingDates.length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const counterResult: any = await db.collection("counters").findOneAndUpdate(
+    { _id: ATTENDANCE_COLLECTION } as never,
+    { $inc: { seq: count } },
+    { upsert: true, returnDocument: "after" }
+  );
+  const counterDoc = counterResult?.value ?? counterResult;
+  if (!counterDoc || counterDoc.seq === undefined) {
+    throw new Error("[attendance] Failed to generate ID from counters");
+  }
+  const endSeq = counterDoc.seq as number;
+  const startSeq = endSeq - count + 1;
+
+  const now = new Date();
+  const ops = missingDates.map((d, idx) => ({
+    updateOne: {
+      filter: { userId, date: d },
+      update: {
+        $setOnInsert: {
+          id: startSeq + idx,
+          userId,
+          userName: user.name || "Unknown",
+          role: user.role || "unknown",
+          date: d,
+          status: "absent",
+          markedBy: "system",
+          checkInTime: null,
+          note: "Auto-marked absent by system",
+          createdAt: now,
+          updatedAt: now,
+        },
+      },
+      upsert: true,
+    },
+  }));
+
+  const res = await db.collection(ATTENDANCE_COLLECTION).bulkWrite(ops, { ordered: false });
+  return res.upsertedCount;
 }

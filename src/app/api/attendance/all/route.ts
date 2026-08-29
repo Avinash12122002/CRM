@@ -17,7 +17,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
-import { todayIST, ensureAttendanceIndexes } from "@/lib/attendance/helpers";
+import { todayIST, ensureAttendanceIndexes, autoMarkMissingDays } from "@/lib/attendance/helpers";
 import { ATTENDANCE_COLLECTION, ATTENDANCE_STATUSES } from "@/lib/attendance/constants";
 import type { AttendanceStatus } from "@/lib/attendance/types";
 
@@ -87,6 +87,13 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
     await ensureAttendanceIndexes(db);
+
+    // Auto-mark missing absentees for recent past days up to yesterday (e.g. date 28)
+    try {
+      await autoMarkMissingDays(db, 7);
+    } catch (backfillErr) {
+      console.error("[attendance/all] Auto-mark backfill error:", backfillErr);
+    }
 
     const [records, total, allUsers] = await Promise.all([
       db
