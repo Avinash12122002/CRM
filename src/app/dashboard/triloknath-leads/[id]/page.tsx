@@ -917,7 +917,7 @@ export default function TriloknathLeadDetailPage() {
       case "new-lead":
         return "bg-blue-100 text-blue-800";
       case "call-back":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300/70 dark:border-amber-500/30";
       case "not-answering":
         return "bg-orange-100 text-orange-800";
       case "meeting-scheduled":

@@ -339,7 +339,7 @@ export default function LeadsPage() {
       case "new-lead":
         return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
       case "call-back":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100";
+        return "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300/70 dark:border-amber-500/30";
       case "not-answering":
         return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
       case "meeting-scheduled":
@@ -377,16 +377,16 @@ export default function LeadsPage() {
     // Callback due today is the next priority signal
     if (lead.status === "call-back") {
       if (lead.isDueToday) {
-        return "border-l-4 border-l-emerald-400 bg-emerald-50/60 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20";
+        return "border-l-4 border-l-emerald-500 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
       const isOverdue =
         lead.callbackDate &&
         new Date(lead.callbackDate).setHours(0, 0, 0, 0) <
           new Date().setHours(0, 0, 0, 0);
       if (isOverdue) {
-        return "border-l-4 border-l-rose-400 bg-rose-50/60 dark:rose-900/10 hover:bg-rose-50 dark:hover:bg-rose-900/20";
+        return "border-l-4 border-l-rose-500 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
-      return "border-l-4 border-l-amber-300 bg-amber-50/30 dark:bg-amber-900/5 hover:bg-amber-50/60 dark:hover:bg-amber-900/10";
+      return "border-l-4 border-l-amber-400 hover:bg-gray-50 dark:hover:bg-gray-700/50";
     }
 
     // Otherwise, a subtle role accent for admins scanning the queue
@@ -1215,68 +1215,47 @@ export default function LeadsPage() {
                           {/* Status */}
                           <td className="px-3 py-2">
                             {lead.status === "call-back" ? (
-                              <div className="flex flex-col">
+                              <div className="flex flex-col items-start gap-1">
                                 <span
-                                  className={`px-1.5 py-0.5 inline-flex w-fit text-[11px] font-semibold rounded-full ${getStatusBadgeColor(
+                                  className={`px-2 py-0.5 inline-flex items-center gap-1 text-[11px] font-semibold rounded-full ${getStatusBadgeColor(
                                     lead.status,
                                   )}`}
                                 >
                                   🔔 Call Back
                                 </span>
 
-                                <span
-                                  className={`mt-1 text-[10px] font-semibold ${
-                                    lead.isDueToday
-                                      ? "text-green-600 dark:text-green-400"
-                                      : !lead.isDueToday &&
-                                          lead.callbackDate &&
-                                          new Date(lead.callbackDate).setHours(
-                                            0,
-                                            0,
-                                            0,
-                                            0,
-                                          ) < new Date().setHours(0, 0, 0, 0)
-                                        ? "text-red-600 dark:text-red-400"
-                                        : "text-orange-600 dark:text-orange-400"
-                                  }`}
-                                >
-                                  {lead.callbackDate
-                                    ? (() => {
-                                        const callback = new Date(
-                                          lead.callbackDate,
-                                        );
-                                        const today = new Date();
+                                {lead.callbackDate ? (() => {
+                                  const callback = new Date(lead.callbackDate);
+                                  const today = new Date();
+                                  callback.setHours(0, 0, 0, 0);
+                                  today.setHours(0, 0, 0, 0);
 
-                                        callback.setHours(0, 0, 0, 0);
-                                        today.setHours(0, 0, 0, 0);
+                                  if (callback.getTime() === today.getTime() || lead.isDueToday) {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-500/30 whitespace-nowrap shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                                        Due Today
+                                      </span>
+                                    );
+                                  }
 
-                                        if (
-                                          callback.getTime() === today.getTime()
-                                        ) {
-                                          return "Today";
-                                        }
+                                  if (callback < today) {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300 border border-rose-300/70 dark:border-rose-500/30 whitespace-nowrap shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                        Overdue ({callback.toLocaleDateString("en-US", { day: "2-digit", month: "short" })})
+                                      </span>
+                                    );
+                                  }
 
-                                        if (callback < today) {
-                                          return `Overdue (${callback.toLocaleDateString(
-                                            "en-US",
-                                            {
-                                              day: "2-digit",
-                                              month: "short",
-                                            },
-                                          )})`;
-                                        }
-
-                                        return callback.toLocaleDateString(
-                                          "en-US",
-                                          {
-                                            day: "2-digit",
-                                            month: "short",
-                                            year: "numeric",
-                                          },
-                                        );
-                                      })()
-                                    : "-"}
-                                </span>
+                                  return (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 whitespace-nowrap">
+                                      {callback.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })}
+                                    </span>
+                                  );
+                                })() : (
+                                  <span className="text-[10px] text-gray-400">-</span>
+                                )}
                               </div>
                             ) : lead.isFollowUpDue ? (
                               <div className="flex flex-col gap-1 items-start">
