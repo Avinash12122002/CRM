@@ -30,7 +30,7 @@
 
 ## 2. User Roles & Access Control
 
-The system has **7 distinct roles**. Every API route and page checks `payload.role` from the JWT. The roles are:
+The system has **13 distinct roles**. Every API route and page checks `payload.role` from the JWT. The roles are:
 
 | Role | Slug | Description |
 |---|---|---|

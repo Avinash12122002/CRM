@@ -66,18 +66,35 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const filter: Record<string, any> = { assignedToRole: { $in: ["case_manager", "wcm"] } };
+    const filter: Record<string, any> = {
+      $or: [
+        { assignedToRole: { $in: ["case_manager", "wcm"] } },
+        { caseManagerId: { $exists: true, $ne: null } },
+      ],
+    };
 
     if (payload.role === "case_manager" || payload.role === "wcm") {
-      filter.assignedTo = payload.id;
+      filter.$and = [
+        {
+          $or: [
+            { assignedTo: payload.id },
+            { caseManagerId: payload.id },
+          ],
+        },
+      ];
     }
 
     if (search) {
-      filter.$or = [
+      const searchOr = [
         { name: { $regex: search, $options: "i" } },
         { phone: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
+      if (filter.$and) {
+        filter.$and.push({ $or: searchOr });
+      } else {
+        filter.$and = [{ $or: searchOr }];
+      }
     }
 
     if (country) {
@@ -89,7 +106,15 @@ export async function GET(req: NextRequest) {
     if (assignedTo && payload.role === "admin") {
       const assignedToId = parseInt(assignedTo);
       if (!isNaN(assignedToId)) {
-        filter.assignedTo = assignedToId;
+        const assignOr = [
+          { assignedTo: assignedToId },
+          { caseManagerId: assignedToId },
+        ];
+        if (filter.$and) {
+          filter.$and.push({ $or: assignOr });
+        } else {
+          filter.$and = [{ $or: assignOr }];
+        }
       }
     }
 

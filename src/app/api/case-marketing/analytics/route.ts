@@ -40,13 +40,27 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    // Build lead filter — always scoped to case_manager / wcm assigned leads
+    // Build lead filter — scoped to case_manager / wcm assigned leads or leads with a caseManagerId
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const leadFilter: Record<string, any> = { assignedToRole: { $in: ["case_manager", "wcm"] } };
+    const leadFilter: Record<string, any> = {
+      $or: [
+        { assignedToRole: { $in: ["case_manager", "wcm"] } },
+        { caseManagerId: { $exists: true, $ne: null } },
+      ],
+    };
 
     if (assignedTo) {
       const id = parseInt(assignedTo);
-      if (!isNaN(id)) leadFilter.assignedTo = id;
+      if (!isNaN(id)) {
+        leadFilter.$and = [
+          {
+            $or: [
+              { assignedTo: id },
+              { caseManagerId: id },
+            ],
+          },
+        ];
+      }
     }
 
     const allLeads = await db
@@ -57,6 +71,8 @@ export async function GET(req: NextRequest) {
         name: 1,
         assignedTo: 1,
         assignedToName: 1,
+        caseManagerId: 1,
+        caseManagerName: 1,
         createdAt: 1,
         updatedAt: 1,
         caseManagerAssignedAt: 1,
@@ -172,8 +188,8 @@ export async function GET(req: NextRequest) {
     >();
 
     for (const lead of leads) {
-      const id = lead.assignedTo ?? 0;
-      const name = lead.assignedToName ?? "Unassigned";
+      const id = lead.caseManagerId ?? lead.assignedTo ?? 0;
+      const name = lead.caseManagerName ?? lead.assignedToName ?? "Unassigned";
       if (!caseManagerMap.has(id)) {
         caseManagerMap.set(id, {
           caseManagerId: id,

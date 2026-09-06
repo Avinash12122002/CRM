@@ -32,7 +32,11 @@ export async function getAuthorizedCandidateLead(
     return { error: "Candidate lead not found", status: 404 as const, lead: null };
   }
 
-  if ((payload.role === "case_manager" || payload.role === "wcm") && lead.assignedTo !== payload.id) {
+  if (
+    (payload.role === "case_manager" || payload.role === "wcm") &&
+    lead.assignedTo !== payload.id &&
+    lead.caseManagerId !== payload.id
+  ) {
     return { error: "Forbidden", status: 403 as const, lead: null };
   }
 

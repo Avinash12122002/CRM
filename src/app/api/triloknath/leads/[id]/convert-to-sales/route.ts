@@ -328,9 +328,9 @@ export async function POST(
       },
     );
 
-    if (assignedTrainee) {
-      try {
-        const { createNotification } = await import("@/lib/notifications");
+    try {
+      const { createNotification } = await import("@/lib/notifications");
+      if (assignedTrainee) {
         await createNotification({
           userId: assignedTrainee.id,
           title: "New Sale Lead Assigned",
@@ -338,9 +338,16 @@ export async function POST(
           type: "lead_assigned",
           link: `/dashboard/triloknath-leads/${leadId}`,
         });
-      } catch (notifErr) {
-        console.error("Failed to notify trainee:", notifErr);
       }
+      await createNotification({
+        userId: caseManager.id,
+        title: "New Case Lead",
+        message: `Triloknath Lead ${lead.name || `#${leadId}`} was converted to Sales and assigned to you for Case Marketing.`,
+        type: "lead_assigned",
+        link: `/dashboard/case-leads/${leadId}`,
+      });
+    } catch (notifErr) {
+      console.error("Failed to notify trainee/case manager:", notifErr);
     }
 
     return NextResponse.json({

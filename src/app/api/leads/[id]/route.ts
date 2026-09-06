@@ -111,7 +111,7 @@ export async function GET(
     }
 
     const lead = leads[0];
-    lead.isOwner = lead.assignedTo === payload.id;
+    lead.isOwner = lead.assignedTo === payload.id || (payload.role === "trainee" && lead.status === "sales");
 
     if (
       (payload.role === "telecaller" ||
@@ -125,7 +125,8 @@ export async function GET(
         payload.role === "follow_up" ||
         payload.role === "trainee") &&
       lead.assignedTo !== payload.id &&
-      !lead.visibleTo?.includes(payload.id)
+      !lead.visibleTo?.includes(payload.id) &&
+      !(payload.role === "trainee" && lead.status === "sales")
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
@@ -205,7 +206,8 @@ export async function PUT(
         payload.role === "follow_up" ||
         payload.role === "trainee") &&
       lead.assignedTo !== payload.id &&
-      !lead.visibleTo?.includes(payload.id)
+      !lead.visibleTo?.includes(payload.id) &&
+      !(payload.role === "trainee" && lead.status === "sales")
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }

@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
         { "salesDocument.uploadedBy": uid },
         { "salesDocument.uploadedBy": uidStr },
         { history: { $elemMatch: { action: "status_updated", newStatus: "sales", performedBy: { $in: [uid, uidStr] } } } },
+        ...(payload.role === "trainee" ? [{ status: "sales" }] : []),
       ],
     }).toArray();
 

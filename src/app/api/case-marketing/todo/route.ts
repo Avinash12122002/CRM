@@ -28,15 +28,36 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const leadFilter: Record<string, any> = { assignedToRole: { $in: ["case_manager", "wcm"] } };
+    const leadFilter: Record<string, any> = {
+      $or: [
+        { assignedToRole: { $in: ["case_manager", "wcm"] } },
+        { caseManagerId: { $exists: true, $ne: null } },
+      ],
+    };
     if (payload.role === "case_manager" || payload.role === "wcm") {
-      leadFilter.assignedTo = payload.id;
+      leadFilter.$and = [
+        {
+          $or: [
+            { assignedTo: payload.id },
+            { caseManagerId: payload.id },
+          ],
+        },
+      ];
     } else {
       const { searchParams } = new URL(req.url);
       const assignedTo = searchParams.get("assignedTo");
       if (assignedTo) {
         const assignedToId = parseInt(assignedTo);
-        if (!isNaN(assignedToId)) leadFilter.assignedTo = assignedToId;
+        if (!isNaN(assignedToId)) {
+          leadFilter.$and = [
+            {
+              $or: [
+                { assignedTo: assignedToId },
+                { caseManagerId: assignedToId },
+              ],
+            },
+          ];
+        }
       }
     }
 

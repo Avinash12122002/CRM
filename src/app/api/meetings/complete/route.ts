@@ -125,8 +125,15 @@ export async function POST(req: NextRequest) {
             details: assignedFollowUpUser
               ? `Meeting completed. Lead transferred to Follow-Up user ${assignedFollowUpUser.name}`
               : "Meeting completed",
+            previousAssignee: lead.assignedTo || null,
+            previousAssigneeName: lead.assignedToName || null,
+            newAssignee: assignedFollowUpUser ? assignedFollowUpUser.id : null,
+            newAssigneeName: assignedFollowUpUser ? assignedFollowUpUser.name : null,
           },
         } as any,
+        ...(assignedFollowUpUser
+          ? { $addToSet: { visibleTo: assignedFollowUpUser.id } }
+          : {}),
       },
     );
 

@@ -78,7 +78,10 @@ export async function GET(req: NextRequest) {
       .aggregate([
         {
           $match: {
-            assignedTo: userId,
+            $or: [
+              { assignedTo: userId },
+              ...(role === "trainee" ? [{ status: "sales" }] : []),
+            ],
           },
         },
         {
@@ -100,9 +103,10 @@ export async function GET(req: NextRequest) {
             newAssigned: [
               {
                 $match: {
-                  createdAt: {
-                    $gte: sevenDaysAgo,
-                  },
+                  $or: [
+                    { createdAt: { $gte: sevenDaysAgo } },
+                    { assignedAt: { $gte: sevenDaysAgo } },
+                  ],
                 },
               },
               {

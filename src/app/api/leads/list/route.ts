@@ -7,6 +7,7 @@ import { verifyToken } from "@/lib/auth";
 function buildLeadPipeline(
   matchFilter: Record<string, any>,
   payloadId: any,
+  payloadRole?: string,
   opts?: { skip?: number; limit?: number }
 ) {
   const pipeline: any[] = [
@@ -75,7 +76,12 @@ function buildLeadPipeline(
 
     {
       $addFields: {
-        isOwner: { $eq: ["$assignedTo", payloadId] },
+        isOwner: {
+          $or: [
+            { $eq: ["$assignedTo", payloadId] },
+            ...(payloadRole === "trainee" ? [{ $eq: ["$status", "sales"] }] : []),
+          ],
+        },
         lastNote: {
           $arrayElemAt: [
             {
@@ -246,15 +252,22 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const andConditions: Record<string, any>[] = [];
 
-    if (
+    if (payload.role === "trainee") {
+      andConditions.push({
+        $or: [
+          { assignedTo: payload.id },
+          { visibleTo: payload.id },
+          { status: "sales" },
+        ],
+      });
+    } else if (
       payload.role === "telecaller" ||
       payload.role === "employee" ||
       payload.role === "meeting" ||
       payload.role === "wtc" ||
       payload.role === "wm" ||
       payload.role === "supervisor" ||
-      payload.role === "follow_up" ||
-      payload.role === "trainee"
+      payload.role === "follow_up"
     ) {
       andConditions.push({
         $or: [{ assignedTo: payload.id }, { visibleTo: payload.id }],
@@ -386,7 +399,7 @@ export async function GET(req: NextRequest) {
 
       const rawCallbackLeads = await db
         .collection("leads")
-        .aggregate(buildLeadPipeline(callbackMatch, payload.id))
+        .aggregate(buildLeadPipeline(callbackMatch, payload.id, payload.role))
         .toArray();
 
       todaysCallbackLeads = rawCallbackLeads
@@ -435,7 +448,7 @@ export async function GET(req: NextRequest) {
         ? await db
             .collection("leads")
             .aggregate(
-              buildLeadPipeline(normalFilter, payload.id, {
+              buildLeadPipeline(normalFilter, payload.id, payload.role, {
                 skip: normalSkip,
                 limit: normalLimit,
               })
