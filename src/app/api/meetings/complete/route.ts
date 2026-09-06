@@ -29,15 +29,16 @@ export async function POST(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
+    const numLeadId = Number(leadId);
+    const idQuery = isNaN(numLeadId)
+      ? { id: leadId }
+      : { $or: [{ id: numLeadId }, { id: String(leadId) }] };
+
     let collectionName = "leads";
-    let lead = await db.collection("leads").findOne({
-      id: leadId,
-    });
+    let lead = await db.collection("leads").findOne(idQuery);
 
     if (!lead) {
-      lead = await db.collection("triloknath_leads").findOne({
-        id: leadId,
-      });
+      lead = await db.collection("triloknath_leads").findOne(idQuery);
       if (lead) {
         collectionName = "triloknath_leads";
       }
@@ -52,7 +53,9 @@ export async function POST(req: NextRequest) {
     const canComplete =
       payload.role === "admin" ||
       lead.assignedTo === payload.id ||
-      lead.meetingDetails?.meetingUserId === payload.id;
+      String(lead.assignedTo) === String(payload.id) ||
+      lead.meetingDetails?.meetingUserId === payload.id ||
+      String(lead.meetingDetails?.meetingUserId) === String(payload.id);
 
     if (!canComplete) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -109,6 +112,13 @@ export async function POST(req: NextRequest) {
         : null,
       meetingCompletedAt: now,
       status: "follow-up",
+      followUpWorkflow: {
+        currentStage: "info",
+        status: "in_progress",
+        stages: {},
+        nextFollowupAt: now,
+        updatedAt: now,
+      },
       updatedAt: now,
     };
 
@@ -142,9 +152,14 @@ export async function POST(req: NextRequest) {
             newAssigneeName: assignedFollowUpUser ? assignedFollowUpUser.name : null,
           },
         } as any,
-        ...(assignedFollowUpUser
-          ? { $addToSet: { visibleTo: assignedFollowUpUser.id } }
-          : {}),
+        $addToSet: {
+          visibleTo: {
+            $each: [payload.id, assignedFollowUpUser?.id].filter(Boolean),
+          },
+          participants: {
+            $each: [payload.id, assignedFollowUpUser?.id].filter(Boolean),
+          },
+        },
       },
     );
 

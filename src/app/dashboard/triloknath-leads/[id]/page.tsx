@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
+import FollowUpPipelineCard from "@/components/FollowUpPipelineCard";
 
 interface User {
   id: number;
@@ -55,6 +56,8 @@ interface Lead {
   assignedByName?: string;
   assignedByRole?: string;
   meetingStatus?: string;
+  meetingCompletedAt?: string;
+  followUpWorkflow?: any;
   meetingDetails?: {
     meetingUserId?: number;
     meetingUserName?: string;
@@ -78,6 +81,7 @@ interface Lead {
   };
   history: HistoryEntry[];
   isOwner: boolean;
+  isReadOnly?: boolean;
 }
 
 export default function TriloknathLeadDetailPage() {
@@ -184,7 +188,19 @@ export default function TriloknathLeadDetailPage() {
     (m) => String(m.id) === String(activeUserSelector),
   );
 
+  const isFollowUpCompleted =
+    lead?.followUpWorkflow?.currentStage === "completed" ||
+    lead?.followUpWorkflow?.status === "completed" ||
+    !!lead?.followUpWorkflow?.stages?.case_manager;
+
+  const isReadOnlyForUser =
+    user?.role !== "admin" &&
+    (lead?.isReadOnly || (user?.role === "follow_up" && isFollowUpCompleted));
+
+  const canEditOrUpdate = Boolean(user?.role === "admin" || (!isReadOnlyForUser && lead?.isOwner));
+
   const showAssignSection =
+    !isReadOnlyForUser &&
     user &&
     lead &&
     (user.role === "telecaller" || user.role === "employee" || user.role === "meeting" || user.role === "wtc" || user.role === "wm" || user.role === "supervisor" || user.role === "follow_up" || user.role === "trainee") &&
@@ -1080,6 +1096,55 @@ export default function TriloknathLeadDetailPage() {
             Back to Triloknath Leads
           </button>
 
+          {/* ═══════════════════════════════════════
+              FOLLOW-UP USER EMAIL PIPELINE
+              (Visible exclusively to Admin and Follow-Up users)
+          ═══════════════════════════════════════ */}
+          {!isEditing &&
+            (user.role === "admin" || user.role === "follow_up") &&
+            (lead.status === "follow-up" ||
+              lead.followUpWorkflow ||
+              lead.meetingCompletedAt) && (
+              <FollowUpPipelineCard
+                leadId={lead.id}
+                lead={lead as any}
+                currentUser={user}
+                isTriloknath={true}
+                onWorkflowUpdated={(updatedWorkflow, newStatus, extra) => {
+                  setLead((prev) => {
+                    if (!prev) return null;
+                    const isCompleted =
+                      updatedWorkflow.currentStage === "completed" ||
+                      updatedWorkflow.status === "completed" ||
+                      !!updatedWorkflow.stages?.case_manager;
+                    const isReadOnly = user.role !== "admin" && user.role === "follow_up" && isCompleted;
+                    return {
+                      ...prev,
+                      followUpWorkflow: updatedWorkflow,
+                      status: newStatus || prev.status,
+                      isReadOnly,
+                      isOwner: isReadOnly ? false : prev.isOwner,
+                      ...(extra?.assignedTo ? { assignedTo: extra.assignedTo } : {}),
+                      ...(extra?.assignedToName ? { assignedToName: extra.assignedToName } : {}),
+                      ...(extra?.assignedToRole ? { assignedToRole: extra.assignedToRole } : {}),
+                    };
+                  });
+                }}
+              />
+            )}
+
+          {/* Read-Only banner for follow-up users once follow-up is completed */}
+          {isReadOnlyForUser && (
+            <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 mb-6 flex items-center gap-3 text-amber-800 dark:text-amber-200 text-sm shadow-xs">
+              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              <div>
+                <span className="font-semibold">Read-Only File:</span> Follow-up email process has been completed for this candidate. This lead is in read-only mode for your account.
+              </div>
+            </div>
+          )}
+
           {/* LEAD DETAILS CARD */}
           <div className="bg-white shadow-lg rounded-xl p-8 mb-6 border border-gray-100">
             {!isEditing ? (
@@ -1109,7 +1174,7 @@ export default function TriloknathLeadDetailPage() {
                       {lead.status}
                     </span>
 
-                    {(user.role === "admin" || lead.isOwner) && (
+                    {canEditOrUpdate && (
                       <button
                         onClick={handleToggleAgent}
                         disabled={togglingAgent}
@@ -1134,7 +1199,7 @@ export default function TriloknathLeadDetailPage() {
                       </button>
                     )}
 
-                    {(user.role === "admin" || lead.isOwner) && (
+                    {canEditOrUpdate && (
                       <button
                         onClick={handleEditClick}
                         className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition font-medium flex items-center gap-2 cursor-pointer"
@@ -1156,7 +1221,7 @@ export default function TriloknathLeadDetailPage() {
                       </button>
                     )}
 
-                    {(user.role === "admin" || lead.isOwner) && (
+                    {canEditOrUpdate && (
                       <button
                         onClick={() => {
                           setShowSalesModal(true);
@@ -1598,7 +1663,7 @@ export default function TriloknathLeadDetailPage() {
           </div>
 
           {/* UPDATE LEAD SECTION */}
-          {!isEditing && (user.role === "admin" || lead.isOwner) && (
+          {!isEditing && canEditOrUpdate && (
             <div className="bg-white shadow-lg rounded-xl p-8 mb-6 border border-gray-100">
               <div className="flex items-center gap-3 mb-6">
                 <svg

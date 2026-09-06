@@ -26,6 +26,8 @@ interface Lead {
   callbackDate?: string;
   callbackSeen?: boolean;
   isDueToday?: boolean;
+  isFollowUpDue?: boolean;
+  followUpDueStage?: string;
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
@@ -40,6 +42,10 @@ interface Lead {
   updatedAt: string;
   lastNoteAddedByAdmin?: boolean;
   isOwner: boolean;
+  followUpWorkflow?: {
+    currentStage?: string;
+    status?: string;
+  };
   lastNote?: {
     note: string;
     timestamp: string;
@@ -1049,8 +1055,27 @@ export default function LeadsPage() {
                                   {lead.name || "-"}
                                 </button>
                               ) : (
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 cursor-not-allowed truncate max-w-[110px]">
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem(
+                                      "selectedLeadId",
+                                      String(lead.id),
+                                    );
+                                    router.push(`/dashboard/leads/${lead.id}`);
+                                  }}
+                                  className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer text-left truncate max-w-[110px]"
+                                  title="View lead (Read-Only)"
+                                >
                                   {lead.name || "-"}
+                                </button>
+                              )}
+                              {((!lead.isOwner && user.role !== "admin") ||
+                                (user.role === "follow_up" &&
+                                  (lead.followUpWorkflow?.status === "completed" ||
+                                    lead.followUpWorkflow?.currentStage === "completed" ||
+                                    lead.status === "sales"))) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-300 dark:border-gray-600 whitespace-nowrap">
+                                  Read-Only
                                 </span>
                               )}
                               {lead.isAgent && (
@@ -1253,6 +1278,19 @@ export default function LeadsPage() {
                                     : "-"}
                                 </span>
                               </div>
+                            ) : lead.isFollowUpDue ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span
+                                  className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
+                                    lead.status,
+                                  )}`}
+                                >
+                                  {formatStatusText(lead.status)}
+                                </span>
+                                <span className="px-1.5 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded animate-pulse">
+                                  🔥 Due: {lead.followUpDueStage ? lead.followUpDueStage.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Follow-Up"}
+                                </span>
+                              </div>
                             ) : (
                               <span
                                 className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
@@ -1299,7 +1337,13 @@ export default function LeadsPage() {
                           {/* Actions */}
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-2">
-                              {(user.role === "admin" || lead.isOwner) && (
+                              {/* Reassign / Assign button: only for Admin, or Owner if NOT follow_up and NOT sales/completed */}
+                              {(user.role === "admin" ||
+                                (lead.isOwner &&
+                                  user.role !== "follow_up" &&
+                                  lead.status !== "sales" &&
+                                  lead.followUpWorkflow?.status !== "completed" &&
+                                  lead.followUpWorkflow?.currentStage !== "completed")) && (
                                 <button
                                   onClick={() =>
                                     handleAssign(lead.id, lead.assignedTo)
@@ -1309,7 +1353,14 @@ export default function LeadsPage() {
                                   {lead.assignedTo ? "Reassign" : "Assign"}
                                 </button>
                               )}
-                              {user.role === "admin" || lead.isOwner ? (
+                              {user.role === "admin" ||
+                              (lead.isOwner &&
+                                !(
+                                  user.role === "follow_up" &&
+                                  (lead.followUpWorkflow?.status === "completed" ||
+                                    lead.followUpWorkflow?.currentStage === "completed" ||
+                                    lead.status === "sales")
+                                )) ? (
                                 <button
                                   onClick={() => {
                                     sessionStorage.setItem(
@@ -1318,14 +1369,24 @@ export default function LeadsPage() {
                                     );
                                     router.push(`/dashboard/leads/${lead.id}`);
                                   }}
-                                  className="text-[11px] text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 hover:underline"
+                                  className="text-[11px] text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 hover:underline cursor-pointer"
                                 >
                                   View
                                 </button>
                               ) : (
-                                <span className="text-[11px] text-orange-600 dark:text-orange-400 cursor-not-allowed">
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem(
+                                      "selectedLeadId",
+                                      String(lead.id),
+                                    );
+                                    router.push(`/dashboard/leads/${lead.id}`);
+                                  }}
+                                  className="text-[11px] text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:underline cursor-pointer font-medium"
+                                  title="View lead in read-only format"
+                                >
                                   Read Only
-                                </span>
+                                </button>
                               )}
                               {user.role === "admin" && (
                                 <button

@@ -89,6 +89,19 @@ const { status, callbackDate } = body;
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
+    if (payload.role === "follow_up") {
+      const isCompleted =
+        lead.followUpWorkflow?.currentStage === "completed" ||
+        lead.followUpWorkflow?.status === "completed" ||
+        !!lead.followUpWorkflow?.stages?.case_manager;
+      if (isCompleted) {
+        return NextResponse.json(
+          { message: "This lead is read-only as the follow-up process is completed." },
+          { status: 403 },
+        );
+      }
+    }
+
     if (
       (payload.role === "telecaller" ||
         payload.role === "employee" ||

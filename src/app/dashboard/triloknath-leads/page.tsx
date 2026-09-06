@@ -26,6 +26,8 @@ interface Lead {
   callbackDate?: string;
   callbackSeen?: boolean;
   isDueToday?: boolean;
+  isFollowUpDue?: boolean;
+  followUpDueStage?: string;
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
@@ -40,6 +42,10 @@ interface Lead {
   updatedAt: string;
   lastNoteAddedByAdmin?: boolean;
   isOwner: boolean;
+  followUpWorkflow?: {
+    currentStage?: string;
+    status?: string;
+  };
   lastNote?: {
     note: string;
     timestamp: string;
@@ -1029,8 +1035,29 @@ export default function TriloknathLeadsPage() {
                                   {lead.name || "-"}
                                 </button>
                               ) : (
-                                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 cursor-not-allowed truncate max-w-[110px]">
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem(
+                                      "selectedLeadId",
+                                      String(lead.id),
+                                    );
+                                    router.push(
+                                      `/dashboard/triloknath-leads/${lead.id}`,
+                                    );
+                                  }}
+                                  className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer text-left truncate max-w-[110px]"
+                                  title="View lead (Read-Only)"
+                                >
                                   {lead.name || "-"}
+                                </button>
+                              )}
+                              {((!lead.isOwner && user.role !== "admin") ||
+                                (user.role === "follow_up" &&
+                                  (lead.followUpWorkflow?.status === "completed" ||
+                                    lead.followUpWorkflow?.currentStage === "completed" ||
+                                    lead.status === "sales"))) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-300 dark:border-gray-600 whitespace-nowrap">
+                                  Read-Only
                                 </span>
                               )}
 
@@ -1222,6 +1249,19 @@ export default function TriloknathLeadsPage() {
                                     : "-"}
                                 </span>
                               </div>
+                            ) : lead.isFollowUpDue ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span
+                                  className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
+                                    lead.status,
+                                  )}`}
+                                >
+                                  {formatStatusText(lead.status)}
+                                </span>
+                                <span className="px-1.5 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded animate-pulse">
+                                  🔥 Due: {lead.followUpDueStage ? lead.followUpDueStage.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Follow-Up"}
+                                </span>
+                              </div>
                             ) : (
                               <span
                                 className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
@@ -1281,7 +1321,14 @@ export default function TriloknathLeadsPage() {
                               </button>
                             )}
 
-                            {user.role === "admin" || lead.isOwner ? (
+                            {user.role === "admin" ||
+                            (lead.isOwner &&
+                              !(
+                                user.role === "follow_up" &&
+                                (lead.followUpWorkflow?.status === "completed" ||
+                                  lead.followUpWorkflow?.currentStage === "completed" ||
+                                  lead.status === "sales")
+                              )) ? (
                               <button
                                 onClick={() => {
                                   sessionStorage.setItem(
@@ -1292,11 +1339,27 @@ export default function TriloknathLeadsPage() {
                                     `/dashboard/triloknath-leads/${lead.id}`,
                                   );
                                 }}
-                                className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300"
+                                className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 cursor-pointer"
                               >
                                 View
                               </button>
-                            ) : null}
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  sessionStorage.setItem(
+                                    "selectedLeadId",
+                                    String(lead.id),
+                                  );
+                                  router.push(
+                                    `/dashboard/triloknath-leads/${lead.id}`,
+                                  );
+                                }}
+                                className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:underline cursor-pointer font-medium"
+                                title="View lead in read-only format"
+                              >
+                                Read Only
+                              </button>
+                            )}
 
                             {user.role === "admin" && (
                               <button

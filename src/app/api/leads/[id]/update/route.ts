@@ -73,6 +73,19 @@ export async function PUT(
     }
 
     // Check permissions: Admins can edit any lead, telecallers can only edit leads assigned to them
+    if (payload.role === "follow_up") {
+      const isCompleted =
+        lead.followUpWorkflow?.currentStage === "completed" ||
+        lead.followUpWorkflow?.status === "completed" ||
+        !!lead.followUpWorkflow?.stages?.case_manager;
+      if (isCompleted) {
+        return NextResponse.json(
+          { message: "This lead is read-only as the follow-up process is completed." },
+          { status: 403 },
+        );
+      }
+    }
+
     if (
       (payload.role === "telecaller" ||
         payload.role === "employee" ||

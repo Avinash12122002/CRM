@@ -77,11 +77,28 @@ function buildTriloknathPipeline(
     {
       $addFields: {
         isOwner: {
-          $or: [
-            { $eq: ["$assignedTo", payloadId] },
-            { $eq: ["$assignedTo", String(payloadId)] },
-            ...(payloadRole === "trainee" ? [{ $eq: ["$status", "sales"] }] : []),
-          ],
+          $cond: {
+            if: {
+              $and: [
+                { $eq: [payloadRole, "follow_up"] },
+                {
+                  $or: [
+                    { $eq: ["$followUpWorkflow.status", "completed"] },
+                    { $eq: ["$followUpWorkflow.currentStage", "completed"] },
+                    { $eq: ["$status", "sales"] },
+                  ],
+                },
+              ],
+            },
+            then: false,
+            else: {
+              $or: [
+                { $eq: ["$assignedTo", payloadId] },
+                { $eq: ["$assignedTo", String(payloadId)] },
+                ...(payloadRole === "trainee" ? [{ $eq: ["$status", "sales"] }] : []),
+              ],
+            },
+          },
         },
         lastNote: {
           $arrayElemAt: [
@@ -178,6 +195,7 @@ function buildTriloknathPipeline(
       assignedByAdmin: 1,
       visibleTo: 1,
       isOwner: 1,
+      followUpWorkflow: 1,
 
       lastNote: {
         $cond: {
@@ -295,12 +313,14 @@ export async function GET(req: NextRequest) {
       payload.role === "meeting" ||
       payload.role === "wtc" ||
       payload.role === "wm" ||
-      payload.role === "supervisor" ||
-      payload.role === "follow_up"
+      payload.role === "supervisor"
     ) {
       filter.status = {
         $nin: ["wrong-number", "not-interested", "sales"],
       };
+    } else if (payload.role === "follow_up") {
+      // Follow-up users can still view all their leads (including sales / completed follow-ups in read-only format)
+      filter.status = { $nin: ["wrong-number", "not-interested"] };
     } else if (payload.role === "trainee") {
       filter.status = {
         $nin: ["wrong-number", "not-interested"],
@@ -387,12 +407,46 @@ export async function GET(req: NextRequest) {
       .map((lead) => lead.id)
       .filter((id) => id !== undefined && id !== null);
 
-    const callbackCount = todaysCallbackLeads.length;
+    // ---- FOLLOW-UP USER DUE LEADS PRIORITY (Floats to top of leads only for follow-up user) ----
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let dueFollowUpLeads: any[] = [];
+    if (payload.role === "follow_up" && (!status || status === "follow-up")) {
+      const now = new Date();
+      const dueMatch = {
+        ...filter,
+        status: "follow-up",
+        "followUpWorkflow.status": { $nin: ["not_interested", "completed"] },
+        $or: [
+          { "followUpWorkflow.nextFollowupAt": { $lte: now } },
+          { "followUpWorkflow.nextFollowupAt": { $lte: now.toISOString() } },
+          { followUpWorkflow: null },
+          { "followUpWorkflow.currentStage": "info", "followUpWorkflow.stages.info": { $exists: false } },
+        ],
+      };
+
+      const rawDueLeads = await collection
+        .aggregate(buildTriloknathPipeline(dueMatch, payload.id, payload.role))
+        .toArray();
+
+      dueFollowUpLeads = rawDueLeads.map((lead) => ({
+        ...lead,
+        isFollowUpDue: true,
+        followUpDueStage: lead.followUpWorkflow?.currentStage || "info",
+      }));
+    }
+
+    const dueFollowUpIds = dueFollowUpLeads
+      .map((lead) => lead.id)
+      .filter((id) => id !== undefined && id !== null);
+
+    // Combine priority IDs (callbacks + due follow-ups)
+    const priorityIds = Array.from(new Set([...callbackIds, ...dueFollowUpIds]));
+    const priorityCount = priorityIds.length;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const normalFilter: Record<string, any> =
-      callbackIds.length > 0
-        ? { $and: [filter, { id: { $nin: callbackIds } }] }
+      priorityIds.length > 0
+        ? { $and: [filter, { id: { $nin: priorityIds } }] }
         : filter;
 
     let normalSkip: number;
@@ -400,9 +454,9 @@ export async function GET(req: NextRequest) {
 
     if (page === 1) {
       normalSkip = 0;
-      normalLimit = Math.max(limit - callbackCount, 0);
+      normalLimit = Math.max(limit - priorityCount, 0);
     } else {
-      normalSkip = Math.max((page - 1) * limit - callbackCount, 0);
+      normalSkip = Math.max((page - 1) * limit - priorityCount, 0);
       normalLimit = limit;
     }
 
@@ -421,10 +475,13 @@ export async function GET(req: NextRequest) {
     const normalLeads = normalLeadsRaw.map((lead) => ({
       ...lead,
       isDueToday: false,
+      isFollowUpDue: false,
     }));
 
     const combinedLeads =
-      page === 1 ? [...todaysCallbackLeads, ...normalLeads] : normalLeads;
+      page === 1
+        ? [...dueFollowUpLeads, ...todaysCallbackLeads, ...normalLeads]
+        : normalLeads;
 
     return NextResponse.json({
       leads: combinedLeads,

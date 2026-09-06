@@ -105,6 +105,7 @@ export async function GET(
             caseManagerName: 1,
             caseManagerEmail: 1,
             caseManagerPassword: 1,
+            followUpWorkflow: 1,
           },
         },
       ])
@@ -115,9 +116,23 @@ export async function GET(
     }
 
     const lead = leads[0];
+    const isFollowUpCompleted =
+      lead.followUpWorkflow?.currentStage === "completed" ||
+      lead.followUpWorkflow?.status === "completed" ||
+      !!lead.followUpWorkflow?.stages?.case_manager;
+
+    lead.isReadOnly =
+      payload.role !== "admin" &&
+      payload.role === "follow_up" &&
+      isFollowUpCompleted;
+
     lead.isOwner =
-      String(lead.assignedTo) === String(payload.id) ||
-      (payload.role === "trainee" && lead.status === "sales");
+      payload.role === "admin"
+        ? true
+        : lead.isReadOnly
+        ? false
+        : String(lead.assignedTo) === String(payload.id) ||
+          (payload.role === "trainee" && lead.status === "sales");
 
     if (
       (payload.role === "telecaller" ||
