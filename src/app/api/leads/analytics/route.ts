@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
       .find({})
       .project({ id: 1, name: 1, role: 1 })
       .toArray();
-    const staffUsers = users.filter((u) => u.role === "telecaller" || u.role === "employee" || u.role === "meeting" || u.role === "wtc" || u.role === "wm" || u.role === "supervisor");
+    const staffUsers = users.filter((u) => u.role === "telecaller" || u.role === "employee" || u.role === "meeting" || u.role === "wtc" || u.role === "wm" || u.role === "supervisor" || u.role === "follow_up" || u.role === "trainee");
 
     // Pull every lead once — headline metrics, status distribution, Agent
     // Performance, and both Leaderboards are ALL derived from the same
@@ -309,7 +309,7 @@ export async function GET(req: NextRequest) {
     const allStaff = Array.from(staffMap.values());
 
     const telecallerPerformance = allStaff
-      .filter((s) => s.role === "telecaller" || s.role === "employee" || s.role === "wtc" || s.role === "supervisor")
+      .filter((s) => s.role === "telecaller" || s.role === "employee" || s.role === "wtc" || s.role === "supervisor" || s.role === "follow_up" || s.role === "trainee")
       .map((s) => ({
         userId: s.userId,
         userName: s.userName,
@@ -340,7 +340,7 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.sales - a.sales);
 
     const telecallerLeaderboard = allStaff
-      .filter((s) => s.role === "telecaller" || s.role === "employee" || s.role === "wtc" || s.role === "supervisor")
+      .filter((s) => s.role === "telecaller" || s.role === "employee" || s.role === "wtc" || s.role === "supervisor" || s.role === "follow_up" || s.role === "trainee")
       .map((s) => ({
         userId: s.userId,
         userName: s.userName,

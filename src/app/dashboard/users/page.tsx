@@ -20,7 +20,9 @@ type User = {
     | "wm"
     | "wcm"
     | "wtc"
-    | "supervisor";
+    | "supervisor"
+    | "follow_up"
+    | "trainee";
   createdAt: string;
 };
 
@@ -39,7 +41,9 @@ type MeResponse = {
     | "wm"
     | "wcm"
     | "wtc"
-    | "supervisor";
+    | "supervisor"
+    | "follow_up"
+    | "trainee";
 };
 
 export default function UsersPage() {
@@ -352,9 +356,13 @@ export default function UsersPage() {
                                       ? "bg-amber-100 text-amber-800"
                                       : user.role === "case_manager" || user.role === "wcm"
                                         ? "bg-indigo-100 text-indigo-800"
-                                        : user.role === "employee"
-                                          ? "bg-cyan-100 text-cyan-800"
-                                          : "bg-blue-100 text-blue-800"
+                                        : user.role === "follow_up"
+                                          ? "bg-orange-100 text-orange-800"
+                                          : user.role === "trainee"
+                                            ? "bg-violet-100 text-violet-800"
+                                            : user.role === "employee"
+                                              ? "bg-cyan-100 text-cyan-800"
+                                              : "bg-blue-100 text-blue-800"
                             }`}
                           >
                             {user.role === "wm"
@@ -365,7 +373,11 @@ export default function UsersPage() {
                                   ? "WTC"
                                   : user.role === "supervisor"
                                     ? "Supervisor"
-                                    : user.role}
+                                    : user.role === "follow_up"
+                                      ? "Follow-Up"
+                                      : user.role === "trainee"
+                                        ? "Trainee"
+                                        : user.role}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs text-zinc-600 dark:text-zinc-400">
@@ -642,6 +654,8 @@ export default function UsersPage() {
                   <option value="wcm">WCM (WFH Case Manager)</option>
                   <option value="wtc">WTC (WFH Telecaller)</option>
                   <option value="supervisor">Supervisor</option>
+                  <option value="follow_up">Follow-Up</option>
+                  <option value="trainee">Trainee</option>
                 </select>
               </div>
 

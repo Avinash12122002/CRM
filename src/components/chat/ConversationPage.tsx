@@ -360,6 +360,10 @@ export default function ConversationPage({
                         ? "WTC"
                         : otherUser.role === "supervisor"
                         ? "Supervisor"
+                        : otherUser.role === "follow_up"
+                        ? "Follow-Up"
+                        : otherUser.role === "trainee"
+                        ? "Trainee"
                         : otherUser.role.replace(/_/g, " ")}
                     </span>
                   </>

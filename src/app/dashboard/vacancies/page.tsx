@@ -10,7 +10,7 @@ type User = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
 };
 
 type Vacancy = {
@@ -91,7 +91,7 @@ export default function VacanciesPage() {
         url += `&search=${encodeURIComponent(search)}`;
       }
       // For telecallers, always filter to show only active vacancies
-      if (user?.role === "telecaller" || user?.role === "employee" || user?.role === "meeting" || user?.role === "wtc" || user?.role === "wm" || user?.role === "supervisor") {
+      if (user?.role === "telecaller" || user?.role === "employee" || user?.role === "meeting" || user?.role === "wtc" || user?.role === "wm" || user?.role === "supervisor" || user?.role === "follow_up" || user?.role === "trainee") {
         url += `&status=active`;
       } else if (statusFilter) {
         // For admins, apply the selected status filter

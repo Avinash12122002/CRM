@@ -8,7 +8,7 @@ import ConversationPage from "@/components/chat/ConversationPage";
 import BroadcastPanel from "@/components/chat/BroadcastPanel";
 import { Search, MessageCircle, Globe, Megaphone, Star } from "lucide-react";
 
-type UserRole = "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "business_development" | "billing" | "wm" | "wcm" | "wtc" | "supervisor";
+type UserRole = "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "business_development" | "billing" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
 
 type User = {
   id: number;
@@ -38,6 +38,9 @@ const ROLE_FILTERS = [
   { key: "telecaller", label: "Telecaller" },
   { key: "supervisor", label: "Supervisor" },
   { key: "meeting", label: "Meeting" },
+  { key: "follow_up", label: "Follow-Up" },
+  { key: "trainee", label: "Trainee" },
+  { key: "employee", label: "Employee" },
   { key: "wm", label: "WM" },
   { key: "wtc", label: "WTC" },
   { key: "wcm", label: "WCM" },
@@ -94,7 +97,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
       setCurrentUserId(data.id);
       setCurrentUserName(data.name);
       setCurrentUserRole(data.role as UserRole);
-    } catch {}
+    } catch { }
   };
 
   const loadUsers = async () => {
@@ -114,7 +117,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
       const res = await fetch("/api/chat/conversations");
       const data = await res.json();
       setConversations(data.conversations || []);
-    } catch {}
+    } catch { }
   };
 
   const loadOnlineUsers = async () => {
@@ -122,7 +125,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
       const res = await fetch("/api/chat/online-users");
       const data = await res.json();
       setOnlineUsers((data.onlineUsers || []).map((u: any) => u.userId));
-    } catch {}
+    } catch { }
   };
 
   const loadGlobalUnread = async () => {
@@ -130,7 +133,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
       const res = await fetch("/api/chat/global-chat/unread");
       const data = await res.json();
       setGlobalUnread(data.unreadCount || 0);
-    } catch {}
+    } catch { }
   };
 
   const openGlobalChat = () => {
@@ -179,12 +182,12 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
           u.role === "wm"
             ? "wm"
             : u.role === "wcm"
-            ? "wcm"
-            : u.role === "wtc"
-            ? "wtc"
-            : u.role === "supervisor"
-            ? "supervisor"
-            : u.role.replace(/_/g, " ")
+              ? "wcm"
+              : u.role === "wtc"
+                ? "wtc"
+                : u.role === "supervisor"
+                  ? "supervisor"
+                  : u.role.replace(/_/g, " ")
         ).toLowerCase();
 
         const matchesName = u.name.toLowerCase().includes(q);
@@ -278,11 +281,10 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
                           key={rf.key}
                           type="button"
                           onClick={() => setSelectedRole(rf.key)}
-                          className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap transition-all shrink-0 ${
-                            isSelected
+                          className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap transition-all shrink-0 ${isSelected
                               ? "bg-blue-600 text-white shadow-sm"
                               : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100"
-                          }`}
+                            }`}
                         >
                           {rf.label}
                         </button>
@@ -369,11 +371,10 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
                             key={rf.key}
                             type="button"
                             onClick={() => setSelectedRole(rf.key)}
-                            className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap transition-all shrink-0 ${
-                              isSelected
+                            className={`px-2.5 py-1 text-xs rounded-full font-medium whitespace-nowrap transition-all shrink-0 ${isSelected
                                 ? "bg-blue-600 text-white shadow-sm"
                                 : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 hover:text-zinc-900 dark:hover:text-zinc-100"
-                            }`}
+                              }`}
                           >
                             {rf.label}
                           </button>
@@ -448,11 +449,10 @@ function TabBtn({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-        active
+      className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${active
           ? "border-blue-600 text-blue-600"
           : "border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-white"
-      }`}
+        }`}
     >
       {icon}
       {label && <span>{label}</span>}
@@ -499,17 +499,15 @@ function UserCard({
       {/* Avatar + online dot */}
       <div className="relative shrink-0">
         <div
-          className={`rounded-full bg-blue-600 text-white flex items-center justify-center font-bold select-none ${
-            compact ? "w-10 h-10 text-sm" : "w-11 h-11 text-base"
-          }`}
+          className={`rounded-full bg-blue-600 text-white flex items-center justify-center font-bold select-none ${compact ? "w-10 h-10 text-sm" : "w-11 h-11 text-base"
+            }`}
         >
           {user.name.charAt(0).toUpperCase()}
         </div>
         {/* Always render dot: green = online, grey = offline */}
         <span
-          className={`absolute bottom-0 right-0 rounded-full border-2 border-white dark:border-zinc-950 transition-colors ${
-            isOnline ? "bg-green-500" : "bg-zinc-300 dark:bg-zinc-600"
-          } ${compact ? "w-2.5 h-2.5" : "w-3 h-3"}`}
+          className={`absolute bottom-0 right-0 rounded-full border-2 border-white dark:border-zinc-950 transition-colors ${isOnline ? "bg-green-500" : "bg-zinc-300 dark:bg-zinc-600"
+            } ${compact ? "w-2.5 h-2.5" : "w-3 h-3"}`}
         />
       </div>
 
@@ -517,9 +515,8 @@ function UserCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <span
-            className={`text-sm text-zinc-900 dark:text-white truncate ${
-              unreadCount > 0 ? "font-bold" : "font-semibold"
-            }`}
+            className={`text-sm text-zinc-900 dark:text-white truncate ${unreadCount > 0 ? "font-bold" : "font-semibold"
+              }`}
           >
             {user.name}
           </span>
@@ -538,16 +535,19 @@ function UserCard({
         {compact ? (
           <div className="text-xs text-zinc-400 truncate">
             {lastMessage ||
-              `@${user.username} · ${
-                user.role === "wm"
-                  ? "WM"
-                  : user.role === "wcm"
+              `@${user.username} · ${user.role === "wm"
+                ? "WM"
+                : user.role === "wcm"
                   ? "WCM"
                   : user.role === "wtc"
-                  ? "WTC"
-                  : user.role === "supervisor"
-                  ? "Supervisor"
-                  : user.role.replace(/_/g, " ")
+                    ? "WTC"
+                    : user.role === "supervisor"
+                      ? "Supervisor"
+                      : user.role === "follow_up"
+                        ? "Follow-Up"
+                        : user.role === "trainee"
+                          ? "Trainee"
+                          : user.role.replace(/_/g, " ")
               }`}
           </div>
         ) : (
@@ -559,12 +559,16 @@ function UserCard({
               {user.role === "wm"
                 ? "WM"
                 : user.role === "wcm"
-                ? "WCM"
-                : user.role === "wtc"
-                ? "WTC"
-                : user.role === "supervisor"
-                ? "Supervisor"
-                : user.role.replace(/_/g, " ")}
+                  ? "WCM"
+                  : user.role === "wtc"
+                    ? "WTC"
+                    : user.role === "supervisor"
+                      ? "Supervisor"
+                      : user.role === "follow_up"
+                        ? "Follow-Up"
+                        : user.role === "trainee"
+                          ? "Trainee"
+                          : user.role.replace(/_/g, " ")}
             </span>
           </>
         )}
@@ -579,9 +583,8 @@ function SkeletonList({ count, compact = false }: { count: number; compact?: boo
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className={`flex items-center gap-3 animate-pulse border-b border-zinc-100 dark:border-zinc-800 ${
-            compact ? "px-3 py-3" : "px-4 py-3.5"
-          }`}
+          className={`flex items-center gap-3 animate-pulse border-b border-zinc-100 dark:border-zinc-800 ${compact ? "px-3 py-3" : "px-4 py-3.5"
+            }`}
         >
           <div className={`rounded-full bg-zinc-200 dark:bg-zinc-700 shrink-0 ${compact ? "w-10 h-10" : "w-11 h-11"}`} />
           <div className="flex-1 space-y-2">

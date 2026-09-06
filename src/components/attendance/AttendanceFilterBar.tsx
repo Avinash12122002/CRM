@@ -219,6 +219,10 @@ export default function AttendanceFilterBar({
                     ? "WTC"
                     : u.role === "supervisor"
                     ? "Supervisor"
+                    : u.role === "follow_up"
+                    ? "Follow-Up"
+                    : u.role === "trainee"
+                    ? "Trainee"
                     : u.role.replace(/_/g, " ")}
                   )
                 </option>

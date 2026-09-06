@@ -95,6 +95,8 @@ export async function POST(
       payload.role === "wtc" ||
       payload.role === "wm" ||
       payload.role === "supervisor" ||
+      payload.role === "follow_up" ||
+      payload.role === "trainee" ||
       !lead.assignedTo ||
       String(lead.assignedTo) === String(payload.id) ||
       String(lead.assignedBy) === String(payload.id) ||
@@ -219,6 +221,43 @@ export async function POST(
       };
     }
 
+    // Find all Trainee users to auto-assign the converted sale lead
+    const trainees = await db
+      .collection("users")
+      .find({ role: "trainee" })
+      .project({ id: 1, name: 1 })
+      .toArray();
+
+    let assignedTrainee: { id: number; name: string } | null = null;
+    if (trainees.length > 0) {
+      const traineeIds = trainees.map((t) => t.id);
+      const loadCounts = await db
+        .collection("triloknath_leads")
+        .aggregate([
+          { $match: { assignedTo: { $in: traineeIds } } },
+          { $group: { _id: "$assignedTo", count: { $sum: 1 } } },
+        ])
+        .toArray();
+
+      const loadMap = new Map<number, number>(
+        loadCounts.map((c) => [c._id, c.count as number]),
+      );
+
+      assignedTrainee = trainees[0] as { id: number; name: string };
+      let lowestLoad = loadMap.get(assignedTrainee.id) || 0;
+      for (const t of trainees) {
+        const load = loadMap.get(t.id) || 0;
+        if (load < lowestLoad) {
+          assignedTrainee = t as { id: number; name: string };
+          lowestLoad = load;
+        }
+      }
+    }
+
+    const finalAssignedTo = assignedTrainee ? assignedTrainee.id : caseManager.id;
+    const finalAssignedToName = assignedTrainee ? assignedTrainee.name : caseManager.name;
+    const finalAssignedToRole = assignedTrainee ? "trainee" : "case_manager";
+
     await db.collection("triloknath_leads").updateOne(
       { id: leadId },
       {
@@ -228,9 +267,11 @@ export async function POST(
           callbackDate: null,
           callbackSeen: false,
 
-          assignedTo: caseManager.id,
-          assignedToName: caseManager.name,
-          assignedToRole: "case_manager",
+          assignedTo: finalAssignedTo,
+          assignedToName: finalAssignedToName,
+          assignedToRole: finalAssignedToRole,
+          caseManagerId: caseManager.id,
+          caseManagerName: caseManager.name,
           caseManagerAssignedAt: now,
 
           assignedBy: payload.id,
@@ -272,22 +313,42 @@ export async function POST(
                 performedBy: payload.id,
                 performedByName: payload.name,
                 timestamp: now,
-                details: caseManagerIdRaw
-                  ? `Lead assigned to Case Manager ${caseManager.name}`
-                  : `Lead auto-assigned to Case Manager ${caseManager.name}`,
-                newAssignee: caseManager.id,
-                newAssigneeName: caseManager.name,
+                details: assignedTrainee
+                  ? `Lead auto-assigned to Trainee ${assignedTrainee.name} (Case Manager: ${caseManager.name})`
+                  : caseManagerIdRaw
+                    ? `Lead assigned to Case Manager ${caseManager.name}`
+                    : `Lead auto-assigned to Case Manager ${caseManager.name}`,
+                newAssignee: finalAssignedTo,
+                newAssigneeName: finalAssignedToName,
               },
             ],
           },
         },
-        $addToSet: { visibleTo: caseManager.id },
+        $addToSet: { visibleTo: { $each: [caseManager.id, finalAssignedTo].filter(Boolean) } },
       },
     );
 
+    if (assignedTrainee) {
+      try {
+        const { createNotification } = await import("@/lib/notifications");
+        await createNotification({
+          userId: assignedTrainee.id,
+          title: "New Sale Lead Assigned",
+          message: `Triloknath Lead ${lead.name || `#${leadId}`} was converted to Sales and assigned to you.`,
+          type: "lead_assigned",
+          link: `/dashboard/triloknath-leads/${leadId}`,
+        });
+      } catch (notifErr) {
+        console.error("Failed to notify trainee:", notifErr);
+      }
+    }
+
     return NextResponse.json({
-      message: "Lead marked as Sales and assigned to Case Manager",
+      message: assignedTrainee
+        ? `Lead marked as Sales and assigned to Trainee ${assignedTrainee.name}`
+        : "Lead marked as Sales and assigned to Case Manager",
       caseManager: { id: caseManager.id, name: caseManager.name },
+      trainee: assignedTrainee,
     });
   } catch (err) {
     console.error("TRILOKNATH CONVERT TO SALES ERROR:", err);

@@ -79,7 +79,9 @@ export async function PUT(
         payload.role === "meeting" ||
         payload.role === "wtc" ||
         payload.role === "wm" ||
-        payload.role === "supervisor") &&
+        payload.role === "supervisor" ||
+        payload.role === "follow_up" ||
+        payload.role === "trainee") &&
       lead.assignedTo !== payload.id
     ) {
       return NextResponse.json(
@@ -120,7 +122,9 @@ export async function PUT(
       payload.role === "meeting" ||
       payload.role === "wtc" ||
       payload.role === "wm" ||
-      payload.role === "supervisor"
+      payload.role === "supervisor" ||
+      payload.role === "follow_up" ||
+      payload.role === "trainee"
         ? lead.phone
         : phone;
 

@@ -24,7 +24,7 @@ type User = {
   id: number;
   name: string;
   email?: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wtc" | "supervisor";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wtc" | "supervisor" | "follow_up" | "trainee";
 };
 
 type Pagination = {

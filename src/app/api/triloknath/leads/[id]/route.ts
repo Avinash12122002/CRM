@@ -120,8 +120,11 @@ export async function GET(
         payload.role === "wtc" ||
         payload.role === "wm" ||
         payload.role === "wcm" ||
-        payload.role === "supervisor") &&
-      lead.assignedTo !== payload.id
+        payload.role === "supervisor" ||
+        payload.role === "follow_up" ||
+        payload.role === "trainee") &&
+      lead.assignedTo !== payload.id &&
+      !lead.visibleTo?.includes(payload.id)
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
@@ -197,8 +200,11 @@ export async function PUT(
         payload.role === "meeting" ||
         payload.role === "wtc" ||
         payload.role === "wm" ||
-        payload.role === "supervisor") &&
-      lead.assignedTo !== payload.id
+        payload.role === "supervisor" ||
+        payload.role === "follow_up" ||
+        payload.role === "trainee") &&
+      lead.assignedTo !== payload.id &&
+      !lead.visibleTo?.includes(payload.id)
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }

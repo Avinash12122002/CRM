@@ -410,6 +410,10 @@ function getTodayIST(): string {
                                 ? "WTC"
                                 : rec.role === "supervisor"
                                 ? "Supervisor"
+                                : rec.role === "follow_up"
+                                ? "Follow-Up"
+                                : rec.role === "trainee"
+                                ? "Trainee"
                                 : rec.role.replace(/_/g, " ")}
                             </div>
                           </td>

@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
         "wcm",
         "wtc",
         "supervisor",
+        "follow_up",
+        "trainee",
       ].includes(role)
     ) {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
@@ -88,6 +90,10 @@ export async function POST(req: NextRequest) {
             ? "WTC (WFH Telecaller) user"
             : role === "supervisor"
             ? "Supervisor user"
+            : role === "follow_up"
+            ? "Follow-Up user"
+            : role === "trainee"
+            ? "Trainee user"
             : "Telecaller"
         } created successfully`,
         user: {

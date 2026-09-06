@@ -66,7 +66,7 @@ export default function AssignLeadModal({
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((user: User) =>
-          ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc", "supervisor"].includes(user.role),
+          ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc", "supervisor", "follow_up", "trainee"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -175,6 +175,8 @@ export default function AssignLeadModal({
       case "wcm":          return "bg-emerald-100 text-emerald-700";
       case "meeting":
       case "wm":           return "bg-purple-100 text-purple-700";
+      case "follow_up":    return "bg-orange-100 text-orange-700";
+      case "trainee":      return "bg-violet-100 text-violet-700";
       default:             return "bg-blue-100 text-blue-700";
     }
   };
@@ -185,6 +187,8 @@ export default function AssignLeadModal({
       case "wcm":        return "WCM";
       case "wtc":        return "WTC";
       case "supervisor": return "Supervisor";
+      case "follow_up":  return "Follow-Up";
+      case "trainee":    return "Trainee";
       default:           return role.replace(/_/g, " ");
     }
   };

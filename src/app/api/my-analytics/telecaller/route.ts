@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     if (!token) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     const payload = verifyToken(token);
     if (!payload) return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    if (payload.role !== "telecaller" && payload.role !== "employee" && payload.role !== "wtc" && payload.role !== "supervisor") {
+    if (payload.role !== "telecaller" && payload.role !== "employee" && payload.role !== "wtc" && payload.role !== "supervisor" && payload.role !== "follow_up" && payload.role !== "trainee") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

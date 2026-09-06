@@ -38,29 +38,83 @@ export async function POST(req: NextRequest) {
     }
 
     // Admin can complete any meeting
-    // Telecaller/Meeting can complete only their assigned lead
-    if (payload.role !== "admin" && lead.assignedTo !== payload.id) {
+    // Staff/Meeting can complete their assigned lead or scheduled meeting
+    const canComplete =
+      payload.role === "admin" ||
+      lead.assignedTo === payload.id ||
+      lead.meetingDetails?.meetingUserId === payload.id;
+
+    if (!canComplete) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
     const now = new Date();
 
+    // Find all Follow-Up users
+    const followUpUsers = await db
+      .collection("users")
+      .find({ role: "follow_up" })
+      .project({ id: 1, name: 1 })
+      .toArray();
+
+    let assignedFollowUpUser: { id: number; name: string } | null = null;
+    if (followUpUsers.length > 0) {
+      const userIds = followUpUsers.map((u) => u.id);
+      const loadCounts = await db
+        .collection("leads")
+        .aggregate([
+          {
+            $match: {
+              assignedTo: { $in: userIds },
+              status: { $nin: ["wrong-number", "not-interested", "sales"] },
+            },
+          },
+          { $group: { _id: "$assignedTo", count: { $sum: 1 } } },
+        ])
+        .toArray();
+
+      const loadMap = new Map<number, number>(
+        loadCounts.map((c) => [c._id, c.count as number]),
+      );
+
+      assignedFollowUpUser = followUpUsers[0] as { id: number; name: string };
+      let minLoad = loadMap.get(assignedFollowUpUser.id) || 0;
+      for (const fu of followUpUsers) {
+        const load = loadMap.get(fu.id) || 0;
+        if (load < minLoad) {
+          assignedFollowUpUser = fu as { id: number; name: string };
+          minLoad = load;
+        }
+      }
+    }
+
+    const updateSet: Record<string, any> = {
+      meetingStatus: "completed",
+      meetingDetails: lead.meetingDetails
+        ? {
+            ...lead.meetingDetails,
+            status: "completed",
+          }
+        : null,
+      meetingCompletedAt: now,
+      status: "follow-up",
+      updatedAt: now,
+    };
+
+    if (assignedFollowUpUser) {
+      updateSet.assignedTo = assignedFollowUpUser.id;
+      updateSet.assignedToName = assignedFollowUpUser.name;
+      updateSet.assignedToRole = "follow_up";
+      updateSet.assignedBy = payload.id;
+      updateSet.assignedByName = payload.name;
+      updateSet.assignedByRole = payload.role;
+      updateSet.assignedAt = now;
+    }
+
     await db.collection("leads").updateOne(
       { id: leadId },
       {
-        $set: {
-          meetingStatus: "completed",
-
-          meetingDetails: lead.meetingDetails
-            ? {
-                ...lead.meetingDetails,
-                status: "completed",
-              }
-            : null,
-
-          updatedAt: now,
-        },
-
+        $set: updateSet,
         $push: {
           history: {
             action: "meeting_completed",
@@ -68,9 +122,11 @@ export async function POST(req: NextRequest) {
             performedByName: payload.name,
             performedByRole: payload.role,
             timestamp: now,
-            details: "Meeting completed",
+            details: assignedFollowUpUser
+              ? `Meeting completed. Lead transferred to Follow-Up user ${assignedFollowUpUser.name}`
+              : "Meeting completed",
           },
-        },
+        } as any,
       },
     );
 
@@ -87,8 +143,26 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    if (assignedFollowUpUser) {
+      try {
+        const { createNotification } = await import("@/lib/notifications");
+        await createNotification({
+          userId: assignedFollowUpUser.id,
+          title: "Meeting Completed - Follow Up",
+          message: `Meeting completed for lead ${lead.name || `#${lead.id}`}. Lead assigned to you for follow-up.`,
+          type: "lead_assigned",
+          link: `/dashboard/leads/${lead.id}`,
+        });
+      } catch (notifErr) {
+        console.error("Failed to create notification:", notifErr);
+      }
+    }
+
     return NextResponse.json({
-      message: "Meeting completed successfully",
+      message: assignedFollowUpUser
+        ? `Meeting completed and lead assigned to ${assignedFollowUpUser.name}`
+        : "Meeting completed successfully",
+      assignedTo: assignedFollowUpUser,
     });
   } catch (err) {
     console.error(err);

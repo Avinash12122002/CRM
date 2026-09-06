@@ -80,7 +80,9 @@ export default function CreateLeadModal({
             userData.role === "meeting" ||
             userData.role === "wtc" ||
             userData.role === "wm" ||
-            userData.role === "supervisor"
+            userData.role === "supervisor" ||
+            userData.role === "follow_up" ||
+            userData.role === "trainee"
           ) {
             setSearchTerm(userData.name);
             setAssignedTo(userData.id);
@@ -114,7 +116,7 @@ export default function CreateLeadModal({
         const data = await res.json();
         // Filter to show users
         const allUsers = (data.users || []).filter((user: User) =>
-          ["telecaller", "employee", "meeting", "wtc", "wm", "supervisor"].includes(user.role),
+          ["telecaller", "employee", "meeting", "wtc", "wm", "supervisor", "follow_up", "trainee"].includes(user.role),
         );
         setUsers(allUsers);
       }
@@ -201,7 +203,9 @@ export default function CreateLeadModal({
           currentUser?.role === "meeting" ||
           currentUser?.role === "wtc" ||
           currentUser?.role === "wm" ||
-          currentUser?.role === "supervisor"
+          currentUser?.role === "supervisor" ||
+          currentUser?.role === "follow_up" ||
+          currentUser?.role === "trainee"
         ) {
           setAssignedTo(currentUser.id);
           setSearchTerm(currentUser.name);
@@ -295,8 +299,10 @@ export default function CreateLeadModal({
               currentUser?.role === "meeting" ||
               currentUser?.role === "wtc" ||
               currentUser?.role === "wm" ||
-              currentUser?.role === "supervisor" ? (
-                // Telecaller view - show their name as assigned, read-only
+              currentUser?.role === "supervisor" ||
+              currentUser?.role === "follow_up" ||
+              currentUser?.role === "trainee" ? (
+                // Staff view - show their name as assigned, read-only
                 <div className="w-full px-4 py-2.5 border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
                   <div className="flex items-center justify-between">
                     <span>{currentUser.name}</span>
@@ -364,6 +370,10 @@ export default function CreateLeadModal({
                                 ? "WTC"
                                 : emp.role === "supervisor"
                                 ? "Supervisor"
+                                : emp.role === "follow_up"
+                                ? "Follow-Up"
+                                : emp.role === "trainee"
+                                ? "Trainee"
                                 : emp.role}
                             </span>
                           </div>

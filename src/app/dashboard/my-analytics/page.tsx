@@ -16,7 +16,9 @@ type Role =
   | "wm"
   | "wcm"
   | "wtc"
-  | "supervisor";
+  | "supervisor"
+  | "follow_up"
+  | "trainee";
 
 type MeResponse = {
   id: number;
@@ -910,6 +912,8 @@ export default function MyAnalyticsPage() {
       case "employee":
       case "wtc":
       case "supervisor":
+      case "follow_up":
+      case "trainee":
         return "/api/my-analytics/telecaller";
       case "meeting":
       case "wm":
@@ -968,7 +972,7 @@ export default function MyAnalyticsPage() {
     const lines: string[] = [];
     const scope = data.date ? `Date ${data.date}` : data.month ? `Month ${data.month}` : "All Time";
 
-    if (user.role === "telecaller" || user.role === "employee" || user.role === "wtc" || user.role === "supervisor") {
+    if (user.role === "telecaller" || user.role === "employee" || user.role === "wtc" || user.role === "supervisor" || user.role === "follow_up" || user.role === "trainee") {
       const d = data as TelecallerData;
       lines.push(`My Lead Analytics (${user.name}),${scope}`);
       lines.push("");
@@ -1082,6 +1086,8 @@ export default function MyAnalyticsPage() {
       case "employee":
       case "wtc":
       case "supervisor":
+      case "follow_up":
+      case "trainee":
         return "My Lead Analytics";
       case "meeting":
       case "wm":
@@ -1116,6 +1122,8 @@ export default function MyAnalyticsPage() {
       case "employee":
       case "wtc":
       case "supervisor":
+      case "follow_up":
+      case "trainee":
         return (data as TelecallerData).metrics.totalLeads === 0;
       case "meeting":
       case "wm":
@@ -1178,7 +1186,7 @@ export default function MyAnalyticsPage() {
             )}
 
             {/* Role-specific content */}
-            {(user.role === "telecaller" || user.role === "employee" || user.role === "wtc" || user.role === "supervisor") && (
+            {(user.role === "telecaller" || user.role === "employee" || user.role === "wtc" || user.role === "supervisor" || user.role === "follow_up" || user.role === "trainee") && (
               <TelecallerView
                 data={data as TelecallerData}
                 scopeLabel={scopeLabel}

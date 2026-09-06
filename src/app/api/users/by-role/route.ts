@@ -33,6 +33,8 @@ export async function GET(req: NextRequest) {
           "supervisor",
           "case_manager",
           "wcm",
+          "follow_up",
+          "trainee",
         ],
       },
     };

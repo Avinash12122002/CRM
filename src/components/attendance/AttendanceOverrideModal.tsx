@@ -92,7 +92,7 @@ export default function AttendanceOverrideModal({ record, onSuccess, onClose }: 
             </p>
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
               {record.userName}{" "}
-                (
+              (
                 {record.role === "wm"
                   ? "WM"
                   : record.role === "wcm"
@@ -101,6 +101,10 @@ export default function AttendanceOverrideModal({ record, onSuccess, onClose }: 
                   ? "WTC"
                   : record.role === "supervisor"
                   ? "Supervisor"
+                  : record.role === "follow_up"
+                  ? "Follow-Up"
+                  : record.role === "trainee"
+                  ? "Trainee"
                   : record.role.replace(/_/g, " ")}
                 )
             </p>

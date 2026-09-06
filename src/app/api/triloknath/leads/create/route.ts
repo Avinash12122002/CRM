@@ -26,7 +26,9 @@ export async function POST(req: NextRequest) {
       payload.role !== "meeting" &&
       payload.role !== "wtc" &&
       payload.role !== "wm" &&
-      payload.role !== "supervisor"
+      payload.role !== "supervisor" &&
+      payload.role !== "follow_up" &&
+      payload.role !== "trainee"
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
@@ -103,14 +105,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Telecaller & Meeting users auto-assign to themselves
+    // Telecaller, Meeting, Follow-Up & Trainee users auto-assign to themselves
     const finalAssignedTo =
       payload.role === "telecaller" ||
       payload.role === "employee" ||
       payload.role === "meeting" ||
       payload.role === "wtc" ||
       payload.role === "wm" ||
-      payload.role === "supervisor"
+      payload.role === "supervisor" ||
+      payload.role === "follow_up" ||
+      payload.role === "trainee"
         ? payload.id
         : assignedTo;
 

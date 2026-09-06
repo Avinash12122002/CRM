@@ -13,7 +13,7 @@ type MeResponse = {
   id: number;
   name: string;
   email: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
 };
 
 type LeadStats = {
@@ -417,7 +417,7 @@ export default function DashboardPage() {
         if (!res.ok) { router.push("/"); return; }
         const data: MeResponse = await res.json();
         setUser(data);
-        if (data.role === "telecaller" || data.role === "employee" || data.role === "wtc" || data.role === "supervisor") {
+        if (data.role === "telecaller" || data.role === "employee" || data.role === "wtc" || data.role === "supervisor" || data.role === "follow_up" || data.role === "trainee") {
           fetchUserStats();
           fetchWorkHours();
         }
@@ -1321,8 +1321,8 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <>
-                    {/* Telecaller cards */}
-                    {(role === "telecaller" || role === "employee" || role === "wtc" || role === "supervisor") && (
+                    {/* Telecaller, Follow-Up & Trainee cards */}
+                    {(role === "telecaller" || role === "employee" || role === "wtc" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <button
                           onClick={() => router.push("/dashboard/leads")}

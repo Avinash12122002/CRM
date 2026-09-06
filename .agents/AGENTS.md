@@ -45,15 +45,17 @@ The system has **7 distinct roles**. Every API route and page checks `payload.ro
 | **WM (WFH Meeting)** | `wm` | Work-from-home meeting role (same functionality as meeting). |
 | **WCM (WFH Case Manager)** | `wcm` | Work-from-home case manager role (same functionality as case manager). |
 | **WTC (WFH Telecaller)** | `wtc` | Work-from-home telecaller role (same functionality as telecaller). |
+| **Follow-Up** | `follow_up` | Receives leads automatically when any user marks a meeting as complete (`status: "follow-up"`). Functions like employee/telecaller (leads, status updates, notes, data entry, personal analytics, attendance). |
+| **Trainee** | `trainee` | Receives leads automatically when a lead is marked/converted to sale (`status: "sales"`). Can view sales leads on their dashboard/lead list. Functions like employee/telecaller with sales lead visibility. |
 
 ### Role Groupings Used in Code
 
 ```typescript
 // Data Entry (daily quota lead submission)
-DATA_ENTRY_ROLES = ["telecaller", "employee", "meeting", "wtc", "wm", "supervisor"]
+DATA_ENTRY_ROLES = ["telecaller", "employee", "meeting", "wtc", "wm", "supervisor", "follow_up", "trainee"]
 
 // Lead creation access (general leads)
-["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor"]
+["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor", "follow_up", "trainee"]
 
 // Billing access
 BILLING_ROLES = ["admin", "billing"]

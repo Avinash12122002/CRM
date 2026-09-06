@@ -19,7 +19,9 @@ interface User {
     | "wm"
     | "wcm"
     | "wtc"
-    | "supervisor";
+    | "supervisor"
+    | "follow_up"
+    | "trainee";
 }
 
 interface TodoTask {

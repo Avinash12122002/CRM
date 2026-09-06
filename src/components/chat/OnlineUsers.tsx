@@ -76,16 +76,20 @@ export default function OnlineUsers() {
         </div>
 
         <div className="text-xs text-zinc-400 capitalize">
-          {user.role === "wm"
-            ? "WM"
-            : user.role === "wcm"
-            ? "WCM"
-            : user.role === "wtc"
-            ? "WTC"
-            : user.role === "supervisor"
-            ? "Supervisor"
-            : user.role.replace(/_/g, " ")}
-        </div>
+            {user.role === "wm"
+              ? "WM"
+              : user.role === "wcm"
+              ? "WCM"
+              : user.role === "wtc"
+              ? "WTC"
+              : user.role === "supervisor"
+              ? "Supervisor"
+              : user.role === "follow_up"
+              ? "Follow-Up"
+              : user.role === "trainee"
+              ? "Trainee"
+              : user.role.replace(/_/g, " ")}
+          </div>
       </div>
 
       <div className="text-xs text-green-600 font-medium">

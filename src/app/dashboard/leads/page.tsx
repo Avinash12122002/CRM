@@ -11,7 +11,7 @@ interface User {
   id: number;
   name: string;
   email?: string;
-  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc" | "supervisor";
+  role: "admin" | "telecaller" | "employee" | "meeting" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
 }
 
 interface Lead {
@@ -29,10 +29,10 @@ interface Lead {
   assignedTo: number | null;
   assignedToName?: string;
   assignedToEmail?: string;
-  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
+  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
   assignedBy?: number;
   assignedByName?: string;
-  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor";
+  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
   participants?: number[];
   createdBy: number;
   createdByName?: string;
@@ -313,7 +313,7 @@ export default function LeadsPage() {
       if (res.ok) {
         const data = await res.json();
         const allUsers = (data.users || []).filter((u: { role: string }) =>
-          ["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor"].includes(u.role),
+          ["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor", "follow_up", "trainee"].includes(u.role),
         );
         setUsers(allUsers);
       }
@@ -397,6 +397,12 @@ export default function LeadsPage() {
       if (lead.assignedToRole === "case_manager" || lead.assignedToRole === "wcm") {
         return "border-l-4 border-l-teal-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
       }
+      if (lead.assignedToRole === "follow_up") {
+        return "border-l-4 border-l-orange-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "trainee") {
+        return "border-l-4 border-l-violet-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
     }
 
     return "border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50";
@@ -425,6 +431,10 @@ export default function LeadsPage() {
         return "WTC";
       case "supervisor":
         return "Supervisor";
+      case "follow_up":
+        return "Follow-Up";
+      case "trainee":
+        return "Trainee";
       default:
         return role || "";
     }
@@ -446,6 +456,10 @@ export default function LeadsPage() {
       case "case_manager":
       case "wcm":
         return "bg-teal-100 text-teal-700";
+      case "follow_up":
+        return "bg-orange-100 text-orange-700";
+      case "trainee":
+        return "bg-violet-100 text-violet-700";
       default:
         return "bg-gray-100 text-gray-700";
     }

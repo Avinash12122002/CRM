@@ -38,7 +38,7 @@ export default function AssignTriloknathLeadModal({
           const data = await res.json();
           if (res.ok) {
             const allUsers = (data.users || []).filter((user: UserOption) =>
-              ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc", "supervisor"].includes(user.role),
+              ["admin", "telecaller", "employee", "meeting", "case_manager", "wm", "wcm", "wtc", "supervisor", "follow_up", "trainee"].includes(user.role),
             );
             setUsers(allUsers);
           } else {
@@ -112,6 +112,10 @@ export default function AssignTriloknathLeadModal({
                       ? "WTC"
                       : u.role === "supervisor"
                       ? "Supervisor"
+                      : u.role === "follow_up"
+                      ? "Follow-Up"
+                      : u.role === "trainee"
+                      ? "Trainee"
                       : u.role.replace(/_/g, " ")}
                     )
                   </option>
