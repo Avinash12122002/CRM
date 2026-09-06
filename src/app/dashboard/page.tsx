@@ -1336,7 +1336,9 @@ export default function DashboardPage() {
                             </div>
                             <span className="text-2xl font-bold text-red-600 dark:text-red-400">{leadStats.dueToday}</span>
                           </div>
-                          <p className="text-sm font-medium text-red-900 dark:text-red-200">Leads Due Today</p>
+                          <p className="text-sm font-medium text-red-900 dark:text-red-200">
+                            {role === "follow_up" ? "Follow-Ups Due" : "Leads Due Today"}
+                          </p>
                           <p className="text-xs text-red-600 dark:text-red-400 mt-1">Requires immediate attention</p>
                         </button>
 
@@ -1352,8 +1354,20 @@ export default function DashboardPage() {
                             </div>
                             <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{leadStats.newAssigned}</span>
                           </div>
-                          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">New Leads Assigned</p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Last 7 days</p>
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                            {role === "follow_up"
+                              ? "Follow-Up Leads Assigned"
+                              : role === "trainee"
+                                ? "Sales Leads Assigned"
+                                : "New Leads Assigned"}
+                          </p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            {role === "follow_up"
+                              ? "Active follow-ups"
+                              : role === "trainee"
+                                ? "Active sales leads"
+                                : "Last 7 days"}
+                          </p>
                         </button>
                       </div>
                     )}

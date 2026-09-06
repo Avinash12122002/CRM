@@ -74,6 +74,63 @@ export async function GET(req: NextRequest) {
           todayString,
       });
 
+    const now = new Date();
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    let dueMatchCondition: any;
+    if (role === "follow_up") {
+      dueMatchCondition = {
+        $or: [
+          {
+            status: "follow-up",
+            "followUpWorkflow.status": { $nin: ["not_interested", "completed"] },
+            $or: [
+              { "followUpWorkflow.nextFollowupAt": { $lte: now } },
+              { "followUpWorkflow.nextFollowupAt": { $lte: now.toISOString() } },
+              { followUpWorkflow: null },
+              { "followUpWorkflow.currentStage": "info", "followUpWorkflow.stages.info": { $exists: false } },
+            ],
+          },
+          {
+            status: "call-back",
+            callbackDate: { $ne: null },
+            $or: [
+              { callbackDate: { $lte: endOfToday } },
+              { callbackDate: { $lte: endOfToday.toISOString() } },
+            ],
+          },
+        ],
+      };
+    } else {
+      dueMatchCondition = {
+        status: "call-back",
+        callbackDate: { $ne: null },
+        $or: [
+          { callbackDate: { $lte: endOfToday } },
+          { callbackDate: { $lte: endOfToday.toISOString() } },
+        ],
+      };
+    }
+
+    let newAssignedCondition: any;
+    if (role === "follow_up") {
+      newAssignedCondition = {
+        status: "follow-up",
+      };
+    } else if (role === "trainee") {
+      newAssignedCondition = {
+        status: "sales",
+      };
+    } else {
+      newAssignedCondition = {
+        $or: [
+          { createdAt: { $gte: sevenDaysAgo } },
+          { assignedAt: { $gte: sevenDaysAgo } },
+        ],
+      };
+    }
+
     const stats = await leadsCollection
       .aggregate([
         {
@@ -88,12 +145,7 @@ export async function GET(req: NextRequest) {
           $facet: {
             dueToday: [
               {
-                $match: {
-                  dueDate: {
-                    $gte: today,
-                    $lt: tomorrow,
-                  },
-                },
+                $match: dueMatchCondition,
               },
               {
                 $count: "count",
@@ -102,12 +154,7 @@ export async function GET(req: NextRequest) {
 
             newAssigned: [
               {
-                $match: {
-                  $or: [
-                    { createdAt: { $gte: sevenDaysAgo } },
-                    { assignedAt: { $gte: sevenDaysAgo } },
-                  ],
-                },
+                $match: newAssignedCondition,
               },
               {
                 $count: "count",
