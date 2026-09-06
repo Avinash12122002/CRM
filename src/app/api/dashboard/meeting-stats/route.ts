@@ -41,7 +41,14 @@ export async function GET(req: NextRequest) {
         { "meetingDetails.meetingUserId": { $in: matchUserIds } },
         { assignedTo: { $in: matchUserIds } },
       ];
-    } else if (payload.role === "telecaller" || payload.role === "employee" || payload.role === "wtc" || payload.role === "supervisor") {
+    } else if (
+      payload.role === "telecaller" ||
+      payload.role === "employee" ||
+      payload.role === "wtc" ||
+      payload.role === "supervisor" ||
+      payload.role === "follow_up" ||
+      payload.role === "trainee"
+    ) {
       filter["$or"] = [
         { assignedTo: { $in: matchUserIds } },
         { "meetingDetails.bookedBy": { $in: matchUserIds } },

@@ -72,8 +72,10 @@ async function handleAssign(req: NextRequest) {
     // =========================
 
     if (payload.role !== "admin") {
-      // Telecaller/Meeting can only reassign their own leads
-      if (String(lead.assignedTo) !== String(payload.id)) {
+      if (
+        String(lead.assignedTo) !== String(payload.id) &&
+        !(payload.role === "trainee" && lead.status === "sales")
+      ) {
         return NextResponse.json(
           {
             message: "Forbidden: You can only reassign your own leads",

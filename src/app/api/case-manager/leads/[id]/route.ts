@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (payload.role !== "case_manager" && payload.role !== "admin") {
+    if (payload.role !== "case_manager" && payload.role !== "wcm" && payload.role !== "admin") {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
@@ -26,75 +26,81 @@ export async function GET(
 
     const { db } = await connectToDatabase();
 
-    const leads = await db
-      .collection("leads")
-      .aggregate([
-        { $match: { id: leadId } },
-        {
-          $lookup: {
-            from: "users",
-            localField: "assignedTo",
-            foreignField: "id",
-            as: "assignedUser",
-          },
+    const pipeline = [
+      { $match: { id: leadId } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "assignedTo",
+          foreignField: "id",
+          as: "assignedUser",
         },
-        {
-          $unwind: {
-            path: "$assignedUser",
-            preserveNullAndEmptyArrays: true,
-          },
+      },
+      {
+        $unwind: {
+          path: "$assignedUser",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $lookup: {
-            from: "users",
-            localField: "createdBy",
-            foreignField: "id",
-            as: "creator",
-          },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "createdBy",
+          foreignField: "id",
+          as: "creator",
         },
-        {
-          $unwind: {
-            path: "$creator",
-            preserveNullAndEmptyArrays: true,
-          },
+      },
+      {
+        $unwind: {
+          path: "$creator",
+          preserveNullAndEmptyArrays: true,
         },
-        {
-          $project: {
-            id: 1,
-            name: 1,
-            email: 1,
-            phone: 1,
-            company: 1,
-            state: 1,
-            city: 1,
-            country: 1,
-            age: 1,
-            passportType: 1,
-            leadSource: 1,
-            jobApplied: 1,
-            status: 1,
-            assignedTo: 1,
-            assignedToName: "$assignedUser.name",
-            assignedToEmail: "$assignedUser.email",
-            assignedToRole: "$assignedUser.role",
-            assignedBy: 1,
-            assignedByName: 1,
-            createdBy: 1,
-            createdByName: "$creator.name",
-            createdAt: 1,
-            updatedAt: 1,
-            history: 1,
-            occupations: 1,
-            caseManagerAssignedAt: 1,
-            caseManagerEmail: 1,
-            caseManagerPassword: 1,
-            candidateEmail: 1,
-            candidatePassword: 1,
-            salesDocument: 1,
-          },
+      },
+      {
+        $project: {
+          id: 1,
+          name: 1,
+          email: 1,
+          phone: 1,
+          company: 1,
+          state: 1,
+          city: 1,
+          country: 1,
+          age: 1,
+          passportType: 1,
+          leadSource: 1,
+          jobApplied: 1,
+          status: 1,
+          assignedTo: 1,
+          assignedToName: "$assignedUser.name",
+          assignedToEmail: "$assignedUser.email",
+          assignedToRole: "$assignedUser.role",
+          assignedBy: 1,
+          assignedByName: 1,
+          createdBy: 1,
+          createdByName: "$creator.name",
+          createdAt: 1,
+          updatedAt: 1,
+          history: 1,
+          occupations: 1,
+          caseManagerAssignedAt: 1,
+          caseManagerId: 1,
+          caseManagerName: 1,
+          caseManagerEmail: 1,
+          caseManagerPassword: 1,
+          candidateEmail: 1,
+          candidatePassword: 1,
+          salesDocument: 1,
+          visibleTo: 1,
         },
-      ])
-      .toArray();
+      },
+    ];
+
+    let leads = await db.collection("leads").aggregate(pipeline).toArray();
+
+    if (!leads || leads.length === 0) {
+      leads = await db.collection("triloknath_leads").aggregate(pipeline).toArray();
+    }
 
     if (!leads || leads.length === 0) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
@@ -105,7 +111,8 @@ export async function GET(
     if (
       (payload.role === "case_manager" || payload.role === "wcm") &&
       String(lead.assignedTo) !== String(payload.id) &&
-      String(lead.caseManagerId) !== String(payload.id)
+      String(lead.caseManagerId) !== String(payload.id) &&
+      !lead.visibleTo?.some((v: unknown) => String(v) === String(payload.id))
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }

@@ -103,8 +103,7 @@ export default function ActivityPage() {
       if (!res.ok) return;
       const data = await res.json();
       const telecallerUsers = (data.users || []).filter(
-        (u: { role: string }) =>
-          u.role === "telecaller" || u.role === "employee" || u.role === "meeting" || u.role === "case_manager",
+        (u: { role: string }) => u.role !== "admin",
       );
       setTelecallers(telecallerUsers);
     } catch (error) {

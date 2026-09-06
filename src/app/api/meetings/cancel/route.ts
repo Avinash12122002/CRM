@@ -29,16 +29,26 @@ export async function POST(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    const lead = await db.collection("leads").findOne({
+    let collectionName = "leads";
+    let lead = await db.collection("leads").findOne({
       id: leadId,
     });
+
+    if (!lead) {
+      lead = await db.collection("triloknath_leads").findOne({
+        id: leadId,
+      });
+      if (lead) {
+        collectionName = "triloknath_leads";
+      }
+    }
 
     if (!lead) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
     await db.collection("meetingSlots").updateMany(
-      { leadId },
+      { $or: [{ leadId: lead.id }, { leadId: String(lead.id) }] },
       {
         $set: {
           status: "cancelled",
@@ -47,7 +57,7 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    await db.collection("leads").updateOne(
+    await db.collection(collectionName).updateOne(
       { id: leadId },
       {
         $set: {

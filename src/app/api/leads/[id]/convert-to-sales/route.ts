@@ -213,7 +213,10 @@ export async function POST(
 
     // Sales = Meeting Completed (same behaviour as the regular status route)
     await db.collection("meetingSlots").updateMany(
-      { leadId, status: "scheduled" },
+      {
+        $or: [{ leadId: lead.id }, { leadId: String(lead.id) }],
+        status: "scheduled",
+      },
       { $set: { status: "completed", updatedAt: now } },
     );
 
@@ -236,16 +239,17 @@ export async function POST(
     let assignedTrainee: { id: number; name: string } | null = null;
     if (trainees.length > 0) {
       const traineeIds = trainees.map((t) => t.id);
+      const matchTraineeIds = Array.from(new Set([...traineeIds, ...traineeIds.map(String)]));
       const loadCounts = await db
         .collection("leads")
         .aggregate([
-          { $match: { assignedTo: { $in: traineeIds } } },
-          { $group: { _id: "$assignedTo", count: { $sum: 1 } } },
+          { $match: { assignedTo: { $in: matchTraineeIds } } },
+          { $group: { _id: { $toInt: "$assignedTo" }, count: { $sum: 1 } } },
         ])
         .toArray();
 
       const loadMap = new Map<number, number>(
-        loadCounts.map((c) => [c._id, c.count as number]),
+        loadCounts.map((c) => [Number(c._id), c.count as number]),
       );
 
       assignedTrainee = trainees[0] as { id: number; name: string };

@@ -27,15 +27,20 @@ export async function getAuthorizedCandidateLead(
     return { error: "Forbidden", status: 403 as const, lead: null };
   }
 
-  const lead = await db.collection("leads").findOne({ id: leadId });
+  let lead = await db.collection("leads").findOne({ $or: [{ id: leadId }, { id: String(leadId) }] });
+  if (!lead) {
+    lead = await db.collection("triloknath_leads").findOne({ $or: [{ id: leadId }, { id: String(leadId) }] });
+  }
+
   if (!lead) {
     return { error: "Candidate lead not found", status: 404 as const, lead: null };
   }
 
   if (
     (payload.role === "case_manager" || payload.role === "wcm") &&
-    lead.assignedTo !== payload.id &&
-    lead.caseManagerId !== payload.id
+    String(lead.assignedTo) !== String(payload.id) &&
+    String(lead.caseManagerId) !== String(payload.id) &&
+    !lead.visibleTo?.some((v: unknown) => String(v) === String(payload.id))
   ) {
     return { error: "Forbidden", status: 403 as const, lead: null };
   }

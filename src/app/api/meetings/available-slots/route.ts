@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     const bookedSlots = await db
       .collection("meetingSlots")
       .find({
-        meetingUserId,
+        meetingUserId: { $in: [meetingUserId, String(meetingUserId)] },
         meetingDate,
         status: {
           $in: ["scheduled", "completed"],

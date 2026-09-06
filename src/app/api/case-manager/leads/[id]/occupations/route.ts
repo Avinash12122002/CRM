@@ -51,7 +51,7 @@ export async function PUT(
 
     const { db } = await connectToDatabase();
 
-    const result = await db.collection("leads").updateOne(
+    let result = await db.collection("leads").updateOne(
       { id: leadId },
       {
         $set: {
@@ -60,6 +60,18 @@ export async function PUT(
         },
       },
     );
+
+    if (result.matchedCount === 0) {
+      result = await db.collection("triloknath_leads").updateOne(
+        { id: leadId },
+        {
+          $set: {
+            occupations: cleanOccupations,
+            updatedAt: new Date(),
+          },
+        },
+      );
+    }
 
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });

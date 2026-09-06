@@ -59,7 +59,8 @@ export async function PUT(
         payload.role === "supervisor" ||
         payload.role === "follow_up" ||
         payload.role === "trainee") &&
-      lead.assignedTo !== payload.id
+      lead.assignedTo !== payload.id &&
+      !(payload.role === "trainee" && lead.status === "sales")
     ) {
       return NextResponse.json(
         { message: "You can only update leads assigned to you" },

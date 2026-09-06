@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       if (role === "meeting") {
         query = { role: { $in: ["meeting", "wm"] } };
       } else if (role === "telecaller") {
-        query = { role: { $in: ["telecaller", "employee", "wtc", "supervisor"] } };
+        query = { role: { $in: ["telecaller", "employee", "wtc", "supervisor", "follow_up", "trainee"] } };
       } else if (role === "case_manager") {
         query = { role: { $in: ["case_manager", "wcm"] } };
       } else if (role.includes(",")) {

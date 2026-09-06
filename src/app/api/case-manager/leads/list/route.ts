@@ -74,11 +74,15 @@ export async function GET(req: NextRequest) {
     };
 
     if (payload.role === "case_manager" || payload.role === "wcm") {
+      const cmIds = Array.from(
+        new Set([payload.id, String(payload.id), Number(payload.id)].filter((x) => x != null && !isNaN(x as number))),
+      );
       filter.$and = [
         {
           $or: [
-            { assignedTo: payload.id },
-            { caseManagerId: payload.id },
+            { assignedTo: { $in: cmIds } },
+            { caseManagerId: { $in: cmIds } },
+            { visibleTo: { $in: cmIds } },
           ],
         },
       ];
@@ -108,7 +112,9 @@ export async function GET(req: NextRequest) {
       if (!isNaN(assignedToId)) {
         const assignOr = [
           { assignedTo: assignedToId },
+          { assignedTo: String(assignedToId) },
           { caseManagerId: assignedToId },
+          { caseManagerId: String(assignedToId) },
         ];
         if (filter.$and) {
           filter.$and.push({ $or: assignOr });
@@ -125,28 +131,34 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const allMatchingLeadsRaw = (await db
-      .collection("leads")
-      .find(filter)
-      .project({
-        id: 1,
-        name: 1,
-        email: 1,
-        phone: 1,
-        country: 1,
-        jobApplied: 1,
-        status: 1,
-        assignedTo: 1,
-        assignedToName: 1,
-        assignedBy: 1,
-        assignedByName: 1,
-        createdAt: 1,
-        updatedAt: 1,
-        caseManagerAssignedAt: 1,
-        salesDocument: 1,
-        occupations: 1,
-      })
-      .toArray()) as unknown as LeadDoc[];
+    const leadProjection = {
+      id: 1,
+      name: 1,
+      email: 1,
+      phone: 1,
+      country: 1,
+      jobApplied: 1,
+      status: 1,
+      assignedTo: 1,
+      assignedToName: 1,
+      assignedBy: 1,
+      assignedByName: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      caseManagerAssignedAt: 1,
+      caseManagerId: 1,
+      caseManagerName: 1,
+      visibleTo: 1,
+      salesDocument: 1,
+      occupations: 1,
+    };
+
+    const [leadsGeneral, leadsTriloknath] = await Promise.all([
+      db.collection("leads").find(filter).project(leadProjection).toArray(),
+      db.collection("triloknath_leads").find(filter).project(leadProjection).toArray(),
+    ]);
+
+    const allMatchingLeadsRaw = [...leadsGeneral, ...leadsTriloknath] as unknown as LeadDoc[];
 
     // If date parameter is present, filter using JS date parsing with fallbacks.
     // Checks caseManagerAssignedAt, then updatedAt, then createdAt.

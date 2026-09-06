@@ -40,6 +40,7 @@ export async function GET(
       payload.role === "admin" ||
       payload.role === "case_manager" ||
       payload.role === "wcm" ||
+      (payload.role === "trainee" && lead.status === "sales") ||
       String(lead.assignedTo) === String(payload.id) ||
       String(lead.assignedBy) === String(payload.id) ||
       String(lead.createdBy) === String(payload.id) ||

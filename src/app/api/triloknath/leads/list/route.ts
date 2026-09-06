@@ -79,6 +79,7 @@ function buildTriloknathPipeline(
         isOwner: {
           $or: [
             { $eq: ["$assignedTo", payloadId] },
+            { $eq: ["$assignedTo", String(payloadId)] },
             ...(payloadRole === "trainee" ? [{ $eq: ["$status", "sales"] }] : []),
           ],
         },
@@ -242,11 +243,16 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const andConditions: Record<string, any>[] = [];
 
+    const uid = payload.id;
+    const uidStr = String(uid);
+    const uidNum = isNaN(Number(uid)) ? null : Number(uid);
+    const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
+
     if (payload.role === "trainee") {
       andConditions.push({
         $or: [
-          { assignedTo: payload.id },
-          { visibleTo: payload.id },
+          { assignedTo: { $in: matchUserIds } },
+          { visibleTo: { $in: matchUserIds } },
           { status: "sales" },
         ],
       });
@@ -260,7 +266,10 @@ export async function GET(req: NextRequest) {
       payload.role === "follow_up"
     ) {
       andConditions.push({
-        $or: [{ assignedTo: payload.id }, { visibleTo: payload.id }],
+        $or: [
+          { assignedTo: { $in: matchUserIds } },
+          { visibleTo: { $in: matchUserIds } },
+        ],
       });
     }
 

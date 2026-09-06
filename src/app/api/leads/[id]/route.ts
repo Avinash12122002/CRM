@@ -101,6 +101,10 @@ export async function GET(
             salesDocument: 1,
             occupations: 1,
             caseManagerAssignedAt: 1,
+            caseManagerId: 1,
+            caseManagerName: 1,
+            caseManagerEmail: 1,
+            caseManagerPassword: 1,
           },
         },
       ])
@@ -111,7 +115,9 @@ export async function GET(
     }
 
     const lead = leads[0];
-    lead.isOwner = lead.assignedTo === payload.id || (payload.role === "trainee" && lead.status === "sales");
+    lead.isOwner =
+      String(lead.assignedTo) === String(payload.id) ||
+      (payload.role === "trainee" && lead.status === "sales");
 
     if (
       (payload.role === "telecaller" ||
@@ -124,8 +130,9 @@ export async function GET(
         payload.role === "supervisor" ||
         payload.role === "follow_up" ||
         payload.role === "trainee") &&
-      lead.assignedTo !== payload.id &&
-      !lead.visibleTo?.includes(payload.id) &&
+      String(lead.assignedTo) !== String(payload.id) &&
+      String(lead.caseManagerId) !== String(payload.id) &&
+      !lead.visibleTo?.some((v: unknown) => String(v) === String(payload.id)) &&
       !(payload.role === "trainee" && lead.status === "sales")
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -205,8 +212,8 @@ export async function PUT(
         payload.role === "supervisor" ||
         payload.role === "follow_up" ||
         payload.role === "trainee") &&
-      lead.assignedTo !== payload.id &&
-      !lead.visibleTo?.includes(payload.id) &&
+      String(lead.assignedTo) !== String(payload.id) &&
+      !lead.visibleTo?.some((v: unknown) => String(v) === String(payload.id)) &&
       !(payload.role === "trainee" && lead.status === "sales")
     ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
