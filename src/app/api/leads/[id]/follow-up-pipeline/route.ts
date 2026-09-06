@@ -380,7 +380,7 @@ export async function POST(
         ? `${config.label} marked as sent! Lead marked as Sales and assigned to Trainee ${assignedTrainee.name}`
         : `${config.label} marked as sent!${stage === "payment_confirmation" ? " Lead marked as Sales." : ""}`,
       followUpWorkflow: nextWorkflow,
-      newStatus: stage === "payment_confirmation" ? "sales" : undefined,
+      newStatus: (stage === "payment_confirmation" || stage === "case_manager") ? "sales" : undefined,
       assignedTo: assignedTrainee?.id,
       assignedToName: assignedTrainee?.name,
       assignedToRole: assignedTrainee ? "trainee" : undefined,

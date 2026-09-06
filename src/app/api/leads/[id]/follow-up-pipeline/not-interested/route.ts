@@ -83,7 +83,7 @@ export async function POST(
         },
         $push: {
           history: {
-            action: "status_change",
+            action: "status_updated",
             oldStatus: lead.status,
             newStatus: "not-interested",
             performedBy: payload.id,
