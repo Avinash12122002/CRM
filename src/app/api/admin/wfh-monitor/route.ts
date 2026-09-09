@@ -169,9 +169,9 @@ export async function GET(req: NextRequest) {
 
       if (isGhost) ghostAlertCount++;
       if (isCheckedOut) checkedOutCount++;
-      else if (liveStatus === "working") activeNowCount++;
-      else if (liveStatus === "idle") idleNowCount++;
-      else if (liveStatus === "break") breakNowCount++;
+      else if (liveStatus === "working" && !isGhost) activeNowCount++;
+      else if (liveStatus === "idle" && !isGhost) idleNowCount++;
+      else if (liveStatus === "break" && !isGhost) breakNowCount++;
 
       return {
         userId: u.id,
