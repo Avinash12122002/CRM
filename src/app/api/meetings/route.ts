@@ -56,6 +56,7 @@ export async function GET(req: NextRequest) {
     const leadsMain: any[] = await db.collection("leads").find(filter).toArray();
 
     const allMeetings = leadsMain.sort((a, b) => {
+      // Latest meeting date + time at top
       const dateA = a.meetingDetails?.meetingDate || "";
       const dateB = b.meetingDetails?.meetingDate || "";
       const dateCmp = dateB.localeCompare(dateA);
@@ -63,7 +64,7 @@ export async function GET(req: NextRequest) {
 
       const timeA = a.meetingDetails?.startTime || "";
       const timeB = b.meetingDetails?.startTime || "";
-      return timeA.localeCompare(timeB);
+      return timeB.localeCompare(timeA);
     });
 
     const total = allMeetings.length;
