@@ -96,7 +96,7 @@ export default function ActivityPage() {
   const [wfhData, setWfhData] = useState<{ summary: WfhSummary; users: MonitoredUser[]; date: string } | null>(null);
   const [loadingWfh, setLoadingWfh] = useState(false);
   const [wfhRoleFilter, setWfhRoleFilter] = useState("all");
-  const [wfhStatusFilter, setWfhStatusFilter] = useState("all");
+  const [wfhStatusFilter, setWfhStatusFilter] = useState("checked_in");
   const [wfhSearchQuery, setWfhSearchQuery] = useState("");
   const [inspectUser, setInspectUser] = useState<{ userId: number; name: string; date?: string } | null>(null);
 
@@ -289,6 +289,7 @@ export default function ActivityPage() {
     const matchesRole = wfhRoleFilter === "all" || u.role === wfhRoleFilter;
     const matchesStatus =
       wfhStatusFilter === "all" ||
+      (wfhStatusFilter === "checked_in" && u.status !== "not_checked_in") ||
       (wfhStatusFilter === "ghost" && u.isGhostAlert) ||
       (wfhStatusFilter === "active" && u.status === "working") ||
       (wfhStatusFilter === "idle" && u.status === "idle") ||
@@ -442,7 +443,8 @@ export default function ActivityPage() {
                   onChange={(e) => setWfhStatusFilter(e.target.value)}
                   className="w-full px-3 py-1.5 text-xs border border-zinc-300 dark:border-zinc-600 rounded-lg bg-white dark:bg-zinc-800 text-gray-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="all">All Statuses</option>
+                  <option value="checked_in">✅ Checked In (Default)</option>
+                  <option value="all">🌐 All (incl. Not Checked In)</option>
                   <option value="active">🟢 Active Now</option>
                   <option value="idle">🟡 Idle / Inactive</option>
                   <option value="ghost">🔴 Ghost Alerts</option>
