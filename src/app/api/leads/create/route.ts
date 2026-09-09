@@ -253,8 +253,8 @@ export async function POST(req: NextRequest) {
       actionType: "lead_created",
       entityType: "lead",
       entityId: id,
-      summary: `Created lead #${id} (${lead.name}) with status "${status}"`,
-      metadata: { leadName: lead.name, phone: lead.phone, status },
+      summary: `Created lead #${id} (${lead.name}) with status "${lead.status}"`,
+      metadata: { leadName: lead.name, phone: lead.phone, status: lead.status },
     });
 
     return NextResponse.json(
