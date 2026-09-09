@@ -52,19 +52,28 @@ export default function CheckInOutCard() {
   const [trainingTime, setTrainingTime] = useState("00:00:00");
   const [isMonitored, setIsMonitored] = useState<boolean>(true);
 
+  // Local clock tick — increments displayed time every second without hitting the server
+  const [tickSeconds, setTickSeconds] = useState(0);
+
   useEffect(() => {
     fetchCurrentActivity();
   }, []);
 
- useEffect(() => {
-  if (!isCheckedIn) return;
+  // Poll server every 30s (not every 1s — avoids flooding the DB)
+  useEffect(() => {
+    if (!isCheckedIn) return;
+    const interval = setInterval(() => {
+      fetchCurrentActivity();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [isCheckedIn]);
 
-  const interval = setInterval(() => {
-    fetchCurrentActivity();
-  }, 1000);
-
-  return () => clearInterval(interval);
-}, [isCheckedIn]);
+  // Local tick every second just to increment the clock display
+  useEffect(() => {
+    if (!isCheckedIn) return;
+    const tick = setInterval(() => setTickSeconds((s) => s + 1), 1000);
+    return () => clearInterval(tick);
+  }, [isCheckedIn]);
 
   async function fetchCurrentActivity() {
     try {
@@ -76,12 +85,11 @@ export default function CheckInOutCard() {
         setIsCheckedIn(data.isCheckedIn);
         setIsMonitored(data.isMonitored !== false);
         setCurrentActivity(data.activity);
+        setTickSeconds(0); // reset local tick on fresh server data
 
         if (data.activity) {
           setWorkTime(formatTime(data.activity.shiftSeconds ?? data.activity.workSeconds ?? 0));
-
           setBreakTime(formatTime(data.activity.breakSeconds || 0));
-
           setTrainingTime(formatTime(data.activity.trainingSeconds || 0));
         } else {
           setWorkTime("00:00:00");
@@ -270,23 +278,25 @@ export default function CheckInOutCard() {
 
       {isCheckedIn && (
         <div className="mb-6 text-center">
-          <div className="inline-flex flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl px-6 py-4 w-full">
-            <div className="flex items-center justify-center mb-2">
-              <svg
-                className="w-5 h-5 text-zinc-600 dark:text-zinc-400 mr-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              <div className="text-xl font-bold">Shift: {workTime}</div>
-            </div>
+            <div className="inline-flex flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl px-6 py-4 w-full">
+              <div className="flex items-center justify-center mb-2">
+                <svg
+                  className="w-5 h-5 text-zinc-600 dark:text-zinc-400 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <div className="text-xl font-bold">
+                  Shift: {formatTime((currentActivity?.shiftSeconds ?? currentActivity?.workSeconds ?? 0) + tickSeconds)}
+                </div>
+              </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300 w-full pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
               <div className="text-left font-semibold text-emerald-600 dark:text-emerald-400">
@@ -311,7 +321,11 @@ export default function CheckInOutCard() {
           {/* Ghost Warning Banner for Employee (Only for monitored roles) */}
           {isMonitored && currentActivity?.isGhostAlert && (
             <div className="mt-2.5 p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs text-center font-medium animate-pulse">
-              ⚠️ Inactivity Warning: 0 CRM actions recorded in over 10 mins of work time. Please update your leads or tasks.
+              ⚠️ Inactivity Warning:{" "}
+              {(currentActivity?.actionsToday || 0) === 0
+                ? "0 CRM actions recorded in over 10 mins of work time."
+                : `No CRM actions for 10+ mins (last action was ${currentActivity.actionsToday} action${(currentActivity.actionsToday ?? 1) > 1 ? "s" : ""} ago).`}{" "}
+              Please update your leads or tasks.
             </div>
           )}
 
