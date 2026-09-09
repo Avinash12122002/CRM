@@ -3,7 +3,6 @@ import { getNextId } from "@/lib/auth";
 
 export const WFH_MONITORED_ROLES = [
   "telecaller",
-  "employee",
   "case_manager",
   "business_development",
   "wcm",
