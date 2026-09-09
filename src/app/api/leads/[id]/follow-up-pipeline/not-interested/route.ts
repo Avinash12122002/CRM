@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function POST(
   req: NextRequest,
@@ -92,9 +93,20 @@ export async function POST(
             timestamp: now,
             details: `Candidate marked Not Interested during Follow-Up email stage (${currentStage}). Follow-up process stopped.`,
           },
-        } as any,
+        },
       }
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "lead_status_updated",
+      entityType: "lead",
+      entityId: lead.id,
+      summary: `Marked lead #${lead.id} (${lead.name}) as not-interested during follow-up`,
+      metadata: { newStatus: "not-interested", oldStatus: lead.status },
+    });
 
     return NextResponse.json({
       success: true,

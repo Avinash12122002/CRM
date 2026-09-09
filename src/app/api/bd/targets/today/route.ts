@@ -11,7 +11,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
     }
 
-    if (!DATA_ENTRY_ROLES.includes(payload.role)) {
+    if (
+      !DATA_ENTRY_ROLES.includes(payload.role) &&
+      payload.role !== "admin" &&
+      payload.role !== "business_development"
+    ) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

@@ -82,7 +82,7 @@ export async function PUT(
         announcement.readBy ||
         []
       ).some(
-        (r: any) =>
+        (r: { userId?: number }) =>
           r.userId ===
           payload.id,
       );

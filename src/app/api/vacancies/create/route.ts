@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
+import { logUserAction } from "@/lib/activity/audit";
+import { verifyToken } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,13 +10,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const decoded = jwt.verify(token, JWT_SECRET) as {
-      id: number;
-      role: string;
-    };
+    const payload = verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Only admin can create vacancies
-    if (decoded.role !== "admin") {
+    if (payload.role !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -62,12 +61,23 @@ const counterCollection = db.collection("counters");
       jobTitle,
       description,
       status: "active",
-      createdBy: decoded.id,
+      createdBy: payload.id,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     await vacanciesCollection.insertOne(vacancy);
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "vacancy_created",
+      entityType: "vacancy",
+      entityId: vacancyId,
+      summary: `Created job vacancy: ${jobTitle.trim()}`,
+      metadata: { jobTitle: jobTitle.trim() },
+    });
 
     return NextResponse.json(
       { message: "Vacancy created successfully", vacancyId },

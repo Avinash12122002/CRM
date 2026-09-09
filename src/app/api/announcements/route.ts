@@ -7,6 +7,7 @@ import {
   verifyToken,
   getNextId,
 } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function GET(
   req: NextRequest,
@@ -152,6 +153,17 @@ export async function POST(
         createdAt:
           new Date(),
       });
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "announcement_created",
+      entityType: "announcement",
+      entityId: id,
+      summary: `Created announcement: ${title}`,
+      metadata: { title },
+    });
 
     return NextResponse.json({
       message:

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 async function handleAssign(req: NextRequest) {
   try {
@@ -271,6 +272,23 @@ async function handleAssign(req: NextRequest) {
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "lead_assigned",
+      entityType: "lead",
+      entityId: leadId,
+      summary: assignedUser
+        ? `Assigned lead #${leadId} (${lead.name}) to ${assignedUser.name}`
+        : `Unassigned lead #${leadId} (${lead.name})`,
+      metadata: {
+        leadName: lead.name,
+        assignedTo,
+        assignedToName: assignedUser?.name,
+      },
+    });
 
     return NextResponse.json({
       message: "Lead assignment updated successfully",

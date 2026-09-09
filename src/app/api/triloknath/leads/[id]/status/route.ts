@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function PUT(
   req: NextRequest,
@@ -138,8 +139,7 @@ export async function PUT(
 
     const now = new Date();
     const oldStatus = lead.status;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let meetingStatusUpdate: Record<string, any> = {};
+    let meetingStatusUpdate: Record<string, unknown> = {};
 
     // Not Interested / Wrong Number = Meeting Cancelled
     if (status === "not-interested" || status === "wrong-number") {
@@ -230,6 +230,17 @@ export async function PUT(
           : {},
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "update_lead_status",
+      entityType: "triloknath_lead",
+      entityId: leadId,
+      summary: `Updated Triloknath lead "${lead.name || `#${leadId}`}" status: ${oldStatus} ➔ ${status}`,
+      metadata: { leadId, oldStatus, newStatus: status, candidateName: lead.name },
+    });
 
     return NextResponse.json(
       {

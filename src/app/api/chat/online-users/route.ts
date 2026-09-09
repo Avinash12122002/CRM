@@ -35,12 +35,19 @@ export async function GET(req: NextRequest) {
     const { db } =
       await connectToDatabase();
 
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
     const onlineUsers = await db
       .collection("activities")
       .aggregate([
         {
           $match: {
             checkOut: null,
+            $or: [
+              { lastHeartbeatAt: { $gte: fiveMinutesAgo } },
+              { updatedAt: { $gte: fiveMinutesAgo } },
+              { checkIn: { $gte: fiveMinutesAgo } },
+            ],
           },
         },
         {
@@ -62,7 +69,8 @@ export async function GET(req: NextRequest) {
             username: "$user.username",
             role: "$user.role",
             online: true,
-            lastSeen: "$updatedAt",
+            status: "$status",
+            lastSeen: { $ifNull: ["$lastHeartbeatAt", "$updatedAt"] },
           },
         },
         {

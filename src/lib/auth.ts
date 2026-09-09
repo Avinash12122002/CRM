@@ -32,17 +32,16 @@ export function verifyToken(token: string) {
  * Uses a counters collection in the same database.
  */
 export async function getNextId(db: Db, name: string) {
-  const result = await db.collection("counters").findOneAndUpdate(
-    { _id: name } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+  const result = await db.collection<{ _id: string; seq: number }>("counters").findOneAndUpdate(
+    { _id: name },
     { $inc: { seq: 1 } },
     { upsert: true, returnDocument: "after" }
   );
 
-  const doc = (result as any)?.value ?? result;
-  if (!doc || (doc as any).seq === undefined) {
+  const doc = result && "value" in result ? (result.value as { seq?: number } | null) : result;
+  if (!doc || doc.seq === undefined) {
     throw new Error("Failed to generate ID");
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (doc as any).seq as number;
+  return doc.seq;
 }

@@ -52,14 +52,25 @@ export async function POST(req: NextRequest) {
     )
   );
 
+    const baseShiftSeconds = (activity.sessions && activity.sessions > 1)
+      ? (activity.shiftSeconds || 0)
+      : 0;
+    const sessionCheckIn = (activity.sessions && activity.sessions > 1)
+      ? activity.checkIn
+      : (activity.firstCheckIn || activity.checkIn);
+    const sessionElapsedSeconds = Math.max(0, Math.floor((now.getTime() - new Date(sessionCheckIn).getTime()) / 1000));
+    const totalWorkSeconds = Math.max(0, (baseShiftSeconds + sessionElapsedSeconds) - breakSeconds);
+    const idleSeconds = Math.max(0, totalWorkSeconds - (activity.activeSeconds || 0));
+
     await db.collection("activities").updateOne(
       { _id: activity._id },
       {
         $set: {
           status: "working",
-          checkIn: now,
           breakStart: null,
           breakSeconds,
+          workSeconds: totalWorkSeconds,
+          idleSeconds,
           updatedAt: now,
         },
       }

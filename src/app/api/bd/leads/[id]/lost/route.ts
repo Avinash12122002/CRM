@@ -52,7 +52,7 @@ export async function POST(
 
     // Ownership transfers to Admin once a lead is closed out as lost —
     // actually move assignedTo (not just log a claim that it happened).
-    const newOwner = await getAdminUser(db, payload);
+    const newOwner = await getAdminUser(db);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const setFields: Record<string, any> = {
@@ -101,6 +101,7 @@ export async function POST(
         userName: payload.name,
         previousValue: lead.assignedToName,
         newValue: newOwner.name,
+        skipUserAction: true,
       });
     }
 

@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
 
     const conversationIds =
       conversations.map(
-        (c: any) => c.id,
+        (c: { id?: number | string }) => c.id,
       );
 
     const messages = await db

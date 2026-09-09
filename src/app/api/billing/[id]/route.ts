@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getAuthPayload } from "@/lib/bd/helpers";
 import { BILLING_COLLECTION, BILLING_ROLES, AMOUNT_EPSILON, round2 } from "@/lib/billing/constants";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function PATCH(
   req: NextRequest,
@@ -76,6 +77,17 @@ export async function PATCH(
         }
       );
 
+      await logUserAction(db, {
+        userId: payload.id,
+        userName: payload.name,
+        userRole: payload.role,
+        actionType: "record_payment",
+        entityType: "billing",
+        entityId: billId,
+        summary: `Recorded payment of ₹${addPayment.toLocaleString("en-IN")} on Invoice #${existing.invoiceNumber || billId}`,
+        metadata: { billId, invoiceNumber: existing.invoiceNumber, amount: addPayment, isFullyPaid },
+      });
+
       const updated = await collection.findOne({ id: billId });
       return NextResponse.json({ message: "Payment recorded", bill: updated });
     }
@@ -115,6 +127,17 @@ export async function PATCH(
         }
       );
 
+      await logUserAction(db, {
+        userId: payload.id,
+        userName: payload.name,
+        userRole: payload.role,
+        actionType: "update_payment_amount",
+        entityType: "billing",
+        entityId: billId,
+        summary: `Updated paid amount to ₹${newPaidAmount.toLocaleString("en-IN")} on Invoice #${existing.invoiceNumber || billId}`,
+        metadata: { billId, invoiceNumber: existing.invoiceNumber, newPaidAmount, isFullyPaid },
+      });
+
       const updated = await collection.findOne({ id: billId });
       return NextResponse.json({ message: "Bill updated", bill: updated });
     }
@@ -141,6 +164,19 @@ export async function PATCH(
           },
         }
       );
+
+      await logUserAction(db, {
+        userId: payload.id,
+        userName: payload.name,
+        userRole: payload.role,
+        actionType: markPaid ? "mark_paid" : "mark_unpaid",
+        entityType: "billing",
+        entityId: billId,
+        summary: markPaid
+          ? `Marked Invoice #${existing.invoiceNumber || billId} as Fully Paid`
+          : `Marked Invoice #${existing.invoiceNumber || billId} as Unpaid`,
+        metadata: { billId, invoiceNumber: existing.invoiceNumber, status: body.status },
+      });
 
       const updated = await collection.findOne({ id: billId });
       return NextResponse.json({ message: "Bill updated", bill: updated });

@@ -54,21 +54,12 @@ if (activity.status === "training") {
 }
     const now = new Date();
 
-    let workSeconds = activity.workSeconds || 0;
-
-    if (activity.status === "working") {
-      workSeconds += Math.floor(
-        (now.getTime() - new Date(activity.checkIn).getTime()) / 1000
-      );
-    }
-
     await db.collection("activities").updateOne(
       { _id: activity._id },
       {
         $set: {
           status: "break",
           breakStart: now,
-          workSeconds,
           updatedAt: now,
         },
       }

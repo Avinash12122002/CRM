@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -203,6 +204,17 @@ export async function POST(req: NextRequest) {
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "reschedule_meeting",
+      entityType: "meeting",
+      entityId: leadId,
+      summary: `Rescheduled meeting for candidate "${lead.name || `#${leadId}`}" with ${meetingUser.name} on ${meetingDate} at ${startTime}`,
+      metadata: { leadId, meetingDate, startTime, meetingUserId, meetingUserName: meetingUser.name },
+    });
 
     return NextResponse.json({
       message: oldMeeting

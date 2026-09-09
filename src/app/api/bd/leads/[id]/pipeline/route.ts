@@ -89,7 +89,7 @@ export async function POST(
       // admin account and actually move assignedTo — previously this only
       // logged an "Ownership Changed" activity entry without touching the
       // lead, so filters/views keyed on assignedTo never reflected it.
-      newOwner = await getAdminUser(db, payload);
+      newOwner = await getAdminUser(db);
       if (newOwner) {
         updateFields.assignedTo = newOwner.id;
         updateFields.assignedToName = newOwner.name;
@@ -130,6 +130,7 @@ export async function POST(
         userName: payload.name,
         previousValue: lead.priority || null,
         newValue: priority,
+        skipUserAction: true,
       });
     }
 
@@ -140,6 +141,7 @@ export async function POST(
         action: "Deal Done",
         userId: payload.id,
         userName: payload.name,
+        skipUserAction: true,
       });
       if (newOwner) {
         await logBDActivity({
@@ -150,6 +152,7 @@ export async function POST(
           userName: payload.name,
           previousValue: lead.assignedToName,
           newValue: newOwner.name,
+          skipUserAction: true,
         });
       }
 

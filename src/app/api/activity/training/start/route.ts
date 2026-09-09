@@ -55,21 +55,12 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
 
-    let workSeconds = activity.workSeconds || 0;
-
-    if (activity.status === "working") {
-      workSeconds += Math.floor(
-        (now.getTime() - new Date(activity.checkIn).getTime()) / 1000
-      );
-    }
-
     await db.collection("activities").updateOne(
       { _id: activity._id },
       {
         $set: {
           status: "training",
           trainingStart: now,
-          workSeconds,
           updatedAt: now,
         },
       }

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getAuthPayload } from "@/lib/bd/helpers";
 import { getNextId } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 import {
   BILLING_COLLECTION,
   BILLING_ROLES,
@@ -85,6 +86,17 @@ export async function POST(req: NextRequest) {
     };
 
     await db.collection(BILLING_COLLECTION).insertOne(bill);
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "billing_invoice_created",
+      entityType: "invoice",
+      entityId: id,
+      summary: `Created invoice #${invoiceNumber} for ${clientName} (₹${finalAmount.toLocaleString("en-IN")})`,
+      metadata: { invoiceNumber, clientName, amount: finalAmount, paidAmount },
+    });
 
     return NextResponse.json({ message: "Bill created successfully", bill }, { status: 201 });
   } catch (err) {

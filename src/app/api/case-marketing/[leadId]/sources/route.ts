@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { getNextId } from "@/lib/auth";
 import { getTokenPayload, getAuthorizedCandidateLead } from "@/lib/caseMarketingAuth";
 import { getPhaseConfig } from "@/lib/caseMarketing";
+import { logUserAction } from "@/lib/activity/audit";
 
 // GET /api/case-marketing/:leadId/sources?phase=1
 export async function GET(
@@ -131,6 +132,17 @@ export async function POST(
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "add_marketing_sources",
+      entityType: "case_lead",
+      entityId: leadId,
+      summary: `Added ${toInsert.length} marketing sources (${phaseConfig.label}) for candidate #${leadId}`,
+      metadata: { leadId, phase, count: toInsert.length, phaseLabel: phaseConfig.label },
+    });
 
     return NextResponse.json({ message: "Saved", added: toInsert.length });
   } catch (err) {

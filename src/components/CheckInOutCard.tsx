@@ -23,11 +23,17 @@ type Activity = {
   firstCheckIn?: string;
   lastCheckOut?: string | null;
 
-  status: "working" | "break" | "training" | "completed";
+  status: "working" | "idle" | "break" | "training" | "completed";
 
   workSeconds: number;
+  shiftSeconds?: number;
+  activeSeconds?: number;
+  idleSeconds?: number;
   breakSeconds: number;
   trainingSeconds: number;
+
+  actionsToday?: number;
+  isGhostAlert?: boolean;
 
   breakStart?: string | null;
   trainingStart?: string | null;
@@ -44,6 +50,7 @@ export default function CheckInOutCard() {
   const [workTime, setWorkTime] = useState("00:00:00");
   const [breakTime, setBreakTime] = useState("00:00:00");
   const [trainingTime, setTrainingTime] = useState("00:00:00");
+  const [isMonitored, setIsMonitored] = useState<boolean>(true);
 
   useEffect(() => {
     fetchCurrentActivity();
@@ -67,10 +74,11 @@ export default function CheckInOutCard() {
         const data = await res.json();
 
         setIsCheckedIn(data.isCheckedIn);
+        setIsMonitored(data.isMonitored !== false);
         setCurrentActivity(data.activity);
 
         if (data.activity) {
-          setWorkTime(formatTime(data.activity.workSeconds || 0));
+          setWorkTime(formatTime(data.activity.shiftSeconds ?? data.activity.workSeconds ?? 0));
 
           setBreakTime(formatTime(data.activity.breakSeconds || 0));
 
@@ -102,6 +110,9 @@ export default function CheckInOutCard() {
         setIsCheckedIn(true);
         setCurrentActivity(data.activity);
         fetchCurrentActivity();
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("activity-change"));
+        }
 
         toast.success("Checked in successfully!");
       } else {
@@ -130,6 +141,9 @@ export default function CheckInOutCard() {
         setWorkTime("00:00:00");
         setBreakTime("00:00:00");
         setTrainingTime("00:00:00");
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("activity-change"));
+        }
         toast.success(
           `Checked out! Work: ${data.workHours}h | Break: ${data.breakHours}h | Training: ${data.trainingHours}h`,
         );
@@ -152,6 +166,9 @@ export default function CheckInOutCard() {
 
     if (res.ok) {
       await fetchCurrentActivity();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("activity-change"));
+      }
       toast.success("Break started");
     } else {
       toast.error(data.message);
@@ -168,6 +185,9 @@ export default function CheckInOutCard() {
     if (res.ok) {
       toast.success("Break ended");
       fetchCurrentActivity();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("activity-change"));
+      }
     } else {
       toast.error(data.message);
     }
@@ -183,6 +203,9 @@ export default function CheckInOutCard() {
     if (res.ok) {
       toast.success("Training started");
       fetchCurrentActivity();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("activity-change"));
+      }
     } else {
       toast.error(data.message);
     }
@@ -198,6 +221,9 @@ export default function CheckInOutCard() {
     if (res.ok) {
       toast.success("Training ended");
       fetchCurrentActivity();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("activity-change"));
+      }
     } else {
       toast.error(data.message);
     }
@@ -224,6 +250,8 @@ export default function CheckInOutCard() {
               ? "Not checked in"
               : currentActivity?.status === "working"
                 ? "Working"
+                : currentActivity?.status === "idle"
+                  ? "Idle (Paused)"
                 : currentActivity?.status === "break"
                   ? "On Break"
                   : currentActivity?.status === "training"
@@ -242,42 +270,65 @@ export default function CheckInOutCard() {
 
       {isCheckedIn && (
         <div className="mb-6 text-center">
-          <div className="inline-flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl px-6 py-4">
-            <svg
-              className="w-5 h-5 text-zinc-600 dark:text-zinc-400 mr-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            <div className="space-y-2">
-              <div className="text-xl font-bold">Work: {workTime}</div>
+          <div className="inline-flex flex-col items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-xl px-6 py-4 w-full">
+            <div className="flex items-center justify-center mb-2">
+              <svg
+                className="w-5 h-5 text-zinc-600 dark:text-zinc-400 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div className="text-xl font-bold">Shift: {workTime}</div>
+            </div>
 
-              <div className="text-sm">Break: {breakTime}</div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-zinc-300 w-full pt-2 border-t border-zinc-200 dark:border-zinc-700/60">
+              <div className="text-left font-semibold text-emerald-600 dark:text-emerald-400">
+                🟢 Active: {formatTime(currentActivity?.activeSeconds || 0)}
+              </div>
+              <div className="text-right font-semibold text-amber-600 dark:text-amber-400">
+                🟡 Idle: {formatTime(currentActivity?.idleSeconds || 0)}
+              </div>
+              <div className="text-left">Break: {breakTime}</div>
+              <div className="text-right">Training: {trainingTime}</div>
+            </div>
 
-              <div className="text-sm">Training: {trainingTime}</div>
+            {/* Actions recorded badge */}
+            <div className="mt-3 pt-2 border-t border-zinc-200 dark:border-zinc-700/60 w-full flex items-center justify-between text-xs">
+              <span className="text-zinc-500">Verified Work Actions:</span>
+              <span className="font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-md">
+                {currentActivity?.actionsToday || 0}
+              </span>
             </div>
           </div>
+
+          {/* Ghost Warning Banner for Employee (Only for monitored roles) */}
+          {isMonitored && currentActivity?.isGhostAlert && (
+            <div className="mt-2.5 p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs text-center font-medium animate-pulse">
+              ⚠️ Inactivity Warning: 0 CRM actions recorded in over 10 mins of work time. Please update your leads or tasks.
+            </div>
+          )}
+
           <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-2">
             Checked in at{" "}
             {currentActivity &&
               new Date(
-  currentActivity.firstCheckIn ||
-  currentActivity.checkIn
-).toLocaleTimeString()}
+                currentActivity.firstCheckIn ||
+                currentActivity.checkIn
+              ).toLocaleTimeString()}
           </p>
         </div>
       )}
 
       {isCheckedIn && (
         <div className="grid grid-cols-2 gap-3 mb-4">
-          {currentActivity?.status === "working" && (
+          {(currentActivity?.status === "working" || currentActivity?.status === "idle") && (
             <>
               <button
                 onClick={handleBreakStart}

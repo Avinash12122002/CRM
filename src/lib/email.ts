@@ -410,7 +410,7 @@ export async function processDueFollowups() {
         }
       }
 
-      let sendResult: any;
+      let sendResult: { failed?: boolean; simulated?: boolean; error?: string };
       try {
         sendResult = await sendEmail({
           from: mailbox,

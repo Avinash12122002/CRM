@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import type { Db } from "mongodb";
 import { verifyToken, getNextId } from "@/lib/auth";
 import { BD_COLLECTIONS, BD_ROLE } from "./constants";
+import { logUserAction } from "@/lib/activity/audit";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function getAuthPayload(req: NextRequest): Record<string, any> | null {
@@ -62,8 +63,8 @@ export async function pickNextBDUser(db: Db) {
  */
 export async function getAdminUser(
   db: Db,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  _payload?: Record<string, any>
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _payload?: unknown
 ): Promise<{ id: number; name: string } | null> {
   const admin = await db
     .collection("users")
@@ -95,10 +96,12 @@ interface LogActivityParams {
   action: string;
   userId: number;
   userName: string;
+  userRole?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   previousValue?: any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   newValue?: any;
+  skipUserAction?: boolean;
 }
 
 export async function logBDActivity({
@@ -107,8 +110,10 @@ export async function logBDActivity({
   action,
   userId,
   userName,
+  userRole,
   previousValue = null,
   newValue = null,
+  skipUserAction = false,
 }: LogActivityParams) {
   const id = await getNextId(db, BD_COLLECTIONS.activityLogs);
   await db.collection(BD_COLLECTIONS.activityLogs).insertOne({
@@ -120,6 +125,34 @@ export async function logBDActivity({
     previousValue,
     newValue,
     createdAt: new Date(),
+  });
+
+  if (skipUserAction) {
+    return;
+  }
+
+  let resolvedRole: string = userRole || "";
+  if (!resolvedRole) {
+    const userDoc = await db.collection("users").findOne({ id: userId }, { projection: { role: 1 } });
+    resolvedRole = (userDoc?.role as string) || BD_ROLE;
+  }
+
+  const actionLower = action.toLowerCase();
+  const actionType = actionLower === "lead created"
+    ? "bd_lead_created"
+    : actionLower.includes("note")
+    ? "bd_note_added"
+    : "bd_stage_updated";
+
+  await logUserAction(db, {
+    userId,
+    userName,
+    userRole: resolvedRole,
+    actionType,
+    entityType: "bd_lead",
+    entityId: leadId,
+    summary: `BD Lead #${leadId}: ${action}`,
+    metadata: { leadId, action, previousValue, newValue },
   });
 }
 

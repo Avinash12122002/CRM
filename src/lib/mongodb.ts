@@ -1,6 +1,10 @@
 import { MongoClient, Db } from "mongodb";
 
-let cached: { client: MongoClient; db: Db } | undefined;
+declare global {
+  var _mongoClientInstance: { client: MongoClient; db: Db } | undefined;
+}
+
+let cached = global._mongoClientInstance;
 let indexesEnsured = false;
 
 async function ensureIndexes(db: Db) {
@@ -15,6 +19,16 @@ async function ensureIndexes(db: Db) {
     db.collection("bdactivitylogs").createIndex({ id: 1 }),
     db.collection("dailyleadtargets").createIndex({ date: 1 }),
     db.collection("users").createIndex({ role: 1 }),
+    // ── Activity tracking indexes (heartbeat, ghost check, wfh-monitor) ──
+    db.collection("activities").createIndex({ userId: 1, date: 1 }),
+    db.collection("activities").createIndex({ userId: 1, checkOut: 1 }),
+    db.collection("activities").createIndex({ date: 1 }),
+    db.collection("activities").createIndex({ isGhostAlert: 1 }),
+    db.collection("activities").createIndex({ lastHeartbeatAt: 1 }),
+    // ── Audit log indexes (actionsToday count, ghost evaluation, timeline) ──
+    db.collection("user_action_logs").createIndex({ userId: 1, date: 1 }),
+    db.collection("user_action_logs").createIndex({ date: 1 }),
+    db.collection("user_action_logs").createIndex({ timestamp: -1 }),
     // Email Workflow Engine indexes
     db.collection("lead_workflows").createIndex({ leadId: 1 }, { unique: true }),
     db.collection("lead_workflows").createIndex({ nextFollowupAt: 1 }),
@@ -44,12 +58,19 @@ export async function connectToDatabase() {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGODB_URI is not set in environment");
 
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    maxPoolSize: 10,
+    minPoolSize: 1,
+    maxIdleTimeMS: 30000,
+    serverSelectionTimeoutMS: 10000,
+  });
+
   try {
     await client.connect();
     const db = client.db();
 
     cached = { client, db };
+    global._mongoClientInstance = cached;
     ensureIndexes(db); // fire-and-forget, runs once per warm instance
     return cached;
   } catch (err) {

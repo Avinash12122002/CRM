@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { isMonitoredRole } from "@/lib/activity/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    const matchFilter: Record<string, any> = {};
+    const matchFilter: Record<string, unknown> = {};
 
     if (payload.role !== "admin") {
       matchFilter.userId = payload.id;
@@ -91,6 +92,7 @@ export async function GET(req: NextRequest) {
 
             userName: "$user.name",
             userUsername: "$user.username",
+            userRole: "$user.role",
 
             checkIn: 1,
             checkOut: 1,
@@ -104,6 +106,32 @@ export async function GET(req: NextRequest) {
 
             workSeconds: {
               $ifNull: ["$workSeconds", 0],
+            },
+
+            activeSeconds: {
+              $ifNull: ["$activeSeconds", 0],
+            },
+
+            idleSeconds: {
+              $ifNull: ["$idleSeconds", 0],
+            },
+
+            actionsToday: {
+              $ifNull: ["$actionsToday", 0],
+            },
+
+            isGhostAlert: {
+              $ifNull: ["$isGhostAlert", false],
+            },
+
+            lastActionAt: 1,
+
+            workVerificationStatus: {
+              $ifNull: ["$workVerificationStatus", "verified"],
+            },
+
+            shiftSeconds: {
+              $ifNull: ["$shiftSeconds", 0],
             },
 
             breakSeconds: {
@@ -124,27 +152,23 @@ export async function GET(req: NextRequest) {
 
     const formattedActivities = activities.map((activity) => {
       const now = new Date();
+      const isCheckedOut = Boolean(activity.checkOut);
 
-      let workSeconds = activity.workSeconds || 0;
+      let totalShiftSeconds = 0;
+      if (isCheckedOut) {
+        totalShiftSeconds = activity.shiftSeconds || Math.max(0, Math.floor((new Date(activity.checkOut).getTime() - new Date(activity.firstCheckIn || activity.checkIn).getTime()) / 1000));
+      } else {
+        const baseShiftSeconds = (activity.sessions && activity.sessions > 1) ? (activity.shiftSeconds || 0) : 0;
+        const sessionCheckIn = (activity.sessions && activity.sessions > 1) ? activity.checkIn : (activity.firstCheckIn || activity.checkIn);
+        const sessionElapsedSeconds = Math.max(0, Math.floor((now.getTime() - new Date(sessionCheckIn).getTime()) / 1000));
+        totalShiftSeconds = baseShiftSeconds + sessionElapsedSeconds;
+      }
+
       let breakSeconds = activity.breakSeconds || 0;
       let trainingSeconds = activity.trainingSeconds || 0;
 
-      // Running Work Time
-      if (
-        activity.status === "working" &&
-        !activity.checkOut &&
-        activity.checkIn
-      ) {
-        workSeconds += Math.max(
-          0,
-          Math.floor(
-            (now.getTime() - new Date(activity.checkIn).getTime()) / 1000,
-          ),
-        );
-      }
-
       // Running Break Time
-      if (activity.status === "break" && activity.breakStart) {
+      if (!isCheckedOut && activity.status === "break" && activity.breakStart) {
         breakSeconds += Math.max(
           0,
           Math.floor(
@@ -154,7 +178,7 @@ export async function GET(req: NextRequest) {
       }
 
       // Running Training Time
-      if (activity.status === "training" && activity.trainingStart) {
+      if (!isCheckedOut && activity.status === "training" && activity.trainingStart) {
         trainingSeconds += Math.max(
           0,
           Math.floor(
@@ -163,15 +187,21 @@ export async function GET(req: NextRequest) {
         );
       }
 
+      // Total working seconds including training (excluding only break)
+      const workSeconds = Math.max(0, totalShiftSeconds - breakSeconds);
+      // Ghost evaluation seconds strictly excluding break & training
+      const ghostWorkSeconds = Math.max(0, totalShiftSeconds - breakSeconds - trainingSeconds);
+
+      const activeSeconds = Math.min(activity.activeSeconds || 0, workSeconds);
+      const idleSeconds = Math.max(0, workSeconds - activeSeconds);
+
       const workHours = Number((workSeconds / 3600).toFixed(2));
-
       const breakHours = Number((breakSeconds / 3600).toFixed(2));
-
       const trainingHours = Number((trainingSeconds / 3600).toFixed(2));
+      const activeHours = Number((activeSeconds / 3600).toFixed(2));
+      const idleHours = Number((idleSeconds / 3600).toFixed(2));
 
-      const totalWorkingDay = Number(
-        ((workSeconds + trainingSeconds) / 3600).toFixed(2),
-      );
+      const totalWorkingDay = workHours;
 
       let lateMinutes = 0;
 
@@ -221,6 +251,30 @@ export async function GET(req: NextRequest) {
         trainingHours,
 
         totalWorkingDay,
+
+        activeSeconds,
+
+        idleSeconds,
+
+        activeHours,
+
+        idleHours,
+
+        actionsToday: activity.actionsToday || 0,
+
+        isGhostAlert: (() => {
+          if (!isMonitoredRole(activity.userRole)) return false;
+          const lastActionTime = activity.lastActionAt;
+          const minutesSinceLastAction = lastActionTime
+            ? Math.max(0, Math.floor((now.getTime() - new Date(lastActionTime).getTime()) / 60000))
+            : Math.floor(ghostWorkSeconds / 60);
+
+          return !isCheckedOut
+            ? minutesSinceLastAction >= 10 && !["break", "training"].includes(activity.status)
+            : activity.isGhostAlert || activity.workVerificationStatus === "unverified_ghost" || activity.workVerificationStatus === "low_activity" || (Math.floor(ghostWorkSeconds / 60) >= 30 && (activity.actionsToday || 0) === 0);
+        })(),
+
+        workVerificationStatus: activity.workVerificationStatus || "verified",
 
         sessions: activity.sessions,
 

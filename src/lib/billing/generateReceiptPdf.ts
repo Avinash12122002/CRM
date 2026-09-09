@@ -22,9 +22,10 @@ function formatINR(amount: number) {
   return `${amount.toLocaleString("en-IN")}/-`;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+import type { jsPDF } from "jspdf";
+
 function renderRichText(
-  doc: any,
+  doc: jsPDF,
   segments: RichSegment[],
   startX: number,
   startY: number,

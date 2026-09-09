@@ -5,6 +5,7 @@ import { Readable } from "stream";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 import { getGridFSBucket } from "@/lib/gridfs";
+import { logUserAction } from "@/lib/activity/audit";
 
 // Converting a Triloknath lead's status to "sales" requires a signed document
 // (PDF) to be uploaded at the same time. On success the lead is automatically
@@ -331,6 +332,22 @@ export async function POST(
         $addToSet: { visibleTo: { $each: [caseManager.id, finalAssignedTo].filter(Boolean) } },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "convert_to_sales",
+      entityType: "triloknath_lead",
+      entityId: leadId,
+      summary: `Converted Triloknath candidate "${lead.name || `#${leadId}`}" to Sales with signed document and handed over to Case Manager ${caseManager.name}`,
+      metadata: {
+        leadName: lead.name,
+        caseManagerName: caseManager.name,
+        occupations,
+        fileName: file.name,
+      },
+    });
 
     try {
       const { createNotification } = await import("@/lib/notifications");

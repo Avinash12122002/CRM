@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken, getNextId } from "@/lib/auth";
+import { isMonitoredRole } from "@/lib/activity/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,26 +43,95 @@ export async function POST(req: NextRequest) {
       const activeDate = activeCheckIn.date;
 
       if (activeDate !== today) {
-        // Auto checkout at end of previous day
-        const autoCheckout = new Date(`${activeDate}T23:59:59.999+05:30`);
+        // Auto checkout: Cap to user's last interaction, capped at 19:00 IST (never midnight)
+        const shiftEndCap = new Date(`${activeDate}T19:00:00.000+05:30`);
+        let autoCheckoutTime = activeCheckIn.lastHeartbeatAt
+          ? new Date(activeCheckIn.lastHeartbeatAt)
+          : activeCheckIn.lastActionAt
+          ? new Date(activeCheckIn.lastActionAt)
+          : shiftEndCap;
 
-        let totalWorkSeconds = activeCheckIn.workSeconds || 0;
+        if (autoCheckoutTime.getTime() > shiftEndCap.getTime()) {
+          autoCheckoutTime = shiftEndCap;
+        }
 
-        if (activeCheckIn.status === "working") {
-          totalWorkSeconds += Math.floor(
-            (autoCheckout.getTime() -
-              new Date(activeCheckIn.checkIn).getTime()) /
-              1000,
+        const baseShiftSeconds = (activeCheckIn.sessions && activeCheckIn.sessions > 1)
+          ? (activeCheckIn.shiftSeconds || 0)
+          : 0;
+        const sessionCheckIn = (activeCheckIn.sessions && activeCheckIn.sessions > 1)
+          ? activeCheckIn.checkIn
+          : (activeCheckIn.firstCheckIn || activeCheckIn.checkIn);
+
+        if (autoCheckoutTime.getTime() <= new Date(sessionCheckIn).getTime()) {
+          autoCheckoutTime = new Date(new Date(sessionCheckIn).getTime() + 60000);
+        }
+
+        const autoCheckout = autoCheckoutTime;
+        const sessionElapsedSeconds = Math.max(
+          0,
+          Math.floor((autoCheckout.getTime() - new Date(sessionCheckIn).getTime()) / 1000)
+        );
+        const elapsedShiftSeconds = baseShiftSeconds + sessionElapsedSeconds;
+
+        let breakSeconds = activeCheckIn.breakSeconds || 0;
+        let trainingSeconds = activeCheckIn.trainingSeconds || 0;
+
+        if (activeCheckIn.status === "break" && activeCheckIn.breakStart) {
+          breakSeconds += Math.max(
+            0,
+            Math.floor((autoCheckout.getTime() - new Date(activeCheckIn.breakStart).getTime()) / 1000)
           );
         }
+
+        if (activeCheckIn.status === "training" && activeCheckIn.trainingStart) {
+          trainingSeconds += Math.max(
+            0,
+            Math.floor((autoCheckout.getTime() - new Date(activeCheckIn.trainingStart).getTime()) / 1000)
+          );
+        }
+
+        const totalWorkSeconds = Math.max(0, elapsedShiftSeconds - breakSeconds);
+        const ghostWorkSeconds = Math.max(0, elapsedShiftSeconds - breakSeconds - trainingSeconds);
+        const activeSecs = Math.min(activeCheckIn.activeSeconds || 0, totalWorkSeconds);
+        const idleSecs = Math.max(0, totalWorkSeconds - activeSecs);
+
+        const actionsToday = await db.collection("user_action_logs").countDocuments({
+          userId: payload.id,
+          date: activeDate,
+        });
+
+        const isMonitored = isMonitoredRole(payload.role);
+        const isGhost = isMonitored && ((ghostWorkSeconds >= 1800 && actionsToday === 0) || (totalWorkSeconds >= 10800 && actionsToday < 3));
+        const workVerificationStatus = (isMonitored && ghostWorkSeconds >= 1800 && actionsToday === 0)
+          ? "unverified_ghost"
+          : (isMonitored && totalWorkSeconds >= 10800 && actionsToday < 3)
+          ? "low_activity"
+          : (activeCheckIn.workVerificationStatus || "verified");
 
         await db.collection("activities").updateOne(
           { _id: activeCheckIn._id },
           {
             $set: {
               checkOut: autoCheckout,
+              lastCheckOut: autoCheckout,
+              shiftSeconds: elapsedShiftSeconds,
+              shiftHours: Number((elapsedShiftSeconds / 3600).toFixed(2)),
               workSeconds: totalWorkSeconds,
+              workHours: Number((totalWorkSeconds / 3600).toFixed(2)),
+              activeSeconds: activeSecs,
+              activeHours: Number((activeSecs / 3600).toFixed(2)),
+              idleSeconds: idleSecs,
+              idleHours: Number((idleSecs / 3600).toFixed(2)),
+              breakSeconds,
+              breakHours: Number((breakSeconds / 3600).toFixed(2)),
+              trainingSeconds,
+              trainingHours: Number((trainingSeconds / 3600).toFixed(2)),
+              breakStart: null,
+              trainingStart: null,
+              actionsToday,
               status: "completed",
+              isGhostAlert: isGhost,
+              workVerificationStatus,
               updatedAt: now,
             },
           },
@@ -89,6 +159,13 @@ export async function POST(req: NextRequest) {
             checkIn: now,
             checkOut: null,
             status: "working",
+            lastHeartbeatAt: now,
+            // Reset ghost flag on re-checkin — a new session starts clean
+            isGhostAlert: false,
+            workVerificationStatus: "pending",
+            // Clear any dangling break/training state
+            breakStart: null,
+            trainingStart: null,
             updatedAt: now,
           },
           $inc: {
@@ -126,12 +203,24 @@ export async function POST(req: NextRequest) {
       checkIn: now,
       checkOut: null,
 
+      shiftSeconds: 0,
       workSeconds: 0,
+      activeSeconds: 0,
+      idleSeconds: 0,
       breakSeconds: 0,
       trainingSeconds: 0,
 
       breakStart: null,
       trainingStart: null,
+
+      actionsToday: await db.collection("user_action_logs").countDocuments({
+        userId: payload.id,
+        date: today,
+      }),
+      lastActionAt: null,
+      lastHeartbeatAt: now,
+      isGhostAlert: false,
+      workVerificationStatus: "pending",
 
       sessions: 1,
 

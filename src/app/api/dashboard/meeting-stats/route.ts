@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
 
     // Find only leads that have meeting details, just like /api/meetings
-    const filter: Record<string, any> = {
+    const filter: Record<string, unknown> = {
       meetingDetails: { $exists: true, $ne: null },
     };
 
@@ -55,16 +55,24 @@ export async function GET(req: NextRequest) {
       ];
     }
 
-    const allLeads: any[] = await db.collection("leads").find(filter).toArray();
+    const allLeads = await db.collection("leads").find(filter).toArray();
 
-    const isCompleted = (l: any) =>
-      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
-    const isCancelled = (l: any) =>
-      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
-    const isScheduled = (l: any) =>
-      !isCompleted(l) &&
-      !isCancelled(l) &&
-      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+    const isCompleted = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "completed" || md?.status === "completed" || l.status === "sales";
+    };
+    const isCancelled = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "cancelled" || md?.status === "cancelled";
+    };
+    const isScheduled = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return (
+        !isCompleted(l) &&
+        !isCancelled(l) &&
+        (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || md?.status === "scheduled")
+      );
+    };
 
     // Today's scheduled meetings (or total scheduled, depending on what we want, but the UI says "Today's Meetings")
     const todayMeetingSlots = allLeads.filter((l) => {

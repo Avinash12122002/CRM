@@ -41,7 +41,7 @@ export async function GET(
     );
 
   return new Response(
-    stream as any,
+    stream as unknown as BodyInit,
     {
       headers: {
         "Content-Type":

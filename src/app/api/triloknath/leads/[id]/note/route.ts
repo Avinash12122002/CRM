@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function POST(
   req: NextRequest,
@@ -63,6 +64,17 @@ export async function POST(
         },
       }
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "add_lead_note",
+      entityType: "triloknath_lead",
+      entityId: leadId,
+      summary: `Added note to Triloknath lead "${lead.name || `#${leadId}`}": ${note.trim().slice(0, 70)}${note.trim().length > 70 ? "..." : ""}`,
+      metadata: { leadId, note: note.trim() },
+    });
 
     return NextResponse.json({ message: "Note added successfully" });
   } catch (err) {

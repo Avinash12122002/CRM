@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getTokenPayload } from "@/lib/caseMarketingAuth";
+import { logUserAction } from "@/lib/activity/audit";
 
 // PUT /api/case-manager/leads/:id/occupations
 export async function PUT(
@@ -76,6 +77,17 @@ export async function PUT(
     if (result.matchedCount === 0) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "update_occupations",
+      entityType: "case_lead",
+      entityId: leadId,
+      summary: `Updated occupations for lead #${leadId}: ${cleanOccupations.join(", ")}`,
+      metadata: { occupations: cleanOccupations },
+    });
 
     return NextResponse.json({
       message: "Occupations updated successfully",

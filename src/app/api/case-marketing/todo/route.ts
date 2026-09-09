@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getTokenPayload } from "@/lib/caseMarketingAuth";
-import { getFollowupInfo, getPhaseConfig, PHASES } from "@/lib/caseMarketing";
+import { getFollowupInfo, getPhaseConfig } from "@/lib/caseMarketing";
 
 interface TodoTask {
   type: "followup" | "interested" | "interview" | "need_cv" | "need_info";

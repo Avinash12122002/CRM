@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
+import { getTodayIST, WFH_MONITORED_ROLES } from "@/lib/activity/audit";
 
 export async function GET(req: NextRequest) {
   try {
@@ -29,14 +30,45 @@ export async function GET(req: NextRequest) {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const todayStr = today.toISOString().split("T")[0]; // "YYYY-MM-DD"
+    const todayIST = getTodayIST();
+    const todayStr = todayIST;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 1. TELECALLERS ONLINE RIGHT NOW
+    // 1. TELECALLERS ONLINE RIGHT NOW (Fresh Heartbeat < 5m)
     // ═══════════════════════════════════════════════════════════════════════
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const telecallersOnline = await db.collection("activities").countDocuments({
-      checkIn:  { $gte: today, $lt: tomorrow },
+      $or: [
+        { date: todayIST },
+        { checkIn: { $gte: today, $lt: tomorrow } },
+      ],
       checkOut: null,
+      $and: [
+        {
+          $or: [
+            { lastHeartbeatAt: { $gte: fiveMinutesAgo } },
+            { updatedAt: { $gte: fiveMinutesAgo } },
+            { checkIn: { $gte: fiveMinutesAgo } },
+          ],
+        },
+      ],
+    });
+
+    const ghostCheckInsToday = await db.collection("activities").countDocuments({
+      $or: [
+        { date: todayIST },
+        { checkIn: { $gte: today, $lt: tomorrow } },
+      ],
+      userRole: { $in: [...WFH_MONITORED_ROLES] },
+      $and: [
+        {
+          $or: [
+            { isGhostAlert: true },
+            { workVerificationStatus: "unverified_ghost" },
+            { workVerificationStatus: "low_activity" },
+          ],
+        },
+      ],
     });
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -105,14 +137,22 @@ export async function GET(req: NextRequest) {
       .find({ meetingDetails: { $exists: true, $ne: null } })
       .toArray();
 
-    const isCompletedMeeting = (l: any) =>
-      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
-    const isCancelledMeeting = (l: any) =>
-      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
-    const isScheduledMeeting = (l: any) =>
-      !isCompletedMeeting(l) &&
-      !isCancelledMeeting(l) &&
-      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+    const isCompletedMeeting = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "completed" || md?.status === "completed" || l.status === "sales";
+    };
+    const isCancelledMeeting = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "cancelled" || md?.status === "cancelled";
+    };
+    const isScheduledMeeting = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return (
+        !isCompletedMeeting(l) &&
+        !isCancelledMeeting(l) &&
+        (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || md?.status === "scheduled")
+      );
+    };
 
     const totalMeetings = leadsWithMeeting.filter(isScheduledMeeting).length;
 
@@ -344,6 +384,7 @@ export async function GET(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     return NextResponse.json({
       telecallersOnline,
+      ghostCheckInsToday,
       leadsCreatedToday,
       leadsWorkedToday,
       assignedLeads,

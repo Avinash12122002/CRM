@@ -234,6 +234,7 @@ export async function POST(req: NextRequest) {
       userId: payload.id,
       userName: payload.name,
       newValue: { assignedTo: bdUser.id, assignedToName: bdUser.name },
+      skipUserAction: true,
     });
 
     // Every BD lead is visible to Admin (full access). Notify all admins on

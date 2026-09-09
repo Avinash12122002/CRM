@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken, getNextId } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function POST(req: NextRequest) {
   
@@ -214,6 +215,17 @@ export async function POST(req: NextRequest) {
     },
   },
 );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: lead.meetingDetails ? "reschedule_meeting" : "book_meeting",
+      entityType: "meeting",
+      entityId: leadId,
+      summary: `Booked meeting for lead "${lead.name || `#${leadId}`}" with ${meetingUser.name} on ${meetingDate} at ${startTime}`,
+      metadata: { leadId, meetingDate, startTime, meetingUserId, meetingUserName: meetingUser.name },
+    });
 
     return NextResponse.json({
       message: "Meeting booked successfully",

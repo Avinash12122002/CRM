@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -82,6 +83,17 @@ export async function POST(req: NextRequest) {
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "meeting_cancelled",
+      entityType: collectionName === "triloknath_leads" ? "triloknath_lead" : "meeting",
+      entityId: lead.id,
+      summary: `Cancelled meeting for lead #${lead.id} (${lead.name})`,
+      metadata: { leadName: lead.name },
+    });
 
     return NextResponse.json({
       message: "Meeting cancelled successfully",

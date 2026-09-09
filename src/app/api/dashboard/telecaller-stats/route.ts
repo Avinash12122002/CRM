@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 
-    let dueMatchCondition: any;
+    let dueMatchCondition: Record<string, unknown>;
     if (role === "follow_up") {
       dueMatchCondition = {
         $or: [
@@ -113,7 +113,7 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    let newAssignedCondition: any;
+    let newAssignedCondition: Record<string, unknown>;
     if (role === "follow_up") {
       newAssignedCondition = {
         status: "follow-up",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function PUT(
   req: NextRequest,
@@ -260,6 +261,17 @@ export async function PUT(
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "lead_updated",
+      entityType: "lead",
+      entityId: leadId,
+      summary: `Updated lead #${leadId} (${lead.name || "Candidate"}): ${changes.length > 0 ? changes.slice(0, 3).join("; ") : "details updated"}`,
+      metadata: { leadName: lead.name, changes },
+    });
 
     return NextResponse.json(
       {

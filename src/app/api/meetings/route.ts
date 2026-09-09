@@ -63,18 +63,26 @@ export async function GET(req: NextRequest) {
 
       const timeA = a.meetingDetails?.startTime || "";
       const timeB = b.meetingDetails?.startTime || "";
-      return timeB.localeCompare(timeA);
+      return timeA.localeCompare(timeB);
     });
 
     const total = allMeetings.length;
-    const isCompleted = (l: any) =>
-      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
-    const isCancelled = (l: any) =>
-      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
-    const isScheduled = (l: any) =>
-      !isCompleted(l) &&
-      !isCancelled(l) &&
-      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+    const isCompleted = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "completed" || md?.status === "completed" || l.status === "sales";
+    };
+    const isCancelled = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "cancelled" || md?.status === "cancelled";
+    };
+    const isScheduled = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return (
+        !isCompleted(l) &&
+        !isCancelled(l) &&
+        (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || md?.status === "scheduled")
+      );
+    };
 
     const completed = allMeetings.filter(isCompleted).length;
     const cancelled = allMeetings.filter(isCancelled).length;

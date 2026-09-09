@@ -26,13 +26,15 @@ export function useDuplicateCheck(
   useEffect(() => {
     const trimmed = value.trim();
     if (trimmed.length < 1) {
-      setState(DUP_IDLE);
-      return;
+      const resetTimer = setTimeout(() => {
+        setState(DUP_IDLE);
+      }, 0);
+      return () => clearTimeout(resetTimer);
     }
 
-    setState((prev) => ({ ...prev, checking: true }));
     const controller = new AbortController();
     const timer = setTimeout(async () => {
+      setState((prev) => ({ ...prev, checking: true }));
       try {
         const params = new URLSearchParams({ field, value: trimmed });
         if (excludeId) params.set("excludeId", String(excludeId));

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function GET(
   req: NextRequest,
@@ -261,6 +262,17 @@ export async function PUT(
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "lead_note_added",
+      entityType: "lead",
+      entityId: leadId,
+      summary: `Added note on lead #${leadId} (${lead.name || "Candidate"}): "${note.trim().slice(0, 50)}${note.trim().length > 50 ? "..." : ""}"`,
+      metadata: { leadName: lead.name, notePreview: note.trim().slice(0, 100) },
+    });
 
     return NextResponse.json({ message: "Note added successfully" });
   } catch (err) {

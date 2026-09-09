@@ -66,6 +66,7 @@ type TelecallerPerformance = {
 
 type AdminStats = {
   telecallersOnline: number;
+  ghostCheckInsToday: number;
   leadsCreatedToday: number;
   leadsWorkedToday: number;
   assignedLeads: number;
@@ -126,6 +127,7 @@ export default function DashboardPage() {
   });
   const [adminStats, setAdminStats] = useState<AdminStats>({
     telecallersOnline: 0,
+    ghostCheckInsToday: 0,
     leadsCreatedToday: 0,
     leadsWorkedToday: 0,
     assignedLeads: 0,
@@ -696,6 +698,31 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 </div>
+
+                {/* ── Ghost Check-In Alert Banner for Management ── */}
+                {adminStats.ghostCheckInsToday > 0 && (
+                  <div
+                    onClick={() => router.push("/dashboard/activity")}
+                    className="p-4 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-200 flex items-center justify-between cursor-pointer hover:bg-red-100/70 dark:hover:bg-red-900/40 transition shadow-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-red-200 dark:bg-red-900 flex items-center justify-center text-red-700 dark:text-red-300 font-bold text-lg animate-pulse">
+                        ⚠️
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">
+                          {adminStats.ghostCheckInsToday} Ghost Check-In Alert{adminStats.ghostCheckInsToday > 1 ? "s" : ""} Detected Today
+                        </h4>
+                        <p className="text-xs text-red-600 dark:text-red-300/80 mt-0.5">
+                          Employees checked in for hours with zero recorded work actions. Click to view the Live WFH Monitor.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-red-700 dark:text-red-300 underline shrink-0">
+                      Open WFH Monitor →
+                    </span>
+                  </div>
+                )}
 
                 {/* ── Quick Stats Grid ── */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

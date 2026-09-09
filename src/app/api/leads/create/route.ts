@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken, getNextId } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -138,7 +139,7 @@ export async function POST(req: NextRequest) {
     const id = await getNextId(db, "leads");
     const now = new Date();
 
-    const lead: Record<string, any> = {
+    const lead: Record<string, unknown> = {
       id,
       name: name || null,
       phone: cleanPhone,
@@ -174,8 +175,6 @@ export async function POST(req: NextRequest) {
       assignedByRole: payload.role,
 
       createdBy: payload.id,
-      participants: [payload.id],
-      visibleTo: [payload.id],
       createdAt: now,
       updatedAt: now,
       meetingDetails: null,
@@ -183,7 +182,56 @@ export async function POST(req: NextRequest) {
       meetingCompletedAt: null,
       meetingCancelledAt: null,
 
-      history: [],
+      participants: finalAssignedTo ? [payload.id, finalAssignedTo] : [payload.id],
+      visibleTo: finalAssignedTo ? [payload.id, finalAssignedTo] : [payload.id],
+
+      history: [
+        {
+          action: "created",
+          performedBy: payload.id,
+          performedByName: payload.name,
+          timestamp: now,
+          details: "Lead created",
+        },
+        ...(status === "call-back"
+          ? [
+              {
+                action: "callback_scheduled",
+                performedBy: payload.id,
+                performedByName: payload.name,
+                timestamp: now,
+                details: `Callback scheduled for ${new Date(
+                  callbackDate + "T00:00:00",
+                ).toLocaleDateString("en-IN")}`,
+              },
+            ]
+          : []),
+        ...(note?.trim()
+          ? [
+              {
+                action: "note_added",
+                performedBy: payload.id,
+                performedByName: payload.name,
+                timestamp: now,
+                details: note.trim(),
+              },
+            ]
+          : []),
+        ...(finalAssignedTo
+          ? [
+              {
+                action: "assigned",
+                performedBy: payload.id,
+                performedByName: payload.name,
+                timestamp: now,
+                details: `Lead assigned to ${assignedUser?.name || "Unknown"}`,
+                newAssignee: finalAssignedTo,
+                newAssigneeName: assignedUser?.name,
+                newAssigneeRole: assignedUser?.role,
+              },
+            ]
+          : []),
+      ],
       notes: note?.trim()
         ? [
             {
@@ -196,55 +244,18 @@ export async function POST(req: NextRequest) {
         : [],
     };
 
-    lead.history.push({
-      action: "created",
-      performedBy: payload.id,
-      performedByName: payload.name,
-      timestamp: now,
-      details: "Lead created",
-    });
-    if (status === "call-back") {
-      lead.history.push({
-        action: "callback_scheduled",
-        performedBy: payload.id,
-        performedByName: payload.name,
-        timestamp: now,
-        details: `Callback scheduled for ${new Date(
-          callbackDate + "T00:00:00",
-        ).toLocaleDateString("en-IN")}`,
-      });
-    }
-    if (note?.trim()) {
-      lead.history.push({
-        action: "note_added",
-        performedBy: payload.id,
-        performedByName: payload.name,
-        timestamp: now,
-        details: note.trim(),
-      });
-    }
-
-    if (finalAssignedTo) {
-      lead.history.push({
-        action: "assigned",
-        performedBy: payload.id,
-        performedByName: payload.name,
-        timestamp: now,
-        details: `Lead assigned to ${assignedUser?.name || "Unknown"}`,
-        newAssignee: finalAssignedTo,
-        newAssigneeName: assignedUser?.name,
-        newAssigneeRole: assignedUser?.role,
-      });
-    }
-
-    if (finalAssignedTo && !lead.participants.includes(finalAssignedTo)) {
-      lead.participants.push(finalAssignedTo);
-    }
-    if (finalAssignedTo && !lead.visibleTo.includes(finalAssignedTo)) {
-      lead.visibleTo.push(finalAssignedTo);
-    }
-
     await db.collection("leads").insertOne(lead);
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "lead_created",
+      entityType: "lead",
+      entityId: id,
+      summary: `Created lead #${id} (${lead.name}) with status "${status}"`,
+      metadata: { leadName: lead.name, phone: lead.phone, status },
+    });
 
     return NextResponse.json(
       {

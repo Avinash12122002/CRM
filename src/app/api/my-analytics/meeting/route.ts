@@ -3,19 +3,19 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 
-function getISTDateStr(raw: any): string | null {
+function getISTDateStr(raw: string | number | Date | null | undefined): string | null {
   if (!raw) return null;
   const d = new Date(raw);
   if (isNaN(d.getTime())) return null;
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
-function getISTMonthStr(raw: any): string | null {
+function getISTMonthStr(raw: string | number | Date | null | undefined): string | null {
   const istDate = getISTDateStr(raw);
   return istDate ? istDate.slice(0, 7) : null;
 }
 
-function isDateInCohort(rawDate: any, validDate: string, validMonth: string): boolean {
+function isDateInCohort(rawDate: string | number | Date | null | undefined, validDate: string, validMonth: string): boolean {
   if (validDate) {
     return getISTDateStr(rawDate) === validDate;
   }
@@ -97,14 +97,22 @@ export async function GET(req: NextRequest) {
     const totalLeads = cohortLeads.length;
     const totalMeetings = cohortMeetingLeads.length;
 
-    const isCompleted = (l: any) =>
-      l.meetingStatus === "completed" || l.meetingDetails?.status === "completed" || l.status === "sales";
-    const isCancelled = (l: any) =>
-      l.meetingStatus === "cancelled" || l.meetingDetails?.status === "cancelled";
-    const isScheduled = (l: any) =>
-      !isCompleted(l) &&
-      !isCancelled(l) &&
-      (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || l.meetingDetails?.status === "scheduled");
+    const isCompleted = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "completed" || md?.status === "completed" || l.status === "sales";
+    };
+    const isCancelled = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return l.meetingStatus === "cancelled" || md?.status === "cancelled";
+    };
+    const isScheduled = (l: Record<string, unknown>) => {
+      const md = l.meetingDetails as Record<string, unknown> | undefined;
+      return (
+        !isCompleted(l) &&
+        !isCancelled(l) &&
+        (l.meetingStatus === "scheduled" || l.status === "meeting-scheduled" || md?.status === "scheduled")
+      );
+    };
 
     const completed = cohortMeetingLeads.filter(isCompleted).length;
     const cancelled = cohortMeetingLeads.filter(isCancelled).length;
@@ -118,18 +126,21 @@ export async function GET(req: NextRequest) {
     // Upcoming meetings (scheduled, future or today)
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const upcomingMeetings = allLeadsRaw
-      .filter((l: any) => {
-        const mDate = l.meetingDetails?.meetingDate || "";
+      .filter((l: Record<string, unknown>) => {
+        const md = l.meetingDetails as Record<string, unknown> | undefined;
+        const mDate = (md?.meetingDate as string) || "";
         return isScheduled(l) && mDate >= todayStr;
       })
-      .sort((a: any, b: any) => {
-        const dateA = a.meetingDetails?.meetingDate || "";
-        const dateB = b.meetingDetails?.meetingDate || "";
+      .sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+        const mdA = a.meetingDetails as Record<string, unknown> | undefined;
+        const mdB = b.meetingDetails as Record<string, unknown> | undefined;
+        const dateA = (mdA?.meetingDate as string) || "";
+        const dateB = (mdB?.meetingDate as string) || "";
         const dateCmp = dateA.localeCompare(dateB);
         if (dateCmp !== 0) return dateCmp;
-        const timeA = a.meetingDetails?.startTime || "";
-        const timeB = b.meetingDetails?.startTime || "";
-        return timeB.localeCompare(timeA);
+        const timeA = (mdA?.startTime as string) || "";
+        const timeB = (mdB?.startTime as string) || "";
+        return timeA.localeCompare(timeB);
       })
       .slice(0, 10)
       .map((l) => ({

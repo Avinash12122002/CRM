@@ -20,6 +20,9 @@ export async function GET(req: NextRequest) {
     }
 
     if (!DATA_ENTRY_ROLES.includes(payload.role)) {
+      if (payload.role === "admin" || payload.role === "business_development") {
+        return NextResponse.json({ shouldNotify: false, remaining: 0 });
+      }
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

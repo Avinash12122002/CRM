@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Readable } from "stream";
-import { verifyToken, getNextId } from "@/lib/auth";
-import { connectToDatabase } from "@/lib/mongodb";
+import { verifyToken } from "@/lib/auth";
 import { getGridFSBucket } from "@/lib/gridfs";
 
 export async function POST(req: NextRequest) {

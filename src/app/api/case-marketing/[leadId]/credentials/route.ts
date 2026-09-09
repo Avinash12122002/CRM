@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getTokenPayload, getAuthorizedCandidateLead } from "@/lib/caseMarketingAuth";
+import { logUserAction } from "@/lib/activity/audit";
 
 // PATCH /api/case-marketing/:leadId/credentials
 export async function PATCH(
@@ -50,6 +51,17 @@ export async function PATCH(
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "update_credentials",
+      entityType: "case_lead",
+      entityId: leadId,
+      summary: `Updated candidate mailing credentials for candidate #${leadId} (${caseManagerEmail})`,
+      metadata: { leadId, email: caseManagerEmail },
+    });
 
     return NextResponse.json({
       message: "Case Manager mailing credentials saved successfully",

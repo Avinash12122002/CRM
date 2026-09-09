@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function PUT(
   req: NextRequest,
@@ -136,7 +137,7 @@ const { status, callbackDate } = body;
 
     const now = new Date();
     const oldStatus = lead.status;
-    let meetingStatusUpdate: Record<string, any> = {};
+    let meetingStatusUpdate: Record<string, unknown> = {};
 
     // Sales = Meeting Completed
     if (status === "sales") {
@@ -249,6 +250,17 @@ await db.collection("leads").updateOne(
       : {},
   },
 );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "lead_status_updated",
+      entityType: "lead",
+      entityId: leadId,
+      summary: `Updated lead #${leadId} (${lead.name || "Candidate"}) status from "${oldStatus}" to "${status}"`,
+      metadata: { oldStatus, newStatus: status, leadName: lead.name },
+    });
 
     return NextResponse.json(
       {

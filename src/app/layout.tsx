@@ -6,6 +6,7 @@ import { ChatProvider } from "@/contexts/ChatContext";
 import FloatingChatButton from "@/components/chat/FloatingChatButton";
 import FloatingChatWindow from "@/components/chat/FloatingChatWindow";
 import NewMessagePopup from "@/components/chat/NewMessagePopup";
+import ActivityTracker from "@/components/wfh/ActivityTracker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,6 +38,8 @@ export default function RootLayout({
           <ChatProvider>
             <Toaster position="top-right" />
             {children}
+            {/* WFH Activity & Idle Tracker */}
+            <ActivityTracker />
             {/* FloatingChatWindow renders below the button in DOM but z-index keeps them separate */}
             <FloatingChatWindow />
             <FloatingChatButton />

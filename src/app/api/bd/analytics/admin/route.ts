@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
     // /leads/list already uses — instead of loading everything and
     // filtering in JS.
     // Build MongoDB filter covering both BSON Date objects and ISO strings
-    const leadsFilter: Record<string, any> = cohortWindow
+    const leadsFilter: Record<string, unknown> = cohortWindow
       ? {
           $or: [
             { createdAt: { $gte: cohortWindow.start, $lt: cohortWindow.end } },
@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
     // - If cohort filter is active & leads matched: query $in cohortLeadIds (very fast)
     // - If cohort filter is active & 0 leads matched: skip DB query completely
     // - If no cohort filter (all-time view): query all history records
-    const historyQuery: Record<string, any> | null = cohortWindow
+    const historyQuery: Record<string, unknown> | null = cohortWindow
       ? cohortLeadIds.length > 0
         ? { leadId: { $in: cohortLeadIds } }
         : null

@@ -137,7 +137,7 @@ export async function PUT(
             performedByName: payload.name,
             timestamp: now,
             details: `Admin re-uploaded signed document "${sanitizedFileName}"`,
-          } as any,
+          },
         },
       },
     );
@@ -225,7 +225,7 @@ export async function DELETE(
             performedByName: payload.name,
             timestamp: now,
             details: "Admin deleted candidate PDF document",
-          } as any,
+          },
         },
       },
     );

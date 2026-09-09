@@ -70,7 +70,7 @@ export async function POST(
 
     const filtered =
       reactions.filter(
-        (r: any) =>
+        (r: { userId?: number }) =>
           r.userId !==
           payload.id
       );

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getTokenPayload, getAuthorizedCandidateLead } from "@/lib/caseMarketingAuth";
 import { getPhaseConfig, STATUS_OPTIONS } from "@/lib/caseMarketing";
+import { logUserAction } from "@/lib/activity/audit";
 
 // PATCH /api/case-marketing/:leadId/employers/:employerId
 // body: { action: "email_sent", templateUsed?, mailboxUsed? }
@@ -82,6 +83,17 @@ export async function PATCH(
         },
       );
 
+      await logUserAction(db, {
+        userId: payload.id,
+        userName: payload.name,
+        userRole: payload.role,
+        actionType: "cm_email_sent",
+        entityType: "case_marketing",
+        entityId: employerId,
+        summary: `Sent candidate marketing email to "${employer.companyName}" (${employer.hrEmail || employer.generalEmail || "employer"})`,
+        metadata: { leadId, employerId, companyName: employer.companyName, phase: employer.phase },
+      });
+
       const updated = await db.collection("case_marketing_employers").findOne({ id: employerId });
       return NextResponse.json({ message: "Email marked as sent", employer: updated });
     }
@@ -138,6 +150,17 @@ export async function PATCH(
           },
         },
       );
+
+      await logUserAction(db, {
+        userId: payload.id,
+        userName: payload.name,
+        userRole: payload.role,
+        actionType: "cm_employer_status",
+        entityType: "case_marketing",
+        entityId: employerId,
+        summary: `Updated employer "${employer.companyName}" status to "${status}"`,
+        metadata: { leadId, employerId, companyName: employer.companyName, status },
+      });
 
       const updated = await db.collection("case_marketing_employers").findOne({ id: employerId });
       return NextResponse.json({ message: "Status updated", employer: updated });

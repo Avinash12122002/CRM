@@ -4,6 +4,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { getNextId } from "@/lib/auth";
 import { getTokenPayload, getAuthorizedCandidateLead } from "@/lib/caseMarketingAuth";
 import { getPhaseConfig } from "@/lib/caseMarketing";
+import { logUserAction } from "@/lib/activity/audit";
 
 const EMPLOYER_FIELDS = [
   "companyName",
@@ -154,6 +155,17 @@ export async function POST(
     }
 
     await db.collection("case_marketing_employers").insertOne(doc);
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "cm_employer_added",
+      entityType: "case_marketing",
+      entityId: id,
+      summary: `Researched & added employer "${companyName}" under ${source.name} (Phase ${source.phase})`,
+      metadata: { leadId, sourceId, companyName, phase: source.phase },
+    });
 
     await db.collection("leads").updateOne(
       { id: leadId },

@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    let query: Record<string, any> = {
+    let query: Record<string, unknown> = {
       role: {
         $in: [
           "admin",

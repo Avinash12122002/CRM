@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
 
 export async function POST(req: NextRequest) {
   try {
@@ -102,7 +103,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const updateSet: Record<string, any> = {
+    const updateSet: Record<string, unknown> = {
       meetingStatus: "completed",
       meetingDetails: lead.meetingDetails
         ? {
@@ -151,7 +152,7 @@ export async function POST(req: NextRequest) {
             newAssignee: assignedFollowUpUser ? assignedFollowUpUser.id : null,
             newAssigneeName: assignedFollowUpUser ? assignedFollowUpUser.name : null,
           },
-        } as any,
+        },
         $addToSet: {
           visibleTo: {
             $each: [payload.id, assignedFollowUpUser?.id].filter(Boolean),
@@ -175,6 +176,17 @@ export async function POST(req: NextRequest) {
         },
       },
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "meeting_completed",
+      entityType: "meeting",
+      entityId: lead.id,
+      summary: `Completed consultation meeting for candidate ${lead.name || `#${lead.id}`}`,
+      metadata: { leadName: lead.name, leadId: lead.id, followUpUser: assignedFollowUpUser?.name },
+    });
 
     if (assignedFollowUpUser) {
       try {

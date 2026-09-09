@@ -3,14 +3,13 @@ import type { NextRequest } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildTriloknathPipeline(
-  matchFilter: Record<string, any>,
-  payloadId: any,
+  matchFilter: Record<string, unknown>,
+  payloadId: number | string,
   payloadRole?: string,
   opts?: { skip?: number; limit?: number }
 ) {
-  const pipeline: any[] = [
+  const pipeline: Record<string, unknown>[] = [
     { $match: matchFilter },
 
     {
@@ -256,10 +255,8 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
     const collection = db.collection("triloknath_leads");
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let filter: Record<string, any> = {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const andConditions: Record<string, any>[] = [];
+    const filter: Record<string, unknown> = {};
+    const andConditions: Record<string, unknown>[] = [];
 
     const uid = payload.id;
     const uidStr = String(uid);

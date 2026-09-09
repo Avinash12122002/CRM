@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyToken } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/mongodb";
 import { createNotification } from "@/lib/notifications";
+import { logUserAction } from "@/lib/activity/audit";
 import {
   FollowUpStage,
   FOLLOW_UP_STAGE_CONFIGS,
@@ -198,12 +199,12 @@ export async function POST(
       note
     );
 
-    const updateDoc: Record<string, any> = {
+    const updateDoc: Record<string, unknown> = {
       followUpWorkflow: nextWorkflow,
       updatedAt: now,
     };
 
-    const historyEntries: any[] = [
+    const historyEntries: Record<string, unknown>[] = [
       {
         action: "email_marked_sent",
         performedBy: payload.id,
@@ -355,9 +356,22 @@ export async function POST(
           history: {
             $each: historyEntries,
           },
-        } as any,
+        },
       }
     );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: stage === "payment_confirmation" ? "convert_to_sales" : "lead_status_updated",
+      entityType: collectionName === "triloknath_leads" ? "triloknath_lead" : "lead",
+      entityId: lead.id,
+      summary: stage === "payment_confirmation"
+        ? `Confirmed payment (Sale Done) for lead #${lead.id} (${lead.name})`
+        : `Marked ${config.label} email sent for lead #${lead.id} (${lead.name})`,
+      metadata: { stage, leadName: lead.name },
+    });
 
     // Notify assigned trainee if applicable
     if (stage === "payment_confirmation" && assignedTrainee) {

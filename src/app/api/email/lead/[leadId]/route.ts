@@ -284,12 +284,10 @@ export async function POST(
 
        // ---------- Header: logo + title ----------
         y = 12; // reduced top margin (reuses the y declared above, not a new variable)
-        let logoLoaded = false;
         try {
           const logoPath = path.join(process.cwd(), "public", "tms-logo.png");
           const logoBase64 = fs.readFileSync(logoPath).toString("base64");
           doc.addImage(`data:image/png;base64,${logoBase64}`, "PNG", marginLeft, y, 20, 19);
-          logoLoaded = true;
         } catch {
           // logo not found on disk, continue without it
         }

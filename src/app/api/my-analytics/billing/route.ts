@@ -4,19 +4,19 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 import { BILLING_COLLECTION, round2, getBillStatus } from "@/lib/billing/constants";
 
-function getISTDateStr(raw: any): string | null {
+function getISTDateStr(raw: string | number | Date | null | undefined): string | null {
   if (!raw) return null;
   const d = new Date(raw);
   if (isNaN(d.getTime())) return null;
   return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 }
 
-function getISTMonthStr(raw: any): string | null {
+function getISTMonthStr(raw: string | number | Date | null | undefined): string | null {
   const istDate = getISTDateStr(raw);
   return istDate ? istDate.slice(0, 7) : null;
 }
 
-function isDateInCohort(rawDate: any, validDate: string, validMonth: string): boolean {
+function isDateInCohort(rawDate: string | number | Date | null | undefined, validDate: string, validMonth: string): boolean {
   if (validDate) {
     return getISTDateStr(rawDate) === validDate;
   }

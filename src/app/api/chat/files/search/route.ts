@@ -63,7 +63,7 @@ export async function GET(
 
     const conversationIds =
       conversations.map(
-        (c: any) => c.id,
+        (c: { id?: number | string }) => c.id,
       );
 
     const files =
