@@ -6,13 +6,25 @@ import FileUpload from "./FileUpload";
 import toast from "react-hot-toast";
 import { SendHorizontal, ChevronDown } from "lucide-react";
 
-type Props = {
-  currentUserId: number;
-  currentUserName: string;
+type GlobalChatMessage = {
+  id: number;
+  senderId: number;
+  senderName: string;
+  message: string;
+  type?: string;
+  fileId?: string;
+  fileName?: string;
+  reactions: Array<{ userId: number; userName: string; emoji: string }>;
+  createdAt: string;
 };
 
-export default function GlobalChatWindow({ currentUserId, currentUserName }: Props) {
-  const [messages, setMessages] = useState<any[]>([]);
+type Props = {
+  currentUserId: number;
+  currentUserName?: string;
+};
+
+export default function GlobalChatWindow({ currentUserId }: Props) {
+  const [messages, setMessages] = useState<GlobalChatMessage[]>([]);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);

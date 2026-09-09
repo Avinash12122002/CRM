@@ -124,7 +124,7 @@ export default function ChatPage({ compact = false, initialConversationId }: Cha
     try {
       const res = await fetch("/api/chat/online-users");
       const data = await res.json();
-      setOnlineUsers((data.onlineUsers || []).map((u: any) => u.userId));
+      setOnlineUsers((data.onlineUsers || []).map((u: { userId: number }) => u.userId));
     } catch { }
   };
 

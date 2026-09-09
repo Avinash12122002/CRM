@@ -62,7 +62,7 @@ export default function FileUpload({
         ? "/api/chat/global-chat/messages"
         : "/api/chat/messages";
 
-      const payload: Record<string, any> = {
+      const payload: Record<string, unknown> = {
         type: "file",
         message: "",
         fileId: uploadData.fileId,

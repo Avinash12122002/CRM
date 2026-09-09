@@ -298,7 +298,7 @@ export default function BillingAnalyticsPage() {
                     {data.outstanding.length === 0 ? (
                       <tr>
                         <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                          No pending balances — everyone's paid up 🎉
+                          No pending balances — everyone&apos;s paid up 🎉
                         </td>
                       </tr>
                     ) : (

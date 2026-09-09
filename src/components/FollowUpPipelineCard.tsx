@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import {
   FollowUpStage,
@@ -51,11 +51,6 @@ export default function FollowUpPipelineCard({
   onWorkflowUpdated,
   isTriloknath = false,
 }: FollowUpPipelineCardProps) {
-  // Access control guard: Strictly visible ONLY to admin and follow_up users
-  if (currentUser.role !== "admin" && currentUser.role !== "follow_up") {
-    return null;
-  }
-
   const [workflow, setWorkflow] = useState<FollowUpWorkflowState | null>(
     lead.followUpWorkflow || null
   );
@@ -65,13 +60,16 @@ export default function FollowUpPipelineCard({
   const [showNotInterestedModal, setShowNotInterestedModal] = useState(false);
   const [submittingNotInterested, setSubmittingNotInterested] = useState(false);
 
+  const isAuthorized = currentUser.role === "admin" || currentUser.role === "follow_up";
+
   // Endpoint base
   const apiBase = isTriloknath
     ? `/api/triloknath/leads/${leadId}/follow-up-pipeline`
     : `/api/leads/${leadId}/follow-up-pipeline`;
 
   // Fetch pipeline status
-  const fetchPipelineData = async () => {
+  const fetchPipelineData = useCallback(async () => {
+    if (!isAuthorized) return;
     try {
       const res = await fetch(apiBase);
       if (!res.ok) {
@@ -81,23 +79,31 @@ export default function FollowUpPipelineCard({
       const data = await res.json();
       if (data.lead?.followUpWorkflow) {
         setWorkflow(data.lead.followUpWorkflow);
-      } else if (!workflow && lead.meetingCompletedAt) {
-        setWorkflow({
-          currentStage: "info",
-          status: "in_progress",
-          stages: {},
-          nextFollowupAt: new Date(),
-          updatedAt: new Date(),
+      } else if (lead.meetingCompletedAt) {
+        setWorkflow((prev) => {
+          if (prev) return prev;
+          return {
+            currentStage: "info",
+            status: "in_progress",
+            stages: {},
+            nextFollowupAt: new Date(),
+            updatedAt: new Date(),
+          };
         });
       }
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [apiBase, isAuthorized, lead.meetingCompletedAt]);
 
   useEffect(() => {
     fetchPipelineData();
-  }, [leadId]);
+  }, [fetchPipelineData]);
+
+  // Access control guard: Strictly visible ONLY to admin and follow_up users
+  if (!isAuthorized) {
+    return null;
+  }
 
   // Derive workflow state
   const currentWorkflow: FollowUpWorkflowState = workflow || {

@@ -613,7 +613,7 @@ function EmailPageInner() {
     setSavingTemplate(true);
     try {
       const method = editingTemplateId ? "PUT" : "POST";
-      const bodyPayload: any = {
+      const bodyPayload: Record<string, unknown> = {
         name: tplName,
         stage: tplStage,
         mailbox: tplMailbox,

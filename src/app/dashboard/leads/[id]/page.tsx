@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 import FollowUpPipelineCard from "@/components/FollowUpPipelineCard";
+import type { FollowUpWorkflowState } from "@/lib/followUpWorkflow";
 
 interface User {
   id: number;
@@ -57,7 +58,7 @@ interface Lead {
   assignedByRole?: string;
   meetingStatus?: string;
   meetingCompletedAt?: string;
-  followUpWorkflow?: any;
+  followUpWorkflow?: FollowUpWorkflowState | null;
   meetingDetails?: {
     meetingUserId?: number;
     meetingUserName?: string;
@@ -556,7 +557,10 @@ export default function LeadDetailPage() {
         body: formData,
       });
 
-      let data: any = {};
+      let data: {
+        caseManager?: { name: string };
+        message?: string;
+      } = {};
       try {
         data = await res.json();
       } catch {
@@ -1132,7 +1136,7 @@ export default function LeadDetailPage() {
               lead.meetingCompletedAt) && (
               <FollowUpPipelineCard
                 leadId={lead.id}
-                lead={lead as any}
+                lead={lead}
                 currentUser={user}
                 onWorkflowUpdated={(updatedWorkflow, newStatus, extra) => {
                   setLead((prev) => {

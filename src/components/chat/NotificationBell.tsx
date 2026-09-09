@@ -14,6 +14,27 @@ export default function NotificationBell() {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const loadCounts = async () => {
+    try {
+      const [notifRes, chatRes, globalRes] = await Promise.all([
+        fetch("/api/notifications"),
+        fetch("/api/chat/unread"),
+        fetch("/api/chat/global-chat/unread"),
+      ]);
+      const notifData = await notifRes.json();
+      const chatData = await chatRes.json();
+      const globalData = await globalRes.json();
+
+      const unreadNotifs = (notifData.notifications || []).filter(
+        (n: { read: boolean }) => !n.read
+      ).length;
+
+      setNotifCount(unreadNotifs);
+      setChatCount(chatData.unreadCount || 0);
+      setGlobalCount(globalData.unreadCount || 0);
+    } catch {}
+  };
+
   useEffect(() => {
     loadCounts();
     const interval = setInterval(loadCounts, 5000);
@@ -29,27 +50,6 @@ export default function NotificationBell() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  const loadCounts = async () => {
-    try {
-      const [notifRes, chatRes, globalRes] = await Promise.all([
-        fetch("/api/notifications"),
-        fetch("/api/chat/unread"),
-        fetch("/api/chat/global-chat/unread"),
-      ]);
-      const notifData = await notifRes.json();
-      const chatData = await chatRes.json();
-      const globalData = await globalRes.json();
-
-      const unreadNotifs = (notifData.notifications || []).filter(
-        (n: any) => !n.read
-      ).length;
-
-      setNotifCount(unreadNotifs);
-      setChatCount(chatData.unreadCount || 0);
-      setGlobalCount(globalData.unreadCount || 0);
-    } catch {}
-  };
 
   const total = notifCount + chatCount + globalCount;
 

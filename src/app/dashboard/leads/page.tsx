@@ -286,7 +286,7 @@ export default function LeadsPage() {
             }
           }, 100);
         }
-        setPagination((prev) => ({ ...data.pagination, page: pageToUse }));
+        setPagination({ ...data.pagination, page: pageToUse });
         if (
           data.pagination.page > data.pagination.totalPages &&
           data.pagination.totalPages > 0

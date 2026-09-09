@@ -88,7 +88,7 @@ export default function EmailAnalyticsPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -106,12 +106,19 @@ export default function EmailAnalyticsPage() {
 
   useEffect(() => {
     if (!user) return;
-    setAnalyticsLoading(true);
+    let isMounted = true;
     fetch("/api/email/analytics")
       .then((r) => r.json())
-      .then((data) => setAnalytics(data))
+      .then((data) => {
+        if (isMounted) setAnalytics(data);
+      })
       .catch(console.error)
-      .finally(() => setAnalyticsLoading(false));
+      .finally(() => {
+        if (isMounted) setAnalyticsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
   if (loading) {

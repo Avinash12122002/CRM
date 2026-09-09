@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 type PinnedMessage = {
   id: number;
@@ -22,15 +22,7 @@ export default function PinnedMessages({
   const [messages, setMessages] = useState<PinnedMessage[]>([]);
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    loadPinned();
-
-    const interval = setInterval(loadPinned, 5000);
-
-    return () => clearInterval(interval);
-  }, [conversationId]);
-
-  const loadPinned = async () => {
+  const loadPinned = useCallback(async () => {
     try {
       const res = await fetch(
         `/api/chat/pinned?conversationId=${conversationId}`
@@ -40,7 +32,15 @@ export default function PinnedMessages({
 
       setMessages(data.messages || []);
     } catch {}
-  };
+  }, [conversationId]);
+
+  useEffect(() => {
+    loadPinned();
+
+    const interval = setInterval(loadPinned, 5000);
+
+    return () => clearInterval(interval);
+  }, [loadPinned]);
 
   const unpin = async (messageId: number) => {
     await fetch("/api/chat/pinned", {

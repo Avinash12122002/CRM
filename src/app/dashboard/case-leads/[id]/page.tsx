@@ -131,7 +131,11 @@ export default function CaseManagerLeadDetailPage() {
         body: formData,
       });
 
-      let data: any = {};
+      let data: {
+        salesDocument?: { fileId: string; fileName: string; uploadedAt: string };
+        fileId?: string;
+        message?: string;
+      } = {};
       try {
         data = await res.json();
       } catch {
@@ -183,7 +187,7 @@ export default function CaseManagerLeadDetailPage() {
         method: "DELETE",
       });
 
-      let data: any = {};
+      let data: { message?: string } = {};
       try {
         data = await res.json();
       } catch {

@@ -16,36 +16,21 @@ export default function OnlineUsers() {
     OnlineUser[]
   >([]);
 
+  const loadUsers = async () => {
+    try {
+      const res = await fetch("/api/chat/online-users");
+      const data = await res.json();
+      setUsers(data.onlineUsers || []);
+    } catch {}
+  };
+
   useEffect(() => {
     loadUsers();
 
-    const interval =
-      setInterval(
-        loadUsers,
-        10000
-      );
+    const interval = setInterval(loadUsers, 10000);
 
-    return () =>
-      clearInterval(interval);
+    return () => clearInterval(interval);
   }, []);
-
-  const loadUsers =
-    async () => {
-      try {
-        const res =
-          await fetch(
-            "/api/chat/online-users"
-          );
-
-        const data =
-          await res.json();
-
-        setUsers(
-          data.onlineUsers ||
-            []
-        );
-      } catch {}
-    };
 
   return (
     <div className="border rounded-lg p-4">

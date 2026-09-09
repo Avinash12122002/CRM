@@ -16,7 +16,6 @@ import AttendanceFilterBar, {
 } from "@/components/attendance/AttendanceFilterBar";
 import AttendanceHistoryTable from "@/components/attendance/AttendanceHistoryTable";
 import AttendanceOverrideModal from "@/components/attendance/AttendanceOverrideModal";
-import { STATUS_CONFIG } from "@/lib/attendance/constants";
 import type { AttendanceRecord, AttendanceStatus } from "@/lib/attendance/types";
 
 type MeResponse = {

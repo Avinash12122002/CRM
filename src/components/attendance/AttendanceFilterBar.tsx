@@ -10,7 +10,6 @@
 
 import { useEffect, useState } from "react";
 import { ATTENDANCE_STATUSES, STATUS_CONFIG } from "@/lib/attendance/constants";
-import type { AttendanceStatus } from "@/lib/attendance/types";
 
 export interface AttendanceFilters {
   month: string;

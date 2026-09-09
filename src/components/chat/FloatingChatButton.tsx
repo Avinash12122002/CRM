@@ -8,12 +8,6 @@ export default function FloatingChatButton() {
   const { isOpen, setIsOpen } = useChat();
   const [unreadCount, setUnreadCount] = useState(0);
 
-  useEffect(() => {
-    loadUnreadCount();
-    const interval = setInterval(loadUnreadCount, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
   const loadUnreadCount = async () => {
     try {
       const res = await fetch("/api/chat/unread");
@@ -21,6 +15,12 @@ export default function FloatingChatButton() {
       setUnreadCount(data.unreadCount || 0);
     } catch {}
   };
+
+  useEffect(() => {
+    loadUnreadCount();
+    const interval = setInterval(loadUnreadCount, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <button

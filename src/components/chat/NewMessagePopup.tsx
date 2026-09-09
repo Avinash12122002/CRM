@@ -113,76 +113,6 @@ export default function NewMessagePopup() {
     }
   };
 
-  useEffect(() => {
-    checkForNewMessages();
-
-    const interval = setInterval(checkForNewMessages, 5000);
-
-    return () => {
-      clearInterval(interval);
-      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const checkForNewMessages = async () => {
-    try {
-      const res = await fetch("/api/chat/conversations");
-      if (!res.ok) return;
-
-      const data = await res.json();
-      const conversations: Conversation[] = data.conversations || [];
-
-      const prev = prevRef.current;
-      const next = new Map<number, PrevEntry>();
-
-      let incoming: IncomingPopup | null = null;
-
-      for (const conv of conversations) {
-        next.set(conv.id, {
-          lastMessageAt: conv.lastMessageAt,
-          unreadCount: conv.unreadCount,
-        });
-
-        // Skip comparison on the very first load — just establish a baseline
-        // so we don't pop up a toast for every already-unread message.
-        if (!prev) continue;
-
-        const prevEntry = prev.get(conv.id);
-        const prevUnread = prevEntry?.unreadCount ?? 0;
-        const prevAt = prevEntry?.lastMessageAt ?? null;
-
-        const hasNewTimestamp =
-          !!conv.lastMessageAt && conv.lastMessageAt !== prevAt;
-        const unreadIncreased = conv.unreadCount > prevUnread;
-
-        if (hasNewTimestamp && unreadIncreased) {
-          const alreadyViewing =
-            isOpenRef.current &&
-            selectedConversationRef.current === conv.id;
-
-          if (!alreadyViewing) {
-            incoming = {
-              conversationId: conv.id,
-              name: conv.otherUserName || "Someone",
-              message: conv.lastMessage || "Sent you a new message",
-            };
-          }
-        }
-      }
-
-      prevRef.current = next;
-
-      if (incoming) {
-        showPopup(incoming);
-        playSound();
-        showDesktopNotification(incoming);
-      }
-    } catch {
-      // silently ignore — popup is a nice-to-have, not critical
-    }
-  };
-
   const showPopup = (data: IncomingPopup) => {
     setPopup(data);
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
@@ -257,6 +187,76 @@ export default function NewMessagePopup() {
       // ignore — desktop notification is a nice-to-have
     }
   };
+
+  const checkForNewMessages = async () => {
+    try {
+      const res = await fetch("/api/chat/conversations");
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const conversations: Conversation[] = data.conversations || [];
+
+      const prev = prevRef.current;
+      const next = new Map<number, PrevEntry>();
+
+      let incoming: IncomingPopup | null = null;
+
+      for (const conv of conversations) {
+        next.set(conv.id, {
+          lastMessageAt: conv.lastMessageAt,
+          unreadCount: conv.unreadCount,
+        });
+
+        // Skip comparison on the very first load — just establish a baseline
+        // so we don't pop up a toast for every already-unread message.
+        if (!prev) continue;
+
+        const prevEntry = prev.get(conv.id);
+        const prevUnread = prevEntry?.unreadCount ?? 0;
+        const prevAt = prevEntry?.lastMessageAt ?? null;
+
+        const hasNewTimestamp =
+          !!conv.lastMessageAt && conv.lastMessageAt !== prevAt;
+        const unreadIncreased = conv.unreadCount > prevUnread;
+
+        if (hasNewTimestamp && unreadIncreased) {
+          const alreadyViewing =
+            isOpenRef.current &&
+            selectedConversationRef.current === conv.id;
+
+          if (!alreadyViewing) {
+            incoming = {
+              conversationId: conv.id,
+              name: conv.otherUserName || "Someone",
+              message: conv.lastMessage || "Sent you a new message",
+            };
+          }
+        }
+      }
+
+      prevRef.current = next;
+
+      if (incoming) {
+        showPopup(incoming);
+        playSound();
+        showDesktopNotification(incoming);
+      }
+    } catch {
+      // silently ignore — popup is a nice-to-have, not critical
+    }
+  };
+
+  useEffect(() => {
+    checkForNewMessages();
+
+    const interval = setInterval(checkForNewMessages, 5000);
+
+    return () => {
+      clearInterval(interval);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
+    };
+  }, []);
 
   const handleClose = () => {
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);

@@ -6,10 +6,29 @@ type Props = {
   leadId: number;
 };
 
+type LeadChatMessage = {
+  id: number;
+  senderName: string;
+  message: string;
+  createdAt: string;
+};
+
 export default function LeadChat({ leadId }: Props) {
   const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<LeadChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const loadMessages = async () => {
+    try {
+      const res = await fetch(
+        `/api/chat/lead-chat/${leadId}`
+      );
+
+      const data = await res.json();
+
+      setMessages(data.messages || []);
+    } catch {}
+  };
 
   // Fixed: leadId in dep array so re-fetch if it changes
   useEffect(() => {
@@ -24,18 +43,6 @@ export default function LeadChat({ leadId }: Props) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const loadMessages = async () => {
-    try {
-      const res = await fetch(
-        `/api/chat/lead-chat/${leadId}`
-      );
-
-      const data = await res.json();
-
-      setMessages(data.messages || []);
-    } catch {}
-  };
 
   const sendMessage = async () => {
     if (!message.trim()) return;

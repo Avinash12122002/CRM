@@ -155,7 +155,8 @@ export default function ConversationPage({
       const res = await fetch("/api/chat/conversations");
       const data = await res.json();
       const match = (data.conversations || []).find(
-        (c: any) => c.id === Number(conversationId)
+        (c: { id: number; otherUserName?: string; otherUserRole?: string; otherUserId?: number }) =>
+          c.id === Number(conversationId)
       );
       if (match) {
         // otherUserId may or may not exist in the API response.
@@ -174,7 +175,9 @@ export default function ConversationPage({
     try {
       const res = await fetch("/api/chat/online-users");
       const data = await res.json();
-      const onlineIds: number[] = (data.onlineUsers || []).map((u: any) => u.userId);
+      const onlineIds: number[] = (data.onlineUsers || []).map(
+        (u: { userId: number }) => u.userId
+      );
       setOtherUser((prev) => {
         if (!prev) return prev;
         return { ...prev, isOnline: prev.userId !== null && onlineIds.includes(prev.userId) };
@@ -204,7 +207,9 @@ export default function ConversationPage({
                 fetch("/api/chat/online-users")
                   .then((r) => r.json())
                   .then((d) => {
-                    const ids: number[] = (d.onlineUsers || []).map((u: any) => u.userId);
+                    const ids: number[] = (d.onlineUsers || []).map(
+                      (u: { userId: number }) => u.userId
+                    );
                     setOtherUser((o) =>
                       o ? { ...o, userId: otherMsg.senderId, isOnline: ids.includes(otherMsg.senderId) } : o
                     );

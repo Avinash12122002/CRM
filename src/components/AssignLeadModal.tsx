@@ -117,7 +117,7 @@ export default function AssignLeadModal({
       );
       if (res.ok) {
         const data = await res.json();
-        setAvailableSlots(data.slots.filter((slot: any) => slot.available));
+        setAvailableSlots(data.slots.filter((slot: { available: boolean }) => slot.available));
       }
     } catch (err) {
       console.error(err);

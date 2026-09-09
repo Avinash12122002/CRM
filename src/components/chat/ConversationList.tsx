@@ -2,8 +2,16 @@
 
 import { useRouter } from "next/navigation";
 
+export type ConversationItem = {
+  id: number;
+  otherUserName?: string;
+  otherUserRole?: string;
+  lastMessage?: string;
+  unreadCount?: number;
+};
+
 type Props = {
-  conversations: any[];
+  conversations: ConversationItem[];
 };
 
 export default function ConversationList({
@@ -52,7 +60,7 @@ export default function ConversationList({
               }
             </div>
 
-            {conversation.unreadCount >
+            {(conversation.unreadCount ?? 0) >
               0 && (
               <span
                 className="

@@ -8,13 +8,30 @@ type Props = {
 
 type Tab = "messages" | "files";
 
+type SearchMessageItem = {
+  id: number;
+  conversationId: number;
+  senderName: string;
+  message: string;
+  createdAt: string;
+};
+
+type SearchFileItem = {
+  id: number;
+  fileId: string;
+  fileName: string;
+  conversationId: number;
+  senderName: string;
+  createdAt: string;
+};
+
 export default function SearchMessages({
   conversationId,
 }: Props) {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<Tab>("messages");
-  const [messageResults, setMessageResults] = useState<any[]>([]);
-  const [fileResults, setFileResults] = useState<any[]>([]);
+  const [messageResults, setMessageResults] = useState<SearchMessageItem[]>([]);
+  const [fileResults, setFileResults] = useState<SearchFileItem[]>([]);
   const [searched, setSearched] = useState(false);
 
   const runSearch = async () => {
@@ -30,7 +47,7 @@ export default function SearchMessages({
 
         // Restrict to this conversation
         const filtered = (data.messages || []).filter(
-          (m: any) => m.conversationId === conversationId
+          (m: SearchMessageItem) => m.conversationId === conversationId
         );
 
         setMessageResults(filtered);
@@ -42,7 +59,7 @@ export default function SearchMessages({
         const data = await res.json();
 
         const filtered = (data.files || []).filter(
-          (f: any) => f.conversationId === conversationId
+          (f: SearchFileItem) => f.conversationId === conversationId
         );
 
         setFileResults(filtered);

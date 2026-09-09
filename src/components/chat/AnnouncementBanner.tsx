@@ -14,14 +14,6 @@ export default function AnnouncementBanner() {
   const [announcements, setAnnouncements] =
     useState<Announcement[]>([]);
 
-  useEffect(() => {
-    loadAnnouncements();
-
-    const interval = setInterval(loadAnnouncements, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const loadAnnouncements = async () => {
     try {
       const res = await fetch("/api/announcements");
@@ -45,6 +37,14 @@ export default function AnnouncementBanner() {
       console.error(err);
     }
   };
+
+  useEffect(() => {
+    loadAnnouncements();
+
+    const interval = setInterval(loadAnnouncements, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   if (announcements.length === 0) return null;
 

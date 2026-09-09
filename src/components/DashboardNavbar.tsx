@@ -38,6 +38,16 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
 
   const role = (user.role || "").trim().toLowerCase();
 
+  const loadUnreadCount = async () => {
+    try {
+      const res = await fetch("/api/chat/unread");
+      const data = await res.json();
+      setUnreadCount(data.unreadCount || 0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     loadUnreadCount();
 
@@ -74,22 +84,12 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
     loadTodoCount();
     const interval = setInterval(loadTodoCount, 15000);
     return () => clearInterval(interval);
-  }, [user.role]);
+  }, [role]);
 
   // Close mobile menu on route change
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
-
-  const loadUnreadCount = async () => {
-    try {
-      const res = await fetch("/api/chat/unread");
-      const data = await res.json();
-      setUnreadCount(data.unreadCount || 0);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleSignOut = async () => {
     const loadingToast = toast.loading("Signing out...");

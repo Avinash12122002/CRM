@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+type TypingUser = {
+  userId: number;
+  userName: string;
+};
+
 type Props = {
   conversationId: number;
   currentUserId: number;
@@ -23,8 +28,8 @@ export default function TypingIndicator({
         const data = await res.json();
 
         const others = (data.typingUsers || [])
-          .filter((u: any) => u.userId !== currentUserId)
-          .map((u: any) => u.userName);
+          .filter((u: TypingUser) => u.userId !== currentUserId)
+          .map((u: TypingUser) => u.userName);
 
         setTypingUsers(others);
       } catch {}

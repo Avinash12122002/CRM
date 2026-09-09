@@ -19,10 +19,6 @@ export default function NotificationsPanel() {
 
   const router = useRouter();
 
-  useEffect(() => {
-    loadNotifications();
-  }, []);
-
   const loadNotifications = async () => {
     const res = await fetch("/api/notifications");
 
@@ -30,6 +26,10 @@ export default function NotificationsPanel() {
 
     setNotifications(data.notifications || []);
   };
+
+  useEffect(() => {
+    loadNotifications();
+  }, []);
 
   const markRead = async (id: number) => {
     await fetch("/api/notifications/read", {
