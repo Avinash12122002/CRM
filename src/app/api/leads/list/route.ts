@@ -70,6 +70,8 @@ function buildLeadPipeline(
         meetingStatus: 1,
         meetingCompletedAt: 1,
         meetingCancelledAt: 1,
+        introMailSent: 1,
+        introMailSentAt: 1,
       },
     },
 
@@ -94,7 +96,6 @@ function buildLeadPipeline(
               $or: [
                 { $eq: ["$assignedTo", payloadId] },
                 { $eq: ["$assignedTo", String(payloadId)] },
-                ...(payloadRole === "trainee" ? [{ $eq: ["$status", "sales"] }] : []),
               ],
             },
           },
@@ -131,13 +132,20 @@ function buildLeadPipeline(
       },
     },
 
-    // IMPORTANT: SORT BEFORE PAGINATION (unchanged priority sorting)
+    // IMPORTANT: SORT BEFORE PAGINATION
+    // For trainee: leads with intro mail NOT sent float to top, then newest first
     {
-      $sort: {
-        lastNoteAddedByAdmin: -1,
-        assignedByAdmin: -1,
-        createdAt: -1,
-      },
+      $sort:
+        payloadRole === "trainee"
+          ? {
+              introMailSent: 1 as 1,   // false/missing = 0 sorts before true = 1
+              createdAt: -1 as -1,
+            }
+          : {
+              lastNoteAddedByAdmin: -1 as -1,
+              assignedByAdmin: -1 as -1,
+              createdAt: -1 as -1,
+            },
     },
   ];
 
@@ -196,6 +204,8 @@ function buildLeadPipeline(
       visibleTo: 1,
       isOwner: 1,
       followUpWorkflow: 1,
+      introMailSent: 1,
+      introMailSentAt: 1,
 
       lastNote: {
         $cond: {
@@ -278,7 +288,6 @@ export async function GET(req: NextRequest) {
         $or: [
           { assignedTo: { $in: matchUserIds } },
           { visibleTo: { $in: matchUserIds } },
-          { status: "sales" },
         ],
       });
     } else if (

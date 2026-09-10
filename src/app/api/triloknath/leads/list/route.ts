@@ -94,7 +94,6 @@ function buildTriloknathPipeline(
               $or: [
                 { $eq: ["$assignedTo", payloadId] },
                 { $eq: ["$assignedTo", String(payloadId)] },
-                ...(payloadRole === "trainee" ? [{ $eq: ["$status", "sales"] }] : []),
               ],
             },
           },
@@ -268,7 +267,6 @@ export async function GET(req: NextRequest) {
         $or: [
           { assignedTo: { $in: matchUserIds } },
           { visibleTo: { $in: matchUserIds } },
-          { status: "sales" },
         ],
       });
     } else if (

@@ -225,43 +225,12 @@ export async function POST(
       };
     }
 
-    // Find all Trainee users to auto-assign the converted sale lead
-    const trainees = await db
-      .collection("users")
-      .find({ role: "trainee" })
-      .project({ id: 1, name: 1 })
-      .toArray();
-
-    let assignedTrainee: { id: number; name: string } | null = null;
-    if (trainees.length > 0) {
-      const traineeIds = trainees.map((t) => t.id);
-      const matchTraineeIds = Array.from(new Set([...traineeIds, ...traineeIds.map(String)]));
-      const loadCounts = await db
-        .collection("triloknath_leads")
-        .aggregate([
-          { $match: { assignedTo: { $in: matchTraineeIds } } },
-          { $group: { _id: { $toInt: "$assignedTo" }, count: { $sum: 1 } } },
-        ])
-        .toArray();
-
-      const loadMap = new Map<number, number>(
-        loadCounts.map((c) => [Number(c._id), c.count as number]),
-      );
-
-      assignedTrainee = trainees[0] as { id: number; name: string };
-      let lowestLoad = loadMap.get(assignedTrainee.id) || 0;
-      for (const t of trainees) {
-        const load = loadMap.get(t.id) || 0;
-        if (load < lowestLoad) {
-          assignedTrainee = t as { id: number; name: string };
-          lowestLoad = load;
-        }
-      }
-    }
-
-    const finalAssignedTo = assignedTrainee ? assignedTrainee.id : caseManager.id;
-    const finalAssignedToName = assignedTrainee ? assignedTrainee.name : caseManager.name;
-    const finalAssignedToRole = assignedTrainee ? "trainee" : "case_manager";
+    // When converting via PDF upload + Case Manager selection, the lead goes
+    // directly to the Case Manager. Trainee auto-assignment only happens
+    // through the follow-up pipeline (payment_confirmation stage).
+    const finalAssignedTo = caseManager.id;
+    const finalAssignedToName = caseManager.name;
+    const finalAssignedToRole = "case_manager";
 
     await db.collection("triloknath_leads").updateOne(
       { id: leadId },
@@ -318,18 +287,16 @@ export async function POST(
                 performedBy: payload.id,
                 performedByName: payload.name,
                 timestamp: now,
-                details: assignedTrainee
-                  ? `Lead auto-assigned to Trainee ${assignedTrainee.name} (Case Manager: ${caseManager.name})`
-                  : caseManagerIdRaw
-                    ? `Lead assigned to Case Manager ${caseManager.name}`
-                    : `Lead auto-assigned to Case Manager ${caseManager.name}`,
+                details: caseManagerIdRaw
+                  ? `Lead assigned to Case Manager ${caseManager.name}`
+                  : `Lead auto-assigned to Case Manager ${caseManager.name}`,
                 newAssignee: finalAssignedTo,
                 newAssigneeName: finalAssignedToName,
               },
             ],
           },
         },
-        $addToSet: { visibleTo: { $each: [caseManager.id, finalAssignedTo].filter(Boolean) } },
+        $addToSet: { visibleTo: { $each: [caseManager.id].filter(Boolean) } },
       },
     );
 
@@ -351,15 +318,6 @@ export async function POST(
 
     try {
       const { createNotification } = await import("@/lib/notifications");
-      if (assignedTrainee) {
-        await createNotification({
-          userId: assignedTrainee.id,
-          title: "New Sale Lead Assigned",
-          message: `Triloknath Lead ${lead.name || `#${leadId}`} was converted to Sales and assigned to you.`,
-          type: "lead_assigned",
-          link: `/dashboard/triloknath-leads/${leadId}`,
-        });
-      }
       await createNotification({
         userId: caseManager.id,
         title: "New Case Lead",
@@ -368,15 +326,12 @@ export async function POST(
         link: `/dashboard/case-leads/${leadId}`,
       });
     } catch (notifErr) {
-      console.error("Failed to notify trainee/case manager:", notifErr);
+      console.error("Failed to notify case manager:", notifErr);
     }
 
     return NextResponse.json({
-      message: assignedTrainee
-        ? `Lead marked as Sales and assigned to Trainee ${assignedTrainee.name}`
-        : "Lead marked as Sales and assigned to Case Manager",
+      message: "Lead marked as Sales and assigned to Case Manager",
       caseManager: { id: caseManager.id, name: caseManager.name },
-      trainee: assignedTrainee,
     });
   } catch (err) {
     console.error("TRILOKNATH CONVERT TO SALES ERROR:", err);

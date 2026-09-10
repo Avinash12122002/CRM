@@ -107,6 +107,9 @@ export async function GET(
             caseManagerEmail: 1,
             caseManagerPassword: 1,
             followUpWorkflow: 1,
+            saleCompletedAt: 1,
+            introMailSent: 1,
+            introMailSentAt: 1,
           },
         },
       ])

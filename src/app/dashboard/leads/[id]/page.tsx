@@ -83,6 +83,9 @@ interface Lead {
   history: HistoryEntry[];
   isOwner: boolean;
   isReadOnly?: boolean;
+  introMailSent?: boolean;
+  introMailSentAt?: string;
+  saleCompletedAt?: string;
 }
 
 export default function LeadDetailPage() {
@@ -108,6 +111,7 @@ export default function LeadDetailPage() {
   >([]);
   const [selectedCaseManagerId, setSelectedCaseManagerId] = useState("");
   const [loadingCaseManagers, setLoadingCaseManagers] = useState(false);
+  const [sendingIntroMail, setSendingIntroMail] = useState(false);
 
   const handleAddOccupationInput = () => {
     setSalesOccupations((prev) => [...prev, ""]);
@@ -1152,6 +1156,11 @@ export default function LeadDetailPage() {
                       status: newStatus || prev.status,
                       isReadOnly,
                       isOwner: isReadOnly ? false : prev.isOwner,
+                      // When payment is confirmed, set saleCompletedAt so the
+                      // Intro Mail section appears immediately without a page refresh
+                      ...(newStatus === "sales" && !prev.saleCompletedAt
+                        ? { saleCompletedAt: new Date().toISOString() }
+                        : {}),
                       ...(extra?.assignedTo ? { assignedTo: extra.assignedTo } : {}),
                       ...(extra?.assignedToName ? { assignedToName: extra.assignedToName } : {}),
                       ...(extra?.assignedToRole ? { assignedToRole: extra.assignedToRole } : {}),
@@ -1161,7 +1170,77 @@ export default function LeadDetailPage() {
               />
             )}
 
+          {/* ═══════════════════════════════════════
+              TRAINEE INTRO MAIL SECTION
+              (Visible to Admin + Trainee only when lead was converted via Payment Confirmation)
+          ═══════════════════════════════════════ */}
+          {!isEditing &&
+            (user.role === "trainee" || user.role === "admin") &&
+            lead.status === "sales" &&
+            !!lead.saleCompletedAt && (
+              <div className="bg-white dark:bg-gray-800 shadow-md rounded-xl px-4 py-4 mb-6 border border-gray-200 dark:border-gray-700 transition">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                      Intro Mail
+                    </span>
+                    {lead.introMailSent ? (
+                      <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                        ✓ Sent
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 animate-pulse">
+                        ⚠ Not Sent Yet
+                      </span>
+                    )}
+                  </div>
+
+                  {!lead.introMailSent ? (
+                    <button
+                      type="button"
+                      disabled={sendingIntroMail}
+                      onClick={async () => {
+                        if (!window.confirm("Have you sent the intro mail to this candidate? This will mark it as done.")) return;
+                        try {
+                          setSendingIntroMail(true);
+                          const res = await fetch(`/api/leads/${lead.id}/intro-mail`, { method: "PATCH" });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.message || "Failed");
+                          toast.success("Intro mail marked as sent!");
+                          setLead((prev) => prev ? { ...prev, introMailSent: true, introMailSentAt: data.introMailSentAt } : null);
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Error");
+                        } finally {
+                          setSendingIntroMail(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                      {sendingIntroMail ? "Marking..." : "Mark Intro Mail Sent"}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Sent on {lead.introMailSentAt ? new Date(lead.introMailSentAt).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "—"}
+                    </span>
+                  )}
+                </div>
+
+                {!lead.introMailSent && (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Send a welcome/intro email to this candidate manually, then click above to mark it done. Leads with unsent intro mails are shown at the top of your list.
+                  </p>
+                )}
+              </div>
+            )}
+
           {/* Read-Only banner for follow-up users once follow-up is completed */}
+
           {isReadOnlyForUser && (
             <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3 mb-6 flex items-center gap-3 text-amber-800 dark:text-amber-200 text-sm shadow-xs">
               <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

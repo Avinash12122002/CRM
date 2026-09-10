@@ -51,6 +51,7 @@ interface Lead {
     timestamp: string;
     performedByName: string;
   };
+  introMailSent?: boolean;
 }
 
 interface Pagination {
@@ -1268,6 +1269,19 @@ export default function LeadsPage() {
                                 </span>
                                 <span className="px-1.5 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded animate-pulse">
                                   🔥 Due: {lead.followUpDueStage ? lead.followUpDueStage.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Follow-Up"}
+                                </span>
+                              </div>
+                            ) : user?.role === "trainee" && lead.status === "sales" && !lead.introMailSent ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span
+                                  className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
+                                    lead.status,
+                                  )}`}
+                                >
+                                  {formatStatusText(lead.status)}
+                                </span>
+                                <span className="px-1.5 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-900 bg-indigo-100 dark:bg-indigo-950/80 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 rounded animate-pulse">
+                                  ✉ Send Intro Mail
                                 </span>
                               </div>
                             ) : (
