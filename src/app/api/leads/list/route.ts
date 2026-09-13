@@ -72,6 +72,7 @@ function buildLeadPipeline(
         meetingCancelledAt: 1,
         introMailSent: 1,
         introMailSentAt: 1,
+        followUpWorkflow: 1,
       },
     },
 
@@ -462,6 +463,7 @@ export async function GET(req: NextRequest) {
         ...filter,
         status: "follow-up",
         "followUpWorkflow.status": { $nin: ["not_interested", "completed"] },
+        "followUpWorkflow.currentStage": { $ne: "completed" },
         $or: [
           { "followUpWorkflow.nextFollowupAt": { $lte: now } },
           { "followUpWorkflow.nextFollowupAt": { $lte: now.toISOString() } },
@@ -524,11 +526,40 @@ export async function GET(req: NextRequest) {
             .toArray()
         : [];
 
-    const normalLeads = normalLeadsRaw.map((lead) => ({
-      ...lead,
-      isDueToday: false,
-      isFollowUpDue: false,
-    }));
+    const checkFollowUpDue = (lead: Record<string, any>) => {
+      if (lead.status !== "follow-up") return false;
+      if (
+        lead.followUpWorkflow?.status === "not_interested" ||
+        lead.followUpWorkflow?.status === "completed" ||
+        lead.followUpWorkflow?.currentStage === "completed"
+      ) {
+        return false;
+      }
+      if (!lead.followUpWorkflow) return true;
+      if (
+        lead.followUpWorkflow.currentStage === "info" &&
+        !lead.followUpWorkflow.stages?.info
+      ) {
+        return true;
+      }
+      if (lead.followUpWorkflow.nextFollowupAt) {
+        const nextAt = new Date(lead.followUpWorkflow.nextFollowupAt);
+        return !isNaN(nextAt.getTime()) && nextAt.getTime() <= Date.now();
+      }
+      return false;
+    };
+
+    const normalLeads = normalLeadsRaw.map((lead) => {
+      const isFuDue = checkFollowUpDue(lead);
+      return {
+        ...lead,
+        isDueToday: false,
+        isFollowUpDue: isFuDue,
+        followUpDueStage: isFuDue
+          ? lead.followUpWorkflow?.currentStage || "info"
+          : undefined,
+      };
+    });
 
     // For follow_up user, due follow-up leads appear at the very top, followed by callbacks, then normal
     const combinedLeads =
