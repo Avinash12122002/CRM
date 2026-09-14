@@ -31,7 +31,7 @@ function pct(n: number, d: number) {
 }
 
 const IN_PROGRESS = ["call-back", "not-answering", "document-pending", "payment-pending", "follow-up"];
-const LOST = ["wrong-number", "not-interested"];
+const LOST = ["wrong-number", "incorrect-number", "not-interested"];
 const ALL_STATUSES = [
   { key: "new-lead", label: "New Lead" },
   { key: "call-back", label: "Call Back" },
@@ -40,6 +40,7 @@ const ALL_STATUSES = [
   { key: "meeting-reschedule", label: "Meeting Reschedule" },
   { key: "not-interested", label: "Not Interested" },
   { key: "wrong-number", label: "Wrong Number" },
+  { key: "incorrect-number", label: "Incorrect Number" },
   { key: "document-pending", label: "Document Pending" },
   { key: "payment-pending", label: "Payment Pending" },
   { key: "sales", label: "Sales (Converted)" },

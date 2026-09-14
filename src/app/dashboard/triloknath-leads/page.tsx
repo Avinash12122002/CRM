@@ -364,6 +364,8 @@ export default function TriloknathLeadsPage() {
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
       case "wrong-number":
         return "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300";
+      case "incorrect-number":
+        return "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300";
       case "document-pending":
         return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300";
       case "payment-pending":
@@ -485,6 +487,8 @@ export default function TriloknathLeadsPage() {
         return "Not Interested";
       case "wrong-number":
         return "Wrong Number";
+      case "incorrect-number":
+        return "Incorrect Number";
       case "document-pending":
         return "Doc Pending";
       case "payment-pending":
@@ -627,6 +631,7 @@ export default function TriloknathLeadsPage() {
     { value: "meeting-reschedule", label: "Meeting Reschedule" },
     { value: "not-interested", label: "Not Interested" },
     { value: "wrong-number", label: "Wrong Number" },
+    { value: "incorrect-number", label: "Incorrect Number" },
     { value: "document-pending", label: "Document Pending" },
     { value: "payment-pending", label: "Payment Pending" },
     { value: "sales", label: "Sales" },

@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
           {
             $match: {
               assignedTo: { $in: matchFollowUpIds },
-              status: { $nin: ["wrong-number", "not-interested", "sales"] },
+              status: { $nin: ["wrong-number", "incorrect-number", "not-interested", "sales"] },
             },
           },
           { $group: { _id: { $toInt: "$assignedTo" }, count: { $sum: 1 } } },

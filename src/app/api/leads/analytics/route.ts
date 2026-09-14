@@ -21,7 +21,7 @@ import { verifyToken } from "@/lib/auth";
 //    Dashboard computes them.
 //  - In Progress = call-back + not-answering + document-pending + payment-pending
 //    (current status only).
-//  - Lost = wrong-number + not-interested (current status only).
+//  - Lost = wrong-number + incorrect-number + not-interested (current status only).
 //  - Meeting Scheduled (headline) = distinct leads that ever reached the
 //    meeting-scheduled milestone (dedup per lead, so a lead handed from an
 //    telecaller to a meeting user is still ONE meeting, never two).
@@ -50,6 +50,7 @@ const LEAD_STATUSES = [
   "meeting-reschedule",
   "not-interested",
   "wrong-number",
+  "incorrect-number",
   "document-pending",
   "payment-pending",
   "sales",
@@ -64,6 +65,7 @@ const STATUS_LABELS: Record<string, string> = {
   "meeting-reschedule": "Meeting Reschedule",
   "not-interested": "Not Interested",
   "wrong-number": "Wrong Number",
+  "incorrect-number": "Incorrect Number",
   "document-pending": "Document Pending",
   "payment-pending": "Payment Pending",
   sales: "Sales (Converted)",
@@ -71,7 +73,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const IN_PROGRESS_STATUSES = ["call-back", "not-answering", "document-pending", "payment-pending", "follow-up"];
-const LOST_STATUSES = ["wrong-number", "not-interested"];
+const LOST_STATUSES = ["wrong-number", "incorrect-number", "not-interested"];
 
 function round1(n: number) {
   return Math.round(n * 10) / 10;

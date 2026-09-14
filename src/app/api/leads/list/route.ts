@@ -358,14 +358,14 @@ export async function GET(req: NextRequest) {
       payload.role === "supervisor"
     ) {
       filter.status = {
-        $nin: ["wrong-number", "not-interested", "sales"],
+        $nin: ["wrong-number", "incorrect-number", "not-interested", "sales"],
       };
     } else if (payload.role === "follow_up") {
       // Follow-up users can still view all their leads (including sales / completed follow-ups in read-only format)
-      filter.status = { $nin: ["wrong-number", "not-interested"] };
+      filter.status = { $nin: ["wrong-number", "incorrect-number", "not-interested"] };
     } else if (payload.role === "trainee") {
       filter.status = {
-        $nin: ["wrong-number", "not-interested"],
+        $nin: ["wrong-number", "incorrect-number", "not-interested"],
       };
     }
 

@@ -25,9 +25,9 @@ export async function GET() {
     const oneMonthAgo = new Date();
     oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
 
-    // 1. Auto-delete "Wrong Number" leads older than 1 month
+    // 1. Auto-delete "Wrong Number" & "Incorrect Number" leads older than 1 month
     const wrongNumberLeads = await db.collection("leads").find({
-      status: "wrong-number",
+      status: { $in: ["wrong-number", "incorrect-number"] },
       updatedAt: { $lt: oneMonthAgo }
     }).toArray();
 

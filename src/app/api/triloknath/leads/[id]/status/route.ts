@@ -45,6 +45,7 @@ export async function PUT(
       "meeting-reschedule",
       "not-interested",
       "wrong-number",
+      "incorrect-number",
       "document-pending",
       "payment-pending",
       "sales",
@@ -55,7 +56,7 @@ export async function PUT(
       return NextResponse.json(
         {
           message:
-            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, meeting-reschedule, not-interested, wrong-number, document-pending, payment-pending, sales, follow-up",
+            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, meeting-reschedule, not-interested, wrong-number, incorrect-number, document-pending, payment-pending, sales, follow-up",
         },
         { status: 400 },
       );
@@ -142,8 +143,8 @@ export async function PUT(
     const oldStatus = lead.status;
     let meetingStatusUpdate: Record<string, unknown> = {};
 
-    // Not Interested / Wrong Number / Meeting Reschedule = Meeting Cancelled
-    if (status === "not-interested" || status === "wrong-number" || status === "meeting-reschedule") {
+    // Not Interested / Wrong Number / Incorrect Number / Meeting Reschedule = Meeting Cancelled
+    if (status === "not-interested" || status === "wrong-number" || status === "incorrect-number" || status === "meeting-reschedule") {
       await db.collection("meetingSlots").updateMany(
         {
           leadId,
@@ -168,7 +169,7 @@ export async function PUT(
 
     const shouldReturnToAdmin =
       payload.role !== "admin" &&
-      ["wrong-number", "not-interested"].includes(status);
+      ["wrong-number", "incorrect-number", "not-interested"].includes(status);
 
     const adminUser = shouldReturnToAdmin
       ? await db.collection("users").findOne({

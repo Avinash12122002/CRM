@@ -351,6 +351,8 @@ export default function LeadsPage() {
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
       case "wrong-number":
         return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100";
+      case "incorrect-number":
+        return "bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100";
       case "document-pending":
         return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100";
       case "payment-pending":
@@ -490,6 +492,8 @@ export default function LeadsPage() {
         return "Not Interested";
       case "wrong-number":
         return "Wrong Number";
+      case "incorrect-number":
+        return "Incorrect Number";
       case "document-pending":
         return "Doc Pending";
       case "payment-pending":
@@ -660,6 +664,7 @@ export default function LeadsPage() {
     { value: "meeting-reschedule", label: "Meeting Reschedule" },
     { value: "not-interested", label: "Not Interested" },
     { value: "wrong-number", label: "Wrong Number" },
+    { value: "incorrect-number", label: "Incorrect Number" },
     { value: "document-pending", label: "Document Pending" },
     { value: "payment-pending", label: "Payment Pending" },
     { value: "sales", label: "Sales" },

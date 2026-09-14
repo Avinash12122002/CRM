@@ -177,6 +177,7 @@ export async function GET(req: NextRequest) {
       "meeting-reschedule":0,
       "not-interested":   0,
       "wrong-number":     0,
+      "incorrect-number": 0,
       "document-pending": 0,
       "payment-pending":  0,
       sales:              0,
@@ -241,6 +242,7 @@ export async function GET(req: NextRequest) {
       scheduledMeetings: number;
       notInterested:     number;
       wrongNumber:       number;
+      incorrectNumber:   number;
       documentPending:   number;
       paymentPending:    number;
       sales:             number; // only increments via Step C attribution
@@ -263,6 +265,7 @@ export async function GET(req: NextRequest) {
         scheduledMeetings: 0,
         notInterested:     0,
         wrongNumber:       0,
+        incorrectNumber:   0,
         documentPending:   0,
         paymentPending:    0,
         sales:             0,
@@ -309,6 +312,7 @@ export async function GET(req: NextRequest) {
             meetingReschedule: { $sum: { $cond: [{ $eq: ["$status", "meeting-reschedule"] }, 1, 0] } },
             notInterested:     { $sum: { $cond: [{ $eq: ["$status", "not-interested"]    }, 1, 0] } },
             wrongNumber:       { $sum: { $cond: [{ $eq: ["$status", "wrong-number"]      }, 1, 0] } },
+            incorrectNumber:   { $sum: { $cond: [{ $eq: ["$status", "incorrect-number"]  }, 1, 0] } },
             documentPending:   { $sum: { $cond: [{ $eq: ["$status", "document-pending"]  }, 1, 0] } },
             paymentPending:    { $sum: { $cond: [{ $eq: ["$status", "payment-pending"]   }, 1, 0] } },
             followUp:          { $sum: { $cond: [{ $eq: ["$status", "follow-up"]         }, 1, 0] } },
@@ -331,6 +335,7 @@ export async function GET(req: NextRequest) {
         entry.meetingReschedule = row.meetingReschedule ?? 0;
         entry.notInterested     = row.notInterested     ?? 0;
         entry.wrongNumber       = row.wrongNumber       ?? 0;
+        entry.incorrectNumber   = row.incorrectNumber   ?? 0;
         entry.documentPending   = row.documentPending   ?? 0;
         entry.paymentPending    = row.paymentPending    ?? 0;
         entry.followUp          = row.followUp          ?? 0;

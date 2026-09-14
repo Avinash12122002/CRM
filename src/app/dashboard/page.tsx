@@ -58,6 +58,7 @@ type TelecallerPerformance = {
   scheduledMeetings: number; // FIX: was missing from type
   notInterested: number;
   wrongNumber: number;
+  incorrectNumber: number;
   documentPending: number;
   paymentPending: number;
   // Sales credited via meetingDetails or history — never includes totalLeads
@@ -83,6 +84,7 @@ type AdminStats = {
     "meeting-reschedule": number;
     "not-interested": number;
     "wrong-number": number;
+    "incorrect-number": number;
     "document-pending": number;
     "payment-pending": number;
     sales: number;
@@ -145,6 +147,7 @@ export default function DashboardPage() {
       "meeting-reschedule": 0,
       "not-interested": 0,
       "wrong-number": 0,
+      "incorrect-number": 0,
       "document-pending": 0,
       "payment-pending": 0,
       sales: 0,
@@ -848,6 +851,7 @@ export default function DashboardPage() {
                         { key: "meeting-reschedule", label: "Meeting Reschedule", color: "bg-rose-500"  },
                         { key: "not-interested",     label: "Not Interested",    color: "bg-red-500"    },
                         { key: "wrong-number",       label: "Wrong Number",      color: "bg-orange-500" },
+                        { key: "incorrect-number",   label: "Incorrect Number",  color: "bg-amber-600"  },
                         { key: "document-pending",   label: "Document Pending",  color: "bg-indigo-500" },
                         { key: "payment-pending",    label: "Payment Pending",   color: "bg-pink-500"   },
                         { key: "sales",              label: "Sales",             color: "bg-emerald-500"},
@@ -969,6 +973,11 @@ export default function DashboardPage() {
                                 {emp.wrongNumber > 0 && (
                                   <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
                                     📵 {emp.wrongNumber}
+                                  </span>
+                                )}
+                                {emp.incorrectNumber > 0 && (
+                                  <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                                    ⚠️ {emp.incorrectNumber}
                                   </span>
                                 )}
                                 {emp.followUp > 0 && (

@@ -459,7 +459,7 @@ export default function LeadDetailPage() {
         toast.success("Status updated successfully");
         if (
           user?.role !== "admin" &&
-          ["wrong-number", "not-interested", "sales"].includes(newStatus)
+          ["wrong-number", "incorrect-number", "not-interested", "sales"].includes(newStatus)
         ) {
           toast.success("Lead returned to Admin");
           window.location.href = "/dashboard/leads";
@@ -956,6 +956,8 @@ export default function LeadDetailPage() {
         return "bg-red-100 text-red-800";
       case "wrong-number":
         return "bg-pink-100 text-pink-800";
+      case "incorrect-number":
+        return "bg-pink-100 text-pink-800";
       case "document-pending":
         return "bg-indigo-100 text-indigo-800";
       case "payment-pending":
@@ -985,6 +987,8 @@ export default function LeadDetailPage() {
         return "❌ Not Interested";
       case "wrong-number":
         return "📱 Wrong Number";
+      case "incorrect-number":
+        return "📵 Incorrect Number";
       case "document-pending":
         return "📄 Document Pending";
       case "payment-pending":
@@ -1013,6 +1017,8 @@ export default function LeadDetailPage() {
       case "not-interested":
         return "bg-red-100 text-red-700";
       case "wrong-number":
+        return "bg-pink-100 text-pink-700";
+      case "incorrect-number":
         return "bg-pink-100 text-pink-700";
       case "document-pending":
         return "bg-indigo-100 text-indigo-700";
@@ -1098,6 +1104,7 @@ export default function LeadDetailPage() {
     "meeting-reschedule",
     "not-interested",
     "wrong-number",
+    "incorrect-number",
     "document-pending",
     "payment-pending",
     "sales",
