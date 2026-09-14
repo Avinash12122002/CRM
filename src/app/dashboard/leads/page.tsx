@@ -345,7 +345,7 @@ export default function LeadsPage() {
         return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
       case "meeting-scheduled":
         return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
-      case "meeting-nj":
+      case "meeting-reschedule":
         return "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-100";
       case "not-interested":
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
@@ -484,8 +484,8 @@ export default function LeadsPage() {
         return "Not Answering";
       case "meeting-scheduled":
         return "Meeting Scheduled";
-      case "meeting-nj":
-        return "Meeting NJ";
+      case "meeting-reschedule":
+        return "Meeting Reschedule";
       case "not-interested":
         return "Not Interested";
       case "wrong-number":
@@ -657,7 +657,7 @@ export default function LeadsPage() {
     { value: "call-back", label: "Call Back" },
     { value: "not-answering", label: "Not Answering" },
     { value: "meeting-scheduled", label: "Meeting Scheduled" },
-    { value: "meeting-nj", label: "Meeting NJ" },
+    { value: "meeting-reschedule", label: "Meeting Reschedule" },
     { value: "not-interested", label: "Not Interested" },
     { value: "wrong-number", label: "Wrong Number" },
     { value: "document-pending", label: "Document Pending" },

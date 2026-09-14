@@ -35,7 +35,7 @@ type Analytics = {
     callBack: number;
     notAnswering: number;
     meetingScheduled: number;
-    meetingNJ: number;
+    meetingReschedule: number;
     documentPending: number;
     paymentPending: number;
     followUp: number;
@@ -149,11 +149,11 @@ export default function LeadAnalyticsPage() {
     lines.push("");
     lines.push(`Meeting User Performance (${scope})`);
     lines.push(
-      "Meeting User,New Lead,Call Back,Not Answering,Meeting Scheduled,Meeting NJ,Document Pending,Payment Pending,Sales"
+      "Meeting User,New Lead,Call Back,Not Answering,Meeting Scheduled,Meeting Reschedule,Document Pending,Payment Pending,Sales"
     );
     data.meetingPerformance.forEach((a) =>
       lines.push(
-        `${csv(a.userName)},${a.newLeads},${a.callBack},${a.notAnswering},${a.meetingScheduled},${a.meetingNJ},${a.documentPending},${a.paymentPending},${a.sales}`
+        `${csv(a.userName)},${a.newLeads},${a.callBack},${a.notAnswering},${a.meetingScheduled},${a.meetingReschedule},${a.documentPending},${a.paymentPending},${a.sales}`
       )
     );
     lines.push("");
@@ -323,7 +323,7 @@ export default function LeadAnalyticsPage() {
                   "Call Back",
                   "Not Answering",
                   "Meeting Scheduled",
-                  "Meeting NJ",
+                  "Meeting Reschedule",
                   "Follow Up",
                   "Document Pending",
                   "Payment Pending",
@@ -335,7 +335,7 @@ export default function LeadAnalyticsPage() {
                   String(a.callBack),
                   String(a.notAnswering),
                   String(a.meetingScheduled),
-                  String(a.meetingNJ),
+                  String(a.meetingReschedule),
                   String(a.followUp),
                   String(a.documentPending),
                   String(a.paymentPending),

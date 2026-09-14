@@ -358,7 +358,7 @@ export default function TriloknathLeadsPage() {
         return "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-300";
       case "meeting-scheduled":
         return "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300";
-      case "meeting-nj":
+      case "meeting-reschedule":
         return "bg-rose-100 text-rose-800 dark:bg-rose-900/50 dark:text-rose-300";
       case "not-interested":
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
@@ -479,8 +479,8 @@ export default function TriloknathLeadsPage() {
         return "Not Answering";
       case "meeting-scheduled":
         return "Meeting Scheduled";
-      case "meeting-nj":
-        return "Meeting NJ";
+      case "meeting-reschedule":
+        return "Meeting Reschedule";
       case "not-interested":
         return "Not Interested";
       case "wrong-number":
@@ -624,7 +624,7 @@ export default function TriloknathLeadsPage() {
     { value: "call-back", label: "Call Back" },
     { value: "not-answering", label: "Not Answering" },
     { value: "meeting-scheduled", label: "Meeting Scheduled" },
-    { value: "meeting-nj", label: "Meeting NJ" },
+    { value: "meeting-reschedule", label: "Meeting Reschedule" },
     { value: "not-interested", label: "Not Interested" },
     { value: "wrong-number", label: "Wrong Number" },
     { value: "document-pending", label: "Document Pending" },

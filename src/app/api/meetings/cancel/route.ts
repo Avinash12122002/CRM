@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    // Only meeting/WM users trigger the auto-status change to Meeting NJ
+    // Only meeting/WM users trigger the auto-status change to Meeting Reschedule
     const isMeetingRole = payload.role === "meeting" || payload.role === "wm";
 
     const cancelSet: Record<string, unknown> = {
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (isMeetingRole) {
-      cancelSet.status = "meeting-nj";
+      cancelSet.status = "meeting-reschedule";
     }
 
     await db.collection(collectionName).updateOne(
@@ -89,9 +89,9 @@ export async function POST(req: NextRequest) {
             performedByRole: payload.role,
             timestamp: new Date(),
             details: isMeetingRole
-              ? "Meeting cancelled by meeting user — status set to Meeting NJ"
+              ? "Meeting cancelled by meeting user — status set to Meeting Reschedule"
               : "Meeting cancelled",
-            ...(isMeetingRole ? { oldStatus: lead.status, newStatus: "meeting-nj" } : {}),
+            ...(isMeetingRole ? { oldStatus: lead.status, newStatus: "meeting-reschedule" } : {}),
           },
         },
       },

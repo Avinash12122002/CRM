@@ -39,7 +39,7 @@ type TelecallerData = {
   date: string | null; month: string | null; filtered: boolean; totalInDb: number;
   metrics: {
     totalLeads: number; newLeads: number; inProgress: number;
-    meetingScheduled: number; meetingNJ: number; lost: number; sales: number;
+    meetingScheduled: number; meetingReschedule: number; lost: number; sales: number;
     conversionRate: number; dropRate: number;
   };
   statusDistribution: { status: string; label: string; count: number }[];
@@ -467,7 +467,7 @@ function TelecallerView({
         <MetricCard label="New Leads" value={m.newLeads} color="sky" />
         <MetricCard label="In Progress" value={m.inProgress} color="amber" />
         <MetricCard label="Meeting Scheduled" value={m.meetingScheduled} color="violet" />
-        <MetricCard label="Meeting NJ" value={m.meetingNJ} color="rose" />
+        <MetricCard label="Meeting Reschedule" value={m.meetingReschedule} color="rose" />
         <MetricCard label="Sales (Converted)" value={m.sales} color="emerald" />
         <MetricCard label="Lost" value={m.lost} color="red" />
         <MetricCard label="Conversion Rate" value={`${m.conversionRate}%`} color="green" />
@@ -982,7 +982,7 @@ export default function MyAnalyticsPage() {
       lines.push(`New Leads,${d.metrics.newLeads}`);
       lines.push(`In Progress,${d.metrics.inProgress}`);
       lines.push(`Meeting Scheduled,${d.metrics.meetingScheduled}`);
-      lines.push(`Meeting NJ,${d.metrics.meetingNJ}`);
+      lines.push(`Meeting Reschedule,${d.metrics.meetingReschedule}`);
       lines.push(`Sales Converted,${d.metrics.sales}`);
       lines.push(`Lost,${d.metrics.lost}`);
       lines.push(`Conversion Rate %,${d.metrics.conversionRate}`);

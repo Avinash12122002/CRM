@@ -926,7 +926,7 @@ export default function TriloknathLeadDetailPage() {
         return "bg-orange-100 text-orange-800";
       case "meeting-scheduled":
         return "bg-purple-100 text-purple-800";
-      case "meeting-nj":
+      case "meeting-reschedule":
         return "bg-rose-100 text-rose-800";
       case "not-interested":
         return "bg-red-100 text-red-800";
@@ -955,8 +955,8 @@ export default function TriloknathLeadDetailPage() {
         return "📵 Not Answering";
       case "meeting-scheduled":
         return "📋 Meeting Scheduled";
-      case "meeting-nj":
-        return "🚫 Meeting NJ";
+      case "meeting-reschedule":
+        return "🗓️ Meeting Reschedule";
       case "not-interested":
         return "❌ Not Interested";
       case "wrong-number":
@@ -984,7 +984,7 @@ export default function TriloknathLeadDetailPage() {
         return "bg-orange-100 text-orange-700";
       case "meeting-scheduled":
         return "bg-purple-100 text-purple-700";
-      case "meeting-nj":
+      case "meeting-reschedule":
         return "bg-rose-100 text-rose-700";
       case "not-interested":
         return "bg-red-100 text-red-700";
@@ -1069,7 +1069,7 @@ export default function TriloknathLeadDetailPage() {
     "call-back",
     "not-answering",
     "meeting-scheduled",
-    "meeting-nj",
+    "meeting-reschedule",
     "not-interested",
     "wrong-number",
     "document-pending",

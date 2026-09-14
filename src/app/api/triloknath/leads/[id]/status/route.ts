@@ -42,7 +42,7 @@ export async function PUT(
       "call-back",
       "not-answering",
       "meeting-scheduled",
-      "meeting-nj",
+      "meeting-reschedule",
       "not-interested",
       "wrong-number",
       "document-pending",
@@ -55,7 +55,7 @@ export async function PUT(
       return NextResponse.json(
         {
           message:
-            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, meeting-nj, not-interested, wrong-number, document-pending, payment-pending, sales, follow-up",
+            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, meeting-reschedule, not-interested, wrong-number, document-pending, payment-pending, sales, follow-up",
         },
         { status: 400 },
       );
@@ -142,8 +142,8 @@ export async function PUT(
     const oldStatus = lead.status;
     let meetingStatusUpdate: Record<string, unknown> = {};
 
-    // Not Interested / Wrong Number / Meeting NJ = Meeting Cancelled
-    if (status === "not-interested" || status === "wrong-number" || status === "meeting-nj") {
+    // Not Interested / Wrong Number / Meeting Reschedule = Meeting Cancelled
+    if (status === "not-interested" || status === "wrong-number" || status === "meeting-reschedule") {
       await db.collection("meetingSlots").updateMany(
         {
           leadId,

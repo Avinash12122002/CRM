@@ -174,7 +174,7 @@ export async function GET(req: NextRequest) {
       "call-back":        0,
       "not-answering":    0,
       "meeting-scheduled":0,
-      "meeting-nj":       0,
+      "meeting-reschedule":0,
       "not-interested":   0,
       "wrong-number":     0,
       "document-pending": 0,
@@ -237,7 +237,7 @@ export async function GET(req: NextRequest) {
       callBack:          number;
       notAnswering:      number;
       meetingScheduled:  number;
-      meetingNJ:         number;
+      meetingReschedule: number;
       scheduledMeetings: number;
       notInterested:     number;
       wrongNumber:       number;
@@ -259,7 +259,7 @@ export async function GET(req: NextRequest) {
         callBack:          0,
         notAnswering:      0,
         meetingScheduled:  0,
-        meetingNJ:         0,
+        meetingReschedule: 0,
         scheduledMeetings: 0,
         notInterested:     0,
         wrongNumber:       0,
@@ -306,7 +306,7 @@ export async function GET(req: NextRequest) {
             callBack:          { $sum: { $cond: [{ $eq: ["$status", "call-back"]         }, 1, 0] } },
             notAnswering:      { $sum: { $cond: [{ $eq: ["$status", "not-answering"]     }, 1, 0] } },
             meetingScheduled:  { $sum: { $cond: [{ $eq: ["$status", "meeting-scheduled"] }, 1, 0] } },
-            meetingNJ:         { $sum: { $cond: [{ $eq: ["$status", "meeting-nj"]        }, 1, 0] } },
+            meetingReschedule: { $sum: { $cond: [{ $eq: ["$status", "meeting-reschedule"] }, 1, 0] } },
             notInterested:     { $sum: { $cond: [{ $eq: ["$status", "not-interested"]    }, 1, 0] } },
             wrongNumber:       { $sum: { $cond: [{ $eq: ["$status", "wrong-number"]      }, 1, 0] } },
             documentPending:   { $sum: { $cond: [{ $eq: ["$status", "document-pending"]  }, 1, 0] } },
@@ -328,7 +328,7 @@ export async function GET(req: NextRequest) {
         entry.callBack          = row.callBack          ?? 0;
         entry.notAnswering      = row.notAnswering      ?? 0;
         entry.meetingScheduled  = row.meetingScheduled  ?? 0;
-        entry.meetingNJ         = row.meetingNJ         ?? 0;
+        entry.meetingReschedule = row.meetingReschedule ?? 0;
         entry.notInterested     = row.notInterested     ?? 0;
         entry.wrongNumber       = row.wrongNumber       ?? 0;
         entry.documentPending   = row.documentPending   ?? 0;
