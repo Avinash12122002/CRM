@@ -42,6 +42,7 @@ const { status, callbackDate } = body;
       "call-back",
       "not-answering",
       "meeting-scheduled",
+      "meeting-nj",
       "not-interested",
       "wrong-number",
       "document-pending",
@@ -54,7 +55,7 @@ const { status, callbackDate } = body;
       return NextResponse.json(
         {
           message:
-            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, not-interested, wrong-number, document-pending, payment-pending, sales, follow-up",
+            "Invalid status. Must be one of: new-lead, call-back, not-answering, meeting-scheduled, meeting-nj, not-interested, wrong-number, document-pending, payment-pending, sales, follow-up",
         },
         { status: 400 },
       );
@@ -163,8 +164,8 @@ const { status, callbackDate } = body;
       }
     }
 
-    // Not Interested / Wrong Number = Meeting Cancelled
-    if (status === "not-interested" || status === "wrong-number") {
+    // Not Interested / Wrong Number / Meeting NJ = Meeting Cancelled
+    if (status === "not-interested" || status === "wrong-number" || status === "meeting-nj") {
       await db.collection("meetingSlots").updateMany(
         {
           leadId,

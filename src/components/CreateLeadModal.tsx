@@ -520,6 +520,7 @@ export default function CreateLeadModal({
                 <option value="call-back">Call Back</option>
                 <option value="not-answering">Not Answering</option>
                 <option value="meeting-scheduled">Meeting Scheduled</option>
+                <option value="meeting-nj">Meeting NJ</option>
                 <option value="not-interested">Not Interested</option>
                 <option value="wrong-number">Wrong Number</option>
                 <option value="document-pending">Document Pending</option>

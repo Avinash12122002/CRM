@@ -37,6 +37,7 @@ const ALL_STATUSES = [
   { key: "call-back", label: "Call Back" },
   { key: "not-answering", label: "Not Answering" },
   { key: "meeting-scheduled", label: "Meeting Scheduled" },
+  { key: "meeting-nj", label: "Meeting NJ" },
   { key: "not-interested", label: "Not Interested" },
   { key: "wrong-number", label: "Wrong Number" },
   { key: "document-pending", label: "Document Pending" },
@@ -115,6 +116,7 @@ export async function GET(req: NextRequest) {
     const lost = cohort.filter((l) => LOST.includes(l.status)).length;
     const sales = cohort.filter((l) => l.status === "sales").length;
     const meetingScheduled = cohort.filter((l) => l.status === "meeting-scheduled").length;
+    const meetingNJ = cohort.filter((l) => l.status === "meeting-nj").length;
     const conversionRate = pct(sales, totalLeads);
     const dropRate = pct(lost, totalLeads);
 
@@ -166,7 +168,7 @@ export async function GET(req: NextRequest) {
       month: validMonth || null,
       filtered: isFiltered,
       totalInDb,
-      metrics: { totalLeads, newLeads, inProgress, meetingScheduled, lost, sales, conversionRate, dropRate },
+      metrics: { totalLeads, newLeads, inProgress, meetingScheduled, meetingNJ, lost, sales, conversionRate, dropRate },
       statusDistribution,
       callbacksDueToday,
       dailyTrend,

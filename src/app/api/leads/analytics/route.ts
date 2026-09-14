@@ -47,6 +47,7 @@ const LEAD_STATUSES = [
   "call-back",
   "not-answering",
   "meeting-scheduled",
+  "meeting-nj",
   "not-interested",
   "wrong-number",
   "document-pending",
@@ -60,6 +61,7 @@ const STATUS_LABELS: Record<string, string> = {
   "call-back": "Call Back",
   "not-answering": "Not Answering",
   "meeting-scheduled": "Meeting Scheduled",
+  "meeting-nj": "Meeting NJ",
   "not-interested": "Not Interested",
   "wrong-number": "Wrong Number",
   "document-pending": "Document Pending",
@@ -220,6 +222,7 @@ export async function GET(req: NextRequest) {
       callBack: number;
       notAnswering: number;
       meetingScheduled: number;
+      meetingNJ: number;
       documentPending: number;
       paymentPending: number;
       sales: number;
@@ -238,6 +241,7 @@ export async function GET(req: NextRequest) {
         callBack: 0,
         notAnswering: 0,
         meetingScheduled: 0,
+        meetingNJ: 0,
         documentPending: 0,
         paymentPending: 0,
         sales: 0,
@@ -255,6 +259,7 @@ export async function GET(req: NextRequest) {
       else if (l.status === "call-back") entry.callBack += 1;
       else if (l.status === "not-answering") entry.notAnswering += 1;
       else if (l.status === "meeting-scheduled") entry.meetingScheduled += 1;
+      else if (l.status === "meeting-nj") entry.meetingNJ += 1;
       else if (l.status === "document-pending") entry.documentPending += 1;
       else if (l.status === "payment-pending") entry.paymentPending += 1;
       else if (l.status === "follow-up") entry.followUp += 1;
@@ -332,6 +337,7 @@ export async function GET(req: NextRequest) {
         callBack: s.callBack,
         notAnswering: s.notAnswering,
         meetingScheduled: s.meetingScheduled,
+        meetingNJ: s.meetingNJ,
         documentPending: s.documentPending,
         paymentPending: s.paymentPending,
         followUp: s.followUp,

@@ -58,27 +58,40 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    // Only meeting/WM users trigger the auto-status change to Meeting NJ
+    const isMeetingRole = payload.role === "meeting" || payload.role === "wm";
+
+    const cancelSet: Record<string, unknown> = {
+      meetingDetails: lead.meetingDetails
+        ? {
+            ...lead.meetingDetails,
+            status: "cancelled",
+          }
+        : null,
+      meetingStatus: "cancelled",
+      meetingCancelledAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (isMeetingRole) {
+      cancelSet.status = "meeting-nj";
+    }
+
     await db.collection(collectionName).updateOne(
       { id: leadId },
       {
-        $set: {
-          meetingDetails: lead.meetingDetails
-            ? {
-                ...lead.meetingDetails,
-                status: "cancelled",
-              }
-            : null,
-
-          meetingStatus: "cancelled",
-          updatedAt: new Date(),
-        },
+        $set: cancelSet,
         $push: {
           history: {
             action: "meeting_cancelled",
             performedBy: payload.id,
             performedByName: payload.name,
+            performedByRole: payload.role,
             timestamp: new Date(),
-            details: "Meeting cancelled",
+            details: isMeetingRole
+              ? "Meeting cancelled by meeting user — status set to Meeting NJ"
+              : "Meeting cancelled",
+            ...(isMeetingRole ? { oldStatus: lead.status, newStatus: "meeting-nj" } : {}),
           },
         },
       },

@@ -54,6 +54,7 @@ type TelecallerPerformance = {
   callBack: number;
   notAnswering: number;
   meetingScheduled: number;
+  meetingNJ: number;
   scheduledMeetings: number; // FIX: was missing from type
   notInterested: number;
   wrongNumber: number;
@@ -79,6 +80,7 @@ type AdminStats = {
     "call-back": number;
     "not-answering": number;
     "meeting-scheduled": number;
+    "meeting-nj": number;
     "not-interested": number;
     "wrong-number": number;
     "document-pending": number;
@@ -140,6 +142,7 @@ export default function DashboardPage() {
       "call-back": 0,
       "not-answering": 0,
       "meeting-scheduled": 0,
+      "meeting-nj": 0,
       "not-interested": 0,
       "wrong-number": 0,
       "document-pending": 0,
@@ -842,6 +845,7 @@ export default function DashboardPage() {
                         { key: "call-back",          label: "Call Back",         color: "bg-yellow-500" },
                         { key: "not-answering",      label: "Not Answering",     color: "bg-purple-500" },
                         { key: "meeting-scheduled",  label: "Meeting Scheduled", color: "bg-green-500"  },
+                        { key: "meeting-nj",         label: "Meeting NJ",        color: "bg-rose-500"   },
                         { key: "not-interested",     label: "Not Interested",    color: "bg-red-500"    },
                         { key: "wrong-number",       label: "Wrong Number",      color: "bg-orange-500" },
                         { key: "document-pending",   label: "Document Pending",  color: "bg-indigo-500" },
@@ -940,6 +944,11 @@ export default function DashboardPage() {
                                 {emp.meetingScheduled > 0 && (
                                   <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
                                     📅 {emp.meetingScheduled}
+                                  </span>
+                                )}
+                                {emp.meetingNJ > 0 && (
+                                  <span className="px-2 py-1 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded">
+                                    🚫 {emp.meetingNJ} NJ
                                   </span>
                                 )}
                                 {emp.documentPending > 0 && (
