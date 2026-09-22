@@ -65,7 +65,10 @@ export async function PUT(
       );
     }
 
-    if (interestedCountry && !["Australia", "Ireland"].includes(interestedCountry)) {
+    const cleanInterestedCountry =
+      typeof interestedCountry === "string" ? interestedCountry.trim() : "";
+
+    if (cleanInterestedCountry && !["Australia", "Ireland"].includes(cleanInterestedCountry)) {
       return NextResponse.json(
         { message: "Invalid interested country. Must be Australia or Ireland." },
         { status: 400 },
@@ -199,9 +202,9 @@ export async function PUT(
         `Job Applied: "${lead.jobApplied || "N/A"}" → "${jobApplied || "N/A"}"`,
       );
 
-    if ((lead.interestedCountry || "") !== (interestedCountry || ""))
+    if ((lead.interestedCountry || "") !== (cleanInterestedCountry || ""))
       changes.push(
-        `Interested Country: "${lead.interestedCountry || "N/A"}" → "${interestedCountry || "N/A"}"`,
+        `Interested Country: "${lead.interestedCountry || "N/A"}" → "${cleanInterestedCountry || "N/A"}"`,
       );
 
     // Format dates for comparison
@@ -249,7 +252,7 @@ export async function PUT(
           passportType: passportType || null,
           leadSource: leadSource || null,
           jobApplied: jobApplied || null,
-          interestedCountry: interestedCountry || null,
+          interestedCountry: cleanInterestedCountry || null,
           status: effectiveStatus,
           ...(effectiveStatus === "call-back"
             ? {

@@ -68,9 +68,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (interestedCountry && !["Australia", "Ireland"].includes(interestedCountry)) {
+    const cleanInterestedCountry =
+      typeof interestedCountry === "string" ? interestedCountry.trim() : "";
+
+    if (!cleanInterestedCountry || !["Australia", "Ireland"].includes(cleanInterestedCountry)) {
       return NextResponse.json(
-        { message: "Invalid interested country. Must be Australia or Ireland." },
+        { message: "Interested country is required (Australia or Ireland)" },
         { status: 400 },
       );
     }
@@ -159,7 +162,7 @@ export async function POST(req: NextRequest) {
       passportType: passportType || null,
       leadSource: leadSource || null,
       jobApplied: jobApplied || null,
-      interestedCountry: interestedCountry || null,
+      interestedCountry: cleanInterestedCountry,
 
       status: status || "new-lead",
       isAgent: false,

@@ -31,6 +31,7 @@ interface CaseLead {
   email: string;
   phone?: string;
   country?: string;
+  interestedCountry?: string | null;
   jobApplied?: string;
   status: string;
   assignedTo: number | null;
@@ -555,7 +556,13 @@ export default function CaseManagerLeadsPage() {
                         {lead.email || "-"}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                        {lead.country || "-"}
+                        {lead.interestedCountry ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-700 whitespace-nowrap">
+                            {lead.interestedCountry === "Australia" ? "🇦🇺" : "🇮🇪"} {lead.interestedCountry}
+                          </span>
+                        ) : (
+                          lead.country || "-"
+                        )}
                       </td>
                       {user.role === "admin" && (
                         <>

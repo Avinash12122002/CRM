@@ -11,6 +11,7 @@ interface CaseLeadForEdit {
   state?: string;
   city?: string;
   country?: string;
+  interestedCountry?: string | null;
   age?: number;
   passportType?: string;
   leadSource?: string;
@@ -31,6 +32,7 @@ export default function CaseLeadEditModal({
   const [name, setName] = useState(lead.name || "");
   const [phone, setPhone] = useState(lead.phone || "");
   const [email, setEmail] = useState(lead.email || "");
+  const [interestedCountry, setInterestedCountry] = useState(lead.interestedCountry || "");
   const [country, setCountry] = useState(lead.country || "");
   const [state, setState] = useState(lead.state || "");
   const [city, setCity] = useState(lead.city || "");
@@ -56,6 +58,10 @@ export default function CaseLeadEditModal({
       toast.error("Phone is required");
       return;
     }
+    if (!interestedCountry) {
+      toast.error("Please select an interested country");
+      return;
+    }
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       toast.error("Please enter a valid email address");
       return;
@@ -71,6 +77,7 @@ export default function CaseLeadEditModal({
           phone,
           email,
           country,
+          interestedCountry,
           state,
           city,
           age,
@@ -143,7 +150,22 @@ export default function CaseLeadEditModal({
               />
             </div>
             <div>
-              <label className={labelClass}>Country</label>
+              <label className={labelClass}>
+                Interested Country <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={interestedCountry}
+                onChange={(e) => setInterestedCountry(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Select interested country</option>
+                <option value="Australia">🇦🇺 Australia</option>
+                <option value="Ireland">🇮🇪 Ireland</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Country (Current)</label>
               <input value={country} onChange={(e) => setCountry(e.target.value)} className={inputClass} />
             </div>
             <div>

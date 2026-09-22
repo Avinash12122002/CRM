@@ -102,7 +102,16 @@ export async function GET(req: NextRequest) {
     }
 
     if (country) {
-      filter.country = { $regex: country, $options: "i" };
+      const countryRegex = { $regex: country, $options: "i" };
+      const countryOr = [
+        { country: countryRegex },
+        { interestedCountry: countryRegex },
+      ];
+      if (filter.$and) {
+        filter.$and.push({ $or: countryOr });
+      } else {
+        filter.$and = [{ $or: countryOr }];
+      }
     }
 
     // Only admins get to pick an arbitrary case manager — for a case manager
@@ -137,6 +146,7 @@ export async function GET(req: NextRequest) {
       email: 1,
       phone: 1,
       country: 1,
+      interestedCountry: 1,
       jobApplied: 1,
       status: 1,
       assignedTo: 1,

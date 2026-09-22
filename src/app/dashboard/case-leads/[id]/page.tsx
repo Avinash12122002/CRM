@@ -49,6 +49,7 @@ interface Lead {
   state?: string;
   city?: string;
   country?: string;
+  interestedCountry?: string | null;
   age?: number;
   passportType?: string;
   leadSource?: string;
@@ -416,7 +417,14 @@ export default function CaseManagerLeadDetailPage() {
 
         <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 mb-6">
           <div className="flex items-center justify-between mb-6 gap-4">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{lead.name}</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{lead.name}</h1>
+              {lead.interestedCountry && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+                  {lead.interestedCountry === "Australia" ? "🇦🇺" : "🇮🇪"} {lead.interestedCountry}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 uppercase">
                 {lead.status}
@@ -450,7 +458,8 @@ export default function CaseManagerLeadDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {field("Phone", lead.phone)}
             {field("Email", lead.email)}
-            {field("Country", lead.country)}
+            {field("Interested Country", lead.interestedCountry ? `${lead.interestedCountry === "Australia" ? "🇦🇺" : "🇮🇪"} ${lead.interestedCountry}` : "-")}
+            {field("Country (Current)", lead.country)}
             {field("State / City", [lead.state, lead.city].filter(Boolean).join(", "))}
             {field("Age", lead.age)}
             {field("Passport Type", lead.passportType)}

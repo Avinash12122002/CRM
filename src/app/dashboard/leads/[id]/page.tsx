@@ -642,6 +642,10 @@ export default function LeadDetailPage() {
       toast.error("Phone is required");
       return;
     }
+    if (!editForm.interestedCountry) {
+      toast.error("Please select an interested country");
+      return;
+    }
     if (
       editForm.email.trim() &&
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())
@@ -1655,9 +1659,10 @@ export default function LeadDetailPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Interested Country
+                      Interested Country <span className="text-red-500">*</span>
                     </label>
                     <select
+                      required
                       value={editForm.interestedCountry}
                       onChange={(e) =>
                         setEditForm({ ...editForm, interestedCountry: e.target.value })
