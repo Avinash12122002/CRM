@@ -48,6 +48,7 @@ export async function PUT(
       passportType,
       leadSource,
       jobApplied,
+      interestedCountry,
     } = body;
 
     if (!phone?.trim()) {
@@ -60,6 +61,13 @@ export async function PUT(
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return NextResponse.json(
         { message: "Please enter a valid email address" },
+        { status: 400 },
+      );
+    }
+
+    if (interestedCountry && !["Australia", "Ireland"].includes(interestedCountry)) {
+      return NextResponse.json(
+        { message: "Invalid interested country. Must be Australia or Ireland." },
         { status: 400 },
       );
     }
@@ -191,6 +199,11 @@ export async function PUT(
         `Job Applied: "${lead.jobApplied || "N/A"}" → "${jobApplied || "N/A"}"`,
       );
 
+    if ((lead.interestedCountry || "") !== (interestedCountry || ""))
+      changes.push(
+        `Interested Country: "${lead.interestedCountry || "N/A"}" → "${interestedCountry || "N/A"}"`,
+      );
+
     // Format dates for comparison
     const oldDueDate = lead.dueDate
       ? new Date(lead.dueDate).toLocaleDateString("en-CA", {
@@ -236,6 +249,7 @@ export async function PUT(
           passportType: passportType || null,
           leadSource: leadSource || null,
           jobApplied: jobApplied || null,
+          interestedCountry: interestedCountry || null,
           status: effectiveStatus,
           ...(effectiveStatus === "call-back"
             ? {

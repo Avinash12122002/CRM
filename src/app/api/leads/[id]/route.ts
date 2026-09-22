@@ -74,6 +74,7 @@ export async function GET(
             passportType: 1,
             leadSource: 1,
             jobApplied: 1,
+            interestedCountry: 1,
             status: 1,
             isAgent: 1,
             callbackDate: 1,

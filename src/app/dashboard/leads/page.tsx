@@ -52,6 +52,7 @@ interface Lead {
     performedByName: string;
   };
   introMailSent?: boolean;
+  interestedCountry?: string | null;
 }
 
 interface Pagination {
@@ -72,6 +73,7 @@ interface StoredFilters {
   selectedMonth: string;
   selectedYear: string;
   agentFilter: string;
+  selectedInterestedCountry: string;
   page: number;
   limit: number;
 }
@@ -99,6 +101,7 @@ export default function LeadsPage() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedYear, setSelectedYear] = useState<string>("");
   const [agentFilter, setAgentFilter] = useState("");
+  const [selectedInterestedCountry, setSelectedInterestedCountry] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
@@ -127,6 +130,7 @@ export default function LeadsPage() {
             filters.selectedYear !== undefined ? filters.selectedYear : "",
           );
           setAgentFilter(filters.agentFilter || "");
+          setSelectedInterestedCountry(filters.selectedInterestedCountry || "");
           setPagination((prev) => ({
             ...prev,
             page: filters.page || 1,
@@ -151,6 +155,7 @@ export default function LeadsPage() {
         selectedMonth,
         selectedYear,
         agentFilter,
+        selectedInterestedCountry,
         page: pagination.page,
         limit: pagination.limit,
       };
@@ -165,6 +170,7 @@ export default function LeadsPage() {
     selectedMonth,
     selectedYear,
     agentFilter,
+    selectedInterestedCountry,
     pagination.page,
     pagination.limit,
   ]);
@@ -189,6 +195,7 @@ export default function LeadsPage() {
     selectedMonth,
     selectedYear,
     agentFilter,
+    selectedInterestedCountry,
   ]);
 
   useEffect(() => {
@@ -253,6 +260,7 @@ export default function LeadsPage() {
       if (selectedMonth) url += `&month=${selectedMonth}`;
       if (selectedYear) url += `&year=${selectedYear}`;
       if (agentFilter) url += `&isAgent=${agentFilter}`;
+      if (selectedInterestedCountry) url += `&interestedCountry=${encodeURIComponent(selectedInterestedCountry)}`;
 
       const res = await fetch(url);
       if (res.ok) {
@@ -948,6 +956,22 @@ export default function LeadsPage() {
                   </select>
                 </div>
 
+                {/* Interested Country filter */}
+                <div className="min-w-[140px]">
+                  <select
+                    value={selectedInterestedCountry}
+                    onChange={(e) => {
+                      setSelectedInterestedCountry(e.target.value);
+                      setPagination((p) => ({ ...p, page: 1 }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Countries</option>
+                    <option value="Australia">🇦🇺 Australia</option>
+                    <option value="Ireland">🇮🇪 Ireland</option>
+                  </select>
+                </div>
+
                 {/* Agent flag */}
                 <div className="min-w-[130px]">
                   <select
@@ -1025,6 +1049,7 @@ export default function LeadsPage() {
                           "Name",
                           "Phone",
                           "Email",
+                          "Target Country",
                           "Created At",
                           // "Due Date",
                           "Last Worked",
@@ -1170,6 +1195,17 @@ export default function LeadsPage() {
                             <span className="text-xs text-gray-600 dark:text-gray-300 truncate block max-w-40">
                               {lead.email || "-"}
                             </span>
+                          </td>
+
+                          {/* Target Country */}
+                          <td className="px-3 py-2">
+                            {lead.interestedCountry ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-700 whitespace-nowrap">
+                                {lead.interestedCountry === "Australia" ? "🇦🇺" : "🇮🇪"} {lead.interestedCountry}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                            )}
                           </td>
 
                           {/* Created At */}

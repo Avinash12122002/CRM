@@ -44,6 +44,7 @@ function buildLeadPipeline(
         callbackDate: 1,
         callbackSeen: 1,
         dueDate: 1,
+        interestedCountry: 1,
 
         assignedTo: 1,
         assignedToName: { $ifNull: ["$assignedUser.name", "$assignedToName"] },
@@ -169,6 +170,7 @@ function buildLeadPipeline(
       callbackDate: 1,
       callbackSeen: 1,
       dueDate: 1,
+      interestedCountry: 1,
 
       assignedTo: 1,
       assignedToName: 1,
@@ -273,6 +275,7 @@ export async function GET(req: NextRequest) {
     const meetingStatus = searchParams.get("meetingStatus") || "";
     const meetingDate = searchParams.get("meetingDate") || "";
     const isAgent = searchParams.get("isAgent") || "";
+    const interestedCountry = searchParams.get("interestedCountry") || "";
 
     const { db } = await connectToDatabase();
 
@@ -385,6 +388,10 @@ export async function GET(req: NextRequest) {
       filter.isAgent = true;
     } else if (isAgent === "false") {
       filter.isAgent = { $ne: true };
+    }
+
+    if (interestedCountry) {
+      filter.interestedCountry = interestedCountry;
     }
 
     // Apply month and year filters

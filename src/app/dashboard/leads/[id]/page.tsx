@@ -44,6 +44,7 @@ interface Lead {
   passportType?: string;
   leadSource?: string;
   jobApplied?: string;
+  interestedCountry?: string | null;
   status: string;
   isAgent?: boolean;
   dueDate?: string;
@@ -171,6 +172,7 @@ export default function LeadDetailPage() {
     jobApplied: "",
     status: "",
     callbackDate: "",
+    interestedCountry: "",
   });
 
   const [updating, setUpdating] = useState(false);
@@ -370,6 +372,7 @@ export default function LeadDetailPage() {
           leadSource: data.lead.leadSource || "",
           jobApplied: data.lead.jobApplied || "",
           status: data.lead.status || "",
+          interestedCountry: data.lead.interestedCountry || "",
         });
       } else if (res.status === 403) {
         router.push("/dashboard/leads");
@@ -627,6 +630,7 @@ export default function LeadDetailPage() {
         leadSource: lead.leadSource || "",
         jobApplied: lead.jobApplied || "",
         status: lead.status || "",
+        interestedCountry: lead.interestedCountry || "",
       });
     }
   };
@@ -1278,6 +1282,11 @@ export default function LeadDetailPage() {
                     <h1 className="text-4xl font-bold text-gray-900">
                       {lead.name}
                     </h1>
+                    {lead.interestedCountry && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-blue-100 text-blue-800 border border-blue-300">
+                        {lead.interestedCountry === "Australia" ? "🇦🇺" : "🇮🇪"} {lead.interestedCountry}
+                      </span>
+                    )}
                     {lead.isAgent && (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full uppercase tracking-wide bg-amber-100 text-amber-800 border border-amber-300">
                         <svg
@@ -1434,7 +1443,7 @@ export default function LeadDetailPage() {
                     { label: "Email", value: lead.email },
                     { label: "State", value: lead.state },
                     { label: "City", value: lead.city },
-                    { label: "Country", value: lead.country },
+                    { label: "Country (Current)", value: lead.country },
                     { label: "Age", value: lead.age },
                     { label: "Passport Type", value: lead.passportType },
                     { label: "Lead Source", value: lead.leadSource },
@@ -1482,6 +1491,23 @@ export default function LeadDetailPage() {
                       </p>
                     </div>
                   ))}
+
+                  {/* Interested Country — rendered as a badge card */}
+                  <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                    <p className="text-xs uppercase tracking-wide text-blue-600 font-semibold mb-1">
+                      Interested Country
+                    </p>
+                    <p className="text-gray-900 font-bold text-lg flex items-center gap-2">
+                      {lead.interestedCountry ? (
+                        <>
+                          {lead.interestedCountry === "Australia" ? "🇦🇺" : "🇮🇪"}
+                          {lead.interestedCountry}
+                        </>
+                      ) : (
+                        <span className="text-gray-400 font-normal text-base">Not specified</span>
+                      )}
+                    </p>
+                  </div>
 
                   {lead.meetingDetails && (
                     <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
@@ -1615,17 +1641,33 @@ export default function LeadDetailPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Country
+                      Country (Current)
                     </label>
                     <input
                       type="text"
                       value={editForm.country}
-                      placeholder="Enter country"
+                      placeholder="Enter current country"
                       onChange={(e) =>
                         setEditForm({ ...editForm, country: e.target.value })
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-text"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Interested Country
+                    </label>
+                    <select
+                      value={editForm.interestedCountry}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, interestedCountry: e.target.value })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 cursor-pointer"
+                    >
+                      <option value="">Select interested country</option>
+                      <option value="Australia">🇦🇺 Australia</option>
+                      <option value="Ireland">🇮🇪 Ireland</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -51,6 +51,7 @@ export async function POST(req: NextRequest) {
       leadSource,
       jobApplied,
       note,
+      interestedCountry,
     } = body;
 
     if (!phone) {
@@ -63,6 +64,13 @@ export async function POST(req: NextRequest) {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
       return NextResponse.json(
         { message: "Please enter a valid email address" },
+        { status: 400 },
+      );
+    }
+
+    if (interestedCountry && !["Australia", "Ireland"].includes(interestedCountry)) {
+      return NextResponse.json(
+        { message: "Invalid interested country. Must be Australia or Ireland." },
         { status: 400 },
       );
     }
@@ -151,6 +159,7 @@ export async function POST(req: NextRequest) {
       passportType: passportType || null,
       leadSource: leadSource || null,
       jobApplied: jobApplied || null,
+      interestedCountry: interestedCountry || null,
 
       status: status || "new-lead",
       isAgent: false,

@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     const ok = verifyPassword(password, user.password_hash);
     if (!ok) {
   return NextResponse.json(
-    { message: "Invalid credentials", here: "password not ok" },
+    { message: "Invalid credentials" },
     { status: 401 }
   );
 }

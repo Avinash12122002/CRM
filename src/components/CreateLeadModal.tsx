@@ -28,6 +28,7 @@ export default function CreateLeadModal({
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
+  const [interestedCountry, setInterestedCountry] = useState("");
   const [age, setAge] = useState("");
   const [passportType, setPassportType] = useState("");
   const [leadSource, setLeadSource] = useState("");
@@ -56,6 +57,7 @@ export default function CreateLeadModal({
       setState("");
       setCity("");
       setCountry("");
+      setInterestedCountry("");
       setAge("");
       setPassportType("");
       setLeadSource("");
@@ -172,6 +174,7 @@ export default function CreateLeadModal({
           state: state.trim() || undefined,
           city: city.trim() || undefined,
           country: country.trim() || undefined,
+          interestedCountry: interestedCountry || undefined,
           age: age ? parseInt(age) : undefined,
           passportType: passportType || undefined,
           leadSource: leadSource || undefined,
@@ -191,6 +194,7 @@ export default function CreateLeadModal({
         setState("");
         setCity("");
         setCountry("");
+        setInterestedCountry("");
         setAge("");
         setPassportType("");
         setLeadSource("");
@@ -413,13 +417,28 @@ export default function CreateLeadModal({
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Country
+                Interested Country
+              </label>
+              <select
+                value={interestedCountry}
+                onChange={(e) => setInterestedCountry(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-900"
+              >
+                <option value="">Select interested country</option>
+                <option value="Australia">🇦🇺 Australia</option>
+                <option value="Ireland">🇮🇪 Ireland</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Country (Current)
               </label>
               <input
                 type="text"
                 value={country}
                 onChange={(e) => setCountry(e.target.value)}
-                placeholder="Enter country"
+                placeholder="Enter current country"
                 className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-gray-900 placeholder:text-gray-400"
               />
             </div>

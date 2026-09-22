@@ -141,30 +141,6 @@ const { status, callbackDate } = body;
     const oldStatus = lead.status;
     let meetingStatusUpdate: Record<string, unknown> = {};
 
-    // Sales = Meeting Completed
-    if (status === "sales") {
-      await db.collection("meetingSlots").updateMany(
-        {
-          leadId,
-          status: "scheduled",
-        },
-        {
-          $set: {
-            status: "completed",
-            updatedAt: now,
-          },
-        },
-      );
-
-      if (lead.meetingDetails) {
-        meetingStatusUpdate = {
-          meetingStatus: "completed",
-          "meetingDetails.status": "completed",
-          meetingCompletedAt: now,
-        };
-      }
-    }
-
     // Not Interested / Wrong Number / Incorrect Number / Meeting Reschedule = Meeting Cancelled
     if (status === "not-interested" || status === "wrong-number" || status === "incorrect-number" || status === "meeting-reschedule") {
       await db.collection("meetingSlots").updateMany(
