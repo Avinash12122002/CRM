@@ -139,21 +139,24 @@ export async function getAvailableWeekendSlots(params: {
 
   const slots: WeekendSlot[] = [];
 
-  // Generate slots strictly from 11:00 AM to 07:00 PM IST in 30-minute intervals
-  let hour = 11;
-  let minute = 0;
+  // 10 evenly spaced 30-minute consultation slots strictly between 11:00 AM and 07:00 PM IST
+  // Allows every slot to fit into a single Meta WhatsApp interactive list message with the "Select Slot" button!
+  const fixedSlotTimes = [
+    { start: "11:00", end: "11:30" },
+    { start: "11:45", end: "12:15" },
+    { start: "12:30", end: "13:00" },
+    { start: "13:15", end: "13:45" },
+    { start: "14:00", end: "14:30" },
+    { start: "14:45", end: "15:15" },
+    { start: "15:30", end: "16:00" },
+    { start: "16:15", end: "16:45" },
+    { start: "17:00", end: "17:30" },
+    { start: "18:00", end: "18:30" },
+  ];
 
-  // Slots run strictly from 11:00 AM to 07:00 PM IST (last slot starts at 18:30, ending at 19:00)
-  while (hour < 18 || (hour === 18 && minute <= 30)) {
-    const istStart = `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-
-    let endHour = hour;
-    let endMin = minute + 30;
-    if (endMin >= 60) {
-      endHour += 1;
-      endMin -= 60;
-    }
-    const istEnd = `${String(endHour).padStart(2, "0")}:${String(endMin).padStart(2, "0")}`;
+  for (const item of fixedSlotTimes) {
+    const istStart = item.start;
+    const istEnd = item.end;
 
     const slotDateTime = new Date(`${meetingDate}T${istStart}:00+05:30`);
     const isPastSlot = slotDateTime.getTime() <= now.getTime();
@@ -200,12 +203,6 @@ export async function getAvailableWeekendSlots(params: {
         available: true,
       });
     }
-
-    minute += 30;
-    if (minute >= 60) {
-      hour += 1;
-      minute = 0;
-    }
   }
 
   return slots;
@@ -241,6 +238,7 @@ export function formatSlotsOverview(params: {
     }
   });
 
-  text += `\n👉 Tap a button below to choose, or reply with your slot number (*1* to *${slots.length}*) or time:`;
+  text += `\n👉 Tap *Select Slot* below to choose, or reply with your slot number (*1* to *${slots.length}*) or time.\n`;
+  text += `🔄 Want a different date? Reply *Change Date*.`;
   return text;
 }

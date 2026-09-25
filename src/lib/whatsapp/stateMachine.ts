@@ -49,6 +49,12 @@ export async function getOrCreateSession(
     .findOne({ phone: cleanPhone })) as unknown as WhatsAppSession | null;
 
   if (existing) {
+    // If the name in DB was set to a test placeholder, clean it
+    if (existing.name && existing.name.toLowerCase().includes("test")) {
+      existing.name = candidateName && !candidateName.toLowerCase().includes("test") ? candidateName : "Candidate";
+      await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: existing.name } });
+    }
+
     // Sync live CRM data (like meeting completion, payment status, occupation, experience) if leadId exists
     if (existing.leadId) {
       const lead = await db.collection("leads").findOne({ id: existing.leadId });
@@ -498,8 +504,14 @@ export async function processIncomingWhatsAppMessage(params: {
     !isDirectEmail;
 
   if (actionId === "RESTART_FLOW" || isGreeting || isFreshWelcome) {
+    const isGenericName =
+      !session.name ||
+      session.name === "Candidate" ||
+      session.name.toLowerCase().includes("test");
+
+    const nameGreeting = isGenericName ? "" : ` ${session.name}`;
     const welcomeText =
-      `Hello ${session.name || "there"}! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+      `Hello${nameGreeting}! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
       `We specialize in employer-sponsored work visas for Australia.\n\n` +
       `**Are you interested in the Australia Subclass 482 Work Visa?**`;
 
@@ -607,6 +619,7 @@ export async function processIncomingWhatsAppMessage(params: {
       ));
 
   if (wantsConsultation) {
+    const isIndia = session.countryCode === "IN";
     const weekends = getUpcomingWeekendDays(10);
 
     const sections = [
@@ -615,7 +628,7 @@ export async function processIncomingWhatsAppMessage(params: {
         rows: weekends.map((w) => ({
           id: `DAY_DATE_${w.date}`,
           title: w.displayLabel.slice(0, 24), // e.g. "Sat, 26 Sep"
-          description: `${w.dayName} · 11 AM - 7 PM IST`.slice(0, 72),
+          description: isIndia ? `${w.dayName} · 11 AM - 7 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
         })),
       },
     ];
@@ -626,7 +639,9 @@ export async function processIncomingWhatsAppMessage(params: {
       `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
       `Please select your new preferred weekend date from the upcoming month:`
       : `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
-      `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
+      (isIndia
+        ? `All slots run strictly between 11:00 AM and 07:00 PM IST in 30-minute intervals.\n\n`
+        : `All slots run in 30-minute intervals in your local time (**${session.timeZoneLabel}**).\n\n`) +
       `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
 
     await sendInteractiveList(
@@ -705,35 +720,27 @@ export async function processIncomingWhatsAppMessage(params: {
             isIndia,
           });
 
-        if (nextWeekend.availableSlots.length <= 10) {
-          const sections = [
-            {
-              title: "Available Slots",
-              rows: nextWeekend.availableSlots.map((s) => ({
-                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                title: isIndia
-                  ? `${s.istStartTime} - ${s.istEndTime} IST`
-                  : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-                description: isIndia
-                  ? `30-Min Consultation (IST)`
-                  : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
-              })),
-            },
-          ];
-          await sendInteractiveList(
-            session.phone,
-            "Choose Your Slot",
-            overviewText,
-            "Select Slot",
-            sections,
-          );
-        } else {
-          await sendQuickReplyButtons(session.phone, overviewText, [
-            { id: "BTN_SLOTS_EARLY", title: "Slots 1 to 8" },
-            { id: "BTN_SLOTS_LATE", title: "Slots 9 to 16" },
-            { id: "BTN_CHANGE_DAY", title: "Change Date" },
-          ]);
-        }
+        const sections = [
+          {
+            title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
+            rows: nextWeekend.availableSlots.map((s) => ({
+              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+              title: isIndia
+                ? `${s.istStartTime} - ${s.istEndTime} IST`
+                : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+              description: isIndia
+                ? `30-Min Consultation (IST)`
+                : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
+            })),
+          },
+        ];
+        await sendInteractiveList(
+          session.phone,
+          "Choose Your Slot",
+          overviewText,
+          "Select Slot",
+          sections,
+        );
 
         return { replyText: overviewText, step: "SELECTING_SLOT" };
       } else {
@@ -759,7 +766,7 @@ export async function processIncomingWhatsAppMessage(params: {
       activeSlotsDate: meetingDate,
     });
 
-    // 1. Send complete overview text of ALL 16 slots at once with interactive button options!
+    // Send complete overview text of all available slots with interactive "Select Slot" button directly in the same message!
     const overviewText = formatSlotsOverview({
       slots: availableSlots,
       dayLabel,
@@ -767,79 +774,30 @@ export async function processIncomingWhatsAppMessage(params: {
       isIndia,
     });
 
-    if (availableSlots.length <= 10) {
-      const sections = [
-        {
-          title: "Available Slots",
-          rows: availableSlots.map((s) => ({
-            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: isIndia
-              ? `${s.istStartTime} - ${s.istEndTime} IST`
-              : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-            description: isIndia
-              ? `30-Min Consultation (IST)`
-              : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
-          })),
-        },
-      ];
-      await sendInteractiveList(
-        session.phone,
-        "Choose Your Slot",
-        overviewText,
-        "Select Slot",
-        sections,
-      );
-    } else {
-      await sendQuickReplyButtons(session.phone, overviewText, [
-        { id: "BTN_SLOTS_EARLY", title: "Slots 1 to 8" },
-        { id: "BTN_SLOTS_LATE", title: "Slots 9 to 16" },
-        { id: "BTN_CHANGE_DAY", title: "Change Date" },
-      ]);
-    }
+    const sections = [
+      {
+        title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
+        rows: availableSlots.map((s) => ({
+          id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+          title: isIndia
+            ? `${s.istStartTime} - ${s.istEndTime} IST`
+            : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+          description: isIndia
+            ? `30-Min Consultation (IST)`
+            : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
+        })),
+      },
+    ];
+
+    await sendInteractiveList(
+      session.phone,
+      "Choose Your Slot",
+      overviewText,
+      "Select Slot",
+      sections,
+    );
 
     return { replyText: overviewText, step: "SELECTING_SLOT" };
-  }
-
-  // 6a. Candidate clicked "Slots 1 to 8" or "Slots 9 to 16" quick reply buttons
-  if (actionId === "BTN_SLOTS_EARLY" || actionId === "BTN_SLOTS_LATE") {
-    const meetingDate = session.activeSlotsDate;
-    if (meetingDate) {
-      const isIndia = session.countryCode === "IN";
-      const dateSlots = await getAvailableWeekendSlots({
-        db,
-        meetingDate,
-        candidateTimeZone: session.timeZone,
-        candidateTimeLabel: session.timeZoneLabel,
-      });
-      const available = dateSlots.filter((s) => s.available);
-      const isEarly = actionId === "BTN_SLOTS_EARLY";
-      const selectedPart = isEarly ? available.slice(0, 8) : available.slice(8, 16);
-      const titleLabel = isEarly ? "Slots 1 to 8" : "Slots 9 to 16";
-
-      if (selectedPart.length > 0) {
-        await sendInteractiveList(
-          session.phone,
-          titleLabel,
-          `Tap below to select your 30-minute consultation slot on ${meetingDate}:`,
-          "Select Slot",
-          [
-            {
-              title: titleLabel.slice(0, 24),
-              rows: selectedPart.map((s) => ({
-                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                title: isIndia
-                  ? `${s.istStartTime} - ${s.istEndTime} IST`
-                  : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-                description: isIndia
-                  ? `30-Min Consultation (IST)`
-                  : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
-              })),
-            },
-          ]
-        );
-        return { replyText: `Opened ${titleLabel}`, step: "SELECTING_SLOT" };
-      }
-    }
   }
 
   // 6b. Candidate typed a slot number (e.g. "1", "5", "14") or typed a time (e.g. "11:00", "2:30", "4pm")

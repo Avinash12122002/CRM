@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const result = await processIncomingWhatsAppMessage({
       phone: cleanPhone,
-      senderName: senderName || "Test Candidate",
+      senderName: senderName || undefined,
       messageType: messageType || "text",
       textBody,
       selectedId,
