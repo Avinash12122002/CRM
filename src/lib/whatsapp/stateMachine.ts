@@ -533,7 +533,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 3. Candidate clicked YES to 482 -> Request Email
   if (isAffirmative && !isDirectEmail) {
     const emailPrompt =
-      `Great! To register your profile in our CRM system, **please reply with your Email Address:**`;
+      `Great! To register your profile in our system, **please reply with your Email Address:**`;
 
     await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL" });
     await sendTextMessage(session.phone, emailPrompt);
