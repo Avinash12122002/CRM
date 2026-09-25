@@ -71,7 +71,10 @@ export async function sendTextMessage(to: string, text: string): Promise<SendRes
     recipient_type: "individual",
     to,
     type: "text",
-    text: { body: text },
+    text: {
+      body: text,
+      preview_url: true,
+    },
   });
 }
 

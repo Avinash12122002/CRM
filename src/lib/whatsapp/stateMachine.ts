@@ -25,7 +25,7 @@ export function getStaticGoogleMeetLink(): string {
 export function getVideo482Url(): string {
   return (
     process.env.VIDEO_482_URL ||
-    "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+    "https://drive.google.com/file/d/1ZQUkqaWWaxVJtHvMrIzyAvUi5a__azg6/view?usp=sharing"
   );
 }
 
@@ -187,12 +187,26 @@ export async function sendTimedVideoAndProcessGuide(
   email: string,
   videoUrl: string,
 ) {
-  // 1. Send the 482 explainer video immediately
-  await sendVideoMessage(
-    phone,
-    videoUrl,
-    "🇦🇺 Australia Subclass 482 Work Visa Process Guide by The Migration School",
-  );
+  // 1. Send the 482 explainer video or streaming watch link immediately
+  const isWebOrDriveLink =
+    videoUrl.includes("drive.google.com") ||
+    videoUrl.includes("youtu") ||
+    !videoUrl.toLowerCase().endsWith(".mp4");
+
+  if (isWebOrDriveLink) {
+    const videoIntro =
+      `🎥 **Australia Subclass 482 Work Visa — Process Guide Video** 🇦🇺\n\n` +
+      `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
+      `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
+      `*(Tap the link above to watch the video anytime)*`;
+    await sendTextMessage(phone, videoIntro);
+  } else {
+    await sendVideoMessage(
+      phone,
+      videoUrl,
+      "🇦🇺 Australia Subclass 482 Work Visa Process Guide by The Migration School",
+    );
+  }
 
   // 2. Wait exactly 10 seconds
   await delay(10000);
