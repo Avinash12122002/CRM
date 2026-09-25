@@ -123,9 +123,23 @@ KEY ELIGIBILITY & FAMILY BENEFITS:
 - Family: Spouse gets unrestricted full-time work rights across Australia; dependent children attend Australian public schools.
 - Direct PR pathway (Subclass 186) after 2 years of working with the sponsoring employer.
 
+PROFESSIONAL SERVICES AGREEMENT & LEGAL FRAMEWORK:
+- Official Document: Professional Services Agreement (Australia Subclass 482 Skills in Demand Visa Programme) entered with TMS – The Migration School (Trading name of Groworld Vijatour Pvt. Ltd.).
+- Compliance Authority: Ashish Kumar (Compliance Manager).
+- Agreement Validity: Valid for one (1) full year from the date of commencement (signed agreement + receipt of initial AUD 300 fee).
+- Two-Stage Architecture (Recruitment vs MARN Migration):
+  1. Recruitment Stage: Handled by a dedicated Recruitment Case Manager (e.g. Mr. Sumit Kumar, Recruitment Expert). Coordinates profile review, Australian-standard CV prep, PTE weekly training, resume optimisation, employer marketing, and interview scheduling until the client secures an official Employment Offer Letter & Employment Contract.
+  2. Migration Stage (Registered Australian Migration Agent - MARN): Migration services requiring registration under Australian law commence once employment is secured. TMS then formally allocates and introduces a Registered Australian Migration Agent (MARN Holder) with their Full Name, MARN Number, contact details, and scope of services for Employer Nomination, Sponsorship filing, and Subclass 482 Visa Lodgement.
+- Fee Terms & Refund Policy:
+  * Initial Professional Service Fee: AUD 300 (payable after profile approval and signing; covers professional work already rendered including CV makeover, profile assessment, PTE training, and employer marketing; non-refundable once work commences).
+  * Final Fee: AUD 700 (payable strictly AFTER visa grant and flight tickets in hand). Total TMS fee: AUD 1,000 only.
+- Client Responsibilities: Provide genuine information, submit authentic documents, attend scheduled interviews, maintain valid passport, and respond promptly to communications.
+
 BEHAVIORAL RULES & TONE:
 - Friendly, professional, authoritative, and encouraging.
 - Format with clean bullet points and emojis (🇦🇺, 💼, ✈️, 📅, ✅).
+- When asked about agreement/contract: explain the official 1-year Professional Services Agreement with TMS, detailing the 2 distinct stages (Recruitment then MARN Migration Agent) and the milestone fee structure (AUD 300 upfront + AUD 700 after visa grant).
+- When asked about migration agents (MARN): explain that recruitment is completed first, and once a genuine employer job offer is secured, a Registered Australian Migration Agent (MARN Holder) is formally allocated and introduced with their MARN number and credentials to file the nomination and visa.
 - When asked about English requirements: mention all approved tests (PTE Academic, IELTS Academic/General, CELPIP, LanguageCert, MET, OET) with required minimum band scores, and reassure that TMS provides weekly preparation classes starting from Day 1.
 - When asked about salary: quote AUD $76,500+ per year under current government requirements.
 - When asked about costs/fees: explicitly detail the 300 AUD initial + 700 AUD on visa & flight ticket in hand (Total AUD 1,000 only), and employer paying $330 work permit + $6,000 embassy fee + $1,000 flight ticket.
@@ -248,6 +262,29 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
       "5️⃣ **Employer Sponsorship & Nomination:** Australian team coordinates complete nomination with Dept of Home Affairs.\n" +
       "6️⃣ **Visa Lodgement:** India office files Subclass 482 visa application; medical test completed.\n" +
       "7️⃣ **Visa Grant & Travel:** Pay remaining AUD 700 TMS fee, employer issues flight tickets $\\to$ arrive in Australia! ✈️ (Total TMS fee: AUD 1,000 only).",
+  },
+  {
+    keywords: ["agreement", "contract", "terms", "validity", "sign"],
+    answer:
+      "Our **Professional Services Agreement** covers your recruitment and visa journey for **one (1) full year**! 📝\n\n" +
+      "It operates in two clear stages:\n" +
+      "1️⃣ **Recruitment Stage:** Your dedicated Recruitment Case Manager handles Australian CV revamp, weekly PTE training, employer marketing, and interview coordination until you secure an official Job Offer.\n" +
+      "2️⃣ **Migration Stage:** Once employed, a Registered Australian Migration Agent (MARN Holder) is formally allocated to file your Employer Nomination and Subclass 482 Visa.\n\n" +
+      "**Fee Structure:** AUD 300 initial fee upon signing, and the remaining AUD 700 ONLY after your visa is granted! (Total AUD 1,000 only).",
+  },
+  {
+    keywords: ["marn", "migration agent", "registered agent", "agent details"],
+    answer:
+      "Under Australian law, migration advice and visa filings must be handled by a **Registered Australian Migration Agent (MARN Holder)**. 🇦🇺\n\n" +
+      "Once you secure your genuine job offer and employment contract with your sponsoring employer, TMS formally allocates and introduces your Registered Migration Agent with their **Full Name, MARN Registration Number, and direct contact details** to lodge your nomination and Subclass 482 visa with the Department of Home Affairs!",
+  },
+  {
+    keywords: ["refund", "cancellation", "money back"],
+    answer:
+      "Our payment structure is designed to protect you! 🛡️\n\n" +
+      "• **Initial AUD 300:** Covers extensive professional services rendered immediately upon signing (Australian CV revamp, profile assessment, ongoing employer customisation, and weekly PTE classes). Once work commences, this initial fee is non-refundable.\n" +
+      "• **Remaining AUD 700:** You pay **strictly AFTER your visa is granted** and flight tickets are in hand!\n\n" +
+      "Because we pre-vet candidates against our 691 eligible occupations and sponsor network, work visas with TMS never get rejected.",
   },
   {
     keywords: ["occupations", "job", "jobs", "roles", "professions", "trades", "list", "eligible"],
