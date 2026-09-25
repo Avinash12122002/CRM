@@ -25,7 +25,7 @@ export function getStaticGoogleMeetLink(): string {
 export function getVideo482Url(): string {
   return (
     process.env.VIDEO_482_URL ||
-    "https://drive.google.com/file/d/1ZQUkqaWWaxVJtHvMrIzyAvUi5a__azg6/view?usp=sharing"
+    "https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing"
   );
 }
 
