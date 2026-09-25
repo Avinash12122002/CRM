@@ -34,7 +34,10 @@ export function getStaticGoogleMeetLink(): string {
 }
 
 export function getVideo482Url(): string {
-  return process.env.VIDEO_482_URL || "";
+  return (
+    process.env.VIDEO_482_URL ||
+    "https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing"
+  );
 }
 
 /**
@@ -1332,7 +1335,79 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: confirmationMsg, step: "BOOKED" };
   }
 
-  // 8. Free-form conversational message -> Consult Context-Aware Meta AI
+  // 8. If candidate specifically asks for the Australia 482 video link
+  const isAskingVideoLink =
+    lowerText.includes("video link") ||
+    lowerText.includes("video url") ||
+    lowerText.includes("watch video") ||
+    lowerText.includes("send video") ||
+    lowerText.includes("share video") ||
+    lowerText.includes("give video") ||
+    lowerText.includes("explainer video") ||
+    lowerText.includes("process video") ||
+    lowerText.includes("482 video") ||
+    (lowerText.includes("link") && lowerText.includes("video")) ||
+    (lowerText.includes("video") &&
+      (lowerText.includes("where") ||
+        lowerText.includes("how") ||
+        lowerText.includes("send") ||
+        lowerText.includes("give") ||
+        lowerText.includes("watch") ||
+        lowerText.includes("share") ||
+        lowerText.includes("can you") ||
+        lowerText.includes("please")));
+
+  if (isAskingVideoLink) {
+    const videoUrl = getVideo482Url();
+    const videoReply =
+      `Here is our Australia Subclass 482 Skills in Demand explainer video! 🎥🇦🇺\n\n` +
+      `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
+      `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n` +
+      `*(Tap the link above to watch anytime)*`;
+
+    await sendTextMessage(session.phone, videoReply);
+    return { replyText: videoReply, step: session.currentStep };
+  }
+
+  // 9. If candidate specifically asks for the Google Meet / consultation meeting link
+  const isAskingMeetLink =
+    lowerText.includes("meeting link") ||
+    lowerText.includes("meet link") ||
+    lowerText.includes("google meet") ||
+    lowerText.includes("room link") ||
+    lowerText.includes("where to join") ||
+    lowerText.includes("how to join") ||
+    lowerText.includes("join meeting") ||
+    lowerText.includes("consultation link") ||
+    lowerText.includes("give me link") ||
+    lowerText.includes("send link") ||
+    (lowerText.includes("link") &&
+      (lowerText.includes("meeting") ||
+        lowerText.includes("consultation") ||
+        lowerText.includes("call")));
+
+  if (isAskingMeetLink) {
+    const meetUrl = getStaticGoogleMeetLink();
+    let meetReply: string;
+    if (session.bookedSlot) {
+      meetReply =
+        `Hi ${session.name || "there"}! 👋\n\n` +
+        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
+        `*(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺`;
+    } else {
+      meetReply =
+        `Hello ${session.name || "there"}! 👋\n\n` +
+        `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
+        `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
+        `Consultations are scheduled on Saturdays and Sundays in 30-minute intervals. Would you like to select an available time slot in your local time?`;
+    }
+
+    await sendTextMessage(session.phone, meetReply);
+    return { replyText: meetReply, step: session.currentStep };
+  }
+
+  // 10. Free-form conversational message -> Consult Context-Aware Meta AI
   const aiAnswer = await generateAiResponse({
     message: cleanText,
     session,

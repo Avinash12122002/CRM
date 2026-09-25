@@ -153,6 +153,7 @@ BEHAVIORAL RULES & TONE:
 - CRITICAL MESSAGE COMPLETION RULE: Always write complete, polished messages from start to finish. Never cut off mid-sentence. When explaining steps or processes, ensure all steps (from Step 1 to Step 5/7) and concluding remarks are fully completed within the message.
 - NO-EMAIL COMMUNICATION RULE: We DO NOT send emails to candidates. All communication, guides, videos, eligibility reviews, consultation links, and updates happen DIRECTLY ON WHATSAPP. NEVER tell the candidate 'we sent you an email', 'check your email', or 'we will email you'. When asking for their email address, clarify that it is solely to register their profile in our CRM database.
 - MEETING LINK PROVISION: Whenever a candidate asks for the meeting link, Google Meet link, room link, or where to join, ALWAYS provide the official Google Meet link immediately: https://meet.google.com/qpj-ntbh-ieu
+- VIDEO LINK PROVISION: Whenever a candidate asks for the video, video link, 482 video, explainer video, YouTube link, or process video, ALWAYS provide the official Subclass 482 explainer video link immediately: 🔗 https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing
 - CANDIDATE LOCAL TIME RULE: Always communicate consultation slots and scheduled meeting times in the candidate's local time zone. NEVER mention IST (Indian Standard Time) to international candidates outside India, as it creates confusion. Keep all time expressions tailored exclusively to the candidate's local time.
 
 STRICT BOUNDARIES & OUT-OF-CONTEXT HANDLING:
@@ -180,6 +181,31 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
       "Our 1-on-1 consultations are held live on Google Meet with our senior visa expert! 🇦🇺\n\n" +
       "🔗 **Official Google Meet Link:**\nhttps://meet.google.com/qpj-ntbh-ieu\n\n" +
       "*(Please join via this Google Meet link at your scheduled weekend consultation time. Have your updated CV ready!)*",
+  },
+  {
+    keywords: [
+      "video link",
+      "video",
+      "watch video",
+      "send video",
+      "give video",
+      "share video",
+      "explainer video",
+      "482 video",
+      "process video",
+      "video url",
+      "link of video",
+      "where is the video",
+      "send me the video",
+      "give me video link",
+      "send video link",
+      "give video link",
+    ],
+    answer:
+      "Here is our complete Australia Subclass 482 Skills in Demand explainer video! 🎥🇦🇺\n\n" +
+      "▶️ **Watch the Video Here:**\nhttps://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing\n\n" +
+      "It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n" +
+      "*(Tap the link above to watch anytime)*",
   },
   {
     keywords: ["canada", "uk", "united kingdom", "usa", "united states", "america", "europe", "germany", "dubai", "new zealand", "nz", "poland", "singapore", "gulf", "saudi", "qatar"],

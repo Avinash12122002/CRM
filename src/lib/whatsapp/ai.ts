@@ -227,6 +227,41 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
     }
   }
 
+  // 1b. If candidate is specifically asking for the video link
+  const videoUrl =
+    process.env.VIDEO_482_URL ||
+    "https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing";
+
+  const isAskingVideoLink =
+    lower.includes("video link") ||
+    lower.includes("video url") ||
+    lower.includes("watch video") ||
+    lower.includes("send video") ||
+    lower.includes("share video") ||
+    lower.includes("give video") ||
+    lower.includes("explainer video") ||
+    lower.includes("process video") ||
+    lower.includes("482 video") ||
+    (lower.includes("link") && lower.includes("video")) ||
+    (lower.includes("video") &&
+      (lower.includes("where") ||
+        lower.includes("how") ||
+        lower.includes("send") ||
+        lower.includes("give") ||
+        lower.includes("watch") ||
+        lower.includes("share") ||
+        lower.includes("can you") ||
+        lower.includes("please")));
+
+  if (isAskingVideoLink) {
+    return (
+      `Here is our Australia Subclass 482 Skills in Demand explainer video! 🎥🇦🇺\n\n` +
+      `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
+      `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n` +
+      `*(Tap the link above to watch anytime)*`
+    );
+  }
+
   // If candidate is asking when their meeting is scheduled
   const isAskingMyMeeting =
     lower.includes("my meeting") ||
