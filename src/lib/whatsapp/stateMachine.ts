@@ -240,9 +240,46 @@ export async function processIncomingWhatsAppMessage(params: {
   const meetLink = getStaticGoogleMeetLink();
   const videoUrl = getVideo482Url();
 
+  const lowerText = cleanText.toLowerCase().replace(/[^a-z0-9@. ]/g, "").trim();
+
+  // Greetings check
+  const GREETING_WORDS = [
+    "hi", "hello", "hey", "start", "restart", "menu", "namaste", "hlo", "hii",
+    "good morning", "good evening", "good afternoon"
+  ];
+  const isGreeting =
+    GREETING_WORDS.includes(lowerText) ||
+    lowerText.startsWith("hi ") ||
+    lowerText.startsWith("hello ");
+
+  // Affirmative check (handles button clicks or typed equivalents like "yes, interested", "sure", "yep")
+  const isAffirmative =
+    actionId === "BTN_482_YES" ||
+    (session.currentStep === "WELCOME" &&
+      ["yes", "yep", "yeah", "interested", "sure", "ok", "okay"].some((w) =>
+        lowerText === w || lowerText.includes(w)
+      ));
+
+  // Negative check (handles button clicks or typed equivalents like "not right now", "no", "maybe later")
+  const isNegative =
+    actionId === "BTN_482_NO" ||
+    actionId === "BTN_CONSULT_NO" ||
+    ["no", "not now", "not right now", "not interested", "later", "maybe later"].some((w) =>
+      lowerText === w || lowerText.startsWith(w)
+    );
+
+  // Email format check
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isDirectEmail = emailRegex.test(cleanText.toLowerCase());
+
   // 1. Initial State: WELCOME (when starting or saying hi)
-  const isGreeting = ["hi", "hello", "start"].includes(cleanText.toLowerCase());
-  const isFreshWelcome = session.currentStep === "WELCOME" && !actionId && !["yes", "no"].includes(cleanText.toLowerCase());
+  const isFreshWelcome =
+    session.currentStep === "WELCOME" &&
+    !actionId &&
+    !isGreeting &&
+    !isAffirmative &&
+    !isNegative &&
+    !isDirectEmail;
 
   if (actionId === "RESTART_FLOW" || isGreeting || isFreshWelcome) {
     const welcomeText =
@@ -260,11 +297,7 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // 2. Candidate said NO at any stage -> Trigger 6-day reminder cycle (every 2 days)
-  if (
-    actionId === "BTN_482_NO" ||
-    actionId === "BTN_CONSULT_NO" ||
-    cleanText.toLowerCase() === "no"
-  ) {
+  if (isNegative) {
     const noReply =
       `No problem at all! Feel free to review our updates anytime when you are ready to explore Australian migration with TMS Visa 🇦🇺.\n\n` +
       `We'll keep you posted with relevant visa updates. Have a wonderful day!`;
@@ -282,7 +315,7 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // 3. Candidate clicked YES to 482 -> Request Email
-  if (actionId === "BTN_482_YES" || (session.currentStep === "WELCOME" && cleanText.toLowerCase() === "yes")) {
+  if (isAffirmative && !isDirectEmail) {
     const emailPrompt =
       `Great! To register your profile and send you our Subclass 482 sponsorship guide & video, **please reply with your Email Address:**`;
 
@@ -291,12 +324,11 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: emailPrompt, step: "AWAITING_EMAIL" };
   }
 
-  // 4. In AWAITING_EMAIL state -> Capture & Validate Email, Trigger Timed Sequence
-  if (session.currentStep === "AWAITING_EMAIL") {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  // 4. In AWAITING_EMAIL state (or direct email shared) -> Capture & Validate Email, Trigger Timed Sequence
+  if (session.currentStep === "AWAITING_EMAIL" || (isDirectEmail && session.currentStep !== "BOOKED")) {
     const extractedEmail = cleanText.toLowerCase();
 
-    if (!emailRegex.test(extractedEmail)) {
+    if (!isDirectEmail) {
       const invalidEmailMsg =
         `Please enter a valid email address (e.g. name@gmail.com) so we can proceed with your profile registration.`;
       await sendTextMessage(session.phone, invalidEmailMsg);
@@ -333,11 +365,15 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // 5. Candidate wants Consultation -> Show Saturday & Sunday Options
-  if (
+  const wantsConsultation =
     actionId === "BTN_CONSULT_YES" ||
-    (session.currentStep === "VIDEO_SENT_AWAITING_INTEREST" && cleanText.toLowerCase() === "yes") ||
-    actionId === "BTN_CHANGE_DAY"
-  ) {
+    actionId === "BTN_CHANGE_DAY" ||
+    (session.currentStep === "VIDEO_SENT_AWAITING_INTEREST" &&
+      (["yes", "book", "consult", "consultation", "meeting", "call"].some((w) =>
+        lowerText.includes(w)
+      )));
+
+  if (wantsConsultation) {
     const weekends = getUpcomingWeekendDays();
 
     const sections = [

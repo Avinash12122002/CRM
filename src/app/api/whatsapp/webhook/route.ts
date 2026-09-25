@@ -64,6 +64,10 @@ export async function POST(req: NextRequest) {
         textBody = interactive.list_reply?.title;
         type = "interactive_list";
       }
+    } else if (msgType === "button") {
+      selectedId = message.button?.payload;
+      textBody = message.button?.text;
+      type = "interactive_button";
     }
 
     // Process through state machine
