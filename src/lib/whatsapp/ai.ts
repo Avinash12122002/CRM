@@ -18,14 +18,21 @@ export async function generateAiResponse(params: {
 
   const matchedOcc = findEligibleOccupation(message);
 
-  // Build candidate live context
+  // Build rich candidate live profile
   let contextBlock = `
-CANDIDATE LIVE CRM PROFILE:
-- Name: ${session.name || "Candidate"}
-- Phone: +${session.phone}
-- Location: ${session.countryName} (${session.timeZoneLabel})
-- Email: ${session.email || "Not shared yet"}
-- Current Funnel State: ${session.currentStep}
+CANDIDATE LIVE CRM PROFILE & DOSSIER:
+- Candidate Name: ${session.name || "Candidate"}
+- Phone Number: +${session.phone}
+- Email Address: ${session.email || "Not shared yet"}
+- Country of Residence: ${session.countryName} (${session.timeZoneLabel})
+- Destination of Interest: ${session.interestedCountry || "Australia"}
+- Target Visa Pathway: Australia Subclass 482 Skills in Demand Work Visa (Direct Employer Sponsored)
+- Known Occupation: ${session.occupation || "Not specified yet"}${session.occupationSector ? ` (Sector: ${session.occupationSector})` : ""}
+- Work Experience: ${session.yearsExperience || "Not specified yet"}
+- Educational Qualification: ${session.highestQualification || "Not specified yet"}
+- English Language Status: ${session.englishTestStatus || "Preparing with TMS / Pending"}
+- Funnel State: ${session.currentStep}
+- Meeting Lifecycle Status: ${session.meetingStatus || (session.bookedSlot ? "booked" : "none")}
 `;
 
   if (matchedOcc) {
@@ -40,20 +47,37 @@ CANDIDATE LIVE CRM PROFILE:
 
   if (session.bookedSlot) {
     contextBlock += `
-- MEETING WITH SENIOR VISA EXPERT:
-  * Status: Confirmed & Scheduled
+- ACTIVE CONFIRMED CONSULTATION:
   * Date: ${session.bookedSlot.date}
   * Candidate Local Time: ${session.bookedSlot.candidateTimeLabel}
   * India IST Time: ${session.bookedSlot.istTimeLabel}
   * Consultant: TMS Visa Senior Migration Expert
+  * Status: ${session.meetingStatus || "booked"}
+  * Rescheduled Count: ${session.meetingRescheduledCount || 0} times
+`;
+  } else if (session.meetingStatus === "canceled") {
+    contextBlock += `
+- CONSULTATION CANCELLATION DETAILS:
+  * Status: Canceled
+  * Canceled At: ${session.meetingCanceledAt ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
+  * Reason: ${session.meetingCancellationReason || "Requested by candidate"}
+  * Note: Candidate can rebook anytime for a weekend slot between 11 AM - 7 PM IST.
+`;
+  }
+
+  if (session.meetingHistory && session.meetingHistory.length > 0) {
+    contextBlock += `
+- MEETING TIMELINE & HISTORY:
+${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().split('T')[0]}] ${h.action.toUpperCase()}: ${h.date || ""} ${h.candidateTime || ""} ${h.reason ? `(Reason: ${h.reason})` : ""}`).join("\n")}
 `;
   }
 
   if (session.meetingCompleted) {
     contextBlock += `
-- MEETING STATUS: Completed.
-  * Status: Consultation Completed
-  * PAYMENT STATUS: ${session.paymentPending ? "Pending (Awaiting Enrollment Payment)" : "Settled / In Progress"}
+- CONSULTATION OUTCOME:
+  * Status: Consultation Successfully Completed
+  * Completed On: ${session.meetingCompletedAt ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
+  * Enrollment Payment Status: ${session.paymentPending ? "Pending (Awaiting AUD 300 Initial Service Fee)" : "Settled / In Progress"}
 `;
   }
 

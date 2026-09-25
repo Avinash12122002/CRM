@@ -19,12 +19,29 @@ export interface CountryTimezoneInfo {
   label: string; // e.g. "WAT (West Africa Time)"
 }
 
+export type MeetingStatusType = "none" | "booked" | "rescheduled" | "canceled" | "completed";
+
+export interface MeetingHistoryItem {
+  action: "booked" | "rescheduled" | "canceled" | "completed";
+  date?: string;
+  candidateTime?: string;
+  istTime?: string;
+  timestamp: Date;
+  reason?: string;
+  previousSlot?: {
+    date: string;
+    candidateTime: string;
+    istTime: string;
+  };
+}
+
 export interface WhatsAppSession {
   phone: string; // Clean digits with dial code e.g. "2348012345678"
   name?: string;
   email?: string;
   countryCode: string;
   countryName: string;
+  interestedCountry?: string; // e.g. "Australia"
   timeZone: string;
   timeZoneLabel: string;
   currentStep: WhatsAppStep;
@@ -34,6 +51,25 @@ export interface WhatsAppSession {
   lastFollowupSentAt?: Date;
   nextFollowupAt?: Date;
   videoSentAt?: Date;
+
+  // Candidate Qualifications & Profiling
+  occupation?: string; // Extracted or CRM occupation
+  occupationSector?: string; // Sector from 691 list
+  yearsExperience?: string | number; // e.g. "5" or "5+ years"
+  highestQualification?: string; // e.g. "Bachelor of Engineering", "Diploma"
+  englishTestStatus?: string; // e.g. "PTE 45", "IELTS 6.5", "Preparing with TMS"
+  candidateNotes?: string[]; // Log of key candidate details / preferences
+
+  // Meeting Lifecycle Tracking
+  meetingStatus?: MeetingStatusType; // "none" | "booked" | "rescheduled" | "canceled" | "completed"
+  meetingBookedAt?: Date;
+  meetingRescheduledAt?: Date;
+  meetingRescheduledCount?: number;
+  meetingCompletedAt?: Date;
+  meetingCanceledAt?: Date;
+  meetingCancellationReason?: string;
+  meetingHistory?: MeetingHistoryItem[];
+
   bookedSlot?: {
     date: string; // YYYY-MM-DD
     candidateTime: string; // e.g. "16:30" (WAT)
