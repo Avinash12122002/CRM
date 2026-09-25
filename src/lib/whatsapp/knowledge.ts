@@ -69,4 +69,24 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
     answer:
       "Our initial 30-minute profile assessment and weekend consultation via Google Meet with our visa expert is **completely free**! We will review your CV, assess employer eligibility, and explain the full transparent roadmap.",
   },
+  {
+    keywords: ["why choose", "why australia", "benefit", "benefits", "advantage"],
+    answer:
+      "Australia is one of the top destinations for skilled workers worldwide! 🇦🇺\n\n• **High standard of living & competitive wages**\n• **Immediate full-time work rights** for you and your spouse\n• **Free/subsidized schooling** for dependent children\n• **Direct PR pathway (Subclass 186)** after just 2 years of work\n• Safe, multicultural, and family-friendly environment.\n\nWould you like to check your eligibility during our free weekend consultation?",
+  },
+  {
+    keywords: ["process", "steps", "roadmap", "how does it work", "how to apply"],
+    answer:
+      "The Australia Subclass 482 process consists of 5 clear steps:\n\n1️⃣ **Profile & CV Assessment** (Free 30-min Google Meet session)\n2️⃣ **Skills & English Verification** (IELTS 5.0+ or PTE 36+, 2+ yrs experience)\n3️⃣ **Employer Matching & Nomination**\n4️⃣ **Visa Lodgement** with Australian Immigration\n5️⃣ **Visa Grant & Arrival** (with PR pathway after 2 years) 🇦🇺",
+  },
+  {
+    keywords: ["salary", "pay", "wage", "income", "earn"],
+    answer:
+      "Under Australian immigration law, Subclass 482 visa holders must be paid at or above the **Temporary Skilled Migration Income Threshold (TSMIT)**, currently at least **AUD $70,000+ per year** plus superannuation (pension contributions), ensuring fair and high-standard wages! 💼",
+  },
+  {
+    keywords: ["occupations", "job", "jobs", "roles", "professions", "trades"],
+    answer:
+      "The Subclass 482 visa sponsors in-demand occupations across:\n\n• **Hospitality:** Chefs, Cooks, Restaurant Managers\n• **Engineering & Trades:** Mechanics, Electricians, Welders, Carpenters\n• **Technology:** Software Engineers, Developers, Cloud, DevOps\n• **Healthcare:** Nurses, Allied Health\n\nWhat is your current occupation and years of experience?",
+  },
 ];

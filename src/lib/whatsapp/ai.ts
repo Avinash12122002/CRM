@@ -49,28 +49,42 @@ CANDIDATE LIVE CRM PROFILE:
       // 1. Groq (Ultra-fast, uses key already in .env)
       if (apiKey.startsWith("gsk_") || process.env.GROQ_API_KEY) {
         const groqKey = apiKey.startsWith("gsk_") ? apiKey : process.env.GROQ_API_KEY;
-        const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${groqKey}`,
-          },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            messages: [
-              { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
-              { role: "user", content: message },
-            ],
-            max_tokens: 250,
-            temperature: 0.7,
-          }),
-        });
+        const models = [
+          process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+          "openai/gpt-oss-120b",
+        ];
 
-        if (res.ok) {
-          const data = await res.json();
-          const replyText = data.choices?.[0]?.message?.content;
-          if (replyText) {
-            return replyText.trim();
+        for (const model of models) {
+          try {
+            const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${groqKey}`,
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
+                  { role: "user", content: message },
+                ],
+                max_tokens: 300,
+                temperature: 0.7,
+              }),
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              const replyText = data.choices?.[0]?.message?.content;
+              if (replyText) {
+                return replyText.trim();
+              }
+            } else {
+              const errBody = await res.text();
+              console.warn(`[WhatsApp AI] Groq (${model}) returned ${res.status}:`, errBody);
+            }
+          } catch (modelErr) {
+            console.warn(`[WhatsApp AI] Groq (${model}) error:`, modelErr);
           }
         }
       }
@@ -177,8 +191,17 @@ CANDIDATE LIVE CRM PROFILE:
     );
   }
 
+  // If candidate asks for consultation or general next steps
+  if (lower.includes("book") || lower.includes("slot") || lower.includes("call") || lower.includes("consult")) {
+    return (
+      `Thank you for contacting The Migration School (TMS Visa) 🇦🇺.\n\n` +
+      `Our senior visa expert is conducting free 30-minute 1-on-1 consultations this weekend between 11:00 AM and 07:00 PM IST (converted to your local time: ${session.timeZoneLabel}). Would you like to select an available slot?`
+    );
+  }
+
+  // General conversational greeting fallback
   return (
-    `Thank you for contacting The Migration School (TMS Visa) 🇦🇺.\n\n` +
-    `Our senior visa expert is conducting free 30-minute 1-on-1 consultations this weekend between 11:00 AM and 07:00 PM IST (converted to your local time: ${session.timeZoneLabel}). Would you like to select an available slot?`
+    `Hello! 👋 Thank you for reaching out to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+    `How can I assist you with your Australia Subclass 482 Work Visa inquiry today? Feel free to ask about eligibility requirements, the 5-step process, or booking a free weekend consultation!`
   );
 }
