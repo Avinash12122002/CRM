@@ -17,8 +17,7 @@ const SESSIONS_COLLECTION = "whatsapp_sessions";
 
 export function getStaticGoogleMeetLink(): string {
   return (
-    process.env.GOOGLE_MEET_LINK ||
-    "https://meet.google.com/tms-visa-consultation"
+    process.env.GOOGLE_MEET_LINK || ""
   );
 }
 
