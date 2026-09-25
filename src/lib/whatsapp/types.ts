@@ -43,6 +43,7 @@ export interface WhatsAppSession {
     meetingUserId: number;
     meetingUserName: string;
   };
+  activeSlotsDate?: string; // Date currently being viewed for slot selection
   meetingCompleted?: boolean;
   paymentPending?: boolean;
   lastInteractionAt: Date;

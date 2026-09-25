@@ -210,3 +210,37 @@ export async function getAvailableWeekendSlots(params: {
 
   return slots;
 }
+
+/**
+ * Formats all available slots for a day into a single complete overview
+ * so the candidate can see all 16 slots at once in one view.
+ */
+export function formatSlotsOverview(params: {
+  slots: WeekendSlot[];
+  dayLabel: string;
+  candidateTimeZoneLabel: string;
+  isIndia: boolean;
+}): string {
+  const { slots, dayLabel, candidateTimeZoneLabel, isIndia } = params;
+
+  const numberEmojis = [
+    "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣",
+    "9️⃣", "🔟", "1️⃣1️⃣", "1️⃣2️⃣", "1️⃣3️⃣", "1️⃣4️⃣", "1️⃣5️⃣", "1️⃣6️⃣",
+  ];
+
+  let text = `📅 *All Available Consultation Slots for ${dayLabel}*\n`;
+  text += `(30-minute 1-on-1 sessions strictly between 11:00 AM and 07:00 PM IST)\n\n`;
+
+  slots.forEach((s, idx) => {
+    const num = numberEmojis[idx] || `[${idx + 1}]`;
+    const candLabel = s.candidateDisplayLabel.split(" (")[0];
+    if (isIndia) {
+      text += `${num} *${s.istStartTime} - ${s.istEndTime} IST*\n`;
+    } else {
+      text += `${num} *${s.istStartTime} - ${s.istEndTime} IST* (${candLabel} ${candidateTimeZoneLabel})\n`;
+    }
+  });
+
+  text += `\n👉 *To reserve your slot:* Reply with the number (e.g. *1* or *${Math.min(5, slots.length)}*) or tap a slot below:`;
+  return text;
+}

@@ -7,6 +7,7 @@ import {
   getUpcomingWeekendDays,
   getAvailableWeekendSlots,
   findNextAvailableWeekendDay,
+  formatSlotsOverview,
 } from "./slots";
 import { generateAiResponse } from "./ai";
 import {
@@ -253,7 +254,7 @@ export async function processIncomingWhatsAppMessage(params: {
   const session = await getOrCreateSession(db, params.phone, params.senderName);
 
   const cleanText = (params.textBody || "").trim();
-  const actionId = (params.selectedId || "").trim();
+  let actionId = (params.selectedId || "").trim();
   const meetLink = getStaticGoogleMeetLink();
   const videoUrl = getVideo482Url();
 
@@ -381,14 +382,31 @@ export async function processIncomingWhatsAppMessage(params: {
     };
   }
 
-  // 5. Candidate wants Consultation -> Show 10 Upcoming Weekend Dates (~whole month)
+  // 5. Candidate wants Consultation or wants to Reschedule/Change Date -> Show 10 Upcoming Weekend Dates (~whole month)
+  const isRescheduleIntent =
+    actionId === "BTN_RESCHEDULE" ||
+    actionId === "BTN_CHANGE_DAY" ||
+    lowerText.includes("reschedule") ||
+    lowerText.includes("wrong time") ||
+    lowerText.includes("wrong date") ||
+    lowerText.includes("wrong slot") ||
+    (lowerText.includes("change") &&
+      (lowerText.includes("date") ||
+        lowerText.includes("time") ||
+        lowerText.includes("slot") ||
+        lowerText.includes("meeting"))) ||
+    (lowerText.includes("different") &&
+      (lowerText.includes("date") ||
+        lowerText.includes("time") ||
+        lowerText.includes("slot")));
+
   const wantsConsultation =
     actionId === "BTN_CONSULT_YES" ||
-    actionId === "BTN_CHANGE_DAY" ||
+    isRescheduleIntent ||
     (session.currentStep === "VIDEO_SENT_AWAITING_INTEREST" &&
-      (["yes", "book", "consult", "consultation", "meeting", "call"].some((w) =>
+      ["yes", "book", "consult", "consultation", "meeting", "call"].some((w) =>
         lowerText.includes(w)
-      )));
+      ));
 
   if (wantsConsultation) {
     const weekends = getUpcomingWeekendDays(10);
@@ -404,10 +422,14 @@ export async function processIncomingWhatsAppMessage(params: {
       },
     ];
 
-    const dayText =
-      `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
-      `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
-      `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
+    const isRescheduling = Boolean(session.bookedSlot);
+    const dayText = isRescheduling
+      ? `📅 *Change Consultation Date & Time*\n\n` +
+        `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
+        `Please select your new preferred weekend date from the upcoming month:`
+      : `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
+        `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
+        `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
 
     await sendInteractiveList(
       session.phone,
@@ -421,7 +443,7 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: dayText, step: "SELECTING_DAY" };
   }
 
-  // 6. Candidate selected day or window -> Show available 30-min slots strictly 11am-7pm IST in Candidate Local Time
+  // 6. Candidate selected day -> Show all 16 slots at once in one view
   if (
     actionId.startsWith("DAY_DATE_") ||
     actionId.startsWith("DAY_SELECT_") ||
@@ -429,20 +451,15 @@ export async function processIncomingWhatsAppMessage(params: {
     actionId.startsWith("DAY_EVENING_")
   ) {
     let meetingDate = "";
-    let timeWindow: "all" | "morning" | "evening" = "all";
 
     if (actionId.startsWith("DAY_MORNING_")) {
       meetingDate = actionId.replace("DAY_MORNING_", "");
-      timeWindow = "morning";
     } else if (actionId.startsWith("DAY_EVENING_")) {
       meetingDate = actionId.replace("DAY_EVENING_", "");
-      timeWindow = "evening";
     } else if (actionId.startsWith("DAY_DATE_")) {
       meetingDate = actionId.replace("DAY_DATE_", "");
-      timeWindow = "all";
     } else {
       meetingDate = actionId.replace("DAY_SELECT_", "");
-      timeWindow = "all";
     }
 
     const slots = await getAvailableWeekendSlots({
@@ -452,15 +469,9 @@ export async function processIncomingWhatsAppMessage(params: {
       candidateTimeLabel: session.timeZoneLabel,
     });
 
-    let availableSlots = slots.filter((s) => s.available);
+    const availableSlots = slots.filter((s) => s.available);
 
-    if (timeWindow === "morning") {
-      availableSlots = availableSlots.filter((s) => s.istStartTime < "15:00");
-    } else if (timeWindow === "evening") {
-      availableSlots = availableSlots.filter((s) => s.istStartTime >= "15:00");
-    }
-
-    // If NO slots available on this date / window:
+    // If NO slots available on this date:
     if (availableSlots.length === 0) {
       const allWeekends = getUpcomingWeekendDays(10);
       const selectedDayObj = allWeekends.find((w) => w.date === meetingDate);
@@ -475,50 +486,91 @@ export async function processIncomingWhatsAppMessage(params: {
       });
 
       if (nextWeekend && nextWeekend.availableSlots.length > 0) {
+        const nextDate = nextWeekend.dayOption.date;
         const nextLabel = nextWeekend.dayOption.displayLabel;
-        let displayedRows: { id: string; title: string; description: string }[] = [];
+        const isIndia = session.countryCode === "IN";
 
-        if (nextWeekend.availableSlots.length <= 10) {
-          displayedRows = nextWeekend.availableSlots.map((s) => ({
-            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-          }));
-        } else {
-          const first9 = nextWeekend.availableSlots.slice(0, 9);
-          displayedRows = first9.map((s) => ({
-            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-          }));
-          displayedRows.push({
-            id: `DAY_EVENING_${nextWeekend.dayOption.date}`,
-            title: "Later Afternoon Slots",
-            description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
+        // Save active slots date
+        await updateSession(db, session.phone, {
+          currentStep: "SELECTING_SLOT",
+          activeSlotsDate: nextDate,
+        });
+
+        // 1. Send complete overview text of all available slots for next weekend in one view
+        const overviewText =
+          `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
+          `Here are all available consultation slots for the next weekend on **${nextLabel}**:\n\n` +
+          formatSlotsOverview({
+            slots: nextWeekend.availableSlots,
+            dayLabel: nextLabel,
+            candidateTimeZoneLabel: session.timeZoneLabel,
+            isIndia,
           });
+
+        await sendTextMessage(session.phone, overviewText);
+
+        // 2. Send interactive list(s) so candidate can tap or reply with a number
+        if (nextWeekend.availableSlots.length <= 10) {
+          const sections = [
+            {
+              title: "Available Slots",
+              rows: nextWeekend.availableSlots.map((s) => ({
+                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+                description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+              })),
+            },
+          ];
+          await sendInteractiveList(
+            session.phone,
+            "Pick Your Time",
+            "Tap below to choose your consultation slot:",
+            "Select Slot",
+            sections,
+          );
+        } else {
+          // Send 2 list messages so all slots can be tapped
+          const part1 = nextWeekend.availableSlots.slice(0, 8);
+          const part2 = nextWeekend.availableSlots.slice(8, 16);
+
+          await sendInteractiveList(
+            session.phone,
+            "Slots 1 to 8",
+            "Choose an earlier slot (11:00 AM - 03:00 PM IST):",
+            "Slots 1-8",
+            [
+              {
+                title: "11:00 AM - 03:00 PM",
+                rows: part1.map((s) => ({
+                  id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                  title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+                  description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+                })),
+              },
+            ],
+          );
+
+          await delay(300);
+
+          await sendInteractiveList(
+            session.phone,
+            "Slots 9 to 16",
+            "Choose a later slot (03:00 PM - 07:00 PM IST):",
+            "Slots 9-16",
+            [
+              {
+                title: "03:00 PM - 07:00 PM",
+                rows: part2.map((s) => ({
+                  id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                  title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+                  description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+                })),
+              },
+            ],
+          );
         }
 
-        const sections = [
-          {
-            title: `${nextWeekend.dayOption.dayName} Slots`.slice(0, 24),
-            rows: displayedRows,
-          },
-        ];
-
-        const fullText =
-          `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
-          `Here are the available 30-minute consultation slots for next weekend on **${nextLabel}** (shown in your local time **${session.timeZoneLabel}**).\n\n` +
-          `Tap below to reserve your slot:`;
-
-        await sendInteractiveList(
-          session.phone,
-          "Next Weekend Slots",
-          fullText,
-          "Select Time",
-          sections,
-        );
-        await updateSession(db, session.phone, { currentStep: "SELECTING_SLOT" });
-        return { replyText: fullText, step: "SELECTING_SLOT" };
+        return { replyText: overviewText, step: "SELECTING_SLOT" };
       } else {
         const fullText =
           `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
@@ -534,54 +586,121 @@ export async function processIncomingWhatsAppMessage(params: {
     const allWeekends = getUpcomingWeekendDays(10);
     const dayObj = allWeekends.find((w) => w.date === meetingDate);
     const dayLabel = dayObj ? dayObj.displayLabel : meetingDate;
+    const isIndia = session.countryCode === "IN";
 
-    let displayedRows: { id: string; title: string; description: string }[] = [];
+    // Save activeSlotsDate in session so reply with number works
+    await updateSession(db, session.phone, {
+      currentStep: "SELECTING_SLOT",
+      activeSlotsDate: meetingDate,
+    });
 
+    // 1. Send complete overview text of ALL 16 slots at once in one view!
+    const overviewText = formatSlotsOverview({
+      slots: availableSlots,
+      dayLabel,
+      candidateTimeZoneLabel: session.timeZoneLabel,
+      isIndia,
+    });
+
+    await sendTextMessage(session.phone, overviewText);
+
+    // 2. Send interactive list(s)
     if (availableSlots.length <= 10) {
-      displayedRows = availableSlots.map((s) => ({
-        id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-        title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-        description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-      }));
+      const sections = [
+        {
+          title: "Available Slots",
+          rows: availableSlots.map((s) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+          })),
+        },
+      ];
+
+      await sendInteractiveList(
+        session.phone,
+        "Pick Your Time",
+        "Tap below to choose your consultation slot:",
+        "Select Slot",
+        sections,
+      );
     } else {
-      // More than 10 available slots -> Show first 9 + 10th row for later slots
-      const first9 = availableSlots.slice(0, 9);
-      displayedRows = first9.map((s) => ({
-        id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-        title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-        description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-      }));
-      displayedRows.push({
-        id: `DAY_EVENING_${meetingDate}`,
-        title: "Later Afternoon Slots",
-        description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
-      });
+      // Send 2 list messages so all 16 slots can be tapped
+      const part1 = availableSlots.slice(0, 8);
+      const part2 = availableSlots.slice(8, 16);
+
+      await sendInteractiveList(
+        session.phone,
+        "Slots 1 to 8",
+        "Choose an earlier slot (11:00 AM - 03:00 PM IST):",
+        "Slots 1-8",
+        [
+          {
+            title: "11:00 AM - 03:00 PM",
+            rows: part1.map((s) => ({
+              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+            })),
+          },
+        ],
+      );
+
+      await delay(300);
+
+      await sendInteractiveList(
+        session.phone,
+        "Slots 9 to 16",
+        "Choose a later slot (03:00 PM - 07:00 PM IST):",
+        "Slots 9-16",
+        [
+          {
+            title: "03:00 PM - 07:00 PM",
+            rows: part2.map((s) => ({
+              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+            })),
+          },
+        ],
+      );
     }
 
-    const sections = [
-      {
-        title: "Available Slots",
-        rows: displayedRows,
-      },
-    ];
-
-    const slotPrompt =
-      `Here are the available 30-minute consultation slots for **${dayLabel}** in your local time (**${session.timeZoneLabel}**).\n\n` +
-      `Tap below to reserve your slot with our visa expert:`;
-
-    await sendInteractiveList(
-      session.phone,
-      "Pick Your Time",
-      slotPrompt,
-      "Select Time",
-      sections,
-    );
-
-    await updateSession(db, session.phone, { currentStep: "SELECTING_SLOT" });
-    return { replyText: slotPrompt, step: "SELECTING_SLOT" };
+    return { replyText: overviewText, step: "SELECTING_SLOT" };
   }
 
-  // 7. Candidate selected slot -> Lock slot in CRM, Assign to Abhay, Send Meet Link
+  // 6b. Candidate typed a slot number (e.g. "1", "5", "14") or typed a time (e.g. "11:00", "2:30", "4pm")
+  if (
+    session.currentStep === "SELECTING_SLOT" &&
+    session.activeSlotsDate &&
+    !actionId.startsWith("SLOT_")
+  ) {
+    const num = parseInt(cleanText.replace(/[^\d]/g, ""), 10);
+    const dateSlots = await getAvailableWeekendSlots({
+      db,
+      meetingDate: session.activeSlotsDate,
+      candidateTimeZone: session.timeZone,
+      candidateTimeLabel: session.timeZoneLabel,
+    });
+    const available = dateSlots.filter((s) => s.available);
+
+    if (!isNaN(num) && num >= 1 && num <= available.length) {
+      const picked = available[num - 1];
+      actionId = `SLOT_${picked.date}_${picked.istStartTime}_${picked.candidateStartTime}`;
+    } else {
+      const cleanLower = cleanText.toLowerCase();
+      const matched = available.find((s) =>
+        cleanLower.includes(s.istStartTime) ||
+        cleanLower.includes(s.candidateStartTime) ||
+        cleanLower.replace(/[: ]/g, "").includes(s.istStartTime.replace(":", ""))
+      );
+      if (matched) {
+        actionId = `SLOT_${matched.date}_${matched.istStartTime}_${matched.candidateStartTime}`;
+      }
+    }
+  }
+
+  // 7. Candidate selected slot -> Lock slot in CRM, Assign to Abhay, Send Meet Link, Replace previous slot if rescheduling
   if (actionId.startsWith("SLOT_")) {
     // Format: SLOT_{meetingDate}_{istStart}_{candidateStart}
     const parts = actionId.split("_");
@@ -596,8 +715,8 @@ export async function processIncomingWhatsAppMessage(params: {
       status: { $in: ["scheduled", "completed"] },
     });
 
-    if (existingSlot) {
-      console.log(`[WhatsApp] Collision: slot ${meetingDate} ${istStart} is already booked.`);
+    if (existingSlot && existingSlot.phone !== session.phone) {
+      console.log(`[WhatsApp] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone}`);
 
       // Re-query available slots for this date
       const remainingSlots = await getAvailableWeekendSlots({
@@ -609,45 +728,20 @@ export async function processIncomingWhatsAppMessage(params: {
       const availableRemaining = remainingSlots.filter((s) => s.available);
 
       if (availableRemaining.length > 0) {
-        let displayedRows: { id: string; title: string; description: string }[] = [];
-        if (availableRemaining.length <= 10) {
-          displayedRows = availableRemaining.map((s) => ({
-            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-          }));
-        } else {
-          const first9 = availableRemaining.slice(0, 9);
-          displayedRows = first9.map((s) => ({
-            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-          }));
-          displayedRows.push({
-            id: `DAY_EVENING_${meetingDate}`,
-            title: "Later Afternoon Slots",
-            description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
-          });
-        }
-
-        const sections = [
-          {
-            title: "Available Slots",
-            rows: displayedRows,
-          },
-        ];
+        const isIndia = session.countryCode === "IN";
+        const dayLabel = remainingSlots[0]?.dayLabel || meetingDate;
 
         const collisionMsg =
           `⚠️ That slot (**${istStart} IST**) was just booked by another candidate!\n\n` +
-          `All consultation slots are locked once reserved to avoid overlap. Please choose another available time for this day:`;
+          `All consultation slots are locked once reserved to avoid overlap. Please choose another available time:\n\n` +
+          formatSlotsOverview({
+            slots: availableRemaining,
+            dayLabel,
+            candidateTimeZoneLabel: session.timeZoneLabel,
+            isIndia,
+          });
 
-        await sendInteractiveList(
-          session.phone,
-          "Select Another Slot",
-          collisionMsg,
-          "Choose Time",
-          sections,
-        );
+        await sendTextMessage(session.phone, collisionMsg);
         return { replyText: collisionMsg, step: "SELECTING_SLOT" };
       } else {
         // All slots on this day are now booked! Suggest next weekend
@@ -660,46 +754,19 @@ export async function processIncomingWhatsAppMessage(params: {
 
         if (nextWeekend && nextWeekend.availableSlots.length > 0) {
           const nextLabel = nextWeekend.dayOption.displayLabel;
-          let displayedRows: { id: string; title: string; description: string }[] = [];
-
-          if (nextWeekend.availableSlots.length <= 10) {
-            displayedRows = nextWeekend.availableSlots.map((s) => ({
-              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-            }));
-          } else {
-            const first9 = nextWeekend.availableSlots.slice(0, 9);
-            displayedRows = first9.map((s) => ({
-              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-            }));
-            displayedRows.push({
-              id: `DAY_EVENING_${nextWeekend.dayOption.date}`,
-              title: "Later Afternoon Slots",
-              description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
-            });
-          }
-
-          const sections = [
-            {
-              title: `${nextWeekend.dayOption.dayName} Slots`.slice(0, 24),
-              rows: displayedRows,
-            },
-          ];
+          const isIndia = session.countryCode === "IN";
 
           const collisionMsg =
             `⚠️ That slot was just booked, and all slots for that day are now fully reserved! 🔒\n\n` +
-            `Here are the available consultation slots for the next weekend on **${nextLabel}**:`;
+            `Here are all available consultation slots for the next weekend on **${nextLabel}**:\n\n` +
+            formatSlotsOverview({
+              slots: nextWeekend.availableSlots,
+              dayLabel: nextLabel,
+              candidateTimeZoneLabel: session.timeZoneLabel,
+              isIndia,
+            });
 
-          await sendInteractiveList(
-            session.phone,
-            "Next Weekend Slots",
-            collisionMsg,
-            "Choose Time",
-            sections,
-          );
+          await sendTextMessage(session.phone, collisionMsg);
           return { replyText: collisionMsg, step: "SELECTING_SLOT" };
         } else {
           const fullText =
@@ -741,7 +808,27 @@ export async function processIncomingWhatsAppMessage(params: {
     // 1. Resolve lead ID first so it can be linked to the meetingSlot
     const leadId = session.leadId || (await syncCrmLead(db, session, "meeting-scheduled"));
 
-    // 2. Lock slot in meetingSlots collection (compatible with all CRM meeting APIs)
+    // Check if this candidate ALREADY has a previously scheduled meeting (Rescheduling flow!)
+    const previousScheduledSlot = await db.collection("meetingSlots").findOne({
+      phone: session.phone,
+      status: "scheduled",
+    });
+
+    const isReschedule = Boolean(previousScheduledSlot);
+    let previousSlotDetails = "";
+
+    if (previousScheduledSlot) {
+      previousSlotDetails = `${previousScheduledSlot.meetingDate} at ${previousScheduledSlot.startTime} IST`;
+      console.log(`[WhatsApp] Rescheduling: releasing previous slot for ${session.phone}: ${previousSlotDetails}`);
+
+      // Delete previous scheduled slot from meetingSlots so it is immediately FREE and UNLOCKED for others in the whole system!
+      await db.collection("meetingSlots").deleteMany({
+        phone: session.phone,
+        status: "scheduled",
+      });
+    }
+
+    // 2. Lock NEW slot in meetingSlots collection
     const slotId = await getNextId(db, "meetingSlots");
     const slotDoc = {
       id: slotId,
@@ -798,10 +885,12 @@ export async function processIncomingWhatsAppMessage(params: {
         },
         $push: {
           history: {
-            action: "meeting_booked_via_whatsapp",
+            action: isReschedule ? "meeting_rescheduled_via_whatsapp" : "meeting_booked_via_whatsapp",
             performedByName: "WhatsApp Automation",
             timestamp: now,
-            details: `Booked for ${meetingDate} at ${candidateStart} (${session.timeZoneLabel}) / ${istStart} IST. Assigned to Abhay. Room: ${meetLink}`,
+            details: isReschedule
+              ? `Rescheduled from ${previousSlotDetails} to ${meetingDate} at ${candidateStart} (${session.timeZoneLabel}) / ${istStart} IST. Assigned to Abhay. Room: ${meetLink}`
+              : `Booked for ${meetingDate} at ${candidateStart} (${session.timeZoneLabel}) / ${istStart} IST. Assigned to Abhay. Room: ${meetLink}`,
           },
         } as unknown as Record<string, unknown>,
       },
@@ -813,8 +902,10 @@ export async function processIncomingWhatsAppMessage(params: {
         const { createNotification } = await import("@/lib/notifications");
         await createNotification({
           userId: abhayUser.id,
-          title: "New WhatsApp Meeting Booked",
-          message: `1-on-1 Australia 482 consultation booked with ${session.name || "WhatsApp Candidate"} on ${meetingDate} at ${istStart} IST (${candidateStart} ${session.timeZoneLabel}).`,
+          title: isReschedule ? "WhatsApp Meeting Rescheduled" : "New WhatsApp Meeting Booked",
+          message: isReschedule
+            ? `1-on-1 consultation with ${session.name || "WhatsApp Candidate"} was RESCHEDULED to ${meetingDate} at ${istStart} IST (${candidateStart} ${session.timeZoneLabel}).`
+            : `1-on-1 Australia 482 consultation booked with ${session.name || "WhatsApp Candidate"} on ${meetingDate} at ${istStart} IST (${candidateStart} ${session.timeZoneLabel}).`,
           type: "meeting_scheduled",
           link: `/dashboard/leads/${leadId}`,
         });
@@ -823,9 +914,10 @@ export async function processIncomingWhatsAppMessage(params: {
       }
     }
 
-    // 3. Mark session as BOOKED
+    // 5. Update session in whatsapp_sessions
     await updateSession(db, session.phone, {
       currentStep: "BOOKED",
+      activeSlotsDate: undefined,
       bookedSlot: {
         date: meetingDate,
         candidateTime: candidateStart,
@@ -850,19 +942,39 @@ export async function processIncomingWhatsAppMessage(params: {
       ? `${istStart} - ${istEnd} IST`
       : `${candidateStart} (${session.timeZoneLabel}) / ${istStart} - ${istEnd} IST`;
 
-    const confirmationMsg =
-      `Dear ${candidateDisplayName},\n\n` +
-      `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
-      `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
-      `📅 *Date:* ${formattedDate}\n` +
-      `⏰ *Time:* ${timeDisplay}\n` +
-      `💻 *Google Meet:* ${meetLink}\n\n` +
-      `Please make sure to *join the meeting on time*.\n\n` +
-      `We look forward to speaking with you.\n\n` +
-      `*Best regards,*\n` +
-      `*TMS Visa*`;
+    const confirmationMsg = isReschedule
+      ? `Dear ${candidateDisplayName},\n\n` +
+        `Your *Australia Subclass 482 Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
+        `📅 *New Date:* ${formattedDate}\n` +
+        `⏰ *New Time:* ${timeDisplay}\n` +
+        `💻 *Google Meet:* ${meetLink}\n\n` +
+        `Please make sure to *join the meeting on time*.\n\n` +
+        `We look forward to speaking with you.\n\n` +
+        `*Best regards,*\n` +
+        `*TMS Visa*`
+      : `Dear ${candidateDisplayName},\n\n` +
+        `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
+        `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
+        `📅 *Date:* ${formattedDate}\n` +
+        `⏰ *Time:* ${timeDisplay}\n` +
+        `💻 *Google Meet:* ${meetLink}\n\n` +
+        `Please make sure to *join the meeting on time*.\n\n` +
+        `We look forward to speaking with you.\n\n` +
+        `*Best regards,*\n` +
+        `*TMS Visa*`;
 
     await sendTextMessage(session.phone, confirmationMsg);
+
+    // Send Quick Reply Button: Change Date & Time (in case candidate made a mistake or wants to reschedule)
+    await delay(300);
+    const changePrompt =
+      `ℹ️ *Need to change your date or time?*\n` +
+      `If you mistakenly selected the wrong slot or need to change it later, tap below anytime:`;
+
+    await sendQuickReplyButtons(session.phone, changePrompt, [
+      { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
+    ]);
+
     return { replyText: confirmationMsg, step: "BOOKED" };
   }
 
