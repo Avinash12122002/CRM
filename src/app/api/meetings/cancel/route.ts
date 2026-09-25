@@ -97,6 +97,19 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    await db.collection("meetingSlots").updateMany(
+      {
+        $or: [{ leadId: lead.id }, { leadId: String(lead.id) }],
+        status: "scheduled",
+      },
+      {
+        $set: {
+          status: "cancelled",
+          updatedAt: new Date(),
+        },
+      },
+    );
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,
