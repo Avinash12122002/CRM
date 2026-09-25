@@ -787,11 +787,64 @@ export async function processIncomingWhatsAppMessage(params: {
           });
 
         if (nextWeekend.availableSlots.length > 8) {
-          await sendQuickReplyButtons(session.phone, overviewText, [
-            { id: `BTN_SLOTS_PART1_${nextDate}`, title: "Select Slots 1 - 8" },
-            { id: `BTN_SLOTS_PART2_${nextDate}`, title: "Select Slots 9 - 16" },
-            { id: "BTN_CHANGE_DAY", title: "Change Date" },
-          ]);
+          const part1Slots = nextWeekend.availableSlots.slice(0, 8);
+          const part2Slots = nextWeekend.availableSlots.slice(8, 16);
+          const tzShort = extractShortTimezone(session.timeZoneLabel);
+
+          // 1. Send Part 1: Slots 1 to 8 with interactive list button
+          const part1Sections = [
+            {
+              title: isIndia ? "Slots 1 to 8 (IST)" : "Slots 1 to 8",
+              rows: part1Slots.map((s, idx) => ({
+                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                title: (isIndia
+                  ? `${s.istStartTime} - ${s.istEndTime} IST`
+                  : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+                description: (isIndia
+                  ? `Slot #${idx + 1} (IST)`
+                  : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
+              })),
+            },
+          ];
+
+          await sendInteractiveList(
+            session.phone,
+            "Choose Your Slot (1-8)",
+            overviewText,
+            "Select Slots 1 - 8",
+            part1Sections,
+          );
+
+          // 2. Send Part 2: Slots 9 to 16 with interactive list button
+          const part2Sections = [
+            {
+              title: isIndia
+                ? `Slots 9 to ${nextWeekend.availableSlots.length} (IST)`
+                : `Slots 9 to ${nextWeekend.availableSlots.length}`,
+              rows: part2Slots.map((s, idx) => ({
+                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                title: (isIndia
+                  ? `${s.istStartTime} - ${s.istEndTime} IST`
+                  : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+                description: (isIndia
+                  ? `Slot #${idx + 9} (IST)`
+                  : `Slot #${idx + 9} (${tzShort})`).slice(0, 72),
+              })),
+            },
+          ];
+
+          const part2Text =
+            `📋 *Afternoon Consultation Slots (9 to ${nextWeekend.availableSlots.length}) for ${nextLabel}*\n\n` +
+            `👉 Tap **Select Slots 9 - 16** below to choose your timing, or reply directly with your slot number (*9* to *${nextWeekend.availableSlots.length}*) or time.\n\n` +
+            `🔄 Want a different date? Reply *Change Date*.`;
+
+          await sendInteractiveList(
+            session.phone,
+            "Choose Your Slot (9-16)",
+            part2Text,
+            "Select Slots 9 - 16",
+            part2Sections,
+          );
         } else {
           const sections = [
             {
@@ -849,11 +902,64 @@ export async function processIncomingWhatsAppMessage(params: {
     });
 
     if (availableSlots.length > 8) {
-      await sendQuickReplyButtons(session.phone, overviewText, [
-        { id: `BTN_SLOTS_PART1_${meetingDate}`, title: "Select Slots 1 - 8" },
-        { id: `BTN_SLOTS_PART2_${meetingDate}`, title: "Select Slots 9 - 16" },
-        { id: "BTN_CHANGE_DAY", title: "Change Date" },
-      ]);
+      const part1Slots = availableSlots.slice(0, 8);
+      const part2Slots = availableSlots.slice(8, 16);
+      const tzShort = extractShortTimezone(session.timeZoneLabel);
+
+      // 1. Send Part 1: Slots 1 to 8 with interactive list button
+      const part1Sections = [
+        {
+          title: isIndia ? "Slots 1 to 8 (IST)" : "Slots 1 to 8",
+          rows: part1Slots.map((s, idx) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: (isIndia
+              ? `${s.istStartTime} - ${s.istEndTime} IST`
+              : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+            description: (isIndia
+              ? `Slot #${idx + 1} (IST)`
+              : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
+          })),
+        },
+      ];
+
+      await sendInteractiveList(
+        session.phone,
+        "Choose Your Slot (1-8)",
+        overviewText,
+        "Select Slots 1 - 8",
+        part1Sections,
+      );
+
+      // 2. Send Part 2: Slots 9 to 16 with interactive list button
+      const part2Sections = [
+        {
+          title: isIndia
+            ? `Slots 9 to ${availableSlots.length} (IST)`
+            : `Slots 9 to ${availableSlots.length}`,
+          rows: part2Slots.map((s, idx) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: (isIndia
+              ? `${s.istStartTime} - ${s.istEndTime} IST`
+              : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+            description: (isIndia
+              ? `Slot #${idx + 9} (IST)`
+              : `Slot #${idx + 9} (${tzShort})`).slice(0, 72),
+          })),
+        },
+      ];
+
+      const part2Text =
+        `📋 *Afternoon Consultation Slots (9 to ${availableSlots.length}) for ${dayLabel}*\n\n` +
+        `👉 Tap **Select Slots 9 - 16** below to choose your timing, or reply directly with your slot number (*9* to *${availableSlots.length}*) or time.\n\n` +
+        `🔄 Want a different date? Reply *Change Date*.`;
+
+      await sendInteractiveList(
+        session.phone,
+        "Choose Your Slot (9-16)",
+        part2Text,
+        "Select Slots 9 - 16",
+        part2Sections,
+      );
     } else {
       const sections = [
         {

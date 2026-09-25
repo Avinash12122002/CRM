@@ -257,11 +257,11 @@ export function formatSlotsOverview(params: {
   });
 
   if (slots.length > 8) {
-    text += `\n👉 Tap **Select Slots 1 - 8** or **Select Slots 9 - 16** below, or reply with your slot number (*1* to *${slots.length}*) or time.\n`;
-    text += `🔄 Want a different date? Tap *Change Date*.`;
+    text += `\n👉 Tap **Select Slots 1 - 8** below or **Select Slots 9 - 16** in the next message to directly choose your time, or reply with your slot number (*1* to *${slots.length}*) or time.\n`;
+    text += `🔄 Want a different date? Reply *Change Date*.`;
   } else {
     text += `\n👉 Tap *Select Slot* below to choose, or reply with your slot number (*1* to *${slots.length}*) or time.\n`;
-    text += `🔄 Want a different date? Tap *Change Date*.`;
+    text += `🔄 Want a different date? Reply *Change Date*.`;
   }
   return text;
 }
