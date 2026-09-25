@@ -140,6 +140,15 @@ export async function sendInteractiveList(
     rows: Array<{ id: string; title: string; description?: string }>;
   }>,
 ): Promise<SendResult> {
+  const sanitizedSections = sections.map((sec) => ({
+    title: (sec.title || "Options").slice(0, 24),
+    rows: (sec.rows || []).slice(0, 10).map((r) => ({
+      id: r.id.slice(0, 200),
+      title: r.title.slice(0, 24),
+      description: r.description ? r.description.slice(0, 72) : undefined,
+    })),
+  }));
+
   return sendMetaRequest({
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -151,7 +160,7 @@ export async function sendInteractiveList(
       body: { text: bodyText },
       action: {
         button: buttonLabel.slice(0, 20),
-        sections,
+        sections: sanitizedSections,
       },
     },
   });

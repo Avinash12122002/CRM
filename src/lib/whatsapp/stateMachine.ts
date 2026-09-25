@@ -443,11 +443,11 @@ export async function processIncomingWhatsAppMessage(params: {
 
     const sections = [
       {
-        title: `Available 30-min Slots (${session.timeZoneLabel})`,
+        title: "Available Slots",
         rows: displayedSlots.map((s) => ({
           id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-          title: s.candidateDisplayLabel.split(" (")[0], // e.g. "04:30 PM - 05:00 PM"
-          description: `India Time: ${s.istStartTime} IST (with Abhay)`,
+          title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24), // e.g. "04:30 PM - 05:00 PM"
+          description: `India Time: ${s.istStartTime} IST (with Abhay)`.slice(0, 72),
         })),
       },
     ];
