@@ -11,10 +11,9 @@ export async function generateAiResponse(params: {
 }): Promise<string> {
   const { message, session } = params;
   const apiKey =
+    process.env.GROQ_API_KEY ||
     process.env.AI_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    process.env.OPENAI_API_KEY ||
-    process.env.GROQ_API_KEY;
+    process.env.GEMINI_API_KEY;
 
   const matchedOcc = findEligibleOccupation(message);
 
@@ -83,12 +82,14 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
 
   if (apiKey) {
     try {
-      // 1. Groq (Ultra-fast, uses key already in .env)
-      if (apiKey.startsWith("gsk_") || process.env.GROQ_API_KEY) {
-        const groqKey = apiKey.startsWith("gsk_") ? apiKey : process.env.GROQ_API_KEY;
+      // 1. Groq Cloud (Primary Engine - Ultra-fast LPU inference via GROQ_API_KEY)
+      const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
+      if (groqKey) {
         const models = [
           process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
           "openai/gpt-oss-120b",
+          "openai/gpt-oss-20b",
+          "allam-2-7b",
         ];
 
         for (const model of models) {
