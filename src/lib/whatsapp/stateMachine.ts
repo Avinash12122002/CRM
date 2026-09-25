@@ -134,6 +134,28 @@ export async function getOrCreateSession(
       if (lead.meetingCancelledAt) existing.meetingCanceledAt = lead.meetingCancelledAt;
     }
 
+    if (!existing.bookedSlot) {
+      const activeSlot = await db.collection("meetingSlots").findOne({
+        phone: cleanPhone,
+        status: "scheduled",
+      });
+      if (activeSlot) {
+        existing.bookedSlot = {
+          date: activeSlot.meetingDate,
+          candidateTime: activeSlot.candidateLocalTime || activeSlot.startTime,
+          candidateTimeLabel: `${activeSlot.candidateLocalTime || activeSlot.startTime} (${existing.timeZoneLabel || country.label})`,
+          istTime: activeSlot.startTime,
+          istTimeLabel: `${activeSlot.startTime} - ${activeSlot.endTime} (IST)`,
+          meetingUserId: activeSlot.meetingUserId,
+          meetingUserName: activeSlot.meetingUserName,
+        };
+        existing.meetingStatus = "booked";
+        if (existing.currentStep === "WELCOME" || existing.currentStep === "AWAITING_EMAIL") {
+          existing.currentStep = "BOOKED";
+        }
+      }
+    }
+
     if (!existing.timeZone || !existing.timeZoneLabel) {
       existing.countryCode = country.countryCode;
       existing.countryName = country.countryName;
@@ -147,17 +169,44 @@ export async function getOrCreateSession(
     return existing;
   }
 
+  // Check if lead or meeting already exists in CRM for this phone
+  const existingLead = await db.collection("leads").findOne({ phone: cleanPhone });
+  const activeSlot = await db.collection("meetingSlots").findOne({ phone: cleanPhone, status: "scheduled" });
+
+  let initialStep: WhatsAppStep = "WELCOME";
+  let initialBookedSlot = undefined;
+  let initialMeetingStatus: "none" | "booked" | "rescheduled" | "completed" | "cancelled" = "none";
+
+  if (activeSlot) {
+    initialStep = "BOOKED";
+    initialMeetingStatus = "booked";
+    initialBookedSlot = {
+      date: activeSlot.meetingDate,
+      candidateTime: activeSlot.candidateLocalTime || activeSlot.startTime,
+      candidateTimeLabel: `${activeSlot.candidateLocalTime || activeSlot.startTime} (${country.label})`,
+      istTime: activeSlot.startTime,
+      istTimeLabel: `${activeSlot.startTime} - ${activeSlot.endTime} (IST)`,
+      meetingUserId: activeSlot.meetingUserId,
+      meetingUserName: activeSlot.meetingUserName,
+    };
+  } else if (existingLead?.email) {
+    initialStep = "VIDEO_SENT_AWAITING_INTEREST";
+  }
+
   const newSession: WhatsAppSession = {
     phone: cleanPhone,
-    name: candidateName || "Candidate",
+    name: candidateName && !candidateName.toLowerCase().includes("test") ? candidateName : existingLead?.name || "Candidate",
+    email: existingLead?.email,
+    leadId: existingLead?.id,
     countryCode: country.countryCode,
     countryName: country.countryName,
     interestedCountry: "Australia",
     timeZone: country.timeZone,
     timeZoneLabel: country.label,
-    currentStep: "WELCOME",
+    currentStep: initialStep,
+    bookedSlot: initialBookedSlot,
     followupCount: 0,
-    meetingStatus: "none",
+    meetingStatus: initialMeetingStatus,
     meetingHistory: [],
     lastInteractionAt: now,
     createdAt: now,
@@ -563,6 +612,19 @@ export async function processIncomingWhatsAppMessage(params: {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const isDirectEmail = emailRegex.test(cleanText.toLowerCase());
 
+  // Handle Watch 482 Video button click
+  if (actionId === "BTN_ASK_VIDEO") {
+    const videoUrl = getVideo482Url();
+    const videoReply =
+      `Here is our Australia Subclass 482 Skills in Demand explainer video! 🎥🇦🇺\n\n` +
+      `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
+      `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n` +
+      `*(Tap the link above to watch anytime)*`;
+
+    await sendTextMessage(session.phone, videoReply);
+    return { replyText: videoReply, step: session.currentStep };
+  }
+
   // 1. Initial State: WELCOME (when starting or saying hi)
   const isFreshWelcome =
     session.currentStep === "WELCOME" &&
@@ -570,9 +632,58 @@ export async function processIncomingWhatsAppMessage(params: {
     !isGreeting &&
     !isAffirmative &&
     !isNegative &&
-    !isDirectEmail;
+    !isDirectEmail &&
+    !session.email;
 
-  if (actionId === "RESTART_FLOW" || isGreeting || isFreshWelcome) {
+  // 1a. If candidate already has a booked consultation and sends a greeting ("hi", "hello", etc.)
+  if (isGreeting && (session.currentStep === "BOOKED" || session.bookedSlot)) {
+    const meetLink = getStaticGoogleMeetLink();
+    const candidateDisplayName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        ? session.name
+        : "";
+    const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+
+    const dateStr = session.bookedSlot?.date || "";
+    const timeStr = session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel || "";
+
+    const welcomeBackMsg =
+      `Hello${nameGreeting}! Welcome back to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+      `Your 1-on-1 consultation with our senior visa expert is confirmed:\n` +
+      `📅 **Date:** ${dateStr}\n` +
+      `⏰ **Time:** ${timeStr}\n` +
+      `💻 **Google Meet Link:** ${meetLink}\n\n` +
+      `How can I assist you today? You can ask any question, or choose an option below:`;
+
+    await sendQuickReplyButtons(session.phone, welcomeBackMsg, [
+      { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
+      { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
+    ]);
+    return { replyText: welcomeBackMsg, step: "BOOKED" };
+  }
+
+  // 1b. If candidate already registered their email and sends a greeting ("hi", "hello", etc.)
+  if (isGreeting && session.email) {
+    const candidateDisplayName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        ? session.name
+        : "";
+    const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+
+    const welcomeBackMsg =
+      `Hello${nameGreeting}! Welcome back to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+      `Your profile is already registered with us (**${session.email}**).\n\n` +
+      `Would you like to schedule your free 1-on-1 weekend consultation with our senior visa expert?`;
+
+    await sendQuickReplyButtons(session.phone, welcomeBackMsg, [
+      { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+      { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
+    ]);
+    return { replyText: welcomeBackMsg, step: "VIDEO_SENT_AWAITING_INTEREST" };
+  }
+
+  // 1c. Brand-new candidate or explicit reset
+  if (actionId === "RESTART_FLOW" || (isGreeting && !session.email && !session.bookedSlot) || isFreshWelcome) {
     const isGenericName =
       !session.name ||
       session.name === "Candidate" ||
@@ -611,8 +722,52 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: noReply, step: "AWAITING_REENGAGEMENT" };
   }
 
-  // 3. Candidate clicked YES to 482 -> Request Email
+  // 3. Candidate clicked YES to 482 -> Request Email (ONLY if we don't already have it!)
   if (isAffirmative && !isDirectEmail) {
+    if (session.email) {
+      if (session.bookedSlot || session.currentStep === "BOOKED") {
+        const meetLink = getStaticGoogleMeetLink();
+        const alreadyBookedMsg =
+          `Your 1-on-1 consultation is already confirmed for **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**! 📅\n\n` +
+          `💻 **Google Meet:** ${meetLink}\n\n` +
+          `Would you like to change your date/time, or do you have any questions?`;
+        await sendQuickReplyButtons(session.phone, alreadyBookedMsg, [
+          { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
+          { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
+        ]);
+        return { replyText: alreadyBookedMsg, step: "BOOKED" };
+      }
+
+      // No booked slot yet -> proceed straight to consultation date selection!
+      const proceedText =
+        `Great to have you back! Your profile is already registered (**${session.email}**).\n\n` +
+        `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
+        `Please select your preferred weekend date to view available time slots:`;
+
+      const isIndia = session.countryCode === "IN";
+      const weekends = getUpcomingWeekendDays(10);
+      const sections = [
+        {
+          title: "Select Weekend Date",
+          rows: weekends.map((w) => ({
+            id: `DAY_DATE_${w.date}`,
+            title: w.displayLabel.slice(0, 24),
+            description: isIndia ? `${w.dayName} · 11 AM - 7 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
+          })),
+        },
+      ];
+
+      await updateSession(db, session.phone, { currentStep: "SELECTING_DAY" });
+      await sendInteractiveList(
+        session.phone,
+        "Consultation Dates",
+        proceedText,
+        "Select Date",
+        sections,
+      );
+      return { replyText: proceedText, step: "SELECTING_DAY" };
+    }
+
     const emailPrompt =
       `Great! To register your profile in our system, **please reply with your Email Address:**`;
 
