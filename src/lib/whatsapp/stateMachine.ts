@@ -523,7 +523,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 3. Candidate clicked YES to 482 -> Request Email
   if (isAffirmative && !isDirectEmail) {
     const emailPrompt =
-      `Great! To register your profile and send you our Subclass 482 sponsorship guide & video, **please reply with your Email Address:**`;
+      `**please reply with your Email Address:**`;
 
     await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL" });
     await sendTextMessage(session.phone, emailPrompt);
@@ -613,11 +613,11 @@ export async function processIncomingWhatsAppMessage(params: {
     const isRescheduling = Boolean(session.bookedSlot);
     const dayText = isRescheduling
       ? `📅 *Change Consultation Date & Time*\n\n` +
-        `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
-        `Please select your new preferred weekend date from the upcoming month:`
+      `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
+      `Please select your new preferred weekend date from the upcoming month:`
       : `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
-        `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
-        `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
+      `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
+      `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
 
     await sendInteractiveList(
       session.phone,
@@ -1151,24 +1151,24 @@ export async function processIncomingWhatsAppMessage(params: {
 
     const confirmationMsg = isReschedule
       ? `Dear ${candidateDisplayName},\n\n` +
-        `Your *Australia Subclass 482 Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
-        `📅 *New Date:* ${formattedDate}\n` +
-        `⏰ *New Time:* ${timeDisplay}\n` +
-        `💻 *Google Meet:* ${meetLink}\n\n` +
-        `Please make sure to *join the meeting on time*.\n\n` +
-        `We look forward to speaking with you.\n\n` +
-        `*Best regards,*\n` +
-        `*TMS Visa*`
+      `Your *Australia Subclass 482 Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
+      `📅 *New Date:* ${formattedDate}\n` +
+      `⏰ *New Time:* ${timeDisplay}\n` +
+      `💻 *Google Meet:* ${meetLink}\n\n` +
+      `Please make sure to *join the meeting on time*.\n\n` +
+      `We look forward to speaking with you.\n\n` +
+      `*Best regards,*\n` +
+      `*TMS Visa*`
       : `Dear ${candidateDisplayName},\n\n` +
-        `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
-        `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
-        `📅 *Date:* ${formattedDate}\n` +
-        `⏰ *Time:* ${timeDisplay}\n` +
-        `💻 *Google Meet:* ${meetLink}\n\n` +
-        `Please make sure to *join the meeting on time*.\n\n` +
-        `We look forward to speaking with you.\n\n` +
-        `*Best regards,*\n` +
-        `*TMS Visa*`;
+      `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
+      `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
+      `📅 *Date:* ${formattedDate}\n` +
+      `⏰ *Time:* ${timeDisplay}\n` +
+      `💻 *Google Meet:* ${meetLink}\n\n` +
+      `Please make sure to *join the meeting on time*.\n\n` +
+      `We look forward to speaking with you.\n\n` +
+      `*Best regards,*\n` +
+      `*TMS Visa*`;
 
     await sendTextMessage(session.phone, confirmationMsg);
 
