@@ -27,19 +27,20 @@ CANDIDATE LIVE CRM PROFILE:
 
   if (session.bookedSlot) {
     contextBlock += `
-- MEETING WITH CONSULTANT ABHAY:
+- MEETING WITH SENIOR VISA EXPERT:
   * Status: Confirmed & Scheduled
   * Date: ${session.bookedSlot.date}
   * Candidate Local Time: ${session.bookedSlot.candidateTimeLabel}
   * India IST Time: ${session.bookedSlot.istTimeLabel}
-  * Consultant: Abhay
+  * Consultant: TMS Visa Senior Migration Expert
 `;
   }
 
   if (session.meetingCompleted) {
     contextBlock += `
-- MEETING STATUS: Completed by Abhay.
-- PAYMENT STATUS: ${session.paymentPending ? "Pending (Awaiting Enrollment Payment)" : "Settled / In Progress"}
+- MEETING STATUS: Completed.
+  * Status: Consultation Completed
+  * PAYMENT STATUS: ${session.paymentPending ? "Pending (Awaiting Enrollment Payment)" : "Settled / In Progress"}
 `;
   }
 
@@ -144,10 +145,10 @@ CANDIDATE LIVE CRM PROFILE:
   const lower = message.toLowerCase();
 
   // If candidate is asking about their meeting
-  if (lower.includes("meeting") || lower.includes("abhay") || lower.includes("time") || lower.includes("when")) {
+  if (lower.includes("meeting") || lower.includes("consultation") || lower.includes("time") || lower.includes("when")) {
     if (session.bookedSlot) {
       return (
-        `Hi ${session.name || "there"}! Your 1-on-1 consultation with our senior consultant **Abhay** is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `Hi ${session.name || "there"}! Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
         `You can join via your Google Meet room link. Please have your CV ready! 🇦🇺`
       );
     }
@@ -156,7 +157,7 @@ CANDIDATE LIVE CRM PROFILE:
   // If meeting completed and asking about payment/next steps
   if (session.meetingCompleted) {
     return (
-      `Hello ${session.name || "there"}! It was great having you in the consultation session with Abhay.\n\n` +
+      `Hello ${session.name || "there"}! It was great having you in the consultation session with our visa expert.\n\n` +
       `To proceed with your Australian employer sponsorship file, please complete the enrollment steps outlined in your agreement. If you need any assistance with payment details, let us know here!`
     );
   }
@@ -178,6 +179,6 @@ CANDIDATE LIVE CRM PROFILE:
 
   return (
     `Thank you for contacting The Migration School (TMS Visa) 🇦🇺.\n\n` +
-    `Our consultant Abhay is conducting free 30-minute 1-on-1 consultations this weekend between 11:00 AM and 07:00 PM IST (converted to your local time: ${session.timeZoneLabel}). Would you like to select an available slot?`
+    `Our senior visa expert is conducting free 30-minute 1-on-1 consultations this weekend between 11:00 AM and 07:00 PM IST (converted to your local time: ${session.timeZoneLabel}). Would you like to select an available slot?`
   );
 }

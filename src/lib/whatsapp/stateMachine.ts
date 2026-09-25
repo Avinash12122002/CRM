@@ -17,7 +17,8 @@ const SESSIONS_COLLECTION = "whatsapp_sessions";
 
 export function getStaticGoogleMeetLink(): string {
   return (
-    process.env.GOOGLE_MEET_LINK || ""
+    process.env.GOOGLE_MEET_LINK ||
+    "https://meet.google.com/qpj-ntbh-ieu"
   );
 }
 
@@ -417,7 +418,7 @@ export async function processIncomingWhatsAppMessage(params: {
     ];
 
     const dayText =
-      `Our 1-on-1 consultations with senior visa consultant **Abhay** are held on **Saturdays and Sundays**.\n\n` +
+      `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
       `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
       `Please select your preferred day and time window:`;
 
@@ -486,14 +487,14 @@ export async function processIncomingWhatsAppMessage(params: {
         rows: displayedSlots.map((s) => ({
           id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
           title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24), // e.g. "04:30 PM - 05:00 PM"
-          description: `India Time: ${s.istStartTime} IST (with Abhay)`.slice(0, 72),
+          description: `India Time: ${s.istStartTime} - ${s.istEndTime} IST`.slice(0, 72),
         })),
       },
     ];
 
     const slotPrompt =
       `Here are the available 30-minute consultation slots in your local time (**${session.timeZoneLabel}**).\n\n` +
-      `Tap below to reserve your slot with our consultant Abhay:`;
+      `Tap below to reserve your slot with our visa expert:`;
 
     await sendInteractiveList(
       session.phone,
@@ -639,16 +640,30 @@ export async function processIncomingWhatsAppMessage(params: {
       },
     });
 
+    const candidateDisplayName = session.name && session.name !== "Candidate" ? session.name : "Candidate";
+
+    const dateObj = new Date(`${meetingDate}T12:00:00+05:30`);
+    const formattedDate = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(dateObj); // e.g. "27 September 2026"
+
+    const timeDisplay = session.countryCode === "IN"
+      ? `${istStart} - ${istEnd} IST`
+      : `${candidateStart} (${session.timeZoneLabel}) / ${istStart} - ${istEnd} IST`;
+
     const confirmationMsg =
-      `🎉 **Consultation Confirmed with Abhay!**\n\n` +
-      `Your 1-on-1 Australia Subclass 482 profile evaluation has been scheduled:\n\n` +
-      `📅 **Date:** ${meetingDate}\n` +
-      `⏰ **Your Local Time:** ${candidateStart} (${session.timeZoneLabel})\n` +
-      `🇮🇳 **Consultant Indian Time:** ${istStart} - ${istEnd} IST\n` +
-      `👤 **Consultant:** ${abhayName}\n\n` +
-      `🔗 **Join via Google Meet:**\n${meetLink}\n\n` +
-      `📌 *Tip: Please have your CV ready for the call. We will also send you a reminder 1 hour before the meeting starts!*\n\n` +
-      `See you there! 🇦🇺`;
+      `Dear ${candidateDisplayName},\n\n` +
+      `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
+      `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
+      `📅 *Date:* ${formattedDate}\n` +
+      `⏰ *Time:* ${timeDisplay}\n` +
+      `💻 *Google Meet:* ${meetLink}\n\n` +
+      `Please make sure to *join the meeting on time*.\n\n` +
+      `We look forward to speaking with you.\n\n` +
+      `*Best regards,*\n` +
+      `*TMS Visa*`;
 
     await sendTextMessage(session.phone, confirmationMsg);
     return { replyText: confirmationMsg, step: "BOOKED" };

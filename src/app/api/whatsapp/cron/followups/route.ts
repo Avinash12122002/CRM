@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
         // Day 2 Reminder
         const msg =
           `Hi ${session.name || "there"}! 👋 Just checking in to see if you had a chance to review our **Australia Subclass 482 Work Visa** overview.\n\n` +
-          `Our senior consultant **Abhay** is conducting free 1-on-1 profile evaluations this weekend between 11:00 AM and 07:00 PM IST (in your local time: ${session.timeZoneLabel}). Would you like to reserve a 30-minute slot?`;
+          `Our senior consultant is conducting free 1-on-1 profile evaluations this weekend between 11:00 AM and 07:00 PM IST (in your local time: ${session.timeZoneLabel}). Would you like to reserve a 30-minute slot?`;
 
         await sendQuickReplyButtons(session.phone, msg, [
           { id: "BTN_CONSULT_YES", title: "Book Consultation" },
@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
       } else if (nextCount === 2) {
         // Day 4 Reminder
         const msg =
-          `Hello ${session.name || "there"}! Australia 482 employer sponsorship slots with Abhay are filling up for this weekend.\n\n` +
+          `Hello ${session.name || "there"}! Australia 482 employer sponsorship slots are filling up for this weekend.\n\n` +
           `If you have 2+ years of work experience and want to assess your visa eligibility, tap below to book:`;
 
         await sendQuickReplyButtons(session.phone, msg, [
@@ -135,7 +135,7 @@ export async function GET(req: NextRequest) {
         // Send every 2 days
         if (daysSinceLast >= 2) {
           const paymentMsg =
-            `Hello ${lead.name || "there"}! 👋 Hope you had a productive consultation with **Abhay** regarding your Australia Subclass 482 Work Visa.\n\n` +
+            `Hello ${lead.name || "there"}! 👋 Hope you had a productive consultation regarding your Australia Subclass 482 Work Visa.\n\n` +
             `This is a gentle reminder regarding your enrollment and onboarding steps to initiate employer nomination matching. If you have questions about the agreement or payment details, simply reply here and our team will assist you! 🇦🇺`;
 
           await sendTextMessage(cleanPhone, paymentMsg);
@@ -175,7 +175,7 @@ export async function GET(req: NextRequest) {
       if (diffMinutes > 0 && diffMinutes <= 65) {
         const reminderMsg =
           `⏰ **Meeting Reminder: 1 Hour Left!**\n\n` +
-          `Hi! Your 1-on-1 Australia 482 Visa consultation with consultant **Abhay** starts in 1 hour!\n\n` +
+          `Hi! Your 1-on-1 Australia 482 Visa consultation starts in 1 hour!\n\n` +
           `⏰ **Your Time:** ${slot.candidateLocalTime || slot.startTime}\n` +
           `🇮🇳 **India Time:** ${slot.startTime} IST\n\n` +
           `🔗 **Join via Google Meet:**\n${meetLink}\n\n` +
