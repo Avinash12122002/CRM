@@ -317,9 +317,13 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
 
   // If candidate asks for consultation or general next steps
   if (lower.includes("book") || lower.includes("slot") || lower.includes("call") || lower.includes("consult")) {
+    const isIndia = session.countryCode === "IN";
+    const timePrompt = isIndia
+      ? "between 11:00 AM and 07:00 PM IST"
+      : `in your local time (${session.timeZoneLabel})`;
     return (
       `Thank you for contacting The Migration School (TMS Visa) 🇦🇺.\n\n` +
-      `Our senior visa expert is conducting free 30-minute 1-on-1 consultations this weekend between 11:00 AM and 07:00 PM IST (converted to your local time: ${session.timeZoneLabel}). Would you like to select an available slot?`
+      `Our senior visa expert is conducting free 30-minute 1-on-1 consultations this weekend ${timePrompt}. Would you like to select an available slot?`
     );
   }
 

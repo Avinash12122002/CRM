@@ -50,6 +50,12 @@ async function ensureIndexes(db: Db) {
     db.collection("case_marketing_employers").createIndex({ id: 1 }),
     db.collection("case_marketing_employers").createIndex({ companyName: 1 }),
     db.collection("meetingSlots").createIndex({ meetingDate: 1, startTime: 1 }),
+    db.collection("meetingSlots").createIndex({ phone: 1 }),
+    db.collection("meetingSlots").createIndex({ leadId: 1 }),
+    db.collection("meetingSlots").createIndex({ status: 1 }),
+    db.collection("whatsapp_sessions").createIndex({ phone: 1 }, { unique: true }),
+    db.collection("whatsapp_sessions").createIndex({ nextFollowupAt: 1 }),
+    db.collection("whatsapp_sessions").createIndex({ currentStep: 1 }),
   ]).catch((err) => console.error("Index creation failed:", err));
 }
 
