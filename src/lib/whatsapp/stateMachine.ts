@@ -390,25 +390,42 @@ export async function processIncomingWhatsAppMessage(params: {
 
     const sections = [
       {
-        title: "Select Consultation Day",
-        rows: weekends.map((w) => ({
-          id: `DAY_SELECT_${w.date}`,
-          title: `${w.dayName} Consultation`,
-          description: w.displayLabel,
-        })),
+        title: "Choose Time Window",
+        rows: [
+          {
+            id: `DAY_MORNING_${weekends[0].date}`,
+            title: `${weekends[0].dayName} Morning`,
+            description: `${weekends[0].displayLabel} (11:00 AM - 03:00 PM IST)`,
+          },
+          {
+            id: `DAY_EVENING_${weekends[0].date}`,
+            title: `${weekends[0].dayName} Evening`,
+            description: `${weekends[0].displayLabel} (03:00 PM - 07:00 PM IST)`,
+          },
+          {
+            id: `DAY_MORNING_${weekends[1].date}`,
+            title: `${weekends[1].dayName} Morning`,
+            description: `${weekends[1].displayLabel} (11:00 AM - 03:00 PM IST)`,
+          },
+          {
+            id: `DAY_EVENING_${weekends[1].date}`,
+            title: `${weekends[1].dayName} Evening`,
+            description: `${weekends[1].displayLabel} (03:00 PM - 07:00 PM IST)`,
+          },
+        ],
       },
     ];
 
     const dayText =
       `Our 1-on-1 consultations with senior visa consultant **Abhay** are held on **Saturdays and Sundays**.\n\n` +
-      `All slots are conducted between 11:00 AM and 07:00 PM Indian Time (IST) and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
-      `Please select which day suits you best:`;
+      `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
+      `Please select your preferred day and time window:`;
 
     await sendInteractiveList(
       session.phone,
       "Consultation Booking",
       dayText,
-      "Choose Day",
+      "Choose Window",
       sections,
     );
 
@@ -416,9 +433,26 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: dayText, step: "SELECTING_DAY" };
   }
 
-  // 6. Candidate selected day -> Show available 30-min slots strictly 11am-7pm IST in Candidate Local Time
-  if (actionId.startsWith("DAY_SELECT_")) {
-    const meetingDate = actionId.replace("DAY_SELECT_", ""); // YYYY-MM-DD
+  // 6. Candidate selected day or window -> Show available 30-min slots strictly 11am-7pm IST in Candidate Local Time
+  if (
+    actionId.startsWith("DAY_SELECT_") ||
+    actionId.startsWith("DAY_MORNING_") ||
+    actionId.startsWith("DAY_EVENING_")
+  ) {
+    let meetingDate = "";
+    let timeWindow: "all" | "morning" | "evening" = "all";
+
+    if (actionId.startsWith("DAY_MORNING_")) {
+      meetingDate = actionId.replace("DAY_MORNING_", "");
+      timeWindow = "morning";
+    } else if (actionId.startsWith("DAY_EVENING_")) {
+      meetingDate = actionId.replace("DAY_EVENING_", "");
+      timeWindow = "evening";
+    } else {
+      meetingDate = actionId.replace("DAY_SELECT_", "");
+      timeWindow = "all";
+    }
+
     const slots = await getAvailableWeekendSlots({
       db,
       meetingDate,
@@ -426,19 +460,24 @@ export async function processIncomingWhatsAppMessage(params: {
       candidateTimeLabel: session.timeZoneLabel,
     });
 
-    // getAvailableWeekendSlots automatically excludes booked slots
-    const availableSlots = slots.filter((s) => s.available);
+    let availableSlots = slots.filter((s) => s.available);
+
+    if (timeWindow === "morning") {
+      availableSlots = availableSlots.filter((s) => s.istStartTime < "15:00");
+    } else if (timeWindow === "evening") {
+      availableSlots = availableSlots.filter((s) => s.istStartTime >= "15:00");
+    }
 
     if (availableSlots.length === 0) {
       const fullText =
-        `All consultation slots for that day are currently fully booked! Would you like to check the other weekend day?`;
+        `All consultation slots for that window are currently fully booked! Would you like to check the other time window or weekend day?`;
       await sendQuickReplyButtons(session.phone, fullText, [
-        { id: "BTN_CONSULT_YES", title: "Choose Other Day" },
+        { id: "BTN_CONSULT_YES", title: "Choose Other Time" },
       ]);
       return { replyText: fullText, step: "SELECTING_DAY" };
     }
 
-    // Meta Interactive List allows up to 10 rows
+    // Meta Interactive List allows up to 10 rows (8 slots per morning/evening window)
     const displayedSlots = availableSlots.slice(0, 10);
 
     const sections = [
