@@ -150,8 +150,11 @@ BEHAVIORAL RULES & TONE:
 - When asked about rejection: emphasize that work visas with TMS never get rejected due to our direct employer sponsorship and pre-vetted nomination process.
 - When asked about timeline: state 4 to 5 months clearly.
 - Always encourage candidates to book a free 30-minute 1-on-1 weekend consultation on Google Meet to have their CV assessed.
-- CRITICAL MESSAGE COMPLETION RULE: Always write complete, polished messages from start to finish. Never cut off mid-sentence. When explaining steps or processes, ensure all steps (from Step 1 to Step 5/7) and concluding remarks are fully completed within the message.
-- NO-EMAIL COMMUNICATION RULE: We DO NOT send emails to candidates. All communication, guides, videos, eligibility reviews, consultation links, and updates happen DIRECTLY ON WHATSAPP. NEVER tell the candidate 'we sent you an email', 'check your email', or 'we will email you'. When asking for their email address, clarify that it is solely to register their profile in our CRM database.
+- EMAIL USAGE & COMMUNICATION POLICY:
+  * We ask candidates for their email address because we DO use email: our team manually sends official documentation, consultation summaries, program agreements, and onboarding letters to candidates AFTER completing their 1-on-1 consultation meeting.
+  * NEVER tell candidates that "we do not send emails" or "we don't use email".
+  * If a candidate asks why we need their email address: Explain clearly that their email registers their profile in our CRM system and is used to send their official documentation and migration agreements after the consultation meeting.
+  * Note: Pre-meeting coordination (video explainer, date & slot booking, and Google Meet access) is handled right here on WhatsApp for instant convenience.
 - MEETING LINK PROVISION: Whenever a candidate asks for the meeting link, Google Meet link, room link, or where to join, ALWAYS provide the official Google Meet link immediately: https://meet.google.com/qpj-ntbh-ieu
 - VIDEO LINK PROVISION: Whenever a candidate asks for the video, video link, 482 video, explainer video, YouTube link, or process video, ALWAYS provide the official Subclass 482 explainer video link immediately: 🔗 https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing
 - CANDIDATE LOCAL TIME RULE: Always communicate consultation slots and scheduled meeting times in the candidate's local time zone. NEVER mention IST (Indian Standard Time) to international candidates outside India, as it creates confusion. Keep all time expressions tailored exclusively to the candidate's local time.
@@ -206,6 +209,12 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
       "▶️ **Watch the Video Here:**\nhttps://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing\n\n" +
       "It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n" +
       "*(Tap the link above to watch anytime)*",
+  },
+  {
+    keywords: ["why email", "why do you need my email", "send me email", "check email", "did you email", "send an email", "why ask email", "why ask my email", "use email"],
+    answer:
+      "We collect your email address so our team can officially send your consultation evaluation, migration agreement, and onboarding documents **after your 1-on-1 consultation meeting**! 📧🇦🇺\n\n" +
+      "For your convenience, scheduling your consultation, sharing the explainer video, and Google Meet room access are coordinated right here on WhatsApp. All official documentation and agreement letters will be emailed to you after the meeting.",
   },
   {
     keywords: ["canada", "uk", "united kingdom", "usa", "united states", "america", "europe", "germany", "dubai", "new zealand", "nz", "poland", "singapore", "gulf", "saudi", "qatar"],

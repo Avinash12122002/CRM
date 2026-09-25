@@ -278,6 +278,23 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
     );
   }
 
+  // 1c. If candidate is asking why we need their email or about email usage
+  const isAskingAboutEmail =
+    lower.includes("why email") ||
+    lower.includes("why do you need my email") ||
+    lower.includes("why ask email") ||
+    lower.includes("why you want email") ||
+    lower.includes("send me email") ||
+    (lower.includes("email") &&
+      (lower.includes("why") || lower.includes("how") || lower.includes("send me") || lower.includes("did you send")));
+
+  if (isAskingAboutEmail) {
+    return (
+      `We collect your email address so our team can officially send your consultation evaluation, migration agreement, and onboarding documents **after your 1-on-1 consultation meeting**! 📧🇦🇺\n\n` +
+      `For your convenience, scheduling your consultation, sharing the explainer video, and Google Meet room access are coordinated right here on WhatsApp. All official documentation and agreement letters will be emailed to you after the meeting.`
+    );
+  }
+
   // 2. Specific questions about out-of-scope topics, other countries, non-work visas, cost, fees, or timeline
   const isOutOfScopeOrFaq =
     lower.includes("canada") ||
