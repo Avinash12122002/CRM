@@ -698,67 +698,6 @@ export async function processIncomingWhatsAppMessage(params: {
 
         await sendTextMessage(session.phone, overviewText);
 
-        // 2. Send interactive list(s) so candidate can tap or reply with a number
-        if (nextWeekend.availableSlots.length <= 10) {
-          const sections = [
-            {
-              title: "Available Slots",
-              rows: nextWeekend.availableSlots.map((s) => ({
-                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-                description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-              })),
-            },
-          ];
-          await sendInteractiveList(
-            session.phone,
-            "Pick Your Time",
-            "Tap below to choose your consultation slot:",
-            "Select Slot",
-            sections,
-          );
-        } else {
-          // Send 2 list messages so all slots can be tapped
-          const part1 = nextWeekend.availableSlots.slice(0, 8);
-          const part2 = nextWeekend.availableSlots.slice(8, 16);
-
-          await sendInteractiveList(
-            session.phone,
-            "Slots 1 to 8",
-            "Choose an earlier slot (11:00 AM - 03:00 PM IST):",
-            "Slots 1-8",
-            [
-              {
-                title: "11:00 AM - 03:00 PM",
-                rows: part1.map((s) => ({
-                  id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                  title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-                  description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-                })),
-              },
-            ],
-          );
-
-          await delay(300);
-
-          await sendInteractiveList(
-            session.phone,
-            "Slots 9 to 16",
-            "Choose a later slot (03:00 PM - 07:00 PM IST):",
-            "Slots 9-16",
-            [
-              {
-                title: "03:00 PM - 07:00 PM",
-                rows: part2.map((s) => ({
-                  id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                  title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-                  description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-                })),
-              },
-            ],
-          );
-        }
-
         return { replyText: overviewText, step: "SELECTING_SLOT" };
       } else {
         const fullText =
@@ -792,68 +731,6 @@ export async function processIncomingWhatsAppMessage(params: {
     });
 
     await sendTextMessage(session.phone, overviewText);
-
-    // 2. Send interactive list(s)
-    if (availableSlots.length <= 10) {
-      const sections = [
-        {
-          title: "Available Slots",
-          rows: availableSlots.map((s) => ({
-            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-          })),
-        },
-      ];
-
-      await sendInteractiveList(
-        session.phone,
-        "Pick Your Time",
-        "Tap below to choose your consultation slot:",
-        "Select Slot",
-        sections,
-      );
-    } else {
-      // Send 2 list messages so all 16 slots can be tapped
-      const part1 = availableSlots.slice(0, 8);
-      const part2 = availableSlots.slice(8, 16);
-
-      await sendInteractiveList(
-        session.phone,
-        "Slots 1 to 8",
-        "Choose an earlier slot (11:00 AM - 03:00 PM IST):",
-        "Slots 1-8",
-        [
-          {
-            title: "11:00 AM - 03:00 PM",
-            rows: part1.map((s) => ({
-              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-            })),
-          },
-        ],
-      );
-
-      await delay(300);
-
-      await sendInteractiveList(
-        session.phone,
-        "Slots 9 to 16",
-        "Choose a later slot (03:00 PM - 07:00 PM IST):",
-        "Slots 9-16",
-        [
-          {
-            title: "03:00 PM - 07:00 PM",
-            rows: part2.map((s) => ({
-              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
-            })),
-          },
-        ],
-      );
-    }
 
     return { replyText: overviewText, step: "SELECTING_SLOT" };
   }

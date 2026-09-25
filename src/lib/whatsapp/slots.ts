@@ -241,6 +241,7 @@ export function formatSlotsOverview(params: {
     }
   });
 
-  text += `\n👉 *To reserve your slot:* Reply with the number (e.g. *1* or *${Math.min(5, slots.length)}*) or tap a slot below:`;
+  text += `\n👉 *To reserve your slot:* Reply with your slot number (*1* to *${slots.length}*) or time (e.g. *11:00*, *4:30 pm*).\n`;
+  text += `🔄 *Want a different date?* Reply *Change Date* to choose another weekend.`;
   return text;
 }
