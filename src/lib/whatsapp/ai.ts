@@ -68,7 +68,7 @@ CANDIDATE LIVE CRM PROFILE:
                   { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
                   { role: "user", content: message },
                 ],
-                max_tokens: 300,
+                max_tokens: 500,
                 temperature: 0.7,
               }),
             });
@@ -107,7 +107,7 @@ CANDIDATE LIVE CRM PROFILE:
               },
             ],
             generationConfig: {
-              maxOutputTokens: 250,
+              maxOutputTokens: 500,
               temperature: 0.7,
             },
           }),
@@ -137,7 +137,7 @@ CANDIDATE LIVE CRM PROFILE:
               { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
               { role: "user", content: message },
             ],
-            max_tokens: 250,
+            max_tokens: 500,
             temperature: 0.7,
           }),
         });
@@ -158,29 +158,35 @@ CANDIDATE LIVE CRM PROFILE:
   // Graceful rule-based context-aware local fallback
   const lower = message.toLowerCase();
 
-  // If candidate is asking about their meeting
-  if (lower.includes("meeting") || lower.includes("consultation") || lower.includes("time") || lower.includes("when")) {
-    if (session.bookedSlot) {
-      return (
-        `Hi ${session.name || "there"}! Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
-        `You can join via your Google Meet room link. Please have your CV ready! 🇦🇺`
-      );
-    }
-  }
-
-  // If meeting completed and asking about payment/next steps
-  if (session.meetingCompleted) {
-    return (
-      `Hello ${session.name || "there"}! It was great having you in the consultation session with our visa expert.\n\n` +
-      `To proceed with your Australian employer sponsorship file, please complete the enrollment steps outlined in your agreement. If you need any assistance with payment details, let us know here!`
-    );
-  }
-
-  // Check general FAQ keywords
+  // 1. Check general FAQ keywords first so questions like "how much time" or "what is the cost" get exact answers
   for (const faq of FAQ_FALLBACKS) {
     if (faq.keywords.some((k) => lower.includes(k))) {
       return faq.answer;
     }
+  }
+
+  // 2. If candidate is specifically asking about their booked meeting schedule/link
+  const isAskingMyMeeting =
+    lower.includes("my meeting") ||
+    lower.includes("meeting link") ||
+    lower.includes("my consultation") ||
+    lower.includes("my slot") ||
+    ((lower.includes("meeting") || lower.includes("consultation")) &&
+      (lower.includes("when") || lower.includes("time") || lower.includes("link") || lower.includes("where") || lower.includes("status")));
+
+  if (isAskingMyMeeting && session.bookedSlot) {
+    return (
+      `Hi ${session.name || "there"}! Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+      `You can join via your Google Meet room link. Please have your CV ready! 🇦🇺`
+    );
+  }
+
+  // 3. If consultation is completed and candidate asks about next steps
+  if (session.meetingCompleted && (lower.includes("next step") || lower.includes("proceed") || lower.includes("enroll") || lower.includes("agreement"))) {
+    return (
+      `Hello ${session.name || "there"}! It was great having you in the consultation session with our visa expert.\n\n` +
+      `To proceed with your Australian employer sponsorship file, please complete the enrollment steps outlined in your agreement. If you need any assistance with payment details, let us know here!`
+    );
   }
 
   // Generic guidance based on funnel state
