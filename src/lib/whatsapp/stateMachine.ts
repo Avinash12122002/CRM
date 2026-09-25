@@ -23,10 +23,7 @@ export function getStaticGoogleMeetLink(): string {
 }
 
 export function getVideo482Url(): string {
-  return (
-    process.env.VIDEO_482_URL ||
-    "https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing"
-  );
+  return process.env.VIDEO_482_URL || "";
 }
 
 /**
@@ -187,29 +184,31 @@ export async function sendTimedVideoAndProcessGuide(
   email: string,
   videoUrl: string,
 ) {
-  // 1. Send the 482 explainer video or streaming watch link immediately
-  const isWebOrDriveLink =
-    videoUrl.includes("drive.google.com") ||
-    videoUrl.includes("youtu") ||
-    !videoUrl.toLowerCase().endsWith(".mp4");
+  // 1. Send the 482 explainer video or streaming watch link immediately if configured
+  if (videoUrl) {
+    const isWebOrDriveLink =
+      videoUrl.includes("drive.google.com") ||
+      videoUrl.includes("youtu") ||
+      !videoUrl.toLowerCase().endsWith(".mp4");
 
-  if (isWebOrDriveLink) {
-    const videoIntro =
-      `🎥 **Australia Subclass 482 Work Visa — Process Guide Video** 🇦🇺\n\n` +
-      `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
-      `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
-      `*(Tap the link above to watch the video anytime)*`;
-    await sendTextMessage(phone, videoIntro);
-  } else {
-    await sendVideoMessage(
-      phone,
-      videoUrl,
-      "🇦🇺 Australia Subclass 482 Work Visa Process Guide by The Migration School",
-    );
+    if (isWebOrDriveLink) {
+      const videoIntro =
+        `🎥 **Australia Subclass 482 Work Visa — Process Guide Video** 🇦🇺\n\n` +
+        `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
+        `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
+        `*(Tap the link above to watch the video anytime)*`;
+      await sendTextMessage(phone, videoIntro);
+    } else {
+      await sendVideoMessage(
+        phone,
+        videoUrl,
+        "🇦🇺 Australia Subclass 482 Work Visa Process Guide by The Migration School",
+      );
+    }
+
+    // Wait 10 seconds before sending process guide
+    await delay(10000);
   }
-
-  // 2. Wait exactly 10 seconds
-  await delay(10000);
 
   // 3. Send detailed process guide message
   const processGuideText =
