@@ -211,8 +211,26 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
     );
   }
 
-  // 2. Specific questions about cost, fees, or timeline take precedence
-  const isCostOrTimeline =
+  // 2. Specific questions about out-of-scope topics, other countries, non-work visas, cost, fees, or timeline
+  const isOutOfScopeOrFaq =
+    lower.includes("canada") ||
+    lower.includes("uk") ||
+    lower.includes("united kingdom") ||
+    lower.includes("usa") ||
+    lower.includes("united states") ||
+    lower.includes("america") ||
+    lower.includes("europe") ||
+    lower.includes("germany") ||
+    lower.includes("dubai") ||
+    lower.includes("new zealand") ||
+    lower.includes("tourist") ||
+    lower.includes("visitor") ||
+    lower.includes("student visa") ||
+    lower.includes("study visa") ||
+    lower.includes("python") ||
+    lower.includes("coding") ||
+    lower.includes("homework") ||
+    lower.includes("weather") ||
     lower.includes("cost") ||
     lower.includes("fee") ||
     lower.includes("price") ||
@@ -224,7 +242,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
     lower.includes("how much time") ||
     lower.includes("duration");
 
-  if (isCostOrTimeline) {
+  if (isOutOfScopeOrFaq) {
     for (const faq of FAQ_FALLBACKS) {
       if (faq.keywords.some((k) => lower.includes(k))) {
         return faq.answer;
