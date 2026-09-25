@@ -2,6 +2,7 @@ import { Db } from "mongodb";
 import { WeekendSlot } from "./types";
 import {
   convertIstSlotToCandidateTime,
+  extractShortTimezone,
   formatDateInZone,
 } from "./timezone";
 
@@ -139,22 +140,28 @@ export async function getAvailableWeekendSlots(params: {
 
   const slots: WeekendSlot[] = [];
 
-  // 10 evenly spaced 30-minute consultation slots strictly between 11:00 AM and 07:00 PM IST
-  // Allows every slot to fit into a single Meta WhatsApp interactive list message with the "Select Slot" button!
-  const fixedSlotTimes = [
+  // Strictly 30-minute intervals, total 16 meetings in a day (11:00 AM to 07:00 PM IST)
+  // Converted to every candidate's country local time zone!
+  const all16SlotTimes = [
     { start: "11:00", end: "11:30" },
-    { start: "11:45", end: "12:15" },
+    { start: "11:30", end: "12:00" },
+    { start: "12:00", end: "12:30" },
     { start: "12:30", end: "13:00" },
-    { start: "13:15", end: "13:45" },
+    { start: "13:00", end: "13:30" },
+    { start: "13:30", end: "14:00" },
     { start: "14:00", end: "14:30" },
-    { start: "14:45", end: "15:15" },
+    { start: "14:30", end: "15:00" },
+    { start: "15:00", end: "15:30" },
     { start: "15:30", end: "16:00" },
-    { start: "16:15", end: "16:45" },
+    { start: "16:00", end: "16:30" },
+    { start: "16:30", end: "17:00" },
     { start: "17:00", end: "17:30" },
+    { start: "17:30", end: "18:00" },
     { start: "18:00", end: "18:30" },
+    { start: "18:30", end: "19:00" },
   ];
 
-  for (const item of fixedSlotTimes) {
+  for (const item of all16SlotTimes) {
     const istStart = item.start;
     const istEnd = item.end;
 
@@ -210,7 +217,7 @@ export async function getAvailableWeekendSlots(params: {
 
 /**
  * Formats all available slots for a day into a single complete overview
- * so the candidate can see all 16 slots at once in one view.
+ * with all 16 slots formatted in the candidate's country local time.
  */
 export function formatSlotsOverview(params: {
   slots: WeekendSlot[];
@@ -221,20 +228,31 @@ export function formatSlotsOverview(params: {
   const { slots, dayLabel, candidateTimeZoneLabel, isIndia } = params;
 
   let text = `📅 *All Available Consultation Slots for ${dayLabel}*\n`;
-  if (isIndia) {
-    text += `(30-minute 1-on-1 sessions between 11:00 AM - 07:00 PM IST)\n\n`;
+
+  const tzShort = extractShortTimezone(candidateTimeZoneLabel);
+
+  // Dynamic candidate country local time range in header (e.g. 06:30 AM - 02:30 PM WAT, or 11:00 AM - 07:00 PM IST)
+  if (slots.length > 0) {
+    const firstLocal = isIndia
+      ? "11:00 AM"
+      : slots[0].candidateDisplayLabel.split(" - ")[0].trim();
+    const lastPart = isIndia
+      ? "07:00 PM"
+      : slots[slots.length - 1].candidateDisplayLabel.split(" - ")[1].split(" (")[0].trim();
+    text += `(30-minute 1-on-1 sessions between ${firstLocal} - ${lastPart} ${tzShort})\n\n`;
   } else {
-    text += `(30-minute 1-on-1 sessions in your local time — ${candidateTimeZoneLabel})\n\n`;
+    text += `(30-minute 1-on-1 sessions in your local time — ${tzShort})\n\n`;
   }
 
   slots.forEach((s, idx) => {
     const num = idx + 1;
     if (isIndia) {
-      text += `*${num}.* ${s.istStartTime} - ${s.istEndTime} IST\n`;
+      const istStart12h = convertIstSlotToCandidateTime(s.date, s.istStartTime, "Asia/Kolkata").display12h;
+      const istEnd12h = convertIstSlotToCandidateTime(s.date, s.istEndTime, "Asia/Kolkata").display12h;
+      text += `*${num}.* ${istStart12h} - ${istEnd12h} IST\n`;
     } else {
-      // ONLY candidate local time is displayed - zero IST confusion!
-      const candRange = s.candidateDisplayLabel.split(" (")[0]; // e.g. "06:30 AM - 07:00 AM"
-      text += `*${num}.* ${candRange} (${candidateTimeZoneLabel})\n`;
+      const candRange = s.candidateDisplayLabel.split(" (")[0].trim(); // e.g. "06:30 AM - 07:00 AM"
+      text += `*${num}.* ${candRange} ${tzShort}\n`;
     }
   });
 

@@ -221,3 +221,36 @@ export function convertIstSlotToCandidateTime(
     display12h,
   };
 }
+
+/**
+ * Extracts short timezone code like "WAT", "GST", "IST", "EAT", "GMT" from label e.g. "Nigeria Time (WAT)"
+ */
+export function extractShortTimezone(label: string): string {
+  if (!label) return "Local Time";
+  const match = label.match(/\(([^)]+)\)/);
+  if (match) {
+    const inside = match[1];
+    if (inside.includes("/")) {
+      return inside.split("/")[0].trim();
+    }
+    return inside.trim();
+  }
+  return label;
+}
+
+/**
+ * Match a country name or ISO code against COUNTRY_TIMEZONE_MAP
+ */
+export function findCountryByNameOrCode(nameOrCode: string): CountryTimezoneInfo | null {
+  if (!nameOrCode) return null;
+  const norm = nameOrCode.toLowerCase().trim();
+  return (
+    COUNTRY_TIMEZONE_MAP.find(
+      (c) =>
+        c.countryCode.toLowerCase() === norm ||
+        c.countryName.toLowerCase() === norm ||
+        c.countryName.toLowerCase().includes(norm) ||
+        norm.includes(c.countryName.toLowerCase())
+    ) || null
+  );
+}

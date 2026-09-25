@@ -1,8 +1,13 @@
 import { Db } from "mongodb";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getNextId } from "@/lib/auth";
-import { WhatsAppSession, WhatsAppStep, MeetingHistoryItem } from "./types";
-import { detectCountryFromPhone, convertIstSlotToCandidateTime } from "./timezone";
+import { WhatsAppSession, WhatsAppStep, MeetingHistoryItem, WeekendSlot } from "./types";
+import {
+  detectCountryFromPhone,
+  convertIstSlotToCandidateTime,
+  extractShortTimezone,
+  findCountryByNameOrCode,
+} from "./timezone";
 import { findEligibleOccupation } from "./occupations";
 import {
   getUpcomingWeekendDays,
@@ -33,6 +38,48 @@ export function getVideo482Url(): string {
 }
 
 /**
+ * Builds rows for Meta WhatsApp interactive list (max 10 rows per Meta API limit).
+ * If > 10 slots (e.g. 16 continuous slots), rows 1-9 are direct slots and row 10 opens slots 10 to N.
+ */
+function buildSlotRows(
+  availableSlots: WeekendSlot[],
+  meetingDate: string,
+  isIndia: boolean,
+  timeZoneLabel: string,
+) {
+  const tzShort = extractShortTimezone(timeZoneLabel);
+  if (availableSlots.length <= 10) {
+    return availableSlots.map((s, idx) => ({
+      id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+      title: (isIndia
+        ? `${s.istStartTime} - ${s.istEndTime} IST`
+        : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+      description: (isIndia
+        ? `Slot #${idx + 1} (IST)`
+        : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
+    }));
+  }
+
+  const rows = availableSlots.slice(0, 9).map((s, idx) => ({
+    id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+    title: (isIndia
+      ? `${s.istStartTime} - ${s.istEndTime} IST`
+      : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+    description: (isIndia
+      ? `Slot #${idx + 1} (IST)`
+      : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
+  }));
+
+  rows.push({
+    id: `SHOW_AFTERNOON_SLOTS_${meetingDate}`,
+    title: `Slots 10 to ${availableSlots.length} ➡️`.slice(0, 24),
+    description: `Tap to view remaining slots`.slice(0, 72),
+  });
+
+  return rows;
+}
+
+/**
  * Load or initialize candidate session from MongoDB
  */
 export async function getOrCreateSession(
@@ -55,23 +102,42 @@ export async function getOrCreateSession(
       await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: existing.name } });
     }
 
-    // Sync live CRM data (like meeting completion, payment status, occupation, experience) if leadId exists
-    if (existing.leadId) {
-      const lead = await db.collection("leads").findOne({ id: existing.leadId });
-      if (lead) {
-        existing.meetingCompleted = lead.meetingStatus === "completed" || lead.status === "follow-up";
-        existing.paymentPending = lead.status === "payment-pending" || lead.status === "document-pending";
-        if (lead.meetingStatus) existing.meetingStatus = lead.meetingStatus;
-        if (lead.interestedCountry) existing.interestedCountry = lead.interestedCountry;
-        if (lead.occupations && lead.occupations.length > 0 && !existing.occupation) {
-          existing.occupation = lead.occupations[0];
+    // Sync live CRM data (like meeting completion, payment status, occupation, experience, country) if lead exists
+    const lead = existing.leadId
+      ? await db.collection("leads").findOne({ id: existing.leadId })
+      : await db.collection("leads").findOne({ phone: cleanPhone });
+
+    if (lead) {
+      if (!existing.leadId) existing.leadId = lead.id;
+      if (lead.country) {
+        const matchCountry = findCountryByNameOrCode(lead.country);
+        if (matchCountry) {
+          existing.countryCode = matchCountry.countryCode;
+          existing.countryName = matchCountry.countryName;
+          existing.timeZone = matchCountry.timeZone;
+          existing.timeZoneLabel = matchCountry.label;
         }
-        if (lead.experience && !existing.yearsExperience) existing.yearsExperience = lead.experience;
-        if (lead.email && !existing.email) existing.email = lead.email;
-        if (lead.meetingCompletedAt) existing.meetingCompletedAt = lead.meetingCompletedAt;
-        if (lead.meetingCancelledAt) existing.meetingCanceledAt = lead.meetingCancelledAt;
       }
+      existing.meetingCompleted = lead.meetingStatus === "completed" || lead.status === "follow-up";
+      existing.paymentPending = lead.status === "payment-pending" || lead.status === "document-pending";
+      if (lead.meetingStatus) existing.meetingStatus = lead.meetingStatus;
+      if (lead.interestedCountry) existing.interestedCountry = lead.interestedCountry;
+      if (lead.occupations && lead.occupations.length > 0 && !existing.occupation) {
+        existing.occupation = lead.occupations[0];
+      }
+      if (lead.experience && !existing.yearsExperience) existing.yearsExperience = lead.experience;
+      if (lead.email && !existing.email) existing.email = lead.email;
+      if (lead.meetingCompletedAt) existing.meetingCompletedAt = lead.meetingCompletedAt;
+      if (lead.meetingCancelledAt) existing.meetingCanceledAt = lead.meetingCancelledAt;
     }
+
+    if (!existing.timeZone || !existing.timeZoneLabel) {
+      existing.countryCode = country.countryCode;
+      existing.countryName = country.countryName;
+      existing.timeZone = country.timeZone;
+      existing.timeZoneLabel = country.label;
+    }
+
     if (!existing.interestedCountry) existing.interestedCountry = "Australia";
     if (!existing.meetingStatus) existing.meetingStatus = existing.bookedSlot ? "booked" : "none";
     if (!existing.meetingHistory) existing.meetingHistory = [];
@@ -723,15 +789,7 @@ export async function processIncomingWhatsAppMessage(params: {
         const sections = [
           {
             title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
-            rows: nextWeekend.availableSlots.map((s) => ({
-              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-              title: isIndia
-                ? `${s.istStartTime} - ${s.istEndTime} IST`
-                : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-              description: isIndia
-                ? `30-Min Consultation (IST)`
-                : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
-            })),
+            rows: buildSlotRows(nextWeekend.availableSlots, nextDate, isIndia, session.timeZoneLabel),
           },
         ];
         await sendInteractiveList(
@@ -777,15 +835,7 @@ export async function processIncomingWhatsAppMessage(params: {
     const sections = [
       {
         title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
-        rows: availableSlots.map((s) => ({
-          id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-          title: isIndia
-            ? `${s.istStartTime} - ${s.istEndTime} IST`
-            : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-          description: isIndia
-            ? `30-Min Consultation (IST)`
-            : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
-        })),
+        rows: buildSlotRows(availableSlots, meetingDate, isIndia, session.timeZoneLabel),
       },
     ];
 
@@ -798,6 +848,75 @@ export async function processIncomingWhatsAppMessage(params: {
     );
 
     return { replyText: overviewText, step: "SELECTING_SLOT" };
+  }
+
+  // Handle viewing afternoon slots (slots 10-16) or morning slots (slots 1-9)
+  if (actionId.startsWith("SHOW_AFTERNOON_SLOTS_") || actionId.startsWith("SHOW_MORNING_SLOTS_")) {
+    const isAfternoon = actionId.startsWith("SHOW_AFTERNOON_SLOTS_");
+    const meetingDate = actionId.replace("SHOW_AFTERNOON_SLOTS_", "").replace("SHOW_MORNING_SLOTS_", "");
+    const dateSlots = await getAvailableWeekendSlots({
+      db,
+      meetingDate,
+      candidateTimeZone: session.timeZone,
+      candidateTimeLabel: session.timeZoneLabel,
+    });
+    const availableSlots = dateSlots.filter((s) => s.available);
+    const isIndia = session.countryCode === "IN";
+    const tzShort = extractShortTimezone(session.timeZoneLabel);
+
+    if (isAfternoon) {
+      const afternoonSlots = availableSlots.slice(9);
+      const rows = afternoonSlots.map((s, idx) => ({
+        id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+        title: (isIndia
+          ? `${s.istStartTime} - ${s.istEndTime} IST`
+          : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+        description: (isIndia
+          ? `Slot #${idx + 10} (IST)`
+          : `Slot #${idx + 10} (${tzShort})`).slice(0, 72),
+      }));
+
+      rows.push({
+        id: `SHOW_MORNING_SLOTS_${meetingDate}`,
+        title: `⬅️ Slots 1 to 9`,
+        description: `Back to morning slots`,
+      });
+
+      const sections = [{
+        title: `Slots 10 - ${availableSlots.length}`.slice(0, 24),
+        rows,
+      }];
+
+      const afternoonText = `📅 *Consultation Slots (10 to ${availableSlots.length}) for ${dateSlots[0]?.dayLabel || meetingDate}*\n\n` +
+        `Tap **Select Slot** below to choose from slots 10 to ${availableSlots.length}, or reply directly with your slot number (*10* to *${availableSlots.length}*).`;
+
+      await sendInteractiveList(
+        session.phone,
+        "Choose Your Slot",
+        afternoonText,
+        "Select Slot",
+        sections,
+      );
+      return { replyText: afternoonText, step: "SELECTING_SLOT" };
+    } else {
+      const rows = buildSlotRows(availableSlots, meetingDate, isIndia, session.timeZoneLabel);
+      const sections = [{
+        title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
+        rows,
+      }];
+
+      const morningText = `📅 *Consultation Slots (1 to 9) for ${dateSlots[0]?.dayLabel || meetingDate}*\n\n` +
+        `Tap **Select Slot** below to choose from slots 1 to 9, or reply directly with your slot number (*1* to *9*).`;
+
+      await sendInteractiveList(
+        session.phone,
+        "Choose Your Slot",
+        morningText,
+        "Select Slot",
+        sections,
+      );
+      return { replyText: morningText, step: "SELECTING_SLOT" };
+    }
   }
 
   // 6b. Candidate typed a slot number (e.g. "1", "5", "14") or typed a time (e.g. "11:00", "2:30", "4pm")
