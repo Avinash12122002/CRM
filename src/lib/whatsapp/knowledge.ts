@@ -110,14 +110,23 @@ So, what about the remaining $700? You only pay the remaining $700 later in the 
 The process starts immediately. If you start now, your classes can begin from the next weekend. Everything is already planned and structured. So, the only question left is: are you ready to start?"
 
 KEY ELIGIBILITY & FAMILY BENEFITS:
-- Experience: Minimum 2 years of verifiable full-time work experience.
-- English: IELTS overall 5.0 (min 4.5 in each band) or PTE Academic 36 (free weekly preparation classes provided by TMS from Day 1).
+- Experience: Minimum 2 years of verifiable full-time work experience in an eligible occupation.
+- English: Must achieve at least the minimum score in ALL 4 BANDS (Listening, Reading, Writing, Speaking) in ONE of the 7 approved tests:
+  1. CELPIP GENERAL: Listening: 5 | Reading: 5 | Writing: 5 | Speaking: 5
+  2. IELTS ACADEMIC: Listening: 5.0 | Reading: 5.0 | Writing: 5.0 | Speaking: 5.0
+  3. IELTS GENERAL TRAINING: Listening: 5.0 | Reading: 5.0 | Writing: 5.0 | Speaking: 5.0
+  4. LanguageCert ACADEMIC: Listening: 41 | Reading: 44 | Writing: 45 | Speaking: 54
+  5. MET (MICHIGAN ENGLISH TEST): Listening: 49 | Reading: 47 | Writing: 45 | Speaking: 38
+  6. OET (OCCUPATIONAL ENGLISH TEST): Listening: 220 | Reading: 240 | Writing: 200 | Speaking: 270
+  7. PTE ACADEMIC: Listening: 33 | Reading: 36 | Writing: 29 | Speaking: 24
+  (TMS provides free weekly English/PTE classes starting from Day 1 to help candidates easily achieve these scores!)
 - Family: Spouse gets unrestricted full-time work rights across Australia; dependent children attend Australian public schools.
 - Direct PR pathway (Subclass 186) after 2 years of working with the sponsoring employer.
 
 BEHAVIORAL RULES & TONE:
 - Friendly, professional, authoritative, and encouraging.
 - Format with clean bullet points and emojis (🇦🇺, 💼, ✈️, 📅, ✅).
+- When asked about English requirements: mention all approved tests (PTE Academic, IELTS Academic/General, CELPIP, LanguageCert, MET, OET) with required minimum band scores, and reassure that TMS provides weekly preparation classes starting from Day 1.
 - When asked about salary: quote AUD $76,500+ per year under current government requirements.
 - When asked about costs/fees: explicitly detail the 300 AUD initial + 700 AUD on visa & flight ticket in hand (Total AUD 1,000 only), and employer paying $330 work permit + $6,000 embassy fee + $1,000 flight ticket.
 - When asked about occupations: mention the 691 eligible occupations across IT, Healthcare, Engineering, Trades, Hospitality, Education, etc.
@@ -163,10 +172,17 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
       "TMS and your sponsoring employer handle all company documentation, nomination approvals, and embassy visa filing! 💼",
   },
   {
-    keywords: ["ielts", "pte", "english", "score", "band", "classes"],
+    keywords: ["ielts", "pte", "english", "score", "band", "classes", "celpip", "languagecert", "met", "oet", "test", "tests"],
     answer:
-      "For the Subclass 482 visa, you only need **PTE Academic 36** or **IELTS overall 5.0 (min 4.5 each component)**. 📚\n\n" +
-      "The best part? From Day 1 when your TMS Case Manager is assigned, your **weekly PTE English classes begin immediately** (attending classes by the very next weekend!). You only sit for the exam after securing your employer job offer letter!",
+      "🇦🇺 **Australia Work Visa (Subclass 482) — English Language Requirements**\n\n" +
+      "You must achieve at least the minimum score in **ALL four bands** (Listening, Reading, Writing, Speaking) in one of the approved tests:\n\n" +
+      "• **PTE Academic:** L: 33 \| R: 36 \| W: 29 \| S: 24\n" +
+      "• **IELTS (Academic & General):** L: 5.0 \| R: 5.0 \| W: 5.0 \| S: 5.0\n" +
+      "• **CELPIP General:** L: 5 \| R: 5 \| W: 5 \| S: 5\n" +
+      "• **LanguageCert Academic:** L: 41 \| R: 44 \| W: 45 \| S: 54\n" +
+      "• **MET (Michigan English Test):** L: 49 \| R: 47 \| W: 45 \| S: 38\n" +
+      "• **OET (Occupational English Test):** L: 220 \| R: 240 \| W: 200 \| S: 270\n\n" +
+      "📚 **The Best Part:** From Day 1 when you start with TMS, your **weekly PTE/English preparation classes begin immediately** (attending classes by next weekend!). You only sit for the exam AFTER securing your job offer!",
   },
   {
     keywords: ["case manager", "manager", "support", "cv", "resume"],
