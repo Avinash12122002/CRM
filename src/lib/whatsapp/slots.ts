@@ -224,15 +224,20 @@ export function formatSlotsOverview(params: {
   const { slots, dayLabel, candidateTimeZoneLabel, isIndia } = params;
 
   let text = `📅 *All Available Consultation Slots for ${dayLabel}*\n`;
-  text += `(30-minute 1-on-1 sessions between 11:00 AM - 07:00 PM IST)\n\n`;
+  if (isIndia) {
+    text += `(30-minute 1-on-1 sessions between 11:00 AM - 07:00 PM IST)\n\n`;
+  } else {
+    text += `(30-minute 1-on-1 sessions in your local time — ${candidateTimeZoneLabel})\n\n`;
+  }
 
   slots.forEach((s, idx) => {
     const num = idx + 1;
-    const candStart = s.candidateStartTime;
     if (isIndia) {
       text += `*${num}.* ${s.istStartTime} - ${s.istEndTime} IST\n`;
     } else {
-      text += `*${num}.* ${s.istStartTime}-${s.istEndTime} IST (${candStart} ${candidateTimeZoneLabel})\n`;
+      // ONLY candidate local time is displayed - zero IST confusion!
+      const candRange = s.candidateDisplayLabel.split(" (")[0]; // e.g. "06:30 AM - 07:00 AM"
+      text += `*${num}.* ${candRange} (${candidateTimeZoneLabel})\n`;
     }
   });
 

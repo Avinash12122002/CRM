@@ -251,12 +251,22 @@ export async function sendTimedVideoAndProcessGuide(
 
   // 3. Send detailed process guide message
   const processGuideText =
-    `📋 **The 5-Step Process to Relocate to Australia under Subclass 482:**\n\n` +
-    `1️⃣ **Free Profile & CV Evaluation:** Assessing your 2+ years of work experience & English proficiency.\n` +
-    `2️⃣ **Skills & Verification:** Verifying work references and trade/educational qualifications.\n` +
-    `3️⃣ **Australian Employer Matching:** Connecting your profile with approved Australian sponsoring companies.\n` +
-    `4️⃣ **Nomination & Visa Filing:** Formal application lodgement with the Australian Department of Home Affairs.\n` +
-    `5️⃣ **Visa Grant & PR Pathway:** Work full-time with your family in Australia, transitioning to Permanent Residency (PR 186) after 2 years! 🇦🇺`;
+    `📋 *The Complete Step-by-Step Process to Relocate to Australia (Subclass 482 Work Visa):*\n\n` +
+    `1️⃣ *Getting Started & Australian-Standard CV Preparation:*\n` +
+    `We evaluate your profile against the 691 eligible occupations. You are assigned a dedicated TMS Case Manager who optimizes your CV to Australian employer standards, and your weekly PTE English classes begin immediately from Day 1.\n\n` +
+    `2️⃣ *Securing Your Australian Sponsoring Employer:*\n` +
+    `Our recruitment team presents and markets your profile directly to approved Australian employers. We coordinate your interview and secure your official Job Offer Letter & Employment Contract.\n\n` +
+    `3️⃣ *Arranging Your 3 Key Documents:*\n` +
+    `You only need to provide 3 basic documents from your side:\n` +
+    `• Valid Passport Copy\n` +
+    `• Medical Fitness Certificate\n` +
+    `• Police Clearance Certificate (PCC)\n\n` +
+    `4️⃣ *Employer Sponsorship & Government Nomination Approval:*\n` +
+    `TMS coordinates directly with your sponsoring employer to lodge and secure official Nomination & Sponsorship approvals with the Australian Department of Home Affairs.\n\n` +
+    `5️⃣ *Visa Lodgement, Flight Tickets & PR Pathway:*\n` +
+    `Your Subclass 482 Visa is lodged. Sponsoring employers cover the work permit ($330), nomination ($6,000), and your flight tickets ($1,000)!\n` +
+    `You only pay TMS service charges (AUD 300 upfront + AUD 700 strictly after visa grant).\n` +
+    `*Timeline:* 4 to 5 months total. Direct PR pathway (Subclass 186) after 2 years! 🇦🇺✈️`;
 
   await sendTextMessage(phone, processGuideText);
 
@@ -701,8 +711,12 @@ export async function processIncomingWhatsAppMessage(params: {
               title: "Available Slots",
               rows: nextWeekend.availableSlots.map((s) => ({
                 id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-                description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+                title: isIndia
+                  ? `${s.istStartTime} - ${s.istEndTime} IST`
+                  : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+                description: isIndia
+                  ? `30-Min Consultation (IST)`
+                  : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
               })),
             },
           ];
@@ -715,8 +729,8 @@ export async function processIncomingWhatsAppMessage(params: {
           );
         } else {
           await sendQuickReplyButtons(session.phone, overviewText, [
-            { id: "BTN_SLOTS_EARLY", title: "Slots 1-8 (11am-3pm)" },
-            { id: "BTN_SLOTS_LATE", title: "Slots 9-16 (3pm-7pm)" },
+            { id: "BTN_SLOTS_EARLY", title: "Slots 1 to 8" },
+            { id: "BTN_SLOTS_LATE", title: "Slots 9 to 16" },
             { id: "BTN_CHANGE_DAY", title: "Change Date" },
           ]);
         }
@@ -759,8 +773,12 @@ export async function processIncomingWhatsAppMessage(params: {
           title: "Available Slots",
           rows: availableSlots.map((s) => ({
             id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+            title: isIndia
+              ? `${s.istStartTime} - ${s.istEndTime} IST`
+              : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+            description: isIndia
+              ? `30-Min Consultation (IST)`
+              : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
           })),
         },
       ];
@@ -773,8 +791,8 @@ export async function processIncomingWhatsAppMessage(params: {
       );
     } else {
       await sendQuickReplyButtons(session.phone, overviewText, [
-        { id: "BTN_SLOTS_EARLY", title: "Slots 1-8 (11am-3pm)" },
-        { id: "BTN_SLOTS_LATE", title: "Slots 9-16 (3pm-7pm)" },
+        { id: "BTN_SLOTS_EARLY", title: "Slots 1 to 8" },
+        { id: "BTN_SLOTS_LATE", title: "Slots 9 to 16" },
         { id: "BTN_CHANGE_DAY", title: "Change Date" },
       ]);
     }
@@ -782,10 +800,11 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: overviewText, step: "SELECTING_SLOT" };
   }
 
-  // 6a. Candidate clicked "Slots 1-8" or "Slots 9-16" quick reply buttons
+  // 6a. Candidate clicked "Slots 1 to 8" or "Slots 9 to 16" quick reply buttons
   if (actionId === "BTN_SLOTS_EARLY" || actionId === "BTN_SLOTS_LATE") {
     const meetingDate = session.activeSlotsDate;
     if (meetingDate) {
+      const isIndia = session.countryCode === "IN";
       const dateSlots = await getAvailableWeekendSlots({
         db,
         meetingDate,
@@ -795,7 +814,7 @@ export async function processIncomingWhatsAppMessage(params: {
       const available = dateSlots.filter((s) => s.available);
       const isEarly = actionId === "BTN_SLOTS_EARLY";
       const selectedPart = isEarly ? available.slice(0, 8) : available.slice(8, 16);
-      const titleLabel = isEarly ? "Slots 1-8 (11am - 3pm)" : "Slots 9-16 (3pm - 7pm)";
+      const titleLabel = isEarly ? "Slots 1 to 8" : "Slots 9 to 16";
 
       if (selectedPart.length > 0) {
         await sendInteractiveList(
@@ -808,8 +827,12 @@ export async function processIncomingWhatsAppMessage(params: {
               title: titleLabel.slice(0, 24),
               rows: selectedPart.map((s) => ({
                 id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
-                description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+                title: isIndia
+                  ? `${s.istStartTime} - ${s.istEndTime} IST`
+                  : s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+                description: isIndia
+                  ? `30-Min Consultation (IST)`
+                  : `Your Local Time (${session.timeZoneLabel})`.slice(0, 72),
               })),
             },
           ]
@@ -838,12 +861,21 @@ export async function processIncomingWhatsAppMessage(params: {
       const picked = available[num - 1];
       actionId = `SLOT_${picked.date}_${picked.istStartTime}_${picked.candidateStartTime}`;
     } else {
-      const cleanLower = cleanText.toLowerCase();
-      const matched = available.find((s) =>
-        cleanLower.includes(s.istStartTime) ||
-        cleanLower.includes(s.candidateStartTime) ||
-        cleanLower.replace(/[: ]/g, "").includes(s.istStartTime.replace(":", ""))
-      );
+      const cleanLower = cleanText.toLowerCase().trim();
+      const matched = available.find((s) => {
+        const candClean = s.candidateStartTime.toLowerCase();
+        const candCleanNoZero = candClean.replace(/^0/, "");
+        const candRange = s.candidateDisplayLabel.toLowerCase();
+        return (
+          cleanLower.includes(s.istStartTime) ||
+          cleanLower.includes(s.istStartTime.replace(/^0/, "")) ||
+          cleanLower.includes(candClean) ||
+          cleanLower.includes(candCleanNoZero) ||
+          candRange.includes(cleanLower) ||
+          cleanLower.replace(/[: ]/g, "").includes(s.istStartTime.replace(":", "")) ||
+          cleanLower.replace(/[: ]/g, "").includes(candClean.replace(":", ""))
+        );
+      });
       if (matched) {
         actionId = `SLOT_${matched.date}_${matched.istStartTime}_${matched.candidateStartTime}`;
       }
@@ -880,9 +912,11 @@ export async function processIncomingWhatsAppMessage(params: {
       if (availableRemaining.length > 0) {
         const isIndia = session.countryCode === "IN";
         const dayLabel = remainingSlots[0]?.dayLabel || meetingDate;
+        const candObj = convertIstSlotToCandidateTime(meetingDate, istStart, session.timeZone);
+        const bookedLabel = isIndia ? `${istStart} IST` : `${candObj.display12h} (${session.timeZoneLabel})`;
 
         const collisionMsg =
-          `⚠️ That slot (**${istStart} IST**) was just booked by another candidate!\n\n` +
+          `⚠️ That slot (**${bookedLabel}**) was just booked by another candidate!\n\n` +
           `All consultation slots are locked once reserved to avoid overlap. Please choose another available time:\n\n` +
           formatSlotsOverview({
             slots: availableRemaining,
@@ -939,6 +973,11 @@ export async function processIncomingWhatsAppMessage(params: {
       endM -= 60;
     }
     const istEnd = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+    const candStartObj = convertIstSlotToCandidateTime(
+      meetingDate,
+      istStart,
+      session.timeZone,
+    );
     const candEndObj = convertIstSlotToCandidateTime(
       meetingDate,
       istEnd,
@@ -1039,8 +1078,8 @@ export async function processIncomingWhatsAppMessage(params: {
             performedByName: "WhatsApp Automation",
             timestamp: now,
             details: isReschedule
-              ? `Rescheduled from ${previousSlotDetails} to ${meetingDate} at ${candidateStart} (${session.timeZoneLabel}) / ${istStart} IST. Assigned to Abhay. Room: ${meetLink}`
-              : `Booked for ${meetingDate} at ${candidateStart} (${session.timeZoneLabel}) / ${istStart} IST. Assigned to Abhay. Room: ${meetLink}`,
+              ? `Rescheduled from ${previousSlotDetails} to ${meetingDate} at ${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel}) [IST: ${istStart} - ${istEnd}]. Assigned to Abhay. Room: ${meetLink}`
+              : `Booked for ${meetingDate} at ${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel}) [IST: ${istStart} - ${istEnd}]. Assigned to Abhay. Room: ${meetLink}`,
           },
         } as unknown as Record<string, unknown>,
       },
@@ -1054,8 +1093,8 @@ export async function processIncomingWhatsAppMessage(params: {
           userId: abhayUser.id,
           title: isReschedule ? "WhatsApp Meeting Rescheduled" : "New WhatsApp Meeting Booked",
           message: isReschedule
-            ? `1-on-1 consultation with ${session.name || "WhatsApp Candidate"} was RESCHEDULED to ${meetingDate} at ${istStart} IST (${candidateStart} ${session.timeZoneLabel}).`
-            : `1-on-1 Australia 482 consultation booked with ${session.name || "WhatsApp Candidate"} on ${meetingDate} at ${istStart} IST (${candidateStart} ${session.timeZoneLabel}).`,
+            ? `1-on-1 consultation with ${session.name || "WhatsApp Candidate"} was RESCHEDULED to ${meetingDate} at ${candStartObj.display12h} (${session.timeZoneLabel}) / ${istStart} IST.`
+            : `1-on-1 Australia 482 consultation booked with ${session.name || "WhatsApp Candidate"} on ${meetingDate} at ${candStartObj.display12h} (${session.timeZoneLabel}) / ${istStart} IST.`,
           type: "meeting_scheduled",
           link: `/dashboard/leads/${leadId}`,
         });
@@ -1065,10 +1104,14 @@ export async function processIncomingWhatsAppMessage(params: {
     }
 
     // 5. Update session in whatsapp_sessions
+    const candidateTimeFormatted = session.countryCode === "IN"
+      ? `${istStart} - ${istEnd} IST`
+      : `${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel})`;
+
     const historyItem: MeetingHistoryItem = {
       action: isReschedule ? "rescheduled" : "booked",
       date: meetingDate,
-      candidateTime: `${candidateStart} (${session.timeZoneLabel})`,
+      candidateTime: candidateTimeFormatted,
       istTime: `${istStart} - ${istEnd} (IST)`,
       timestamp: now,
       previousSlot: isReschedule && session.bookedSlot ? {
@@ -1088,7 +1131,7 @@ export async function processIncomingWhatsAppMessage(params: {
       bookedSlot: {
         date: meetingDate,
         candidateTime: candidateStart,
-        candidateTimeLabel: `${candidateStart} (${session.timeZoneLabel})`,
+        candidateTimeLabel: candidateTimeFormatted,
         istTime: istStart,
         istTimeLabel: `${istStart} - ${istEnd} (IST)`,
         meetingUserId: abhayId,
@@ -1107,9 +1150,7 @@ export async function processIncomingWhatsAppMessage(params: {
       year: "numeric",
     }).format(dateObj); // e.g. "27 September 2026"
 
-    const timeDisplay = session.countryCode === "IN"
-      ? `${istStart} - ${istEnd} IST`
-      : `${candidateStart} (${session.timeZoneLabel}) / ${istStart} - ${istEnd} IST`;
+    const timeDisplay = candidateTimeFormatted;
 
     const confirmationMsg = isReschedule
       ? `Dear ${candidateDisplayName},\n\n` +

@@ -50,10 +50,10 @@ CANDIDATE LIVE CRM PROFILE & DOSSIER:
 - ACTIVE CONFIRMED CONSULTATION:
   * Date: ${session.bookedSlot.date}
   * Candidate Local Time: ${session.bookedSlot.candidateTimeLabel}
-  * India IST Time: ${session.bookedSlot.istTimeLabel}
   * Consultant: TMS Visa Senior Migration Expert
   * Status: ${session.meetingStatus || "booked"}
   * Rescheduled Count: ${session.meetingRescheduledCount || 0} times
+  * TIMEZONE RULE: Always state the candidate's time as ${session.bookedSlot.candidateTimeLabel}. Do NOT mention IST to international candidates.
 `;
   } else if (session.meetingStatus === "canceled") {
     contextBlock += `
@@ -61,7 +61,7 @@ CANDIDATE LIVE CRM PROFILE & DOSSIER:
   * Status: Canceled
   * Canceled At: ${session.meetingCanceledAt ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
   * Reason: ${session.meetingCancellationReason || "Requested by candidate"}
-  * Note: Candidate can rebook anytime for a weekend slot between 11 AM - 7 PM IST.
+  * Note: Candidate can rebook anytime for a weekend slot in their local time.
 `;
   }
 
@@ -213,7 +213,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
     if (session.bookedSlot) {
       return (
         `Hi ${session.name || "there"}! 👋\n\n` +
-        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}** (India: ${session.bookedSlot.istTimeLabel}).\n\n` +
+        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
         `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
         `*(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺`
       );
@@ -222,7 +222,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
         `Hello ${session.name || "there"}! 👋\n\n` +
         `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
         `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-        `Consultations are scheduled on Saturdays and Sundays between 11:00 AM and 07:00 PM IST (30-minute intervals). Would you like to select an available time slot?`
+        `Consultations are scheduled on Saturdays and Sundays in 30-minute intervals. Would you like to select an available time slot in your local time?`
       );
     }
   }
