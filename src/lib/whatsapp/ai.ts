@@ -105,7 +105,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
                   { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
                   { role: "user", content: message },
                 ],
-                max_tokens: 500,
+                max_tokens: 1500,
                 temperature: 0.7,
               }),
             });
@@ -138,13 +138,13 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
                 role: "user",
                 parts: [
                   {
-                    text: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}\n\nCandidate says: "${message}"\n\nProvide your concise WhatsApp reply as Aria:`,
+                    text: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}\n\nCandidate says: "${message}"\n\nProvide your complete WhatsApp reply as Aria:`,
                   },
                 ],
               },
             ],
             generationConfig: {
-              maxOutputTokens: 500,
+              maxOutputTokens: 1500,
               temperature: 0.7,
             },
           }),
@@ -174,7 +174,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
               { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
               { role: "user", content: message },
             ],
-            max_tokens: 500,
+            max_tokens: 1500,
             temperature: 0.7,
           }),
         });
