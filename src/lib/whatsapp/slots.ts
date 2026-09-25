@@ -12,64 +12,93 @@ export interface WeekendDayOption {
 }
 
 /**
- * Returns upcoming Saturday and Sunday relative to the current IST time
+ * Returns upcoming weekend days (Saturdays and Sundays) relative to the current IST time.
+ * Defaults to 10 days (~1 full month of weekend days).
+ * If today is Saturday or Sunday and it's already past 18:30 IST (the last slot), today is skipped.
  */
-export function getUpcomingWeekendDays(): WeekendDayOption[] {
-  // Current time in IST
+export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
   const now = new Date();
   const todayISTStr = formatDateInZone(now, "Asia/Kolkata");
-  const todayIST = new Date(`${todayISTStr}T12:00:00+05:30`);
-  const currentDayOfWeek = todayIST.getDay(); // 0 = Sunday, 6 = Saturday
 
-  let satOffset = 0;
-  let sunOffset = 0;
+  const currentHourIST = parseInt(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      hour: "numeric",
+      hour12: false,
+    }).format(now),
+    10
+  );
+  const currentMinIST = parseInt(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      minute: "numeric",
+    }).format(now),
+    10
+  );
+  const isPastLastSlotToday =
+    currentHourIST > 18 || (currentHourIST === 18 && currentMinIST >= 30);
 
-  if (currentDayOfWeek === 6) {
-    // Today is Saturday
-    satOffset = 0;
-    sunOffset = 1;
-  } else if (currentDayOfWeek === 0) {
-    // Today is Sunday
-    satOffset = 6;
-    sunOffset = 0;
-  } else {
-    // Monday (1) through Friday (5)
-    satOffset = 6 - currentDayOfWeek;
-    sunOffset = 7 - currentDayOfWeek;
+  const weekendDays: WeekendDayOption[] = [];
+  let checkDate = new Date(`${todayISTStr}T12:00:00+05:30`);
+
+  if (isPastLastSlotToday) {
+    checkDate = new Date(checkDate.getTime() + 86400000);
   }
 
-  const satDate = new Date(todayIST.getTime() + satOffset * 86400000);
-  const sunDate = new Date(todayIST.getTime() + sunOffset * 86400000);
+  while (weekendDays.length < count) {
+    const dayOfWeek = checkDate.getDay(); // 0 = Sunday, 6 = Saturday
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      const dateISO = formatDateInZone(checkDate, "Asia/Kolkata");
+      const dayName: "Saturday" | "Sunday" =
+        dayOfWeek === 6 ? "Saturday" : "Sunday";
+      const displayLabel = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Kolkata",
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      }).format(checkDate);
 
-  const satISO = formatDateInZone(satDate, "Asia/Kolkata");
-  const sunISO = formatDateInZone(sunDate, "Asia/Kolkata");
+      weekendDays.push({
+        date: dateISO,
+        dayName,
+        displayLabel,
+      });
+    }
+    checkDate = new Date(checkDate.getTime() + 86400000);
+  }
 
-  const satLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-  }).format(satDate);
+  return weekendDays;
+}
 
-  const sunLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Kolkata",
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-  }).format(sunDate);
+/**
+ * Scans upcoming weekend days (after a given date) to find the next weekend day that has at least one available slot.
+ */
+export async function findNextAvailableWeekendDay(params: {
+  db: Db;
+  afterDate?: string;
+  candidateTimeZone: string;
+  candidateTimeLabel: string;
+}): Promise<{ dayOption: WeekendDayOption; availableSlots: WeekendSlot[] } | null> {
+  const { db, afterDate, candidateTimeZone, candidateTimeLabel } = params;
+  const allWeekends = getUpcomingWeekendDays(10);
 
-  return [
-    {
-      date: satISO,
-      dayName: "Saturday",
-      displayLabel: satLabel,
-    },
-    {
-      date: sunISO,
-      dayName: "Sunday",
-      displayLabel: sunLabel,
-    },
-  ];
+  for (const day of allWeekends) {
+    if (afterDate && day.date <= afterDate) {
+      continue;
+    }
+    const slots = await getAvailableWeekendSlots({
+      db,
+      meetingDate: day.date,
+      candidateTimeZone,
+      candidateTimeLabel,
+    });
+    const available = slots.filter((s) => s.available);
+    if (available.length > 0) {
+      return { dayOption: day, availableSlots: available };
+    }
+  }
+
+  return null;
 }
 
 /**

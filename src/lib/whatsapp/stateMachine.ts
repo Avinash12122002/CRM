@@ -3,7 +3,11 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { getNextId } from "@/lib/auth";
 import { WhatsAppSession, WhatsAppStep } from "./types";
 import { detectCountryFromPhone, convertIstSlotToCandidateTime } from "./timezone";
-import { getUpcomingWeekendDays, getAvailableWeekendSlots } from "./slots";
+import {
+  getUpcomingWeekendDays,
+  getAvailableWeekendSlots,
+  findNextAvailableWeekendDay,
+} from "./slots";
 import { generateAiResponse } from "./ai";
 import {
   sendTextMessage,
@@ -377,7 +381,7 @@ export async function processIncomingWhatsAppMessage(params: {
     };
   }
 
-  // 5. Candidate wants Consultation -> Show Saturday & Sunday Options
+  // 5. Candidate wants Consultation -> Show 10 Upcoming Weekend Dates (~whole month)
   const wantsConsultation =
     actionId === "BTN_CONSULT_YES" ||
     actionId === "BTN_CHANGE_DAY" ||
@@ -387,46 +391,29 @@ export async function processIncomingWhatsAppMessage(params: {
       )));
 
   if (wantsConsultation) {
-    const weekends = getUpcomingWeekendDays();
+    const weekends = getUpcomingWeekendDays(10);
 
     const sections = [
       {
-        title: "Choose Time Window",
-        rows: [
-          {
-            id: `DAY_MORNING_${weekends[0].date}`,
-            title: `${weekends[0].dayName} Morning`,
-            description: `${weekends[0].displayLabel} (11:00 AM - 03:00 PM IST)`,
-          },
-          {
-            id: `DAY_EVENING_${weekends[0].date}`,
-            title: `${weekends[0].dayName} Evening`,
-            description: `${weekends[0].displayLabel} (03:00 PM - 07:00 PM IST)`,
-          },
-          {
-            id: `DAY_MORNING_${weekends[1].date}`,
-            title: `${weekends[1].dayName} Morning`,
-            description: `${weekends[1].displayLabel} (11:00 AM - 03:00 PM IST)`,
-          },
-          {
-            id: `DAY_EVENING_${weekends[1].date}`,
-            title: `${weekends[1].dayName} Evening`,
-            description: `${weekends[1].displayLabel} (03:00 PM - 07:00 PM IST)`,
-          },
-        ],
+        title: "Select Weekend Date",
+        rows: weekends.map((w) => ({
+          id: `DAY_DATE_${w.date}`,
+          title: w.displayLabel.slice(0, 24), // e.g. "Sat, 26 Sep"
+          description: `${w.dayName} · 11 AM - 7 PM IST`.slice(0, 72),
+        })),
       },
     ];
 
     const dayText =
       `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
       `All slots run strictly between 11:00 AM and 07:00 PM Indian Time (IST) in 30-minute intervals and will be shown in your local time (**${session.timeZoneLabel}**).\n\n` +
-      `Please select your preferred day and time window:`;
+      `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
 
     await sendInteractiveList(
       session.phone,
       "Consultation Booking",
       dayText,
-      "Choose Window",
+      "Select Date",
       sections,
     );
 
@@ -436,6 +423,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 6. Candidate selected day or window -> Show available 30-min slots strictly 11am-7pm IST in Candidate Local Time
   if (
+    actionId.startsWith("DAY_DATE_") ||
     actionId.startsWith("DAY_SELECT_") ||
     actionId.startsWith("DAY_MORNING_") ||
     actionId.startsWith("DAY_EVENING_")
@@ -449,6 +437,9 @@ export async function processIncomingWhatsAppMessage(params: {
     } else if (actionId.startsWith("DAY_EVENING_")) {
       meetingDate = actionId.replace("DAY_EVENING_", "");
       timeWindow = "evening";
+    } else if (actionId.startsWith("DAY_DATE_")) {
+      meetingDate = actionId.replace("DAY_DATE_", "");
+      timeWindow = "all";
     } else {
       meetingDate = actionId.replace("DAY_SELECT_", "");
       timeWindow = "all";
@@ -469,31 +460,113 @@ export async function processIncomingWhatsAppMessage(params: {
       availableSlots = availableSlots.filter((s) => s.istStartTime >= "15:00");
     }
 
+    // If NO slots available on this date / window:
     if (availableSlots.length === 0) {
-      const fullText =
-        `All consultation slots for that window are currently fully booked! Would you like to check the other time window or weekend day?`;
-      await sendQuickReplyButtons(session.phone, fullText, [
-        { id: "BTN_CONSULT_YES", title: "Choose Other Time" },
-      ]);
-      return { replyText: fullText, step: "SELECTING_DAY" };
+      const allWeekends = getUpcomingWeekendDays(10);
+      const selectedDayObj = allWeekends.find((w) => w.date === meetingDate);
+      const selectedLabel = selectedDayObj ? selectedDayObj.displayLabel : meetingDate;
+
+      // Find next weekend with open slots
+      const nextWeekend = await findNextAvailableWeekendDay({
+        db,
+        afterDate: meetingDate,
+        candidateTimeZone: session.timeZone,
+        candidateTimeLabel: session.timeZoneLabel,
+      });
+
+      if (nextWeekend && nextWeekend.availableSlots.length > 0) {
+        const nextLabel = nextWeekend.dayOption.displayLabel;
+        let displayedRows: { id: string; title: string; description: string }[] = [];
+
+        if (nextWeekend.availableSlots.length <= 10) {
+          displayedRows = nextWeekend.availableSlots.map((s) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+          }));
+        } else {
+          const first9 = nextWeekend.availableSlots.slice(0, 9);
+          displayedRows = first9.map((s) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+          }));
+          displayedRows.push({
+            id: `DAY_EVENING_${nextWeekend.dayOption.date}`,
+            title: "Later Afternoon Slots",
+            description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
+          });
+        }
+
+        const sections = [
+          {
+            title: `${nextWeekend.dayOption.dayName} Slots`.slice(0, 24),
+            rows: displayedRows,
+          },
+        ];
+
+        const fullText =
+          `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
+          `Here are the available 30-minute consultation slots for next weekend on **${nextLabel}** (shown in your local time **${session.timeZoneLabel}**).\n\n` +
+          `Tap below to reserve your slot:`;
+
+        await sendInteractiveList(
+          session.phone,
+          "Next Weekend Slots",
+          fullText,
+          "Select Time",
+          sections,
+        );
+        await updateSession(db, session.phone, { currentStep: "SELECTING_SLOT" });
+        return { replyText: fullText, step: "SELECTING_SLOT" };
+      } else {
+        const fullText =
+          `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
+          `Would you like to review all upcoming dates across the month?`;
+        await sendQuickReplyButtons(session.phone, fullText, [
+          { id: "BTN_CHANGE_DAY", title: "View All 10 Dates" },
+        ]);
+        return { replyText: fullText, step: "SELECTING_DAY" };
+      }
     }
 
-    // Meta Interactive List allows up to 10 rows (8 slots per morning/evening window)
-    const displayedSlots = availableSlots.slice(0, 10);
+    // Slots are available for this date!
+    const allWeekends = getUpcomingWeekendDays(10);
+    const dayObj = allWeekends.find((w) => w.date === meetingDate);
+    const dayLabel = dayObj ? dayObj.displayLabel : meetingDate;
+
+    let displayedRows: { id: string; title: string; description: string }[] = [];
+
+    if (availableSlots.length <= 10) {
+      displayedRows = availableSlots.map((s) => ({
+        id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+        title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+        description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+      }));
+    } else {
+      // More than 10 available slots -> Show first 9 + 10th row for later slots
+      const first9 = availableSlots.slice(0, 9);
+      displayedRows = first9.map((s) => ({
+        id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+        title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+        description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+      }));
+      displayedRows.push({
+        id: `DAY_EVENING_${meetingDate}`,
+        title: "Later Afternoon Slots",
+        description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
+      });
+    }
 
     const sections = [
       {
         title: "Available Slots",
-        rows: displayedSlots.map((s) => ({
-          id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-          title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24), // e.g. "04:30 PM - 05:00 PM"
-          description: `India Time: ${s.istStartTime} - ${s.istEndTime} IST`.slice(0, 72),
-        })),
+        rows: displayedRows,
       },
     ];
 
     const slotPrompt =
-      `Here are the available 30-minute consultation slots in your local time (**${session.timeZoneLabel}**).\n\n` +
+      `Here are the available 30-minute consultation slots for **${dayLabel}** in your local time (**${session.timeZoneLabel}**).\n\n` +
       `Tap below to reserve your slot with our visa expert:`;
 
     await sendInteractiveList(
@@ -515,6 +588,130 @@ export async function processIncomingWhatsAppMessage(params: {
     const meetingDate = parts[1];
     const istStart = parts[2];
     const candidateStart = parts[3];
+
+    // Double-booking check: Ensure slot is not already locked/booked by someone else!
+    const existingSlot = await db.collection("meetingSlots").findOne({
+      meetingDate,
+      startTime: istStart,
+      status: { $in: ["scheduled", "completed"] },
+    });
+
+    if (existingSlot) {
+      console.log(`[WhatsApp] Collision: slot ${meetingDate} ${istStart} is already booked.`);
+
+      // Re-query available slots for this date
+      const remainingSlots = await getAvailableWeekendSlots({
+        db,
+        meetingDate,
+        candidateTimeZone: session.timeZone,
+        candidateTimeLabel: session.timeZoneLabel,
+      });
+      const availableRemaining = remainingSlots.filter((s) => s.available);
+
+      if (availableRemaining.length > 0) {
+        let displayedRows: { id: string; title: string; description: string }[] = [];
+        if (availableRemaining.length <= 10) {
+          displayedRows = availableRemaining.map((s) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+          }));
+        } else {
+          const first9 = availableRemaining.slice(0, 9);
+          displayedRows = first9.map((s) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+          }));
+          displayedRows.push({
+            id: `DAY_EVENING_${meetingDate}`,
+            title: "Later Afternoon Slots",
+            description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
+          });
+        }
+
+        const sections = [
+          {
+            title: "Available Slots",
+            rows: displayedRows,
+          },
+        ];
+
+        const collisionMsg =
+          `⚠️ That slot (**${istStart} IST**) was just booked by another candidate!\n\n` +
+          `All consultation slots are locked once reserved to avoid overlap. Please choose another available time for this day:`;
+
+        await sendInteractiveList(
+          session.phone,
+          "Select Another Slot",
+          collisionMsg,
+          "Choose Time",
+          sections,
+        );
+        return { replyText: collisionMsg, step: "SELECTING_SLOT" };
+      } else {
+        // All slots on this day are now booked! Suggest next weekend
+        const nextWeekend = await findNextAvailableWeekendDay({
+          db,
+          afterDate: meetingDate,
+          candidateTimeZone: session.timeZone,
+          candidateTimeLabel: session.timeZoneLabel,
+        });
+
+        if (nextWeekend && nextWeekend.availableSlots.length > 0) {
+          const nextLabel = nextWeekend.dayOption.displayLabel;
+          let displayedRows: { id: string; title: string; description: string }[] = [];
+
+          if (nextWeekend.availableSlots.length <= 10) {
+            displayedRows = nextWeekend.availableSlots.map((s) => ({
+              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+            }));
+          } else {
+            const first9 = nextWeekend.availableSlots.slice(0, 9);
+            displayedRows = first9.map((s) => ({
+              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+              title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+              description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+            }));
+            displayedRows.push({
+              id: `DAY_EVENING_${nextWeekend.dayOption.date}`,
+              title: "Later Afternoon Slots",
+              description: "View slots from 03:30 PM - 07:00 PM IST".slice(0, 72),
+            });
+          }
+
+          const sections = [
+            {
+              title: `${nextWeekend.dayOption.dayName} Slots`.slice(0, 24),
+              rows: displayedRows,
+            },
+          ];
+
+          const collisionMsg =
+            `⚠️ That slot was just booked, and all slots for that day are now fully reserved! 🔒\n\n` +
+            `Here are the available consultation slots for the next weekend on **${nextLabel}**:`;
+
+          await sendInteractiveList(
+            session.phone,
+            "Next Weekend Slots",
+            collisionMsg,
+            "Choose Time",
+            sections,
+          );
+          return { replyText: collisionMsg, step: "SELECTING_SLOT" };
+        } else {
+          const fullText =
+            `⚠️ That slot was just booked and upcoming weekend dates are currently full.\n\n` +
+            `Would you like to review all upcoming dates across the month?`;
+          await sendQuickReplyButtons(session.phone, fullText, [
+            { id: "BTN_CHANGE_DAY", title: "View All 10 Dates" },
+          ]);
+          return { replyText: fullText, step: "SELECTING_DAY" };
+        }
+      }
+    }
 
     // Compute 30-min end times
     const [h, m] = istStart.split(":").map(Number);
