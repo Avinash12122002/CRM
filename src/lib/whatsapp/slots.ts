@@ -223,25 +223,19 @@ export function formatSlotsOverview(params: {
 }): string {
   const { slots, dayLabel, candidateTimeZoneLabel, isIndia } = params;
 
-  const numberEmojis = [
-    "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣",
-    "9️⃣", "🔟", "1️⃣1️⃣", "1️⃣2️⃣", "1️⃣3️⃣", "1️⃣4️⃣", "1️⃣5️⃣", "1️⃣6️⃣",
-  ];
-
   let text = `📅 *All Available Consultation Slots for ${dayLabel}*\n`;
-  text += `(30-minute 1-on-1 sessions strictly between 11:00 AM and 07:00 PM IST)\n\n`;
+  text += `(30-minute 1-on-1 sessions between 11:00 AM - 07:00 PM IST)\n\n`;
 
   slots.forEach((s, idx) => {
-    const num = numberEmojis[idx] || `[${idx + 1}]`;
-    const candLabel = s.candidateDisplayLabel.split(" (")[0];
+    const num = idx + 1;
+    const candStart = s.candidateStartTime;
     if (isIndia) {
-      text += `${num} *${s.istStartTime} - ${s.istEndTime} IST*\n`;
+      text += `*${num}.* ${s.istStartTime} - ${s.istEndTime} IST\n`;
     } else {
-      text += `${num} *${s.istStartTime} - ${s.istEndTime} IST* (${candLabel} ${candidateTimeZoneLabel})\n`;
+      text += `*${num}.* ${s.istStartTime}-${s.istEndTime} IST (${candStart} ${candidateTimeZoneLabel})\n`;
     }
   });
 
-  text += `\n👉 *To reserve your slot:* Reply with your slot number (*1* to *${slots.length}*) or time (e.g. *11:00*, *4:30 pm*).\n`;
-  text += `🔄 *Want a different date?* Reply *Change Date* to choose another weekend.`;
+  text += `\n👉 Tap a button below to choose, or reply with your slot number (*1* to *${slots.length}*) or time:`;
   return text;
 }

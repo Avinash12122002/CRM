@@ -195,19 +195,51 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
   // Graceful rule-based context-aware local fallback
   const lower = message.toLowerCase();
 
-  // 1. If candidate is specifically asking about their booked meeting schedule/link
+  const meetUrl = process.env.GOOGLE_MEET_LINK || "https://meet.google.com/qpj-ntbh-ieu";
+
+  // 1. If candidate is specifically asking for the meeting link / Google Meet link
+  const isAskingLink =
+    lower.includes("meeting link") ||
+    lower.includes("meet link") ||
+    lower.includes("google meet") ||
+    lower.includes("room link") ||
+    lower.includes("where to join") ||
+    lower.includes("how to join") ||
+    lower.includes("give me link") ||
+    lower.includes("send link") ||
+    (lower.includes("link") && (lower.includes("meeting") || lower.includes("consultation") || lower.includes("call")));
+
+  if (isAskingLink) {
+    if (session.bookedSlot) {
+      return (
+        `Hi ${session.name || "there"}! 👋\n\n` +
+        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}** (India: ${session.bookedSlot.istTimeLabel}).\n\n` +
+        `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
+        `*(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺`
+      );
+    } else {
+      return (
+        `Hello ${session.name || "there"}! 👋\n\n` +
+        `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
+        `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
+        `Consultations are scheduled on Saturdays and Sundays between 11:00 AM and 07:00 PM IST (30-minute intervals). Would you like to select an available time slot?`
+      );
+    }
+  }
+
+  // If candidate is asking when their meeting is scheduled
   const isAskingMyMeeting =
     lower.includes("my meeting") ||
-    lower.includes("meeting link") ||
     lower.includes("my consultation") ||
     lower.includes("my slot") ||
     ((lower.includes("meeting") || lower.includes("consultation")) &&
-      (lower.includes("when") || lower.includes("time") || lower.includes("link") || lower.includes("where") || lower.includes("status")));
+      (lower.includes("when") || lower.includes("time") || lower.includes("where") || lower.includes("status")));
 
   if (isAskingMyMeeting && session.bookedSlot) {
     return (
       `Hi ${session.name || "there"}! Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
-      `You can join via your Google Meet room link. Please have your CV ready! 🇦🇺`
+      `🔗 **Join via Google Meet:**\n${meetUrl}\n\n` +
+      `Please have your CV ready! 🇦🇺`
     );
   }
 
@@ -279,7 +311,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
   if (!session.email) {
     return (
       `Hello! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
-      `We specialize in employer-sponsored work visas for Australia (Subclass 482). To check your eligibility and send you our detailed 482 sponsorship guide and video, **could you please share your Email Address?**`
+      `We specialize in employer-sponsored work visas for Australia (Subclass 482). To register your profile in our CRM system and review your eligibility, **could you please share your Email Address?**`
     );
   }
 

@@ -523,8 +523,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 3. Candidate clicked YES to 482 -> Request Email
   if (isAffirmative && !isDirectEmail) {
     const emailPrompt =
-      `
-      **please reply with your Email Address:**`;
+      `Great! To register your profile in our CRM system, **please reply with your Email Address:**`;
 
     await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL" });
     await sendTextMessage(session.phone, emailPrompt);
@@ -566,7 +565,7 @@ export async function processIncomingWhatsAppMessage(params: {
     sendTimedVideoAndProcessGuide(session.phone, extractedEmail, videoUrl).catch(console.error);
 
     return {
-      replyText: `Profile registered! Sending 482 video and process information...`,
+      replyText: `Profile registered! Sharing Australia 482 video and process guide right here on WhatsApp...`,
       step: "VIDEO_SENT_AWAITING_INTEREST",
     };
   }
@@ -696,7 +695,31 @@ export async function processIncomingWhatsAppMessage(params: {
             isIndia,
           });
 
-        await sendTextMessage(session.phone, overviewText);
+        if (nextWeekend.availableSlots.length <= 10) {
+          const sections = [
+            {
+              title: "Available Slots",
+              rows: nextWeekend.availableSlots.map((s) => ({
+                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+                description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+              })),
+            },
+          ];
+          await sendInteractiveList(
+            session.phone,
+            "Choose Your Slot",
+            overviewText,
+            "Select Slot",
+            sections,
+          );
+        } else {
+          await sendQuickReplyButtons(session.phone, overviewText, [
+            { id: "BTN_SLOTS_EARLY", title: "Slots 1-8 (11am-3pm)" },
+            { id: "BTN_SLOTS_LATE", title: "Slots 9-16 (3pm-7pm)" },
+            { id: "BTN_CHANGE_DAY", title: "Change Date" },
+          ]);
+        }
 
         return { replyText: overviewText, step: "SELECTING_SLOT" };
       } else {
@@ -722,7 +745,7 @@ export async function processIncomingWhatsAppMessage(params: {
       activeSlotsDate: meetingDate,
     });
 
-    // 1. Send complete overview text of ALL 16 slots at once in one view!
+    // 1. Send complete overview text of ALL 16 slots at once with interactive button options!
     const overviewText = formatSlotsOverview({
       slots: availableSlots,
       dayLabel,
@@ -730,9 +753,70 @@ export async function processIncomingWhatsAppMessage(params: {
       isIndia,
     });
 
-    await sendTextMessage(session.phone, overviewText);
+    if (availableSlots.length <= 10) {
+      const sections = [
+        {
+          title: "Available Slots",
+          rows: availableSlots.map((s) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+            description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+          })),
+        },
+      ];
+      await sendInteractiveList(
+        session.phone,
+        "Choose Your Slot",
+        overviewText,
+        "Select Slot",
+        sections,
+      );
+    } else {
+      await sendQuickReplyButtons(session.phone, overviewText, [
+        { id: "BTN_SLOTS_EARLY", title: "Slots 1-8 (11am-3pm)" },
+        { id: "BTN_SLOTS_LATE", title: "Slots 9-16 (3pm-7pm)" },
+        { id: "BTN_CHANGE_DAY", title: "Change Date" },
+      ]);
+    }
 
     return { replyText: overviewText, step: "SELECTING_SLOT" };
+  }
+
+  // 6a. Candidate clicked "Slots 1-8" or "Slots 9-16" quick reply buttons
+  if (actionId === "BTN_SLOTS_EARLY" || actionId === "BTN_SLOTS_LATE") {
+    const meetingDate = session.activeSlotsDate;
+    if (meetingDate) {
+      const dateSlots = await getAvailableWeekendSlots({
+        db,
+        meetingDate,
+        candidateTimeZone: session.timeZone,
+        candidateTimeLabel: session.timeZoneLabel,
+      });
+      const available = dateSlots.filter((s) => s.available);
+      const isEarly = actionId === "BTN_SLOTS_EARLY";
+      const selectedPart = isEarly ? available.slice(0, 8) : available.slice(8, 16);
+      const titleLabel = isEarly ? "Slots 1-8 (11am - 3pm)" : "Slots 9-16 (3pm - 7pm)";
+
+      if (selectedPart.length > 0) {
+        await sendInteractiveList(
+          session.phone,
+          titleLabel,
+          `Tap below to select your 30-minute consultation slot on ${meetingDate}:`,
+          "Select Slot",
+          [
+            {
+              title: titleLabel.slice(0, 24),
+              rows: selectedPart.map((s) => ({
+                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                title: s.candidateDisplayLabel.split(" (")[0].slice(0, 24),
+                description: `IST: ${s.istStartTime} - ${s.istEndTime}`.slice(0, 72),
+              })),
+            },
+          ]
+        );
+        return { replyText: `Opened ${titleLabel}`, step: "SELECTING_SLOT" };
+      }
+    }
   }
 
   // 6b. Candidate typed a slot number (e.g. "1", "5", "14") or typed a time (e.g. "11:00", "2:30", "4pm")
