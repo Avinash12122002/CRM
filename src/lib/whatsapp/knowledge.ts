@@ -21,18 +21,19 @@ CORE VALUE PROPOSITION & PROMISE:
 - We guide skilled candidates through the complete process to get an Australia Subclass 482 Work Visa directly from their home country (from raw CV to visa grant and flight tickets in hand).
 - A work visa with TMS never gets rejected because of our direct employer sponsorship model, pre-vetted nomination approval, and dedicated Case Manager handling.
 
-ELIGIBLE OCCUPATIONS (691 ELIGIBLE OCCUPATIONS):
-- The official Australia Eligible Occupation List contains 691 eligible occupations across all key industries:
-  * Information Technology (Software Engineers, Developers, Cloud/DevOps, Cyber Security)
-  * Engineering (Mechanical, Electrical, Civil, Mining, Industrial)
-  * Healthcare & Medical (Registered Nurses, Aged Care, Allied Health)
-  * Education (Early Childhood, Primary & Secondary Teachers, Lecturers)
-  * Hospitality (Head Chefs, Sous Chefs, Commercial Cooks, Pastry Chefs, Restaurant Managers)
-  * Construction & Trades (Electricians, Mechanics, Welders, Carpenters, Plumbers, Fabricators)
-  * Agriculture & Farming
-  * Business & Finance (Accountants, Auditors, Financial Analysts)
-  * Transport & Logistics
-  * And many more!
+ELIGIBLE OCCUPATIONS (691 ELIGIBLE ROLES ACROSS 11 BROAD SECTORS):
+The official Australia Eligible Occupation List contains 691 roles grouped into 11 broad sectors:
+1. Healthcare & Medical (108 roles): Doctors, Specialists, Registered Nurses (Aged Care, Child & Family, Critical Care, Mental Health, Medical, Surgical), Pharmacists, Radiographers, Dentists, Physiotherapists, Paramedics, etc.
+2. Information Technology & Cyber (54 roles): Software Engineers, Developer Programmers, DevOps Engineers, Cyber Security Analysts/Engineers/Architects, Data Analysts, Data Scientists, Database/Systems/Network Admins, Web Developers, etc.
+3. Engineering & Technical (97 roles): Civil, Mechanical, Electrical, Electronics, Chemical, Industrial, Environmental, Mining, Agricultural, Aeronautical Engineers, Technicians, Draftspersons, Mechanics, Fitters, Welders, etc.
+4. Education & Training (28 roles): Early Childhood, Primary, Middle & Secondary Teachers, Special Needs Teachers, University Lecturers, Tutors, Vocational Teachers, Education Advisers, etc.
+5. Business, Finance & Management (98 roles): General/Corporate Managers, Cafe/Restaurant Managers, Accountants (General, Taxation, Management), External/Internal Auditors, Financial Advisers, HR Advisers/Managers, Marketing/PR Managers, Procurement, etc.
+6. Hospitality, Tourism & Service (8 roles): Chef, Cook, Pastrycook, Conference & Event Organiser, Flight Attendant, Hairdresser, Tour Guide, Travel Attendants.
+7. Agriculture, Environment & Science (40 roles): Agricultural Scientists, Botanists, Geologists, Marine Biologists, Environmental Scientists, Farmers (Beef, Dairy, Grain, Poultry, Sheep, Crop), Veterinarians, Zoologists, etc.
+8. Arts, Media & Creative (38 roles): Graphic Designers, Interior Designers, Fashion Designers, Actors, Directors, Photographers, Technical Writers, Journalists, Multimedia Designers, etc.
+9. Legal, Community & Government (16 roles): Barristers, Solicitors, Social Workers, Community Workers, Counsellors (Careers, Family, Drug & Alcohol, Rehabilitation), Welfare Workers, etc.
+10. Trades & Manufacturing (39 roles): Carpenters, Cabinetmakers, Joiners, Bricklayers, Plasterers, Metal Fabricators, Machinists, Toolmakers, Vehicle Painters, Tilers, Plumbers, Roof Tilers, etc.
+11. Other Occupations (165 roles): Pilots, Actuaries, Bakers, Divers, Driving Instructors, Real Estate Agents, Ship Masters, Urban Planners, Translators, Landscape Gardeners, and many more.
 
 EXPECTED SALARY IN AUSTRALIA:
 - Under current Australian Government requirements for the Subclass 482 Skills in Demand Work Visa, the minimum annual salary threshold is AUD $76,500 per year.

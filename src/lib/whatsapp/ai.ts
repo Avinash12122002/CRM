@@ -1,5 +1,6 @@
 import { WhatsAppSession } from "./types";
 import { TMS_VISA_KNOWLEDGE, FAQ_FALLBACKS } from "./knowledge";
+import { findEligibleOccupation } from "./occupations";
 
 /**
  * Generates an intelligent, human-like response tailored to the candidate's exact CRM state.
@@ -15,6 +16,8 @@ export async function generateAiResponse(params: {
     process.env.OPENAI_API_KEY ||
     process.env.GROQ_API_KEY;
 
+  const matchedOcc = findEligibleOccupation(message);
+
   // Build candidate live context
   let contextBlock = `
 CANDIDATE LIVE CRM PROFILE:
@@ -24,6 +27,16 @@ CANDIDATE LIVE CRM PROFILE:
 - Email: ${session.email || "Not shared yet"}
 - Current Funnel State: ${session.currentStep}
 `;
+
+  if (matchedOcc) {
+    contextBlock += `
+- INQUIRED OCCUPATION MATCH:
+  * Role: "${matchedOcc.role}"
+  * Sector: "${matchedOcc.category}"
+  * Status: CONFIRMED on the official 691 Australia Subclass 482 Eligible Occupation List.
+  * Instruction: Confidently confirm to the candidate that their role "${matchedOcc.role}" is on the official list under ${matchedOcc.category}!
+`;
+  }
 
   if (session.bookedSlot) {
     contextBlock += `
@@ -158,14 +171,7 @@ CANDIDATE LIVE CRM PROFILE:
   // Graceful rule-based context-aware local fallback
   const lower = message.toLowerCase();
 
-  // 1. Check general FAQ keywords first so questions like "how much time" or "what is the cost" get exact answers
-  for (const faq of FAQ_FALLBACKS) {
-    if (faq.keywords.some((k) => lower.includes(k))) {
-      return faq.answer;
-    }
-  }
-
-  // 2. If candidate is specifically asking about their booked meeting schedule/link
+  // 1. If candidate is specifically asking about their booked meeting schedule/link
   const isAskingMyMeeting =
     lower.includes("my meeting") ||
     lower.includes("meeting link") ||
@@ -181,7 +187,45 @@ CANDIDATE LIVE CRM PROFILE:
     );
   }
 
-  // 3. If consultation is completed and candidate asks about next steps
+  // 2. Specific questions about cost, fees, or timeline take precedence
+  const isCostOrTimeline =
+    lower.includes("cost") ||
+    lower.includes("fee") ||
+    lower.includes("price") ||
+    lower.includes("charge") ||
+    lower.includes("payment") ||
+    lower.includes("pay") ||
+    lower.includes("timeline") ||
+    lower.includes("how long") ||
+    lower.includes("how much time") ||
+    lower.includes("duration");
+
+  if (isCostOrTimeline) {
+    for (const faq of FAQ_FALLBACKS) {
+      if (faq.keywords.some((k) => lower.includes(k))) {
+        return faq.answer;
+      }
+    }
+  }
+
+  // 3. If candidate mentioned a specific eligible occupation from the official 691 list
+  if (matchedOcc) {
+    return (
+      `Great news, ${session.name || "there"}! 🎉\n\n` +
+      `**${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under **${matchedOcc.category}** on the official Australian Subclass 482 Skills in Demand Eligible Occupation List (691 Roles)!\n\n` +
+      `With at least 2 years of verifiable full-time work experience, you can qualify for Australian employer sponsorship with a minimum salary threshold of **AUD $76,500/year**.\n\n` +
+      `Would you like to book a free 30-minute 1-on-1 consultation this weekend with our senior visa expert to assess your CV?`
+    );
+  }
+
+  // 4. Check remaining general FAQ keywords
+  for (const faq of FAQ_FALLBACKS) {
+    if (faq.keywords.some((k) => lower.includes(k))) {
+      return faq.answer;
+    }
+  }
+
+  // 5. If consultation is completed and candidate asks about next steps
   if (session.meetingCompleted && (lower.includes("next step") || lower.includes("proceed") || lower.includes("enroll") || lower.includes("agreement"))) {
     return (
       `Hello ${session.name || "there"}! It was great having you in the consultation session with our visa expert.\n\n` +
