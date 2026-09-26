@@ -410,16 +410,6 @@ export function getNext10AmInTimezone(candidateTimeZone: string, fromDate?: Date
     const day = parseInt(nowInCandidateTz.find((p) => p.type === "day")?.value || "1");
     const hour = parseInt(nowInCandidateTz.find((p) => p.type === "hour")?.value || "0");
 
-    // Build 10:00 AM today in that timezone using a UTC trick:
-    // Create a date in the candidate's local midnight, then add 10 hours
-    // We do this by finding the UTC offset via formatting 00:00 local time
-    const localMidnightStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}T10:00:00`;
-
-    // Use Intl to resolve what UTC time corresponds to 10:00 AM local
-    // by creating the date and asking what time it is in UTC
-    const candidateDate = new Date(
-      new Date(localMidnightStr).toLocaleString("en-US", { timeZone: "UTC" }),
-    );
 
     // Build a proper UTC timestamp for 10 AM in the candidate's tz
     // Approach: format 10:00 AM local as an ISO string, then parse

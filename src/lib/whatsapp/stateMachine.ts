@@ -677,17 +677,15 @@ export async function processIncomingWhatsAppMessage(params: {
 
     // Release slot in meetingSlots collection
     try {
-      await db.collection("meetingSlots").updateOne(
+      await db.collection("meetingSlots").updateMany(
         {
-          date: canceledSlot.date,
-          startTime: slotStartTime,
-          isBooked: true,
+          phone: session.phone,
+          status: "scheduled",
         },
         {
           $set: {
-            isBooked: false,
-            bookedBy: null,
-            candidatePhone: null,
+            status: "cancelled",
+            cancelledAt: new Date(),
             updatedAt: new Date(),
           },
         }
@@ -847,7 +845,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await sendQuickReplyButtons(session.phone, cancelledGreetingMsg, [
       { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
-      { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
+      { id: "BTN_ASK_VIDEO", title: "Watch Work Visa Video" },
     ]);
     return { replyText: cancelledGreetingMsg, step: "AWAITING_REENGAGEMENT" };
   }
@@ -867,7 +865,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await sendQuickReplyButtons(session.phone, welcomeBackMsg, [
       { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-      { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
+      { id: "BTN_ASK_VIDEO", title: "Watch Work Visa Video" },
     ]);
     return { replyText: welcomeBackMsg, step: "VIDEO_SENT_AWAITING_INTEREST" };
   }
@@ -1040,12 +1038,11 @@ export async function processIncomingWhatsAppMessage(params: {
     // 3. Wait 10 seconds, then send Step 3 video link
     setTimeout(async () => {
       try {
-        await delay(10000);
         await sendTimedVideoAndProcessGuide(session.phone, extractedEmail, videoUrl);
       } catch (delayErr) {
         console.error("[WhatsApp] Error in video delivery delay:", delayErr);
       }
-    }, 0);
+    }, 10000);
 
     return {
       replyText: emailSentNotice,

@@ -233,17 +233,20 @@ export async function handleIncomingWhatsAppMedia(params: {
     }
 
     // Update session in whatsapp_sessions
+    const existingSession = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
+    const updateFields: Record<string, unknown> = {
+      cvReceivedAt: now,
+      cvFileUrl: fileUrl,
+      cvFileName: finalFilename,
+      updatedAt: now,
+    };
+    if (existingSession?.currentStep === "AWAITING_CV") {
+      updateFields.currentStep = "MEETING_COMPLETED";
+    }
+
     await db.collection("whatsapp_sessions").updateOne(
       { phone: cleanPhone },
-      {
-        $set: {
-          cvReceivedAt: now,
-          cvFileUrl: fileUrl,
-          cvFileName: finalFilename,
-          currentStep: "MEETING_COMPLETED",
-          updatedAt: now,
-        },
-      }
+      { $set: updateFields }
     );
 
     // 6. Send Automated Confirmation Reply back to the Candidate on WhatsApp

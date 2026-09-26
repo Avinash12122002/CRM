@@ -36,7 +36,7 @@ export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
     }).format(now),
     10
   );
-  const isPastLastSlotToday = currentHourIST >= 20;
+  const isPastLastSlotToday = currentHourIST >= 21;
 
   const weekendDays: WeekendDayOption[] = [];
   let checkDate = new Date(`${todayISTStr}T12:00:00+05:30`);

@@ -101,7 +101,7 @@ export async function sendQuickReplyButtons(
     type: "interactive",
     interactive: {
       type: "button",
-      body: { text: bodyText },
+      body: { text: bodyText.slice(0, 1024) },
       action: { buttons: metaButtons },
     },
   });
@@ -157,7 +157,7 @@ export async function sendInteractiveList(
     interactive: {
       type: "list",
       header: { type: "text", text: headerText.slice(0, 60) },
-      body: { text: bodyText },
+      body: { text: bodyText.slice(0, 1024) },
       action: {
         button: buttonLabel.slice(0, 20),
         sections: sanitizedSections,

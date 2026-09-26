@@ -6,6 +6,8 @@ import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
 import CvNavbarDropdown from "@/components/CvNavbarDropdown";
+import WhatsAppOtpModal from "@/components/WhatsAppOtpModal";
+import { KeyRound } from "lucide-react";
 
 type DashboardNavbarProps = {
   user: {
@@ -36,6 +38,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [todoCount, setTodoCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
 
   const role = (user.role || "").trim().toLowerCase();
 
@@ -264,6 +267,17 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               )}
               {role === "admin" && (
                 <CvNavbarDropdown isActive={isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")} />
+              )}
+              {role === "admin" && (
+                <button
+                  type="button"
+                  onClick={() => setOtpModalOpen(true)}
+                  className="relative inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium whitespace-nowrap transition-colors rounded-md border-b-2 border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                  title="WhatsApp Live OTP & Verification Codes (Instagram / Meta Ads)"
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>OTP</span>
+                </button>
               )}
               {/* All Attendance — admin only */}
               {role === "admin" && (
@@ -524,6 +538,19 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 CV
               </Link>
             )}
+            {role === "admin" && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setOtpModalOpen(true);
+                }}
+                className={`${navLinkClass(false)} flex items-center gap-2 text-left w-full`}
+              >
+                <KeyRound className="w-4 h-4 text-emerald-500" />
+                <span>WhatsApp OTP & Verification</span>
+              </button>
+            )}
             {/* All Attendance — admin only */}
             {role === "admin" && (
               <Link
@@ -571,6 +598,11 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
       )}
 
 
+      {/* Live WhatsApp Verification & OTP Modal (Admin) */}
+      <WhatsAppOtpModal
+        isOpen={otpModalOpen}
+        onClose={() => setOtpModalOpen(false)}
+      />
     </nav>
   );
 }

@@ -36,6 +36,10 @@ export async function sendMeetingCompletedNotification(params: {
   // Sync whatsapp_sessions record
   try {
     const now = new Date();
+    const { getNext10AmInTimezone } = await import("./timezone");
+    const session = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
+    const candidateTz = (session?.timeZone as string) || "Asia/Kolkata";
+
     await db.collection("whatsapp_sessions").updateOne(
       { phone: cleanPhone },
       {
@@ -45,7 +49,7 @@ export async function sendMeetingCompletedNotification(params: {
           meetingCompletedAt: now,
           currentStep: "AWAITING_CV",
           followupCount: 0,
-          nextFollowupAt: new Date(Date.now() + 24 * 3600 * 1000),
+          nextFollowupAt: getNext10AmInTimezone(candidateTz),
           updatedAt: now,
         },
         $push: {
