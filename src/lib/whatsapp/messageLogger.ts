@@ -147,7 +147,7 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
             conversationHistory: {
               $each: [
                 {
-                  role: "assistant",
+                  role: "system",
                   message: text.trim(),
                   timestamp: createdAt,
                   step: "LIVE",

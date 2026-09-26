@@ -201,11 +201,28 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // 4. Check if incoming message is an OTP / verification code
-          const isOtp =
-            textBody &&
-            (/\b(otp|code|verification|verify|confirm|instagram|facebook|meta|security code)\b/i.test(textBody) ||
-              /^\s*(\d{4,8}|[A-Z0-9]{4,8})\s*$/i.test(textBody));
+          // 4. Check if incoming message is a genuine third-party verification OTP / security code
+          // (e.g. Meta / Facebook / WhatsApp login codes sent to the business phone).
+          // CRITICAL: Must NEVER swallow candidate messages containing words like "confirm", "verify", "meeting", etc.
+          const cleanTrimmed = (textBody || "").trim();
+          const hasConversationalWords =
+            /\b(please|plz|can you|could you|meeting|consultation|appointment|visa|work|job|eligible|eligibility|process|cv|resume|details|salary|weekend|slot|call|australia|documents?|fee|charges?|how|what|when|where|why|help|hello|hi|hey|thanks|thank you|email|name|change|update)\b/i.test(
+              cleanTrimmed
+            );
+
+          const isExplicitOtpMessage =
+            /\b((your|is your)\s+(whatsapp|meta|facebook|instagram|verification|security|login|otp)\s+code|(whatsapp|meta|facebook|instagram|security)\s+code\s*:\s*\d{4,8}|use\s+\d{4,8}\s+to\s+(verify|log in)|(verification|security|login|otp)\s+code\s+is\s*:?\s*\d{4,8})\b/i.test(
+              cleanTrimmed
+            );
+
+          // Standalone 6-8 digit code (e.g. "123456" or "123-456") without conversational context
+          const isStandaloneOtpCode =
+            !hasConversationalWords &&
+            /^\s*(\d{3}[-\s]\d{3}|\d{6,8})\s*$/.test(cleanTrimmed) &&
+            // Exclude common 4-digit years like 1990-2030 or slot numbers 1-16
+            !/^\s*(19\d\d|20\d\d|[1-9]|1[0-6])\s*$/.test(cleanTrimmed);
+
+          const isOtp = Boolean(textBody && !hasConversationalWords && (isExplicitOtpMessage || isStandaloneOtpCode));
 
           if (isOtp) {
             console.log(`🚨 [WHATSAPP OTP / VERIFICATION CODE RECEIVED] From +${phone}: "${textBody}"`);

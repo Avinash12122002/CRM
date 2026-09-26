@@ -935,7 +935,7 @@ export async function processIncomingWhatsAppMessage(params: {
   if (actionId === "BTN_ASK_VIDEO") {
     const videoUrl = getVideo482Url();
     const videoReply =
-      `Australia Employer Sponsored Work Visa video! 🎥🇦🇺\n\n` +
+      `Here is our Australia Employer Sponsored Work Visa explainer video! 🎥🇦🇺\n\n` +
       `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
       `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n`;
 

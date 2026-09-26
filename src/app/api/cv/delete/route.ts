@@ -51,6 +51,9 @@ export async function DELETE(req: NextRequest) {
           if (f.gridFsFileId) sessionFileIds.push(f.gridFsFileId);
         }
       }
+      if (session?.gridFsFileId) {
+        sessionFileIds.push(session.gridFsFileId);
+      }
 
       // 2. Collect all gridFsFileIds from leads
       const leadPhoneVariants = [cleanPhone, `+${cleanPhone}`, `+${cleanPhone.slice(2)}`];
@@ -67,8 +70,17 @@ export async function DELETE(req: NextRequest) {
         }
       }
 
-      // 3. Delete from GridFS
-      const allFileIds = [...new Set([...sessionFileIds, ...leadFileIds])];
+      // 3. Collect from GridFS chatFiles.files where metadata.candidatePhone matches
+      const gridFiles = await db
+        .collection("chatFiles.files")
+        .find({
+          "metadata.candidatePhone": { $in: [cleanPhone, `+${cleanPhone}`] },
+        })
+        .toArray();
+      const gridCandidateFileIds = gridFiles.map((gf) => gf._id.toString());
+
+      // 4. Delete all collected files from GridFS
+      const allFileIds = [...new Set([...sessionFileIds, ...leadFileIds, ...gridCandidateFileIds])];
       let gridDeleted = 0;
       for (const id of allFileIds) {
         try {
@@ -79,17 +91,35 @@ export async function DELETE(req: NextRequest) {
         }
       }
 
-      // 4. Clear cvFiles array in whatsapp_sessions
+      // 5. Clear cvFiles and CV tracking flags in whatsapp_sessions
       await db.collection("whatsapp_sessions").updateOne(
         { phone: cleanPhone },
-        { $set: { cvFiles: [], cvReceivedAt: null, updatedAt: new Date() } }
+        {
+          $set: {
+            cvFiles: [],
+            cvReceivedAt: null,
+            cvFileUrl: null,
+            cvFileName: null,
+            hasUploadedCv: false,
+            lastUploadedCvUrl: null,
+            gridFsFileId: null,
+            updatedAt: new Date(),
+          },
+        }
       );
 
-      // 5. Clear cvFiles array in leads
+      // 6. Clear cvFiles and CV tracking flags in leads
       for (const lead of leads) {
         await db.collection("leads").updateOne(
           { id: lead.id },
-          { $set: { cvFiles: [], updatedAt: new Date() } }
+          {
+            $set: {
+              cvFiles: [],
+              hasCv: false,
+              lastCvUrl: null,
+              updatedAt: new Date(),
+            },
+          }
         );
       }
 
@@ -112,9 +142,22 @@ export async function DELETE(req: NextRequest) {
       } catch {
         // May not exist in GridFS
       }
+    } else {
+      // Look up in GridFS by filename and candidate phone metadata
+      try {
+        const matchingGf = await db.collection("chatFiles.files").find({
+          filename: fileName,
+          "metadata.candidatePhone": { $in: [cleanPhone, `+${cleanPhone}`] },
+        }).toArray();
+        for (const gf of matchingGf) {
+          try {
+            await bucket.delete(gf._id);
+          } catch {}
+        }
+      } catch {}
     }
 
-    // 2. Remove from whatsapp_sessions.cvFiles
+    // 2. Remove from whatsapp_sessions.cvFiles and clear session fields if matched
     await db.collection("whatsapp_sessions").updateOne(
       { phone: cleanPhone },
       {
@@ -126,6 +169,23 @@ export async function DELETE(req: NextRequest) {
         $set: { updatedAt: new Date() },
       }
     );
+
+    const updatedSession = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
+    if (!updatedSession?.cvFiles || updatedSession.cvFiles.length === 0) {
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: cleanPhone },
+        {
+          $set: {
+            cvReceivedAt: null,
+            cvFileUrl: null,
+            cvFileName: null,
+            hasUploadedCv: false,
+            lastUploadedCvUrl: null,
+            gridFsFileId: null,
+          },
+        }
+      );
+    }
 
     // 3. Remove from leads.cvFiles (any phone variant)
     const leadPhoneVariants = [cleanPhone, `+${cleanPhone}`, `+${cleanPhone.slice(2)}`];
@@ -140,6 +200,16 @@ export async function DELETE(req: NextRequest) {
         $set: { updatedAt: new Date() },
       }
     );
+
+    const matchingLeads = await db.collection("leads").find({ phone: { $in: leadPhoneVariants } }).toArray();
+    for (const l of matchingLeads) {
+      if (!l.cvFiles || l.cvFiles.length === 0) {
+        await db.collection("leads").updateOne(
+          { id: l.id },
+          { $set: { hasCv: false, lastCvUrl: null } }
+        );
+      }
+    }
 
     return NextResponse.json({
       success: true,

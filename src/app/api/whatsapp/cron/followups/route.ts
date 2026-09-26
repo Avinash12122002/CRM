@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const dueConsultationSessions = (await db
       .collection("whatsapp_sessions")
       .find({
-        currentStep: "AWAITING_CONSULTATION_DECISION",
+        currentStep: { $in: ["AWAITING_CONSULTATION_DECISION", "VIDEO_SENT_AWAITING_INTEREST"] },
         consultationPromptDueAt: { $lte: now },
         bookedSlot: { $exists: false },
       })

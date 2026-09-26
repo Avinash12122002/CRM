@@ -371,6 +371,22 @@ export async function DELETE(req: NextRequest) {
       $or: [{ phone: { $in: cleanPhones } }, { to: { $in: cleanPhones } }],
     });
 
+    // 4. Release any scheduled meeting slots for these candidates so they become free for others
+    await db.collection("meetingSlots").updateMany(
+      {
+        phone: { $in: cleanPhones },
+        status: "scheduled",
+      },
+      {
+        $set: {
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancelledReason: "WhatsApp conversation deleted by admin",
+          updatedAt: new Date(),
+        },
+      }
+    );
+
     return NextResponse.json({
       success: true,
       deletedSessions: sessionRes.deletedCount,

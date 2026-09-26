@@ -150,26 +150,34 @@ export async function sendQuickReplyButtons(
   to: string,
   bodyText: string,
   buttons: Array<{ id: string; title: string }>,
+  options?: DispatchOptions
 ): Promise<SendResult> {
+  if (!buttons || buttons.length === 0) {
+    return sendTextMessage(to, bodyText, options);
+  }
+
   const metaButtons = buttons.slice(0, 3).map((btn) => ({
     type: "reply",
     reply: {
-      id: btn.id,
+      id: btn.id.slice(0, 256),
       title: btn.title.slice(0, 20), // Meta limit 20 characters
     },
   }));
 
-  return sendMetaRequest({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "button",
-      body: { text: bodyText.slice(0, 1024) },
-      action: { buttons: metaButtons },
+  return sendMetaRequest(
+    {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: bodyText.slice(0, 1024) },
+        action: { buttons: metaButtons },
+      },
     },
-  });
+    options
+  );
 }
 
 /**
@@ -179,17 +187,21 @@ export async function sendVideoMessage(
   to: string,
   videoUrl: string,
   caption?: string,
+  options?: DispatchOptions
 ): Promise<SendResult> {
-  return sendMetaRequest({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "video",
-    video: {
-      link: videoUrl,
-      caption: caption || undefined,
+  return sendMetaRequest(
+    {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "video",
+      video: {
+        link: videoUrl,
+        caption: caption || undefined,
+      },
     },
-  });
+    options
+  );
 }
 
 /**
@@ -204,29 +216,45 @@ export async function sendInteractiveList(
     title: string;
     rows: Array<{ id: string; title: string; description?: string }>;
   }>,
+  options?: DispatchOptions
 ): Promise<SendResult> {
-  const sanitizedSections = sections.map((sec) => ({
-    title: (sec.title || "Options").slice(0, 24),
-    rows: (sec.rows || []).slice(0, 10).map((r) => ({
-      id: r.id.slice(0, 200),
-      title: r.title.slice(0, 24),
-      description: r.description ? r.description.slice(0, 72) : undefined,
-    })),
-  }));
+  let totalRows = 0;
+  const sanitizedSections = sections
+    .map((sec) => {
+      const remainingQuota = Math.max(0, 10 - totalRows);
+      const rows = (sec.rows || []).slice(0, remainingQuota).map((r) => ({
+        id: r.id.slice(0, 200),
+        title: r.title.slice(0, 24),
+        description: r.description ? r.description.slice(0, 72) : undefined,
+      }));
+      totalRows += rows.length;
+      return {
+        title: (sec.title || "Options").slice(0, 24),
+        rows,
+      };
+    })
+    .filter((sec) => sec.rows.length > 0);
 
-  return sendMetaRequest({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "list",
-      header: { type: "text", text: headerText.slice(0, 60) },
-      body: { text: bodyText.slice(0, 1024) },
-      action: {
-        button: buttonLabel.slice(0, 20),
-        sections: sanitizedSections,
+  if (sanitizedSections.length === 0 || totalRows === 0) {
+    return sendTextMessage(to, `${headerText ? `*${headerText}*\n\n` : ""}${bodyText}`, options);
+  }
+
+  return sendMetaRequest(
+    {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        header: { type: "text", text: headerText.slice(0, 60) },
+        body: { text: bodyText.slice(0, 1024) },
+        action: {
+          button: buttonLabel.slice(0, 20),
+          sections: sanitizedSections,
+        },
       },
     },
-  });
+    options
+  );
 }

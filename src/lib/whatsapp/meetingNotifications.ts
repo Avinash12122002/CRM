@@ -153,6 +153,26 @@ export async function sendMeetingCancelledNotification(params: {
         },
       }
     );
+
+    // Release slot in meetingSlots collection so it is immediately unlocked for others
+    await db.collection("meetingSlots").updateMany(
+      {
+        $or: [
+          { phone: cleanPhone },
+          { phone: `+${cleanPhone}` },
+          ...(lead.id ? [{ leadId: lead.id }, { leadId: String(lead.id) }] : []),
+        ],
+        status: "scheduled",
+      },
+      {
+        $set: {
+          status: "cancelled",
+          cancelledAt: now,
+          cancelledReason: "Consultation marked cancelled in CRM",
+          updatedAt: now,
+        },
+      }
+    );
   } catch (dbErr) {
     console.warn(`[WhatsApp] Could not update session status for +${cleanPhone}:`, dbErr);
   }
