@@ -140,13 +140,13 @@ function buildLeadPipeline(
       $sort:
         payloadRole === "trainee"
           ? {
-              introMailSent: 1 as 1,   // false/missing = 0 sorts before true = 1
-              createdAt: -1 as -1,
+              introMailSent: 1 as const,   // false/missing = 0 sorts before true = 1
+              createdAt: -1 as const,
             }
           : {
-              lastNoteAddedByAdmin: -1 as -1,
-              assignedByAdmin: -1 as -1,
-              createdAt: -1 as -1,
+              lastNoteAddedByAdmin: -1 as const,
+              assignedByAdmin: -1 as const,
+              createdAt: -1 as const,
             },
     },
   ];

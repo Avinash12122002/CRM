@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { logUserAction } from "@/lib/activity/audit";
-import { verifyToken } from "@/lib/auth";
+import { verifyToken, getNextId } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,25 +36,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-const { db } = await connectToDatabase();
-
-const vacanciesCollection = db.collection("vacancies");
-
-// Get the next vacancy ID
-const counterCollection = db.collection("counters");
-    const counter = await counterCollection.findOneAndUpdate(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      { _id: "vacancies" } as any,
-      { $inc: { seq: 1 } },
-      { upsert: true, returnDocument: "after" }
-    );
-
-    if (!counter || !counter.value) {
-      throw new Error("Failed to generate vacancy ID");
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const vacancyId = (counter.value as any).seq;
+    const { db } = await connectToDatabase();
+    const vacancyId = await getNextId(db, "vacancies");
 
     const vacancy = {
       vacancyId,
@@ -66,7 +49,7 @@ const counterCollection = db.collection("counters");
       updatedAt: new Date(),
     };
 
-    await vacanciesCollection.insertOne(vacancy);
+    await db.collection("vacancies").insertOne(vacancy);
 
     await logUserAction(db, {
       userId: payload.id,

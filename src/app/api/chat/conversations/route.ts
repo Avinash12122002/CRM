@@ -230,6 +230,13 @@ export async function POST(
 
     const { userId } = body;
 
+    if (!userId || typeof userId !== "number") {
+      return NextResponse.json(
+        { message: "Valid userId is required" },
+        { status: 400 }
+      );
+    }
+
     const { db } =
       await connectToDatabase();
 

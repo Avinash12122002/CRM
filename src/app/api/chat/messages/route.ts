@@ -52,8 +52,33 @@ const {
   fileName,
 } = body;
 
+    if (!conversationId) {
+      return NextResponse.json(
+        { message: "conversationId is required" },
+        { status: 400 }
+      );
+    }
+
     const { db } =
       await connectToDatabase();
+
+    const conversation = await db
+      .collection("conversations")
+      .findOne({ id: conversationId });
+
+    if (!conversation) {
+      return NextResponse.json(
+        { message: "Conversation not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!conversation.participants?.includes(payload.id) && payload.role !== "admin") {
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 }
+      );
+    }
 
     const id =
       await getNextId(

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { connectToDatabase } from "@/lib/mongodb";
+import { ObjectId } from "mongodb";
 import { verifyToken } from "@/lib/auth";
+import { getGridFSBucket } from "@/lib/gridfs";
 
-export async function GET(req: NextRequest) {
+export async function DELETE(req: NextRequest) {
   try {
     const cookie = req.headers.get("cookie") || "";
     const matches = cookie.match(/(^|; )token=([^;]+)/);
@@ -16,7 +17,6 @@ export async function GET(req: NextRequest) {
     }
 
     const payload = verifyToken(token);
-
     if (!payload) {
       return NextResponse.json(
         { message: "Unauthorized" },
@@ -24,82 +24,45 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const query =
-      new URL(req.url).searchParams.get("q") || "";
+    const body = await req.json();
+    const { fileId } = body;
 
-    const { db } =
-      await connectToDatabase();
-
-    const users = await db
-      .collection("users")
-      .find({
-        $or: [
-          {
-            name: {
-              $regex: query,
-              $options: "i",
-            },
-          },
-          {
-            username: {
-              $regex: query,
-              $options: "i",
-            },
-          },
-        ],
-      })
-      .project({
-        _id: 0,
-        id: 1,
-        name: 1,
-        username: 1,
-      })
-      .limit(10)
-      .toArray();
-
-    const conversations =
-      await db
-        .collection("conversations")
-        .find({
-          participants: payload.id,
-        })
-        .project({ id: 1 })
-        .toArray();
-
-    const conversationIds =
-      conversations.map(
-        (c: { id?: number | string }) => c.id,
+    if (!fileId || !ObjectId.isValid(fileId)) {
+      return NextResponse.json(
+        { message: "Invalid file ID" },
+        { status: 400 }
       );
+    }
 
-    const messages = await db
-      .collection("messages")
-      .find({
-        conversationId: {
-          $in: conversationIds,
-        },
+    const bucket = await getGridFSBucket();
+    const objId = new ObjectId(fileId);
+    const files = await bucket.find({ _id: objId }).toArray();
 
-        message: {
-          $regex: query,
-          $options: "i",
-        },
-      })
-      .limit(20)
-      .toArray();
+    if (!files.length) {
+      return NextResponse.json(
+        { message: "File not found" },
+        { status: 404 }
+      );
+    }
+
+    const file = files[0];
+    if (file.metadata?.uploadedBy !== payload.id && payload.role !== "admin") {
+      return NextResponse.json(
+        { message: "Forbidden" },
+        { status: 403 }
+      );
+    }
+
+    await bucket.delete(objId);
 
     return NextResponse.json({
-      users,
-      messages,
+      message: "File deleted successfully",
     });
   } catch (err) {
-    console.error(err);
-
+    console.error("Error deleting file:", err);
     return NextResponse.json(
-      {
-        message: "Server Error",
-      },
-      {
-        status: 500,
-      }
+      { message: "Server Error" },
+      { status: 500 }
     );
   }
 }

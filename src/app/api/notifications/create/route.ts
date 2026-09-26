@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
-import { getNextId } from "@/lib/auth";
+import { getNextId, verifyToken } from "@/lib/auth";
 
 export async function POST(
   req: NextRequest,
 ) {
   try {
+    const cookie = req.headers.get("cookie") || "";
+    const matches = cookie.match(/(^|; )token=([^;]+)/);
+    const token = matches ? matches[2] : null;
+
+    if (!token) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
     const body =
       await req.json();
 

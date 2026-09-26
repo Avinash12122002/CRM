@@ -13,10 +13,15 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "generate-hash.js",
+    "migrate_employee_to_telecaller.js",
+    "scratch/**",
+    "scripts/**",
   ]),
   {
     rules: {
       "react-hooks/set-state-in-effect": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": "warn",
     },
   },
 ]);

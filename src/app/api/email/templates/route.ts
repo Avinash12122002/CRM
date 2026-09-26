@@ -90,7 +90,7 @@ export async function PUT(req: NextRequest) {
 
     const body = await req.json();
     const { _id, ...updates } = body;
-    if (!_id) return NextResponse.json({ error: "_id required" }, { status: 400 });
+    if (!_id || !ObjectId.isValid(_id)) return NextResponse.json({ error: "Valid _id required" }, { status: 400 });
 
     const { db } = await connectToDatabase();
     await db.collection("email_templates").updateOne(
@@ -112,7 +112,7 @@ export async function DELETE(req: NextRequest) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const id = req.nextUrl.searchParams.get("id");
-    if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+    if (!id || !ObjectId.isValid(id)) return NextResponse.json({ error: "Valid id required" }, { status: 400 });
 
     const { db } = await connectToDatabase();
     await db.collection("email_templates").deleteOne({ _id: new ObjectId(id) });

@@ -63,6 +63,13 @@ export async function GET(
         params.leadId
       );
 
+    if (isNaN(leadId)) {
+      return NextResponse.json(
+        { message: "Invalid lead ID" },
+        { status: 400 }
+      );
+    }
+
     const { db } =
       await connectToDatabase();
 
@@ -156,10 +163,24 @@ export async function POST(
     const { message } =
       body;
 
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return NextResponse.json(
+        { message: "Valid message is required" },
+        { status: 400 }
+      );
+    }
+
     const leadId =
       parseInt(
         params.leadId
       );
+
+    if (isNaN(leadId)) {
+      return NextResponse.json(
+        { message: "Invalid lead ID" },
+        { status: 400 }
+      );
+    }
 
     const { db } =
       await connectToDatabase();

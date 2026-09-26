@@ -802,7 +802,7 @@ export default function CandidateCvExplorerPage() {
                   className="w-full p-3 text-sm rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 placeholder:text-zinc-400 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 text-zinc-900 dark:text-zinc-100 shadow-xs resize-none"
                 />
                 <div className="flex justify-between items-center text-[11px] text-zinc-400 mt-1">
-                  <span>Delivers directly to the candidate's WhatsApp (+{messageTarget.phone})</span>
+                  <span>Delivers directly to the candidate&apos;s WhatsApp (+{messageTarget.phone})</span>
                   <span>{messageText.length} characters</span>
                 </div>
               </div>
