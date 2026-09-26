@@ -383,7 +383,132 @@ function generateHumanVisaExpertReply(params: {
   matchedOcc?: { role: string; category: string } | null;
 }): string {
   const { message, session, matchedOcc } = params;
-  const lower = message.toLowerCase();
+
+  // --- STEP 1: Deep Intent Classifier ---
+  // Strips down the message to core tokens to understand WHAT the candidate means,
+  // regardless of tone, spelling, punctuation, or anger level.
+  const rawLower = message.toLowerCase().trim();
+  const words = rawLower.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  const wordSet = new Set(words);
+
+  // Emotional/Tone flags (non-blocking — message still gets a RELEVANT response)
+  const isFrustrated =
+    wordSet.has("idiot") || wordSet.has("stupid") || wordSet.has("fool") ||
+    wordSet.has("nonsense") || wordSet.has("rubbish") || wordSet.has("useless") ||
+    wordSet.has("fake") || wordSet.has("scam") || wordSet.has("fraud") ||
+    rawLower.includes("shut up") || rawLower.includes("get lost") ||
+    rawLower.includes("bakwas") || rawLower.includes("pagal") ||
+    rawLower.includes("chutiya") || rawLower.includes("bekar") ||
+    wordSet.has("fuck") || wordSet.has("bitch") || wordSet.has("bastard") ||
+    wordSet.has("liar") || wordSet.has("cheater") || wordSet.has("cheat");
+
+  const isAngryOrSkeptical =
+    isFrustrated ||
+    rawLower.includes("are you real") || rawLower.includes("not real") ||
+    rawLower.includes("i don't believe") || rawLower.includes("i dont believe") ||
+    rawLower.includes("not trustworthy") || rawLower.includes("this is fake");
+
+  // Extract what the user is ACTUALLY talking about (even if angry)
+  const msgWithoutProfanity = rawLower
+    .replace(/\b(idiot|stupid|fool|nonsense|rubbish|useless|fuck|bitch|bastard|bakwas|pagal|chutiya|bekar|liar|cheater|cheat|scam|fraud|fake|shut\s+up|get\s+lost)\b/g, "")
+    .trim();
+
+  const lowerForTopic = msgWithoutProfanity || rawLower;
+  const lower = rawLower; // Keep original for full checks
+
+  // --- STEP 2: Contextual intent detection on the cleaned message ---
+  const wantsToChangeEmail =
+    (lowerForTopic.includes("change") && (lowerForTopic.includes("email") || lowerForTopic.includes("mail"))) ||
+    (lowerForTopic.includes("update") && (lowerForTopic.includes("email") || lowerForTopic.includes("mail"))) ||
+    (lowerForTopic.includes("wrong") && lowerForTopic.includes("email")) ||
+    (lowerForTopic.includes("new") && lowerForTopic.includes("email")) ||
+    (lowerForTopic.includes("correct") && lowerForTopic.includes("email"));
+
+  const wantsToChangeName =
+    (lowerForTopic.includes("change") && (lowerForTopic.includes("name") || lowerForTopic.includes("naam"))) ||
+    (lowerForTopic.includes("update") && lowerForTopic.includes("name")) ||
+    (lowerForTopic.includes("wrong") && lowerForTopic.includes("name")) ||
+    (lowerForTopic.includes("my name is") || lowerForTopic.includes("mera naam")) ||
+    (lowerForTopic.includes("correct") && lowerForTopic.includes("name"));
+
+  const wantsToUpdateCv =
+    (lowerForTopic.includes("send") || lowerForTopic.includes("share") || lowerForTopic.includes("attach") || lowerForTopic.includes("upload")) &&
+    (lowerForTopic.includes("cv") || lowerForTopic.includes("resume") || lowerForTopic.includes("biodata"));
+
+  const asksAboutProcess =
+    lowerForTopic.includes("how does it work") || lowerForTopic.includes("process") ||
+    lowerForTopic.includes("steps") || lowerForTopic.includes("procedure") ||
+    lowerForTopic.includes("how long") || lowerForTopic.includes("timeline") ||
+    lowerForTopic.includes("months") || lowerForTopic.includes("roadmap");
+
+  const asksAboutCost =
+    lowerForTopic.includes("cost") || lowerForTopic.includes("fee") ||
+    lowerForTopic.includes("charges") || lowerForTopic.includes("price") ||
+    lowerForTopic.includes("payment") || lowerForTopic.includes("how much") ||
+    lowerForTopic.includes("kharcha") || lowerForTopic.includes("kitna lagega");
+
+  const asksAboutSalary =
+    lowerForTopic.includes("salary") || lowerForTopic.includes("earn") ||
+    lowerForTopic.includes("income") || lowerForTopic.includes("wages") ||
+    lowerForTopic.includes("pay") || lowerForTopic.includes("tsmit");
+
+  const asksAboutFamily =
+    lowerForTopic.includes("family") || lowerForTopic.includes("wife") ||
+    lowerForTopic.includes("husband") || lowerForTopic.includes("spouse") ||
+    lowerForTopic.includes("child") || lowerForTopic.includes("children") ||
+    lowerForTopic.includes("kids") || lowerForTopic.includes("son") ||
+    lowerForTopic.includes("daughter") || lowerForTopic.includes("partner");
+
+  const asksAboutEnglish =
+    lowerForTopic.includes("english") || lowerForTopic.includes("ielts") ||
+    lowerForTopic.includes("pte") || lowerForTopic.includes("language") ||
+    lowerForTopic.includes("band") || lowerForTopic.includes("score");
+
+  const asksAboutJobs =
+    lowerForTopic.includes("job") || lowerForTopic.includes("work") ||
+    lowerForTopic.includes("occupation") || lowerForTopic.includes("profession") ||
+    lowerForTopic.includes("career") || lowerForTopic.includes("vacancy") ||
+    lowerForTopic.includes("vacancies") || lowerForTopic.includes("profile");
+
+  const asksAboutDocuments =
+    lowerForTopic.includes("document") || lowerForTopic.includes("paperwork") ||
+    lowerForTopic.includes("passport") || lowerForTopic.includes("pcc") ||
+    lowerForTopic.includes("police clearance") || lowerForTopic.includes("medical");
+
+  const asksAboutPr =
+    lowerForTopic.includes(" pr ") || lowerForTopic.includes("permanent") ||
+    lowerForTopic.includes("citizenship") || lowerForTopic.includes("settle") ||
+    (lowerForTopic.includes("186") || lowerForTopic.includes("subclass 186"));
+
+  const asksAboutEligibility =
+    lowerForTopic.includes("eligible") || lowerForTopic.includes("eligibility") ||
+    lowerForTopic.includes("qualify") || lowerForTopic.includes("qualification") ||
+    lowerForTopic.includes("can i apply") || lowerForTopic.includes("am i eligible") ||
+    lowerForTopic.includes("kya main") || lowerForTopic.includes("kya hu");
+
+  const asksIdentityOrBot =
+    rawLower.includes("are you a bot") || rawLower.includes("are you bot") ||
+    rawLower.includes("are you ai") || rawLower.includes("are you an ai") ||
+    rawLower.includes("is this ai") || rawLower.includes("is this bot") ||
+    rawLower.includes("am i talking to a bot") || rawLower.includes("am i talking to a robot") ||
+    wordSet.has("robot") || rawLower.includes("artificial intelligence") ||
+    rawLower.includes("who is this") || rawLower.includes("who are you") ||
+    rawLower.includes("who am i talking to");
+
+  const asksContactOrigin =
+    rawLower.includes("how did you get my number") || rawLower.includes("who gave you my number") ||
+    rawLower.includes("where did you get my number") || rawLower.includes("how do you know me") ||
+    rawLower.includes("why are you messaging me") || rawLower.includes("i didn't apply") ||
+    rawLower.includes("i never applied") || rawLower.includes("did i apply");
+
+  const wantsOptOut =
+    rawLower === "stop" || rawLower === "unsubscribe" ||
+    rawLower.includes("don't message") || rawLower.includes("do not message") ||
+    rawLower.includes("stop messaging") || rawLower.includes("stop sending") ||
+    rawLower.includes("leave me alone") || rawLower.includes("remove my number") ||
+    rawLower.includes("block") && rawLower.includes("number");
+
+  // --- STEP 3: Core variables (must be before frustratedPrefix) ---
   const candidateName =
     session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
       ? session.name
@@ -395,101 +520,238 @@ function generateHumanVisaExpertReply(params: {
     process.env.VIDEO_482_URL ||
     "https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing";
 
-  // 0A. Inquiries about Bot / AI / Robot / Counselor Identity
-  if (
-    lower.includes("are you a bot") ||
-    lower.includes("are you bot") ||
-    lower.includes("are you ai") ||
-    lower.includes("are you an ai") ||
-    lower.includes("is this ai") ||
-    lower.includes("is this bot") ||
-    lower.includes("is this automated") ||
-    lower.includes("am i talking to a bot") ||
-    lower.includes("am i talking to a robot") ||
-    lower.includes("robot") ||
-    lower.includes("artificial intelligence") ||
-    lower.includes("who is this") ||
-    lower.includes("who are you") ||
-    lower.includes("your name") ||
-    lower.includes("who am i talking to")
-  ) {
+  // Build frustrated-but-contextual opener if message has anger + actual topic
+  const frustratedPrefix = isFrustrated
+    ? `I sincerely understand your frustration${candidateName ? `, ${candidateName}` : ""}, and I appreciate your honesty. Let me address this properly. 🙏\n\n`
+    : "";
+
+  // ============================================================
+  // PRIORITY RESPONSE: Handle every possible topic FIRST,
+  // even if the message contains anger/profanity alongside it.
+  // Anger alone (with no other topic) is handled separately below.
+  // ============================================================
+
+  // 0A. Email change request
+  if (wantsToChangeEmail) {
     return (
-      `Hello${nameSalutation}! 👋 I'm **Aria**, Senior Registered Migration Counselor at **The Migration School (TMS Visa)** 🇦🇺.\n\n` +
-      `You are communicating directly with our official visa guidance desk! I review and coordinate candidate profiles together with our team of Senior Migration Experts and Registered Australian Migration Agents (MARN Holders).\n\n` +
-      `We specialize in direct Australian employer-sponsored work visas across 691 eligible occupations with minimum statutory salaries of **AUD $76,500/year** and direct Permanent Residency.\n\n` +
-      `How can I assist you with your Australia career and visa roadmap today?`
+      `${frustratedPrefix}Of course${nameSalutation}! To update your registered email address, please simply reply with your new, correct email address right here.\n\n` +
+      `Our team will update your profile and confirm the change. All future visa roadmap documents and official communications will then be directed to your new email.\n\n` +
+      `📧 Please reply with: **Your New Email Address**`
     );
   }
 
-  // 0B. Contact Origin / "How did you get my number?" / "I never applied" / "Who gave you my number"
-  if (
-    lower.includes("how did you get my number") ||
-    lower.includes("how did you get my contact") ||
-    lower.includes("who gave you my number") ||
-    lower.includes("where did you get my number") ||
-    lower.includes("where did you get my contact") ||
-    lower.includes("how do you know me") ||
-    lower.includes("why are you messaging me") ||
-    lower.includes("who are you to message") ||
-    lower.includes("i didn't apply") ||
-    lower.includes("i never applied") ||
-    lower.includes("did i apply") ||
-    lower.includes("not applied")
-  ) {
+  // 0B. Name change request
+  if (wantsToChangeName) {
     return (
-      `Hello${nameSalutation}! 👋 Thank you for asking.\n\n` +
-      `Our recruitment team received your contact profile through our international skilled migration career portal, an overseas employment inquiry, or a registered profile on professional job networks seeking Australian career opportunities.\n\n` +
-      `We specialize exclusively in the **Australia Employer Sponsored Work Visa** (minimum statutory salary **AUD $76,500/year**, employer-covered embassy & permit fees, and direct PR after 2 years).\n\n` +
-      `If you are not interested in exploring overseas careers in Australia right now, simply reply **"Not Right Now"** and we will not message you again. However, if you have 2+ years of professional or trade experience, we'd be delighted to evaluate your CV for free!`
+      `${frustratedPrefix}Absolutely${nameSalutation}! Please reply with your **correct full name** and we will update your profile record immediately.\n\n` +
+      `📝 Please reply with: **Your Correct Full Name**`
     );
   }
 
-  // 0C. Frustration, Skepticism, Insults, Abusive Language
-  if (
-    lower.includes("idiot") ||
-    lower.includes("stupid") ||
-    lower.includes("fool") ||
-    lower.includes("nonsense") ||
-    lower.includes("rubbish") ||
-    lower.includes("useless") ||
-    lower.includes("shut up") ||
-    lower.includes("get lost") ||
-    lower.includes("fuck") ||
-    lower.includes("bitch") ||
-    lower.includes("bastard") ||
-    lower.includes("bakwas") ||
-    lower.includes("pagal") ||
-    lower.includes("chutiya")
-  ) {
+  // 0C. CV / Resume upload intent
+  if (wantsToUpdateCv) {
     return (
-      `I completely understand your frustration and caution${nameSalutation}. 🤝\n\n` +
-      `There is unfortunately a tremendous amount of misinformation and unauthorized operators in the overseas immigration space, so healthy skepticism is completely warranted.\n\n` +
-      `Please rest assured that **The Migration School (TMS Visa)** is an institutional, legally compliant consultancy:\n` +
-      `• **Australia Registered Office:** 154 Peisley Street, Orange, NSW 2800 (ABN: 75 148 213 076)\n` +
-      `• **India Corporate Office:** Delhi NCR (Groworld Vijatour Pvt Ltd, CIN: U62099HR2024PTC122827)\n` +
-      `• **Regulated Applications:** Prepared and lodged strictly by **Registered Australian Migration Agents (MARN Holders)**\n` +
-      `• **Two-Stage Milestone Safety:** AUD 300 to start; balance AUD 700 payable **strictly after your visa is approved** and flight tickets are in hand.\n\n` +
-      `If you would ever like to review your genuine options with our Senior Migration Expert in a live Google Meet consultation, we are here to support you with complete transparency.`
+      `${frustratedPrefix}Great${nameSalutation}! Please go ahead and send your CV/Resume file directly here in WhatsApp (PDF or Word .doc / .docx format preferred).\n\n` +
+      `Our Senior Migration Specialists will review it immediately against the 691 eligible Australian occupations and prepare your personalized assessment report! 📄🇦🇺`
     );
   }
 
-  // 0D. Opt-Out / Stop / Unsubscribe / Don't Message
-  if (
-    lower === "stop" ||
-    lower === "unsubscribe" ||
-    lower.includes("don't message") ||
-    lower.includes("do not message") ||
-    lower.includes("stop messaging") ||
-    lower.includes("stop sending") ||
-    lower.includes("leave me alone") ||
-    lower.includes("remove my number")
-  ) {
+  // 0D. Identity / Bot / Who are you?
+  if (asksIdentityOrBot) {
     return (
-      `Understood${nameSalutation}. We have paused all automated outreach for your number (+${session.phone}). 🛑\n\n` +
-      `If your career plans change in the future and you would like to explore Australian employer-sponsored work visas, feel free to message us back anytime.\n\n` +
-      `Wishing you the very best in your professional endeavors!`
+      `${frustratedPrefix}Hello${nameSalutation}! 👋 I'm **Aria**, Senior Registered Migration Counselor at **The Migration School (TMS Visa)** 🇦🇺.\n\n` +
+      `You are communicating directly with our official visa guidance desk. I work alongside our team of Senior Migration Experts and Registered Australian Migration Agents (MARN Holders) to evaluate candidates for Australian employer sponsorship.\n\n` +
+      `How can I help you today?`
     );
   }
+
+  // 0E. How did you get my number / I never applied
+  if (asksContactOrigin) {
+    return (
+      `${frustratedPrefix}Hello${nameSalutation}! 👋 Thank you for asking — that is a very fair question.\n\n` +
+      `Our recruitment team received your profile through our international skilled migration career portal or a professional job network where you had indicated interest in overseas employment opportunities.\n\n` +
+      `We exclusively work on the **Australia Employer Sponsored Work Visa** (min salary AUD $76,500/year, employer-covered fees, direct PR after 2 years).\n\n` +
+      `If this is not for you, simply reply **"Stop"** and we will immediately remove you from outreach. But if you have 2+ years of work experience, we'd be delighted to give you a free CV evaluation!`
+    );
+  }
+
+  // 0F. Opt-out / Stop
+  if (wantsOptOut) {
+    return (
+      `Understood${nameSalutation}. We have paused all outreach for your number. 🛑\n\n` +
+      `If your plans change, feel free to message us anytime.\n\n` +
+      `Wishing you all the very best!`
+    );
+  }
+
+  // 0G. Cost / Fees question (even if expressed with frustration)
+  if (asksAboutCost) {
+    return (
+      `${frustratedPrefix}Our fee structure is 100% transparent — zero hidden costs${nameSalutation}: 🇦🇺\n\n` +
+      `💼 **Covered Entirely by Your Australian Sponsoring Employer:**\n` +
+      `• $330 Work Permit / Nomination Fee\n` +
+      `• $6,000 Australian Government Embassy & Visa Fees\n` +
+      `• $1,000 Flight Ticket to Australia\n\n` +
+      `👤 **Candidate Total: AUD 1,000 in 2 Safe Milestones:**\n` +
+      `1️⃣ **AUD 300 Upfront** — After signing the 1-Year Agreement (Australian CV makeover, Case Manager, free PTE coaching from Day 1)\n` +
+      `2️⃣ **AUD 700 Balance** — **Strictly after visa is approved and flight tickets are in your hands!**\n\n` +
+      `Our weekend 1-on-1 consultation is completely free. Would you like to schedule your slot?`
+    );
+  }
+
+  // 0H. Salary question (even if expressed with frustration)
+  if (asksAboutSalary) {
+    return (
+      `${frustratedPrefix}Here is your guaranteed salary protection under Australian law${nameSalutation}: 💼🇦🇺\n\n` +
+      `• **Statutory Minimum (TSMIT):** AUD $76,500/year (approx ₹42–46 Lakhs/year) plus allowances\n` +
+      `• **Superannuation:** Employer pays an additional 11.5% into your Australian retirement fund\n` +
+      `• **Tax-Free Threshold:** First AUD $18,200/year is 100% tax-free\n` +
+      `• **Net Monthly Savings:** Average AUD $1,500–$3,000 after Australian living costs\n\n` +
+      `Would you like to schedule a free consultation to review your specific occupation's salary package?`
+    );
+  }
+
+  // 0I. Process / Timeline / How it works
+  if (asksAboutProcess) {
+    return (
+      `${frustratedPrefix}Our full process takes **4 to 5 months** from CV to visa approval and travel${nameSalutation}: ⏱️🇦🇺\n\n` +
+      `1️⃣ **Free CV Assessment** — Against 691 eligible occupations\n` +
+      `2️⃣ **Agreement & Case Manager (AUD 300)** — Australian CV makeover, dedicated Case Manager, free weekly PTE coaching from Day 1\n` +
+      `3️⃣ **Employer Marketing** — TMS presents your profile to approved Australian employers until offer received\n` +
+      `4️⃣ **English Exam & 3 Documents** — PTE/IELTS + Passport, Medical Fitness, Police Clearance\n` +
+      `5️⃣ **Sponsorship & Nomination** — Employer files with Department of Home Affairs\n` +
+      `6️⃣ **Visa Lodgement** — Registered Migration Agent (MARN Holder) manages full lodgement\n` +
+      `7️⃣ **Visa Grant & Flight (AUD 700)** — Pay balance ONLY after visa approved & tickets in hand!\n\n` +
+      `Would you like to schedule a free weekend consultation to begin?`
+    );
+  }
+
+  // 0J. Family / Spouse / Children
+  if (asksAboutFamily) {
+    return (
+      `${frustratedPrefix}Yes, your entire immediate family comes with you to Australia${nameSalutation}! 👨‍👩‍👧‍👦🇦🇺\n\n` +
+      `• **Spouse/Partner:** Full unrestricted work rights in any Australian company from Day 1\n` +
+      `• **Children:** Access to high-standard Australian public schooling and healthcare\n` +
+      `• **Permanent Residency:** After 2 years, you and your entire family receive Australian PR (Subclass 186) together\n\n` +
+      `Would you like to discuss your complete family migration roadmap in our free weekend consultation?`
+    );
+  }
+
+  // 0K. English / IELTS / PTE
+  if (asksAboutEnglish) {
+    return (
+      `${frustratedPrefix}You do NOT need an English test to start${nameSalutation}! 📚🇦🇺\n\n` +
+      `• You take the exam **only after securing your Australian job offer**\n` +
+      `• **TMS provides free weekly live PTE classes every weekend from your very first week!**\n\n` +
+      `Minimum scores required (very achievable with TMS coaching):\n` +
+      `• **PTE Academic:** L:33, R:36, W:29, S:24\n` +
+      `• **IELTS General/Academic:** 5.0 in each band\n` +
+      `• **Exemptions:** 5+ years schooling taught in English\n\n` +
+      `Have you taken any English test previously?`
+    );
+  }
+
+  // 0L. Jobs / Occupations / Vacancies
+  if (asksAboutJobs) {
+    return (
+      `${frustratedPrefix}Australia's Employer Sponsored Eligible Occupation List covers **691 approved roles** with minimum AUD $76,500/year${nameSalutation}: 🇦🇺📋\n\n` +
+      `High-demand sectors include:\n` +
+      `• **Trades:** Mechanics, Electricians, Welders, Fitters, Chefs, Plumbers, HVAC\n` +
+      `• **Engineering:** Civil, Mechanical, Electrical, Mining, Structural Engineers\n` +
+      `• **IT:** Developers, Cloud/Network Engineers, Cyber Security\n` +
+      `• **Healthcare:** Registered Nurses, Physiotherapists, Medical Technologists\n` +
+      `• **Hospitality:** Restaurant/Hotel Managers, Food Technologists\n\n` +
+      `What is your occupation and years of experience? I'll check your exact ANZSCO code right now!`
+    );
+  }
+
+  // 0M. Documents
+  if (asksAboutDocuments) {
+    return (
+      `${frustratedPrefix}As a candidate, you only need **3 personal documents${nameSalutation}**: 📄🇦🇺\n\n` +
+      `1️⃣ Valid Passport Copy\n` +
+      `2️⃣ Medical Fitness Certificate (at an approved Embassy-panel clinic)\n` +
+      `3️⃣ Police Clearance Certificate (PCC)\n\n` +
+      `TMS and your sponsoring employer handle all complex company filings, nomination, labour market testing, and full visa lodgement with the Australian Government!`
+    );
+  }
+
+  // 0N. Eligibility question
+  if (asksAboutEligibility) {
+    return (
+      `${frustratedPrefix}To assess your eligibility for the Australia Employer Sponsored Work Visa${nameSalutation}, here are the core requirements: 🇦🇺✅\n\n` +
+      `• **Occupation:** Must be on the official 691 Eligible Occupation List (ANZSCO)\n` +
+      `• **Experience:** Minimum 2 years full-time verifiable work experience\n` +
+      `• **Age:** Under 45 years for standard pathways (some exceptions for specialized roles)\n` +
+      `• **English:** PTE/IELTS exam AFTER job offer only; TMS provides free coaching from Day 1\n` +
+      `• **Qualification:** Degree, diploma, ITI, or trade apprenticeship depending on occupation\n\n` +
+      `What is your current job title and years of experience? I can give you an instant eligibility verdict!`
+    );
+  }
+
+  // 0O. Permanent Residency
+  if (asksAboutPr) {
+    return (
+      `${frustratedPrefix}Yes! The Australia Employer Sponsored Work Visa provides a **direct, legislation-backed PR pathway**${nameSalutation}! 🇦🇺\n\n` +
+      `• **2-Year Transition:** After 2 years working with your sponsor → apply for Subclass 186 PR\n` +
+      `• **PR Benefits:** Medicare healthcare, free education, social security, live anywhere in Australia\n` +
+      `• **Citizenship:** After 12 months of PR (4 years total) → apply for Australian Citizenship and passport\n` +
+      `• **No Points Test:** Unlike 189/190, no points lottery — employer guarantee means direct pathway\n\n` +
+      `Would you like to discuss your complete PR roadmap in our free weekend consultation?`
+    );
+  }
+
+  // ============================================================
+  // ANGER / FRUSTRATION ALONE (no other actionable topic found)
+  // ============================================================
+  if (isFrustrated || isAngryOrSkeptical) {
+    return (
+      `I completely understand your frustration${nameSalutation}. 🤝\n\n` +
+      `There is a lot of misinformation and unauthorized operators in the overseas migration space — your skepticism is warranted and appreciated.\n\n` +
+      `Please know that **The Migration School (TMS Visa)** operates under strict legal compliance:\n` +
+      `• 🇦🇺 **Australia:** 154 Peisley Street, Orange NSW 2800 | ABN: 75 148 213 076\n` +
+      `• 🇮🇳 **India:** Delhi NCR | Groworld Vijatour Pvt Ltd (CIN: U62099HR2024PTC122827)\n` +
+      `• All visa applications filed strictly by licensed **Registered Australian Migration Agents (MARN Holders)**\n` +
+      `• **Milestone safety:** AUD 300 to start; AUD 700 balance payable **ONLY after visa approval & flight tickets in hand**\n\n` +
+      `If there is anything specific about our process, fees, or company that you'd like to verify, I'm right here to answer with full transparency. What would you like to know?`
+    );
+  }
+
+  // ============================================================
+  // SHORT / VAGUE MESSAGES — respond contextually based on session state
+  // ============================================================
+  if (rawLower.length <= 20) {
+    const step = session.currentStep;
+    if (step === "AWAITING_EMAIL") {
+      return (
+        `Hi${nameSalutation}! 😊 Please reply with your **email address** so our team can officially register your profile and send your complete visa roadmap.\n\n` +
+        `📧 Example: yourname@gmail.com`
+      );
+    }
+    if (step === "AWAITING_CV") {
+      return (
+        `Hi${nameSalutation}! 😊 Please attach your **CV/Resume** (PDF or Word) directly here in WhatsApp so our specialists can begin your eligibility assessment! 📄`
+      );
+    }
+    if (step === "SELECTING_DAY" || step === "SELECTING_SLOT") {
+      return (
+        `Hi${nameSalutation}! 👋 Please select your preferred consultation date and time from the menu above, or type a day like **"Saturday"** or **"Sunday"** to see available slots!`
+      );
+    }
+    if (session.bookedSlot) {
+      return (
+        `Hi${nameSalutation}! 👋 Your consultation with our Senior Migration Expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `🔗 **Google Meet Link:** ${meetUrl}\n\n` +
+        `Is there anything specific you'd like to ask or prepare before the session?`
+      );
+    }
+    // Generic short-message invitation
+    return (
+      `Hello${nameSalutation}! 😊 I'm Aria from **TMS Visa**. I'm here to help you explore your Australia career and visa options.\n\n` +
+      `Could you tell me your **current job title** and **years of experience**? I'll check your eligibility for the Australia Employer Sponsored Work Visa (minimum salary AUD $76,500/year) right away! 🇦🇺`
+    );
+  }
+
 
   // 1. Inquiries about meeting link / room access
   if (
