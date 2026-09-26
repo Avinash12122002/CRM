@@ -18,6 +18,7 @@ import {
   X,
   ExternalLink,
   CheckCheck,
+  MessageSquare,
 } from "lucide-react";
 
 interface DocFile {
@@ -478,6 +479,16 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                       </div>
 
                       <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={`https://wa.me/${phoneKey.replace(/[^\d]/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="p-1 rounded text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
+                          title={`Chat on WhatsApp with +${phoneKey}`}
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </a>
                         {folderUnread > 0 && (
                           <span className="bg-red-500 text-white text-[9px] font-bold px-1 py-0.2 rounded-full font-sans">
                             {folderUnread}
