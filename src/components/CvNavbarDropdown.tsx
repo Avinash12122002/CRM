@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   Folder,
@@ -39,14 +40,21 @@ interface CandidateFolder {
 }
 
 export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [folders, setFolders] = useState<CandidateFolder[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [previewFile, setPreviewFile] = useState<DocFile | null>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
 
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchFolders = async () => {
     setLoading(true);
@@ -56,7 +64,6 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
         const data = await res.json();
         const list: CandidateFolder[] = data.folders || [];
         setFolders(list);
-        // Expand all by default
         setExpandedFolders(new Set(list.map((f) => f.phone)));
       }
     } catch (err) {
@@ -70,16 +77,62 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     fetchFolders();
   }, []);
 
+  // Calculate dropdown coordinates relative to trigger button
+  const updateCoords = useCallback(() => {
+    if (!buttonRef.current) return;
+    const rect = buttonRef.current.getBoundingClientRect();
+    const menuWidth = Math.min(430, window.innerWidth - 32);
+    let left = rect.left;
+    if (left + menuWidth > window.innerWidth - 16) {
+      left = Math.max(16, window.innerWidth - menuWidth - 16);
+    }
+    setCoords({
+      top: rect.bottom + 6,
+      left,
+      width: menuWidth,
+    });
+  }, []);
+
+  // Update position on open, resize, scroll
+  useEffect(() => {
+    if (!isOpen) return;
+    updateCoords();
+    const handleScrollOrResize = () => updateCoords();
+    window.addEventListener("resize", handleScrollOrResize);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    return () => {
+      window.removeEventListener("resize", handleScrollOrResize);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+    };
+  }, [isOpen, updateCoords]);
+
   // Close on outside click
   useEffect(() => {
+    if (!isOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (buttonRef.current && buttonRef.current.contains(target)) {
+        return;
+      }
+      if (menuRef.current && !menuRef.current.contains(target)) {
         setIsOpen(false);
       }
     };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsOpen(false);
+        setPreviewFile(null);
+      }
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
 
   const toggleFolder = (phone: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -126,19 +179,27 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
   };
 
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
-      {/* Navbar Tab Trigger */}
+    <>
+      {/* Navbar CV Trigger Button */}
       <button
+        ref={buttonRef}
+        type="button"
         onClick={() => {
-          setIsOpen((prev) => !prev);
-          if (!isOpen) fetchFolders();
+          setIsOpen((prev) => {
+            const next = !prev;
+            if (next) {
+              fetchFolders();
+              setTimeout(updateCoords, 0);
+            }
+            return next;
+          });
         }}
-        className={`inline-flex items-center gap-1 px-2 py-1 text-[12px] font-medium whitespace-nowrap transition-colors rounded-md ${
+        className={`inline-flex items-center gap-1 px-1.5 py-1 text-[12px] font-medium whitespace-nowrap transition-colors rounded-md ${
           isOpen || isActive
             ? "border-b-2 border-foreground text-zinc-900 dark:text-zinc-100 font-semibold"
-            : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+            : "border-b-2 border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:border-zinc-300"
         }`}
-        title="View Candidate CVs & Documents"
+        title="View Candidate CVs & Documents (Admin Only)"
       >
         <span>CV</span>
         {totalFiles > 0 && (
@@ -153,60 +214,72 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
         />
       </button>
 
-      {/* Dropdown Menu Panel (inside the navbar) */}
-      {isOpen && (
-        <div className="absolute left-0 mt-2 w-96 max-h-[82vh] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100">
+      {/* Dropdown Menu Panel — Rendered directly in Body Portal to eliminate any navbar scrollbars */}
+      {isOpen && mounted && coords && createPortal(
+        <div
+          ref={menuRef}
+          style={{
+            position: "fixed",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 99999,
+          }}
+          className="max-h-[80vh] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col font-sans animate-in fade-in zoom-in-95 duration-100"
+        >
           {/* Header */}
-          <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/80 flex items-center justify-between shrink-0 font-mono">
+          <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex items-center justify-between shrink-0 font-mono">
             <div className="flex items-center gap-2">
               <Folder className="w-4 h-4 text-amber-500 fill-amber-500/20" />
               <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">cv/</span>
               <span className="text-[11px] font-sans text-zinc-400">
-                ({folders.length} folders &bull; {totalFiles} files)
+                ({folders.length} candidates &bull; {totalFiles} docs)
               </span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 font-sans">
               <button
+                type="button"
                 onClick={fetchFolders}
                 disabled={loading}
-                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                title="Refresh documents"
+                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
+                title="Refresh candidate files"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
               </button>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          {/* Quick Search */}
+          {/* Search Bar */}
           <div className="p-2 border-b border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shrink-0">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
               <input
                 type="text"
-                placeholder="Search candidate phone or file..."
+                placeholder="Search phone number or document name..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500"
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-200"
               />
             </div>
           </div>
 
-          {/* Tree View Body */}
+          {/* Directory Tree Body */}
           <div className="p-3 overflow-y-auto flex-1 font-mono text-xs space-y-2 select-none">
             {loading && folders.length === 0 ? (
               <div className="py-8 text-center text-xs text-zinc-400 space-y-1">
                 <RefreshCw className="w-4 h-4 animate-spin mx-auto text-emerald-500" />
-                <p>Loading candidate folders...</p>
+                <p>Loading candidate folders from database...</p>
               </div>
             ) : filteredFolders.length === 0 ? (
-              <div className="py-6 text-center text-xs text-zinc-400">
-                {search ? "No matching folders found" : "No candidate CVs saved in database"}
+              <div className="py-6 text-center text-xs text-zinc-400 font-sans">
+                {search ? "No matching folders found" : "No candidate CVs saved in database yet"}
               </div>
             ) : (
               filteredFolders.map((folder, fIdx) => {
@@ -249,7 +322,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                       </div>
                     </div>
 
-                    {/* Files inside folder */}
+                    {/* Files inside folder: ├── Resume_John_Doe.pdf */}
                     {isExpanded && (
                       <div className="pl-6 space-y-1">
                         {folder.files.map((file, fileIdx) => {
@@ -260,7 +333,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                               key={fileIdx}
                               className="group/file flex items-center justify-between p-1.5 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition text-[11px]"
                             >
-                              <div className="flex items-center gap-1.5 truncate max-w-[220px]">
+                              <div className="flex items-center gap-1.5 truncate max-w-[240px]">
                                 <span className="text-zinc-400 select-none">
                                   {isLastFile ? "└──" : "├──"}
                                 </span>
@@ -277,12 +350,13 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                                   </span>
                                 )}
                                 <button
+                                  type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setPreviewFile(file);
                                   }}
-                                  className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-                                  title="Preview"
+                                  className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
+                                  title="Instant Preview"
                                 >
                                   <Eye className="w-3 h-3" />
                                 </button>
@@ -292,8 +366,8 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                                   onClick={(e) => e.stopPropagation()}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-1 rounded text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                                  title="Download"
+                                  className="p-1 rounded text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
+                                  title="Download File"
                                 >
                                   <Download className="w-3 h-3" />
                                 </a>
@@ -309,9 +383,9 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
             )}
           </div>
 
-          {/* Footer: Link to Full Page */}
-          <div className="p-2.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/80 shrink-0 flex items-center justify-between font-sans text-xs">
-            <span className="text-[11px] text-zinc-400">Database Storage (MongoDB)</span>
+          {/* Footer Link to Dedicated Page */}
+          <div className="p-2.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 shrink-0 flex items-center justify-between font-sans text-xs">
+            <span className="text-[11px] text-zinc-400">MongoDB GridFS Storage</span>
             <Link
               href="/dashboard/cv"
               onClick={() => setIsOpen(false)}
@@ -321,15 +395,16 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
               <ExternalLink className="w-3 h-3" />
             </Link>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Floating Preview Lightbox Modal */}
-      {previewFile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
-          <div className="relative w-full max-w-3xl h-[80vh] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100">
+      {/* Floating Preview Lightbox Modal — Also mounted to body portal */}
+      {previewFile && mounted && createPortal(
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-3xl h-[82vh] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-5 py-3 bg-zinc-50 dark:bg-zinc-900/80 shrink-0">
+            <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 px-5 py-3 bg-zinc-50 dark:bg-zinc-900/90 shrink-0 font-sans">
               <div className="flex items-center gap-2 truncate max-w-md">
                 {getFileIcon(previewFile.fileName, previewFile.mimeType)}
                 <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">
@@ -347,13 +422,14 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                   download={previewFile.fileName}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition"
                 >
                   <Download className="w-3 h-3" /> Download
                 </a>
                 <button
+                  type="button"
                   onClick={() => setPreviewFile(null)}
-                  className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
+                  className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -380,7 +456,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                   />
                 </div>
               ) : (
-                <div className="text-center space-y-2 p-6">
+                <div className="text-center space-y-2 p-6 font-sans">
                   <FileGeneric className="w-8 h-8 mx-auto text-zinc-400" />
                   <p className="text-xs text-zinc-600 dark:text-zinc-400">
                     Direct preview not available for this file type.
@@ -396,8 +472,9 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }

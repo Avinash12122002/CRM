@@ -142,10 +142,10 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
 
   return (
     <nav className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-14">
           {/* Logo */}
-          <div className="flex">
+          <div className="flex items-center min-w-0">
             <div className="shrink-0 flex items-center">
               <div className="flex items-center gap-2">
                 <div className="w-10 h-10 bg-linear-to-br rounded-lg flex items-center justify-center">
@@ -155,7 +155,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
             </div>
 
             {/* Desktop nav links */}
-            <div className="hidden sm:ml-3 sm:flex sm:items-center sm:space-x-2 overflow-x-auto">
+            <div className="hidden md:flex md:items-center md:space-x-1 lg:space-x-1.5 ml-2 lg:ml-3">
               <Link href="/dashboard" className={deskLinkClass(isActive("/dashboard"))}>
                 Dashboard
               </Link>
