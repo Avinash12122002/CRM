@@ -5,9 +5,6 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
-import { KeyRound } from "lucide-react";
-import NotificationBell from "@/components/chat/NotificationBell";
-import WhatsAppOtpModal from "@/components/WhatsAppOtpModal";
 import CvNavbarDropdown from "@/components/CvNavbarDropdown";
 
 type DashboardNavbarProps = {
@@ -39,7 +36,6 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [todoCount, setTodoCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [otpModalOpen, setOtpModalOpen] = useState(false);
 
   const role = (user.role || "").trim().toLowerCase();
 
@@ -285,18 +281,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
 
           {/* Right side: notification + user + sign out + hamburger */}
           <div className="flex items-center gap-3 shrink-0">
-            {role === "admin" && (
-              <button
-                onClick={() => setOtpModalOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition shadow-sm"
-                title="View WhatsApp Verification Codes & OTPs"
-              >
-                <KeyRound className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                <span className="hidden sm:inline">WhatsApp OTP</span>
-              </button>
-            )}
 
-            <NotificationBell />
             <span className="hidden sm:block text-sm text-zinc-600 dark:text-zinc-400">
               {user.name}{" "}
               <span className="text-xs font-semibold">
@@ -585,12 +570,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
         </div>
       )}
 
-      {role === "admin" && (
-        <WhatsAppOtpModal
-          isOpen={otpModalOpen}
-          onClose={() => setOtpModalOpen(false)}
-        />
-      )}
+
     </nav>
   );
 }
