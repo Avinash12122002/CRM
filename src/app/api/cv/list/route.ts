@@ -4,6 +4,8 @@ import { verifyToken } from "@/lib/auth";
 
 export interface CandidateDocFile {
   id?: string;
+  fileKey?: string;
+  isViewed?: boolean;
   fileName: string;
   sizeBytes?: number;
   mimeType?: string;
@@ -198,6 +200,26 @@ export async function GET(req: NextRequest) {
     // Sort folders by total files descending
     foldersArray.sort((a, b) => b.totalFiles - a.totalFiles);
 
+    // Fetch viewed records for this admin user
+    const viewedRecords = await db
+      .collection("cv_viewed_records")
+      .find({ userId: payload.id })
+      .project({ fileKey: 1 })
+      .toArray();
+    const viewedKeysSet = new Set(viewedRecords.map((r: any) => String(r.fileKey)));
+
+    let unreadCount = 0;
+    for (const folder of foldersArray) {
+      for (const file of folder.files) {
+        const fileKey = String(file.id || `${folder.phone}_${file.fileName}`);
+        file.fileKey = fileKey;
+        file.isViewed = viewedKeysSet.has(fileKey);
+        if (!file.isViewed) {
+          unreadCount++;
+        }
+      }
+    }
+
     const totalDocuments = foldersArray.reduce((acc, f) => acc + f.totalFiles, 0);
 
     return NextResponse.json({
@@ -205,6 +227,7 @@ export async function GET(req: NextRequest) {
       rootName: "cv",
       totalCandidates: foldersArray.length,
       totalDocuments,
+      unreadCount,
       folders: foldersArray,
     });
   } catch (err) {

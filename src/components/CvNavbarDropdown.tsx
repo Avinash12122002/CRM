@@ -17,10 +17,13 @@ import {
   ChevronDown,
   X,
   ExternalLink,
+  CheckCheck,
 } from "lucide-react";
 
 interface DocFile {
   id?: string;
+  fileKey?: string;
+  isViewed?: boolean;
   fileName: string;
   sizeBytes?: number;
   mimeType?: string;
@@ -44,6 +47,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [folders, setFolders] = useState<CandidateFolder[]>([]);
   const [loading, setLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [search, setSearch] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [previewFile, setPreviewFile] = useState<DocFile | null>(null);
@@ -56,25 +60,47 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     setMounted(true);
   }, []);
 
-  const fetchFolders = async () => {
-    setLoading(true);
+  const fetchFolders = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const res = await fetch("/api/cv/list");
       if (res.ok) {
         const data = await res.json();
         const list: CandidateFolder[] = Array.isArray(data?.folders) ? data.folders : [];
         setFolders(list);
-        setExpandedFolders(new Set(list.map((f) => String(f?.phone || "")).filter(Boolean)));
+        setExpandedFolders((prev) => {
+          if (prev.size === 0) {
+            return new Set(list.map((f) => String(f?.phone || "")).filter(Boolean));
+          }
+          return prev;
+        });
+
+        if (typeof data.unreadCount === "number") {
+          setUnreadCount(data.unreadCount);
+        } else {
+          let count = 0;
+          for (const f of list) {
+            for (const file of f.files || []) {
+              if (!file.isViewed) count++;
+            }
+          }
+          setUnreadCount(count);
+        }
       }
     } catch (err) {
       console.error("Failed to load CVs in navbar:", err);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
+  // Poll for new documents every 10 seconds (just like notification bell)
   useEffect(() => {
-    fetchFolders();
+    fetchFolders(true);
+    const interval = setInterval(() => {
+      fetchFolders(false);
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Calculate dropdown coordinates relative to trigger button
@@ -134,6 +160,68 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     };
   }, [isOpen]);
 
+  // Mark single document as viewed (decreases unread badge count)
+  const markAsViewed = async (file: DocFile) => {
+    const key = file.fileKey || file.id || `${file.fileName}`;
+    if (!key) return;
+
+    if (file.isViewed) return;
+
+    // Optimistically mark as viewed and decrement unread badge count
+    setFolders((prevFolders) =>
+      prevFolders.map((folder) => ({
+        ...folder,
+        files: (folder.files || []).map((f) => {
+          const fKey = f.fileKey || f.id || `${f.fileName}`;
+          if (fKey === key) {
+            return { ...f, isViewed: true };
+          }
+          return f;
+        }),
+      }))
+    );
+
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    // Save to backend
+    try {
+      await fetch("/api/cv/viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileKey: key }),
+      });
+    } catch (err) {
+      console.error("Failed to mark document viewed on server:", err);
+    }
+  };
+
+  // Mark all documents as viewed
+  const markAllAsViewed = async () => {
+    const allKeys: string[] = [];
+    setFolders((prevFolders) =>
+      prevFolders.map((folder) => ({
+        ...folder,
+        files: (folder.files || []).map((f) => {
+          const fKey = f.fileKey || f.id || `${f.fileName}`;
+          if (fKey) allKeys.push(fKey);
+          return { ...f, isViewed: true };
+        }),
+      }))
+    );
+
+    setUnreadCount(0);
+
+    try {
+      await fetch("/api/cv/viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAll: true, fileKeys: allKeys }),
+      });
+    } catch (err) {
+      console.error("Failed to mark all documents viewed:", err);
+    }
+  };
+
   const toggleFolder = (phone?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!phone) return;
@@ -145,7 +233,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     });
   };
 
-  // 100% null-safe filtering: will never throw on null/undefined candidateName, phone, or files
+  // 100% null-safe filtering
   const filteredFolders = (folders || [])
     .map((folder) => {
       if (!folder) return null;
@@ -202,25 +290,28 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
           setIsOpen((prev) => {
             const next = !prev;
             if (next) {
-              fetchFolders();
+              fetchFolders(true);
               setTimeout(updateCoords, 0);
             }
             return next;
           });
         }}
-        className={`inline-flex items-center gap-1 px-1.5 py-1 text-[12px] font-medium whitespace-nowrap transition-colors rounded-md ${
+        className={`relative inline-flex items-center gap-1.5 px-2 py-1 text-[12px] font-medium whitespace-nowrap transition-colors rounded-md ${
           isOpen || isActive
             ? "border-b-2 border-foreground text-zinc-900 dark:text-zinc-100 font-semibold"
             : "border-b-2 border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:border-zinc-300"
         }`}
-        title="View Candidate CVs & Documents (Admin Only)"
+        title="Candidate CVs & Documents (Admin Only)"
       >
         <span>CV</span>
-        {totalFiles > 0 && (
-          <span className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold px-1.5 py-0.2 rounded-full border border-emerald-500/20">
-            {totalFiles}
+
+        {/* Dynamic Unread Badge — Increases on new files, Decreases on view/download */}
+        {unreadCount > 0 && (
+          <span className="bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center leading-none shadow-xs animate-in zoom-in duration-150">
+            {unreadCount > 99 ? "99+" : unreadCount}
           </span>
         )}
+
         <ChevronDown
           className={`w-3 h-3 text-zinc-400 transition-transform duration-150 ${
             isOpen ? "rotate-180 text-emerald-500" : ""
@@ -249,11 +340,27 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
               <span className="text-[11px] font-sans text-zinc-400">
                 ({folders.length} candidates &bull; {totalFiles} docs)
               </span>
+              {unreadCount > 0 && (
+                <span className="bg-red-500/15 text-red-500 text-[10px] font-semibold px-1.5 py-0.5 rounded font-sans border border-red-500/20">
+                  {unreadCount} new
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1 font-sans">
+              {unreadCount > 0 && (
+                <button
+                  type="button"
+                  onClick={markAllAsViewed}
+                  className="px-2 py-0.5 text-[11px] rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1 transition"
+                  title="Mark all documents as viewed"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Mark all read</span>
+                </button>
+              )}
               <button
                 type="button"
-                onClick={fetchFolders}
+                onClick={() => fetchFolders(true)}
                 disabled={loading}
                 className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
                 title="Refresh candidate files"
@@ -301,6 +408,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                 const isExpanded = expandedFolders.has(phoneKey);
                 const isLastFolder = fIdx === filteredFolders.length - 1;
                 const fileList = Array.isArray(folder?.files) ? folder.files : [];
+                const folderUnread = fileList.filter((f) => !f.isViewed).length;
 
                 return (
                   <div key={phoneKey} className="space-y-1">
@@ -326,7 +434,12 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {folderUnread > 0 && (
+                          <span className="bg-red-500 text-white text-[9px] font-bold px-1 py-0.2 rounded-full font-sans">
+                            {folderUnread}
+                          </span>
+                        )}
                         <span className="text-[10px] text-zinc-400 font-sans">
                           {fileList.length}
                         </span>
@@ -344,20 +457,36 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                         {fileList.map((file, fileIdx) => {
                           const isLastFile = fileIdx === fileList.length - 1;
                           const fileName = String(file?.fileName || "document.pdf");
+                          const isUnread = !file.isViewed;
 
                           return (
                             <div
                               key={fileIdx}
-                              className="group/file flex items-center justify-between p-1.5 rounded-md hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition text-[11px]"
+                              className={`group/file flex items-center justify-between p-1.5 rounded-md transition text-[11px] ${
+                                isUnread
+                                  ? "bg-red-500/5 hover:bg-red-500/10 border-l-2 border-red-500 pl-2"
+                                  : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                              }`}
                             >
-                              <div className="flex items-center gap-1.5 truncate max-w-[240px]">
+                              <div className="flex items-center gap-1.5 truncate max-w-[230px]">
                                 <span className="text-zinc-400 select-none">
                                   {isLastFile ? "└──" : "├──"}
                                 </span>
                                 {getFileIcon(fileName, file?.mimeType)}
-                                <span className="text-zinc-700 dark:text-zinc-300 truncate font-medium">
+                                <span
+                                  className={`truncate font-medium ${
+                                    isUnread
+                                      ? "text-zinc-900 dark:text-zinc-100 font-semibold"
+                                      : "text-zinc-700 dark:text-zinc-300"
+                                  }`}
+                                >
                                   {fileName}
                                 </span>
+                                {isUnread && (
+                                  <span className="shrink-0 px-1 py-0.2 text-[9px] font-bold uppercase rounded bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 font-sans">
+                                    NEW
+                                  </span>
+                                )}
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0 font-sans">
@@ -370,21 +499,25 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    markAsViewed(file);
                                     setPreviewFile(file);
                                   }}
                                   className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
-                                  title="Instant Preview"
+                                  title="Instant Preview (Marks as viewed)"
                                 >
                                   <Eye className="w-3 h-3" />
                                 </button>
                                 <a
                                   href={file?.downloadUrl || file?.url || "#"}
                                   download={fileName}
-                                  onClick={(e) => e.stopPropagation()}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    markAsViewed(file);
+                                  }}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="p-1 rounded text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
-                                  title="Download File"
+                                  title="Download File (Marks as viewed)"
                                 >
                                   <Download className="w-3 h-3" />
                                 </a>
@@ -437,6 +570,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                 <a
                   href={previewFile.downloadUrl || previewFile.url || "#"}
                   download={String(previewFile.fileName || "document")}
+                  onClick={() => markAsViewed(previewFile)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition"
@@ -481,6 +615,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                   <a
                     href={previewFile.downloadUrl || previewFile.url || "#"}
                     download={String(previewFile.fileName || "document")}
+                    onClick={() => markAsViewed(previewFile)}
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium"
                   >
                     <Download className="w-3 h-3" /> Download to view

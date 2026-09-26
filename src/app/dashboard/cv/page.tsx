@@ -25,6 +25,8 @@ import {
 
 interface DocFile {
   id?: string;
+  fileKey?: string;
+  isViewed?: boolean;
   fileName: string;
   sizeBytes?: number;
   mimeType?: string;
@@ -130,6 +132,29 @@ export default function CandidateCvExplorerPage() {
   // Expand / Collapse all
   const expandAll = () => {
     setExpandedFolders(new Set(folders.map((f) => f.phone)));
+  };
+
+  // Mark document as viewed
+  const markAsViewed = async (file: DocFile) => {
+    const key = file.fileKey || file.id || `${file.fileName}`;
+    if (!key || file.isViewed) return;
+    try {
+      await fetch("/api/cv/viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileKey: key }),
+      });
+      setFolders((prev) =>
+        prev.map((f) => ({
+          ...f,
+          files: (f.files || []).map((item) =>
+            (item.fileKey || item.id || item.fileName) === key
+              ? { ...item, isViewed: true }
+              : item
+          ),
+        }))
+      );
+    } catch {}
   };
 
   const collapseAll = () => {
@@ -419,7 +444,10 @@ export default function CandidateCvExplorerPage() {
                               {/* Action Buttons: Preview & Download */}
                               <div className="flex items-center gap-1.5 font-sans shrink-0">
                                 <button
-                                  onClick={() => setPreviewFile(file)}
+                                  onClick={() => {
+                                    markAsViewed(file);
+                                    setPreviewFile(file);
+                                  }}
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-medium transition"
                                   title="Preview Document"
                                 >
@@ -430,6 +458,7 @@ export default function CandidateCvExplorerPage() {
                                 <a
                                   href={file.downloadUrl}
                                   download={file.fileName}
+                                  onClick={() => markAsViewed(file)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition shadow-xs"
