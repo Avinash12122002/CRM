@@ -3,10 +3,14 @@ export type WhatsAppStep =
   | "AWAITING_EMAIL"
   | "SENDING_INFO_SEQUENCE"
   | "VIDEO_SENT_AWAITING_INTEREST"
+  | "AWAITING_CONSULTATION_DECISION"
   | "SELECTING_DAY"
   | "SELECTING_SLOT"
   | "BOOKED"
   | "MEETING_COMPLETED"
+  | "AWAITING_CV"
+  | "RESCHEDULING_DATE"
+  | "RESCHEDULING_SLOT"
   | "AWAITING_REENGAGEMENT"
   | "COLD"
   | "OPTED_OUT";
@@ -51,6 +55,11 @@ export interface WhatsAppSession {
   lastFollowupSentAt?: Date;
   nextFollowupAt?: Date;
   videoSentAt?: Date;
+  consultationPromptDueAt?: Date;
+  infoEmailSentAt?: Date;
+  cvReceivedAt?: Date;
+  cvFileUrl?: string;
+  cvFileName?: string;
 
   // Candidate Qualifications & Profiling
   occupation?: string; // Extracted or CRM occupation

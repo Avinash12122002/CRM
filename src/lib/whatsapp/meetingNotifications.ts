@@ -24,13 +24,8 @@ export async function sendMeetingCompletedNotification(params: {
   const candidateName = lead.name && !lead.name.toLowerCase().includes("test") ? lead.name : "there";
 
   const messageText =
-    `Hello ${candidateName}! 👋\n\n` +
-    `Thank you for attending your 1-on-1 Australian Visa consultation with our senior expert! 🇦🇺\n\n` +
-    `✅ *Status: Consultation Completed*\n` +
-    `📋 *Next Steps:*\n` +
-    `• Our compliance team is preparing your profile evaluation & agreement.\n` +
-    `• Official documents will be sent to your registered email shortly.\n\n` +
-    `If you have any questions about your Subclass 482 visa pathway, feel free to reply right here! ✈️`;
+    `Thanks for attending the meeting to initiate the process for Australia employer-sponsored work visa! 🇦🇺\n\n` +
+    `Please send your CV / Resume here in PDF or Word document format. 📄`;
 
   try {
     await sendTextMessage(cleanPhone, messageText);
@@ -38,7 +33,7 @@ export async function sendMeetingCompletedNotification(params: {
     console.warn(`[WhatsApp] Failed to dispatch meeting completed message to +${cleanPhone}:`, err);
   }
 
-  // Sync whatsapp_sessions record so Aria / AI knows consultation is completed
+  // Sync whatsapp_sessions record
   try {
     const now = new Date();
     await db.collection("whatsapp_sessions").updateOne(
@@ -48,7 +43,9 @@ export async function sendMeetingCompletedNotification(params: {
           meetingStatus: "completed",
           meetingCompleted: true,
           meetingCompletedAt: now,
-          currentStep: "MEETING_COMPLETED",
+          currentStep: "AWAITING_CV",
+          followupCount: 0,
+          nextFollowupAt: new Date(Date.now() + 24 * 3600 * 1000),
           updatedAt: now,
         },
         $push: {
@@ -67,7 +64,6 @@ export async function sendMeetingCompletedNotification(params: {
 
 /**
  * Sends an automated WhatsApp confirmation when a consultation meeting is cancelled.
- * Kept strictly under 500 characters, polished and complete without truncation.
  */
 export async function sendMeetingCancelledNotification(params: {
   db: Db;
@@ -85,26 +81,46 @@ export async function sendMeetingCancelledNotification(params: {
   const cleanPhone = String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "");
   if (cleanPhone.length < 8) return;
 
-  const candidateName = lead.name && !lead.name.toLowerCase().includes("test") ? lead.name : "there";
-
   const messageText =
-    `Hello ${candidateName}! 👋\n\n` +
-    `Your 1-on-1 Australian Visa consultation has been cancelled. ℹ️\n\n` +
-    `Please reschedule your session for an upcoming weekend (Saturdays & Sundays, 01:00 PM – 09:00 PM IST) so our team can evaluate your Australia Subclass 482 visa file!\n\n` +
-    `👉 Tap below to choose an available time slot:`;
+    `Unfortunately your consultation meeting could not take place with us today.\n\n` +
+    `Please reschedule your meeting with us by choosing an available date below:`;
 
   try {
-    const btnRes = await sendQuickReplyButtons(cleanPhone, messageText, [
-      { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
-    ]);
-    if (!btnRes.success) {
-      await sendTextMessage(cleanPhone, messageText);
+    const { getUpcomingWeekendDays } = await import("./slots");
+    const { sendInteractiveList } = await import("./client");
+    const weekends = getUpcomingWeekendDays(10);
+    const isIndia = cleanPhone.startsWith("91");
+    const sections = [
+      {
+        title: "Select Weekend Date",
+        rows: weekends.slice(0, 10).map((w) => ({
+          id: `DAY_DATE_${w.date}`,
+          title: w.displayLabel.slice(0, 24),
+          description: isIndia ? `${w.dayName} · 1 PM - 9 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
+        })),
+      },
+    ];
+
+    const listRes = await sendInteractiveList(
+      cleanPhone,
+      "Reschedule Consultation",
+      messageText,
+      "Select Date",
+      sections
+    );
+    if (!listRes.success) {
+      const btnRes = await sendQuickReplyButtons(cleanPhone, messageText, [
+        { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
+      ]);
+      if (!btnRes.success) {
+        await sendTextMessage(cleanPhone, messageText);
+      }
     }
   } catch (err) {
     console.warn(`[WhatsApp] Failed to dispatch meeting cancelled message to +${cleanPhone}:`, err);
   }
 
-  // Sync whatsapp_sessions record so Aria / AI knows consultation is cancelled
+  // Sync whatsapp_sessions record so state machine knows to track rescheduling
   try {
     const now = new Date();
     await db.collection("whatsapp_sessions").updateOne(
@@ -114,7 +130,9 @@ export async function sendMeetingCancelledNotification(params: {
           meetingStatus: "canceled",
           meetingCanceledAt: now,
           bookedSlot: null,
-          currentStep: "AWAITING_REENGAGEMENT",
+          currentStep: "RESCHEDULING_DATE",
+          followupCount: 0,
+          nextFollowupAt: new Date(Date.now() + 24 * 3600 * 1000),
           updatedAt: now,
         },
         $push: {

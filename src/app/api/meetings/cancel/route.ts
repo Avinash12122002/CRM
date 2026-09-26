@@ -73,9 +73,7 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
     };
 
-    if (isMeetingRole) {
-      cancelSet.status = "meeting-reschedule";
-    }
+    cancelSet.status = "meeting-rescheduled";
 
     await db.collection(collectionName).updateOne(
       { id: leadId },

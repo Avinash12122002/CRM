@@ -232,38 +232,26 @@ export async function handleIncomingWhatsAppMedia(params: {
       console.warn("[WhatsApp Media] Failed to create in-app notification:", notifErr);
     }
 
+    // Update session in whatsapp_sessions
+    await db.collection("whatsapp_sessions").updateOne(
+      { phone: cleanPhone },
+      {
+        $set: {
+          cvReceivedAt: now,
+          cvFileUrl: fileUrl,
+          cvFileName: finalFilename,
+          currentStep: "MEETING_COMPLETED",
+          updatedAt: now,
+        },
+      }
+    );
+
     // 6. Send Automated Confirmation Reply back to the Candidate on WhatsApp
-    const session = (await db
-      .collection("whatsapp_sessions")
-      .findOne({ phone: cleanPhone })) as unknown as WhatsAppSession | null;
+    const cvReceivedMsg =
+      `Thanks for sharing your CV with us! Our review team is reviewing your qualification and job availability according to your work experience.\n\n` +
+      `Our team expects to call you from an Australian number shortly. 🇦🇺📞`;
 
-    const candidateDisplayName =
-      session?.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
-        ? session.name
-        : senderName && senderName !== "Candidate"
-        ? senderName
-        : "there";
-
-    if (session?.bookedSlot) {
-      const confirmedMsg =
-        `Hello ${candidateDisplayName}! 👋\n\n` +
-        `Thank you for sharing your ${mediaType === "document" ? "CV / document" : "file"} (*${finalFilename}*). 📄✅\n\n` +
-        `We have attached it to your candidate profile for Australia Subclass 482 visa assessment.\n\n` +
-        `Our senior expert will review your profile during your confirmed consultation on **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**. See you soon! 🇦🇺`;
-
-      await sendTextMessage(cleanPhone, confirmedMsg);
-    } else {
-      const promptBookingMsg =
-        `Hello ${candidateDisplayName}! 👋\n\n` +
-        `Thank you for sharing your ${mediaType === "document" ? "CV / document" : "file"} (*${finalFilename}*). 📄✅\n\n` +
-        `We have safely saved your document to your candidate profile for Australia Subclass 482 visa evaluation!\n\n` +
-        `👉 To have your profile evaluated 1-on-1 by our senior visa expert, please book a free weekend consultation below:`;
-
-      await sendQuickReplyButtons(cleanPhone, promptBookingMsg, [
-        { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-        { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
-      ]);
-    }
+    await sendTextMessage(cleanPhone, cvReceivedMsg);
 
     return {
       success: true,

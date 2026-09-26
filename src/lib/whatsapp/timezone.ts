@@ -299,6 +299,22 @@ export function convertIstSlotToCandidateTime(
 }
 
 /**
+ * Converts 24h time string like "13:00" to 12h format like "01:00 PM"
+ */
+export function format12hTime(time24: string): string {
+  if (!time24) return "";
+  const parts = time24.split(":");
+  let h = parseInt(parts[0], 10);
+  if (isNaN(h)) return time24;
+  const m = parts[1] || "00";
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  h = h ? h : 12;
+  const hFormatted = h < 10 ? `0${h}` : `${h}`;
+  return `${hFormatted}:${m} ${ampm}`;
+}
+
+/**
  * Extracts short timezone code like "WAT", "GST", "IST", "EAT", "GMT" from label e.g. "Nigeria Time (WAT)"
  */
 export function extractShortTimezone(label: string): string {

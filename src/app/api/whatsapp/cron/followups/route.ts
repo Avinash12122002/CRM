@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { WhatsAppSession } from "@/lib/whatsapp/types";
-import { updateSession, getStaticGoogleMeetLink } from "@/lib/whatsapp/stateMachine";
+import { updateSession, getStaticGoogleMeetLink, sendConsultationBookingPrompt } from "@/lib/whatsapp/stateMachine";
 import { sendQuickReplyButtons, sendTextMessage } from "@/lib/whatsapp/client";
-import { formatDateInZone } from "@/lib/whatsapp/timezone";
+import { formatDateInZone, format12hTime } from "@/lib/whatsapp/timezone";
+import { STEP_FOLLOWUP_MESSAGES } from "@/lib/whatsapp/followupTemplates";
 
 /**
  * GET /api/whatsapp/cron/followups
  * Runs automated background tasks:
- * 1. 6-Day Re-engagement cycle (Day 2, Day 4, Day 6) for candidates who said "No" or went silent.
- * 2. Post-Meeting Payment follow-ups (every 2 days) for completed consultations awaiting payment.
- * 3. 1-Hour Pre-Meeting reminders with static Google Meet link.
+ * 1. 7-Day Follow-Up Sequence (Day 1 to Day 7 distinct messages) across all 7 steps.
+ * 2. 10-Minute Consultation Prompt for candidates who received the video.
+ * 3. 1-Hour Pre-Meeting reminders with static Google Meet link and strict 12-hour AM/PM time.
  */
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -29,150 +30,130 @@ export async function GET(req: NextRequest) {
     const results: Array<Record<string, unknown>> = [];
 
     // =========================================================================
-    // 1. Re-engagement Loop (Every 2 days for 6 days -> max 3 reminders)
+    // 0. Delayed 10-Minute Consultation Prompt (if timer did not fire)
     // =========================================================================
-    const reengagementSessions = (await db
+    const dueConsultationSessions = (await db
+      .collection("whatsapp_sessions")
+      .find({
+        currentStep: "AWAITING_CONSULTATION_DECISION",
+        consultationPromptDueAt: { $lte: now },
+        bookedSlot: { $exists: false },
+      })
+      .toArray()) as unknown as WhatsAppSession[];
+
+    for (const session of dueConsultationSessions) {
+      try {
+        await sendConsultationBookingPrompt(session.phone);
+        await updateSession(db, session.phone, {
+          consultationPromptDueAt: undefined, // Clear so not repeated
+          updatedAt: now,
+        });
+        results.push({ phone: session.phone, type: "consultation_prompt_10min" });
+      } catch (promptErr) {
+        console.warn(`[Cron] Failed to send 10-min prompt to ${session.phone}:`, promptErr);
+      }
+    }
+
+    // =========================================================================
+    // 1. 7-Day Follow-Up Engine (Day 1 to Day 7 distinct messages per step)
+    // =========================================================================
+    const activeFollowupSessions = (await db
       .collection("whatsapp_sessions")
       .find({
         currentStep: {
           $in: [
             "WELCOME",
-            "AWAITING_REENGAGEMENT",
-            "VIDEO_SENT_AWAITING_INTEREST",
             "AWAITING_EMAIL",
+            "VIDEO_SENT_AWAITING_INTEREST",
+            "AWAITING_CONSULTATION_DECISION",
             "SELECTING_DAY",
             "SELECTING_SLOT",
+            "AWAITING_CV",
+            "RESCHEDULING_DATE",
+            "RESCHEDULING_SLOT",
+            "AWAITING_REENGAGEMENT",
           ],
         },
         nextFollowupAt: { $lte: now },
-        followupCount: { $lt: 3 }, // Day 2, Day 4, Day 6
+        followupCount: { $lt: 7 }, // Stops strictly after 7 days
       })
       .toArray()) as unknown as WhatsAppSession[];
 
-    for (const session of reengagementSessions) {
+    for (const session of activeFollowupSessions) {
       const currentCount = session.followupCount || 0;
-      const nextCount = currentCount + 1;
+      const targetDay = currentCount + 1; // 1 to 7
 
-      if (nextCount === 1) {
-        // Day 2 Reminder
-        const isIndia = session.countryCode === "IN";
-        const timePrompt = isIndia
-          ? `between 01:00 PM and 09:00 PM IST`
-          : `in your local time (${session.timeZoneLabel})`;
-
-        const msg =
-          session.currentStep === "WELCOME"
-            ? `Hi ${session.name || "there"}! 👋 We noticed you recently reached out to The Migration School (TMS Visa) 🇦🇺.\n\n` +
-              `We assist skilled professionals with Australia Subclass 482 Employer-Sponsored Work Visas. Are you interested in checking your visa eligibility?`
-            : `Hi ${session.name || "there"}! 👋 Just checking in to see if you had a chance to review our **Australia Subclass 482 Work Visa** overview.\n\n` +
-              `Our senior consultant is conducting free 1-on-1 profile evaluations this weekend ${timePrompt}. Would you like to reserve a 1-hour slot?`;
-
-        const buttons =
-          session.currentStep === "WELCOME"
-            ? [
-                { id: "BTN_482_YES", title: "Yes, Interested" },
-                { id: "BTN_482_NO", title: "Not Right Now" },
-              ]
-            : [
-                { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-                { id: "BTN_CONSULT_NO", title: "Not Right Now" },
-              ];
-
-        await sendQuickReplyButtons(session.phone, msg, buttons);
-
+      if (targetDay > 7) {
+        // Capped after 7 days -> mark cold and do not message further
         await updateSession(db, session.phone, {
-          followupCount: 1,
-          lastFollowupSentAt: now,
-          nextFollowupAt: new Date(Date.now() + 48 * 3600 * 1000), // Day 4
-        });
-
-        results.push({ phone: session.phone, type: "reengagement_day_2" });
-      } else if (nextCount === 2) {
-        // Day 4 Reminder
-        const msg =
-          `Hello ${session.name || "there"}! Australia 482 employer sponsorship slots are filling up for this weekend.\n\n` +
-          `If you have 2+ years of work experience and want to assess your visa eligibility, tap below to book:`;
-
-        await sendQuickReplyButtons(session.phone, msg, [
-          { id: "BTN_CONSULT_YES", title: "Reserve Slot" },
-          { id: "BTN_CONSULT_NO", title: "Maybe Later" },
-        ]);
-
-        await updateSession(db, session.phone, {
-          followupCount: 2,
-          lastFollowupSentAt: now,
-          nextFollowupAt: new Date(Date.now() + 48 * 3600 * 1000), // Day 6
-        });
-
-        results.push({ phone: session.phone, type: "reengagement_day_4" });
-      } else if (nextCount === 3) {
-        // Day 6 (Final Reminder)
-        const msg =
-          `Hello ${session.name || "there"}! This is our final check-in regarding your Australian work visa inquiry with The Migration School 🇦🇺.\n\n` +
-          `If you'd like our migration team to evaluate your profile, please book your session today. Otherwise, we will archive your inquiry file.`;
-
-        await sendQuickReplyButtons(session.phone, msg, [
-          { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-          { id: "BTN_482_NO", title: "Close My File" },
-        ]);
-
-        await updateSession(db, session.phone, {
-          followupCount: 3,
-          lastFollowupSentAt: now,
           currentStep: "COLD",
+          followupCount: 7,
+          updatedAt: now,
+        });
+        continue;
+      }
+
+      // Map session step to template key
+      let templateKey = "STEP_1_WELCOME";
+      if (session.currentStep === "AWAITING_EMAIL") {
+        templateKey = "STEP_2_EMAIL";
+      } else if (
+        session.currentStep === "AWAITING_CONSULTATION_DECISION" ||
+        session.currentStep === "VIDEO_SENT_AWAITING_INTEREST"
+      ) {
+        templateKey = "STEP_3_CONSULTATION";
+      } else if (session.currentStep === "SELECTING_DAY") {
+        templateKey = "STEP_4_DATE";
+      } else if (session.currentStep === "SELECTING_SLOT") {
+        templateKey = "STEP_4_SLOT";
+      } else if (session.currentStep === "AWAITING_CV") {
+        templateKey = "STEP_6_CV";
+      } else if (
+        session.currentStep === "RESCHEDULING_DATE" ||
+        session.currentStep === "RESCHEDULING_SLOT" ||
+        (session.currentStep === "AWAITING_REENGAGEMENT" && session.meetingStatus === "canceled")
+      ) {
+        templateKey = "STEP_7_RESCHEDULE";
+      }
+
+      const templates = STEP_FOLLOWUP_MESSAGES[templateKey] || STEP_FOLLOWUP_MESSAGES["STEP_1_WELCOME"];
+      const dayTemplate = templates.find((t) => t.day === targetDay) || templates[templates.length - 1];
+
+      try {
+        if (dayTemplate.buttons && dayTemplate.buttons.length > 0) {
+          const btnRes = await sendQuickReplyButtons(session.phone, dayTemplate.message, dayTemplate.buttons);
+          if (!btnRes.success) {
+            await sendTextMessage(session.phone, dayTemplate.message);
+          }
+        } else {
+          await sendTextMessage(session.phone, dayTemplate.message);
+        }
+
+        // Schedule next reminder for tomorrow (24 hours), or mark COLD if day 7 reached
+        const isFinalDay = targetDay >= 7;
+        const nextFollowup = isFinalDay ? undefined : new Date(Date.now() + 24 * 3600 * 1000);
+
+        await updateSession(db, session.phone, {
+          followupCount: targetDay,
+          lastFollowupSentAt: now,
+          nextFollowupAt: nextFollowup,
+          ...(isFinalDay ? { currentStep: "COLD" } : {}),
         });
 
-        results.push({ phone: session.phone, type: "reengagement_day_6_final" });
+        results.push({
+          phone: session.phone,
+          step: session.currentStep,
+          templateKey,
+          day: targetDay,
+        });
+      } catch (sendErr) {
+        console.warn(`[Cron] Follow-up failed for +${session.phone} (Day ${targetDay}):`, sendErr);
       }
     }
 
     // =========================================================================
-    // 2. Post-Meeting Payment Follow-up Loop (Every 2 days for unpaid clients)
+    // 2. 1-Hour Pre-Meeting Reminder (Strict 12-Hour AM/PM format)
     // =========================================================================
-    // Find leads where meeting completed by Abhay, but payment is pending
-    const unpaidLeads = await db
-      .collection("leads")
-      .find({
-        $or: [
-          { meetingStatus: "completed", status: { $in: ["follow-up", "payment-pending", "document-pending"] } },
-          { status: "payment-pending" },
-        ],
-      })
-      .toArray();
-
-    for (const lead of unpaidLeads) {
-      if (!lead.phone) continue;
-      const cleanPhone = String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "");
-      const session = (await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone })) as unknown as WhatsAppSession | null;
-
-      if (session) {
-        const lastSent = session.lastFollowupSentAt ? new Date(session.lastFollowupSentAt).getTime() : 0;
-        const daysSinceLast = (now.getTime() - lastSent) / (1000 * 3600 * 24);
-
-        // Send every 2 days
-        if (daysSinceLast >= 2) {
-          const paymentMsg =
-            `Hello ${lead.name || "there"}! 👋 Hope you had a productive consultation regarding your Australia Subclass 482 Work Visa.\n\n` +
-            `This is a gentle reminder regarding your enrollment and onboarding steps to initiate employer nomination matching. If you have questions about the agreement or payment details, simply reply here and our team will assist you! 🇦🇺`;
-
-          await sendTextMessage(cleanPhone, paymentMsg);
-
-          await updateSession(db, cleanPhone, {
-            meetingCompleted: true,
-            paymentPending: true,
-            paymentFollowupCount: (session.paymentFollowupCount || 0) + 1,
-            lastFollowupSentAt: now,
-          });
-
-          results.push({ phone: cleanPhone, type: "post_meeting_payment_reminder" });
-        }
-      }
-    }
-
-    // =========================================================================
-    // 3. 1-Hour Pre-Meeting Reminder
-    // =========================================================================
-    // Find meetings starting in the next 60 minutes (queried in Indian Standard Time)
     const todayISO = formatDateInZone(now, "Asia/Kolkata");
     const upcomingSlots = await db
       .collection("meetingSlots")
@@ -190,13 +171,16 @@ export async function GET(req: NextRequest) {
 
       // Within 1 hour (between 0 and 65 minutes away)
       if (diffMinutes > 0 && diffMinutes <= 65) {
+        const ist12h = format12hTime(slot.startTime);
+        const candTime12h = slot.candidateLocalTime ? format12hTime(slot.candidateLocalTime) : ist12h;
+
         const reminderMsg =
-          `⏰ **Meeting Reminder: 1 Hour Left!**\n\n` +
-          `Hi! Your 1-on-1 Australia 482 Visa consultation starts in 1 hour!\n\n` +
-          `⏰ **Your Time:** ${slot.candidateLocalTime || slot.startTime}\n` +
-          `🇮🇳 **India Time:** ${slot.startTime} IST\n\n` +
-          `🔗 **Join via Google Meet:**\n${meetLink}\n\n` +
-          `Please have your resume/CV ready. See you shortly! 🇦🇺`;
+          `⏰ *Reminder: Your Australian Visa Consultation is in 1 Hour!*\n\n` +
+          `📅 *Date:* ${slot.meetingDate}\n` +
+          `⏰ *Time:* ${candTime12h} (${slot.candidateTimezone || "Local"})\n` +
+          `🇮🇳 *India Time:* ${ist12h} IST\n\n` +
+          `🔗 *Google Meet Link:*\n${meetLink}\n\n` +
+          `Our Australian visa specialist is ready to evaluate your Subclass 482 file. Please tap the link to join on time! 🇦🇺`;
 
         await sendTextMessage(slot.phone, reminderMsg);
 

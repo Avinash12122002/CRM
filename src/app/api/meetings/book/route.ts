@@ -115,6 +115,8 @@ export async function POST(req: NextRequest) {
       endDate.getMinutes(),
     ).padStart(2, "0")}`;
 
+    const cleanPhone = lead.phone ? String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "") : "";
+
     const slot = {
       id: slotId,
 
@@ -131,6 +133,9 @@ export async function POST(req: NextRequest) {
       startTime,
       endTime,
 
+      phone: cleanPhone,
+      candidatePhone: cleanPhone,
+
       status: "scheduled",
 
       createdAt: now,
@@ -138,6 +143,58 @@ export async function POST(req: NextRequest) {
     };
 
     await db.collection("meetingSlots").insertOne(slot);
+
+    // Send automated WhatsApp confirmation to candidate
+    if (cleanPhone && cleanPhone.length >= 8) {
+      try {
+        const { sendTextMessage } = await import("@/lib/whatsapp/client");
+        const { format12hTime } = await import("@/lib/whatsapp/timezone");
+        const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp/stateMachine");
+        const meetLink = getStaticGoogleMeetLink();
+        const dateObj = new Date(`${meetingDate}T12:00:00+05:30`);
+        const formattedDate = new Intl.DateTimeFormat("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }).format(dateObj);
+        const time12h = `${format12hTime(startTime)} - ${format12hTime(endTime)} IST`;
+
+        const confirmMsg =
+          `Dear ${lead.name || "Candidate"},\n\n` +
+          `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
+          `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
+          `📅 *Date:* ${formattedDate}\n` +
+          `⏰ *Time:* ${time12h}\n` +
+          `💻 *Google Meet:* ${meetLink}\n\n` +
+          `Please make sure to *join the meeting on time*.\n\n` +
+          `*Best regards,*\n` +
+          `*TMS Visa*`;
+
+        await sendTextMessage(cleanPhone, confirmMsg);
+
+        await db.collection("whatsapp_sessions").updateOne(
+          { phone: cleanPhone },
+          {
+            $set: {
+              currentStep: "BOOKED",
+              meetingStatus: "booked",
+              bookedSlot: {
+                date: meetingDate,
+                candidateTime: startTime,
+                candidateTimeLabel: time12h,
+                istTime: startTime,
+                istTimeLabel: time12h,
+                meetingUserId,
+                meetingUserName: meetingUser.name,
+              },
+              updatedAt: now,
+            },
+          }
+        );
+      } catch (waErr) {
+        console.warn("Could not dispatch WhatsApp confirmation on book:", waErr);
+      }
+    }
 
    await db.collection("leads").updateOne(
   {

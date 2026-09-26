@@ -111,6 +111,8 @@ export async function POST(req: NextRequest) {
       leadId,
     });
 
+    const cleanPhone = lead.phone ? String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "") : "";
+
     await db.collection("meetingSlots").insertOne({
       leadId,
 
@@ -121,6 +123,9 @@ export async function POST(req: NextRequest) {
       startTime,
       endTime,
 
+      phone: cleanPhone,
+      candidatePhone: cleanPhone,
+
       bookedBy: lead.meetingDetails?.bookedBy || payload.id,
       bookedByName: lead.meetingDetails?.bookedByName || payload.name,
 
@@ -129,6 +134,57 @@ export async function POST(req: NextRequest) {
       createdAt: now,
       updatedAt: now,
     });
+
+    // Send automated WhatsApp confirmation to candidate
+    if (cleanPhone && cleanPhone.length >= 8) {
+      try {
+        const { sendTextMessage } = await import("@/lib/whatsapp/client");
+        const { format12hTime } = await import("@/lib/whatsapp/timezone");
+        const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp/stateMachine");
+        const meetLink = getStaticGoogleMeetLink();
+        const dateObj = new Date(`${meetingDate}T12:00:00+05:30`);
+        const formattedDate = new Intl.DateTimeFormat("en-GB", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        }).format(dateObj);
+        const time12h = `${format12hTime(startTime)} - ${format12hTime(endTime)} IST`;
+
+        const reschedMsg =
+          `Dear ${lead.name || "Candidate"},\n\n` +
+          `Your *Australia Subclass 482 Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
+          `📅 *New Date:* ${formattedDate}\n` +
+          `⏰ *New Time:* ${time12h}\n` +
+          `💻 *Google Meet:* ${meetLink}\n\n` +
+          `Please make sure to *join the meeting on time*.\n\n` +
+          `*Best regards,*\n` +
+          `*TMS Visa*`;
+
+        await sendTextMessage(cleanPhone, reschedMsg);
+
+        await db.collection("whatsapp_sessions").updateOne(
+          { phone: cleanPhone },
+          {
+            $set: {
+              currentStep: "BOOKED",
+              meetingStatus: "rescheduled",
+              bookedSlot: {
+                date: meetingDate,
+                candidateTime: startTime,
+                candidateTimeLabel: time12h,
+                istTime: startTime,
+                istTimeLabel: time12h,
+                meetingUserId,
+                meetingUserName: meetingUser.name,
+              },
+              updatedAt: now,
+            },
+          }
+        );
+      } catch (waErr) {
+        console.warn("Could not dispatch WhatsApp confirmation on reschedule:", waErr);
+      }
+    }
 
     const oldMeeting = lead.meetingDetails || null;
 
