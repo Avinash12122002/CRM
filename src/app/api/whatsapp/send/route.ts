@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       $or: [
         { phone: cleanPhone },
         { phone: `+${cleanPhone}` },
-        { phone: { $regex: cleanPhone.slice(-10) } },
+        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
       ],
     });
 
