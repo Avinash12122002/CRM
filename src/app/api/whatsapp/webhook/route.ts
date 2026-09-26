@@ -92,6 +92,35 @@ export async function POST(req: NextRequest) {
       console.warn("[WhatsApp Webhook] Could not save incoming log:", dbLogErr);
     }
 
+    // Handle Document (PDF) and Image uploads from candidate
+    // Saves to folder cv/<candidate_phone_number>/ and public/cv/<candidate_phone_number>/
+    if (msgType === "document" || msgType === "image") {
+      const mediaObj = msgType === "document" ? message.document : message.image;
+      if (mediaObj?.id) {
+        if (!db) {
+          const { connectToDatabase } = await import("@/lib/mongodb");
+          const dbConn = await connectToDatabase();
+          db = dbConn.db;
+        }
+
+        const { handleIncomingWhatsAppMedia } = await import("@/lib/whatsapp/media");
+        await handleIncomingWhatsAppMedia({
+          db,
+          phone,
+          senderName,
+          mediaType: msgType,
+          mediaObj: {
+            id: mediaObj.id,
+            filename: mediaObj.filename,
+            mime_type: mediaObj.mime_type,
+            caption: mediaObj.caption,
+          },
+        });
+
+        return NextResponse.json({ status: "media_processed" }, { status: 200 });
+      }
+    }
+
     // Check if incoming message is an OTP / verification code (e.g. from Instagram, Facebook, Meta)
     const isOtp =
       textBody &&

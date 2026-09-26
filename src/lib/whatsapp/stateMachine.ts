@@ -399,7 +399,7 @@ export async function sendTimedVideoAndProcessGuide(
 
   // 5. Send consultation offer prompt
   const consultationPrompt =
-    `**Would you like to know more about our processes and evaluate your profile live?**\n\n` +
+    `**To know more about the Australia Employer-Sponsored Work Visa and check your eligibility with our live visa expert.**\n\n` +
     `Book a free 1-on-1 video consultation with our senior visa expert this weekend! 📅`;
 
   await sendQuickReplyButtons(phone, consultationPrompt, [
