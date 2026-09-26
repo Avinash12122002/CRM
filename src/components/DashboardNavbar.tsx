@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { KeyRound } from "lucide-react";
 import NotificationBell from "@/components/chat/NotificationBell";
 import WhatsAppOtpModal from "@/components/WhatsAppOtpModal";
+import CvNavbarDropdown from "@/components/CvNavbarDropdown";
 
 type DashboardNavbarProps = {
   user: {
@@ -266,14 +267,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 </Link>
               )}
               {role === "admin" && (
-                <Link
-                  href="/dashboard/cv"
-                  className={deskLinkClass(
-                    isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv/")
-                  )}
-                >
-                  CV
-                </Link>
+                <CvNavbarDropdown isActive={isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")} />
               )}
               {/* All Attendance — admin only */}
               {role === "admin" && (
