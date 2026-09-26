@@ -70,7 +70,70 @@ export async function POST(req: NextRequest) {
       type = "interactive_button";
     }
 
-    // Process through state machine
+    console.log(`[WhatsApp Webhook] Incoming message from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
+
+    // Log message to DB for auditing and debugging
+    let db;
+    try {
+      const { connectToDatabase } = await import("@/lib/mongodb");
+      const dbConn = await connectToDatabase();
+      db = dbConn.db;
+
+      await db.collection("whatsapp_incoming_logs").insertOne({
+        phone,
+        senderName,
+        msgType,
+        textBody,
+        selectedId,
+        rawMessage: message,
+        createdAt: new Date(),
+      });
+    } catch (dbLogErr) {
+      console.warn("[WhatsApp Webhook] Could not save incoming log:", dbLogErr);
+    }
+
+    // Check if incoming message is an OTP / verification code (e.g. from Instagram, Facebook, Meta)
+    const isOtp =
+      textBody &&
+      (/\b(otp|code|verification|verify|confirm|instagram|facebook|meta|security code)\b/i.test(textBody) ||
+        /^\s*(\d{4,8}|[A-Z0-9]{4,8})\s*$/i.test(textBody));
+
+    if (isOtp) {
+      console.log(`🚨 [WHATSAPP OTP / VERIFICATION CODE RECEIVED] From +${phone}: "${textBody}"`);
+
+      if (db) {
+        // Store in dedicated whatsapp_otps collection
+        await db.collection("whatsapp_otps").insertOne({
+          phone,
+          senderName,
+          code: textBody,
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+        });
+
+        // Trigger in-app notification for admin
+        try {
+          const { createNotification } = await import("@/lib/notifications");
+          const adminUsers = await db.collection("users").find({ role: "admin" }).toArray();
+          for (const admin of adminUsers) {
+            await createNotification({
+              userId: admin.id,
+              title: "🔑 WhatsApp OTP / Verification Code Received",
+              message: `Code / Message: "${textBody}" (From: +${phone})`,
+              type: "whatsapp_otp",
+              link: "/dashboard",
+            });
+          }
+        } catch (notifErr) {
+          console.warn("[WhatsApp Webhook] Could not dispatch OTP notification:", notifErr);
+        }
+      }
+
+      // Return immediately so this OTP message does not trigger the candidate visa booking flow
+      return NextResponse.json({ status: "otp_received", message: textBody }, { status: 200 });
+    }
+
+    // Process regular messages through candidate state machine
     await processIncomingWhatsAppMessage({
       phone,
       senderName,
