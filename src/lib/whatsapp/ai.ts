@@ -80,6 +80,17 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
 `;
   }
 
+  const LENGTH_DIRECTIVE = `
+CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
+- Target length: STRICTLY UNDER 500 CHARACTERS total (approx. 60–80 words).
+- DO NOT cut off or leave sentences incomplete! Always finish your sentence, thought, and call-to-action completely.
+- Deliver the full, accurate core answer concisely without conversational filler.
+- Recommended structure:
+  1) Friendly, direct 1-sentence answer.
+  2) 2-3 short bullet points with key numbers/facts (e.g. AUD $76,500 salary, AUD 300 + 700 fee, 4-5 months, 691 occupations).
+  3) 1 brief closing question or call-to-action.
+`;
+
   if (apiKey) {
     try {
       // 1. Groq Cloud (Primary Engine - Ultra-fast LPU inference via GROQ_API_KEY)
@@ -103,11 +114,11 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
               body: JSON.stringify({
                 model,
                 messages: [
-                  { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
+                  { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${LENGTH_DIRECTIVE}\n\n${contextBlock}` },
                   { role: "user", content: message },
                 ],
-                max_tokens: 1500,
-                temperature: 0.7,
+                max_tokens: 350,
+                temperature: 0.5,
               }),
             });
 
@@ -139,14 +150,14 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
                 role: "user",
                 parts: [
                   {
-                    text: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}\n\nCandidate says: "${message}"\n\nProvide your complete WhatsApp reply as Aria:`,
+                    text: `${TMS_VISA_KNOWLEDGE}\n\n${LENGTH_DIRECTIVE}\n\n${contextBlock}\n\nCandidate says: "${message}"\n\nProvide your concise WhatsApp reply as Aria (STRICTLY UNDER 500 CHARACTERS, complete and never cut off):`,
                   },
                 ],
               },
             ],
             generationConfig: {
-              maxOutputTokens: 1500,
-              temperature: 0.7,
+              maxOutputTokens: 350,
+              temperature: 0.5,
             },
           }),
         });
@@ -172,11 +183,11 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
           body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: [
-              { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${contextBlock}` },
+              { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${LENGTH_DIRECTIVE}\n\n${contextBlock}` },
               { role: "user", content: message },
             ],
-            max_tokens: 1500,
-            temperature: 0.7,
+            max_tokens: 350,
+            temperature: 0.5,
           }),
         });
 
@@ -214,16 +225,16 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
     if (session.bookedSlot) {
       return (
         `Hi ${session.name || "there"}! 👋\n\n` +
-        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `Your 1-on-1 consultation is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
         `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
-        `*(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺`
+        `*(Tap the link above at your scheduled time to join. Please have your CV ready!)* 🇦🇺`
       );
     } else {
       return (
         `Hello ${session.name || "there"}! 👋\n\n` +
         `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
         `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-        `Consultations are scheduled on Saturdays and Sundays in 30-minute intervals. Would you like to select an available time slot in your local time?`
+        `Consultations run on weekends (30 mins). Would you like to select a slot in your local time?`
       );
     }
   }
@@ -256,10 +267,10 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
 
   if (isAskingVideoLink) {
     return (
-      `Here is our Australia Subclass 482 Skills in Demand explainer video! 🎥🇦🇺\n\n` +
-      `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
-      `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n` +
-      `*(Tap the link above to watch anytime)*`
+      `Here is our Australia Subclass 482 explainer video! 🎥🇦🇺\n\n` +
+      `▶️ **Watch the Video:**\n${videoUrl}\n\n` +
+      `It covers employer sponsorship, 691 eligible jobs, AUD $76,500+ salary, and PR pathways.\n\n` +
+      `*(Tap above to watch anytime)*`
     );
   }
 
@@ -273,7 +284,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
 
   if (isAskingMyMeeting && session.bookedSlot) {
     return (
-      `Hi ${session.name || "there"}! Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+      `Hi ${session.name || "there"}! Your consultation is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
       `🔗 **Join via Google Meet:**\n${meetUrl}\n\n` +
       `Please have your CV ready! 🇦🇺`
     );
@@ -291,8 +302,8 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
 
   if (isAskingAboutEmail) {
     return (
-      `We collect your email address so our team can officially send your consultation evaluation, migration agreement, and onboarding documents **after your 1-on-1 consultation meeting**! 📧🇦🇺\n\n` +
-      `For your convenience, scheduling your consultation, sharing the explainer video, and Google Meet room access are coordinated right here on WhatsApp. All official documentation and agreement letters will be emailed to you after the meeting.`
+      `We collect your email so our team can officially send your consultation evaluation, migration agreement, and onboarding documents **after your 1-on-1 meeting**! 📧🇦🇺\n\n` +
+      `Pre-meeting coordination and Google Meet access are handled on WhatsApp for instant convenience. All official documents are emailed after the call.`
     );
   }
 
@@ -339,9 +350,9 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
   if (matchedOcc) {
     return (
       `Great news, ${session.name || "there"}! 🎉\n\n` +
-      `**${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under **${matchedOcc.category}** on the official Australian Subclass 482 Skills in Demand Eligible Occupation List (691 Roles)!\n\n` +
-      `With at least 2 years of verifiable full-time work experience, you can qualify for Australian employer sponsorship with a minimum salary threshold of **AUD $76,500/year**.\n\n` +
-      `Would you like to book a free 30-minute 1-on-1 consultation this weekend with our senior visa expert to assess your CV?`
+      `**${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under **${matchedOcc.category}** on the official Australian Subclass 482 Eligible Occupation List (691 Roles)!\n\n` +
+      `With 2+ years experience, you can qualify for employer sponsorship with a minimum **AUD $76,500/year** salary.\n\n` +
+      `Would you like to book a free 30-minute weekend consultation to assess your CV?`
     );
   }
 
@@ -355,8 +366,8 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
   // 5. If consultation is completed and candidate asks about next steps
   if (session.meetingCompleted && (lower.includes("next step") || lower.includes("proceed") || lower.includes("enroll") || lower.includes("agreement"))) {
     return (
-      `Hello ${session.name || "there"}! It was great having you in the consultation session with our visa expert.\n\n` +
-      `To proceed with your Australian employer sponsorship file, please complete the enrollment steps outlined in your agreement. If you need any assistance with payment details, let us know here!`
+      `Hello ${session.name || "there"}! Great having you in the consultation session! 🇦🇺\n\n` +
+      `To proceed with your Australian employer sponsorship file, please complete the enrollment steps in your agreement. If you need any assistance with payment details, let us know here!`
     );
   }
 
@@ -364,7 +375,7 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
   if (!session.email) {
     return (
       `Hello! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
-      `We specialize in employer-sponsored work visas for Australia (Subclass 482). To register your profile in our CRM system and review your eligibility, **could you please share your Email Address?**`
+      `We specialize in employer-sponsored work visas for Australia (Subclass 482). To register your profile in our CRM, **could you please share your Email Address?**`
     );
   }
 
@@ -376,13 +387,14 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
       : `in your local time (${session.timeZoneLabel})`;
     return (
       `Thank you for contacting The Migration School (TMS Visa) 🇦🇺.\n\n` +
-      `Our senior visa expert is conducting free 30-minute 1-on-1 consultations this weekend ${timePrompt}. Would you like to select an available slot?`
+      `Our senior visa expert holds free 30-minute 1-on-1 consultations this weekend ${timePrompt}.\n\n` +
+      `Would you like to select an available time slot?`
     );
   }
 
   // General conversational greeting fallback
   return (
     `Hello! 👋 Thank you for reaching out to The Migration School (TMS Visa) 🇦🇺.\n\n` +
-    `How can I assist you with your Australia Subclass 482 Work Visa inquiry today? Feel free to ask about eligibility requirements, the 5-step process, or booking a free weekend consultation!`
+    `How can I assist you with your Australia Subclass 482 Work Visa today? Feel free to ask about eligibility, the 5-step process, or booking a free weekend consultation!`
   );
 }
