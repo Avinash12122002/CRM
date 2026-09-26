@@ -170,6 +170,26 @@ export async function GET(
       ],
     });
 
+    // Also check incoming logs for contact profile name from WhatsApp
+    const incomingLog = await db.collection("whatsapp_incoming_logs").findOne({
+      phone: cleanPhone,
+      senderName: { $exists: true, $nin: ["Candidate", "candidate", ""] },
+    });
+
+    const candidateResolvedName =
+      (session?.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") ? session.name : null) ||
+      lead?.name ||
+      incomingLog?.senderName ||
+      "Candidate";
+
+    // Self-heal session name in DB if resolved
+    if (candidateResolvedName !== "Candidate" && (!session?.name || session.name === "Candidate" || session.name.toLowerCase().includes("test"))) {
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: cleanPhone },
+        { $set: { name: candidateResolvedName, leadId: lead?.id || session?.leadId || undefined } }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       phone: cleanPhone,
@@ -186,7 +206,7 @@ export async function GET(
       })),
       session: session
         ? {
-            name: session.name || lead?.name || "Candidate",
+            name: candidateResolvedName,
             email: session.email || lead?.email || null,
             countryName: session.countryName,
             countryCode: session.countryCode,
@@ -201,7 +221,7 @@ export async function GET(
             leadId: lead?.id || session.leadId || null,
           }
         : {
-            name: lead?.name || "Candidate",
+            name: candidateResolvedName,
             email: lead?.email || null,
             countryName: cleanPhone.startsWith("91") ? "India" : "International",
             countryCode: cleanPhone.startsWith("91") ? "IN" : "",

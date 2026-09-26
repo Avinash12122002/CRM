@@ -100,6 +100,10 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
       updatedAt: createdAt,
     };
 
+    if (sender === "candidate" && senderName && senderName !== "Candidate" && !senderName.toLowerCase().includes("test")) {
+      updateQuery.name = senderName;
+    }
+
     if (sender === "candidate") {
       // Increment unread count for admin review
       await db.collection("whatsapp_sessions").updateOne(
@@ -122,6 +126,7 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
           } as any,
           $setOnInsert: {
             createdAt,
+            name: senderName && senderName !== "Candidate" ? senderName : "Candidate",
             countryCode: cleanPhone.startsWith("91") ? "IN" : "",
             countryName: cleanPhone.startsWith("91") ? "India" : "",
             timeZone: cleanPhone.startsWith("91") ? "Asia/Kolkata" : "UTC",

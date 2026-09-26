@@ -26,6 +26,8 @@ import {
   Sparkles,
   Info,
   Trash2,
+  Pencil,
+  Check,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -109,6 +111,49 @@ export default function WhatsAppChatPage() {
   const [newChatPhone, setNewChatPhone] = useState("");
   const [newChatName, setNewChatName] = useState("");
   const [newChatMsg, setNewChatMsg] = useState("");
+
+  // Candidate Name Editing state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
+  const startEditName = () => {
+    const currentName =
+      session?.name && session.name !== "Candidate"
+        ? session.name
+        : selectedConv?.name && selectedConv.name !== "Candidate"
+        ? selectedConv.name
+        : "";
+    setEditedName(currentName);
+    setIsEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!selectedPhone || !editedName.trim() || savingName) return;
+    setSavingName(true);
+    const newName = editedName.trim();
+    try {
+      const res = await fetch("/api/whatsapp/conversations", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: selectedPhone, name: newName }),
+      });
+      if (res.ok) {
+        toast.success(`Candidate name updated to "${newName}"`);
+        setSession((prev) => (prev ? { ...prev, name: newName } : null));
+        setConversations((prev) =>
+          prev.map((c) => (c.phone === selectedPhone ? { ...c, name: newName } : c))
+        );
+        setIsEditingName(false);
+      } else {
+        toast.error("Failed to update candidate name");
+      }
+    } catch {
+      toast.error("Network error updating candidate name");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -206,9 +251,18 @@ export default function WhatsAppChatPage() {
         setSession(data.session || null);
         setLead(data.lead || null);
 
-        // Clear unread count locally for this phone
+        // Clear unread count locally for this phone and sync name if returned
+        const actualName = data.session?.name || data.lead?.name;
         setConversations((prev) =>
-          prev.map((c) => (c.phone === phone ? { ...c, unreadCount: 0 } : c))
+          prev.map((c) =>
+            c.phone === phone
+              ? {
+                  ...c,
+                  name: actualName && actualName !== "Candidate" ? actualName : c.name,
+                  unreadCount: 0,
+                }
+              : c
+          )
         );
       }
     } catch (err) {
@@ -669,18 +723,64 @@ export default function WhatsAppChatPage() {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h2 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                        {session?.name || selectedConv.name || `+${selectedConv.phone}`}
-                      </h2>
-                      <span
-                        className={`text-[9px] font-semibold px-1.5 py-0.2 rounded-full border leading-none ${getStepBadgeColor(
-                          session?.currentStep || selectedConv.currentStep
-                        )}`}
-                      >
-                        {(session?.currentStep || selectedConv.currentStep).replace(/_/g, " ")}
-                      </span>
-                    </div>
+                    {isEditingName ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={editedName}
+                          onChange={(e) => setEditedName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleSaveName();
+                            } else if (e.key === "Escape") {
+                              setIsEditingName(false);
+                            }
+                          }}
+                          placeholder="Candidate's actual name..."
+                          autoFocus
+                          className="h-6 px-1.5 text-xs rounded border border-emerald-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 focus:outline-hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveName}
+                          disabled={savingName || !editedName.trim()}
+                          className="p-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                          title="Save Name"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingName(false)}
+                          className="p-1 rounded bg-zinc-200 dark:bg-zinc-700 hover:bg-zinc-300 text-zinc-600 dark:text-zinc-300"
+                          title="Cancel"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <h2 className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                          {session?.name || selectedConv.name || `+${selectedConv.phone}`}
+                        </h2>
+                        <button
+                          type="button"
+                          onClick={startEditName}
+                          className="p-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-400 hover:text-emerald-600 transition"
+                          title="Edit Candidate Name"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                        </button>
+                        <span
+                          className={`text-[9px] font-semibold px-1.5 py-0.2 rounded-full border leading-none ${getStepBadgeColor(
+                            session?.currentStep || selectedConv.currentStep
+                          )}`}
+                        >
+                          {(session?.currentStep || selectedConv.currentStep).replace(/_/g, " ")}
+                        </span>
+                      </div>
+                    )}
 
                     <p className="text-[10px] text-zinc-400 flex items-center gap-1.5 truncate leading-tight">
                       <span className="font-mono text-zinc-600 dark:text-zinc-300">
@@ -980,8 +1080,18 @@ export default function WhatsAppChatPage() {
             {/* Profile Card */}
             <div className="space-y-1.5">
               <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/60 dark:border-zinc-800 space-y-1.5">
-                <div className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
-                  {session?.name || selectedConv.name || "Candidate"}
+                <div className="flex items-center justify-between gap-1">
+                  <div className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                    {session?.name || selectedConv.name || "Candidate"}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startEditName}
+                    className="p-1 rounded text-zinc-400 hover:text-emerald-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition shrink-0"
+                    title="Edit Candidate Name"
+                  >
+                    <Pencil className="w-2.5 h-2.5" />
+                  </button>
                 </div>
 
                 <div className="space-y-1 text-zinc-600 dark:text-zinc-400 text-[10.5px]">

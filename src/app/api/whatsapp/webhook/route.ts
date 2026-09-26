@@ -97,14 +97,42 @@ export async function POST(req: NextRequest) {
 
           // 1. Log message to DB for auditing and debugging
           let db;
+          let effectiveSenderName = senderName;
           try {
             const { connectToDatabase } = await import("@/lib/mongodb");
             const dbConn = await connectToDatabase();
             db = dbConn.db;
 
+            // If profile name is generic "Candidate", check if candidate exists in CRM Leads
+            if (!effectiveSenderName || effectiveSenderName === "Candidate") {
+              const lead = await db.collection("leads").findOne({
+                $or: [
+                  { phone },
+                  { phone: `+${phone}` },
+                  { phone: { $regex: `${phone.slice(-10)}$` } },
+                ],
+              });
+              if (lead?.name) {
+                effectiveSenderName = lead.name;
+              } else {
+                const s = await db.collection("whatsapp_sessions").findOne({ phone });
+                if (s?.name && s.name !== "Candidate") {
+                  effectiveSenderName = s.name;
+                }
+              }
+            }
+
+            // If we have an actual candidate name, ensure session has it
+            if (effectiveSenderName && effectiveSenderName !== "Candidate") {
+              await db.collection("whatsapp_sessions").updateOne(
+                { phone },
+                { $set: { name: effectiveSenderName } }
+              );
+            }
+
             await db.collection("whatsapp_incoming_logs").insertOne({
               phone,
-              senderName,
+              senderName: effectiveSenderName,
               msgType,
               textBody,
               selectedId,
@@ -118,7 +146,7 @@ export async function POST(req: NextRequest) {
               db,
               phone,
               sender: "candidate",
-              senderName,
+              senderName: effectiveSenderName,
               text: textBody || (selectedId ? `[Button clicked: ${selectedId}]` : `[${msgType}]`),
               msgType: type,
               messageId: message.id,

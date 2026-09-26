@@ -101,19 +101,47 @@ export async function getOrCreateSession(
     .findOne({ phone: cleanPhone })) as unknown as WhatsAppSession | null;
 
   if (existing) {
-    // If the name in DB was set to a test placeholder, clean it
-    if (existing.name && existing.name.toLowerCase().includes("test")) {
-      existing.name = candidateName && !candidateName.toLowerCase().includes("test") ? candidateName : "Candidate";
-      await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: existing.name } });
+    // If current name is missing, generic "Candidate", or test placeholder, try to resolve real name
+    if (!existing.name || existing.name === "Candidate" || existing.name.toLowerCase().includes("test")) {
+      const realCandidateName =
+        candidateName && candidateName !== "Candidate" && !candidateName.toLowerCase().includes("test")
+          ? candidateName
+          : undefined;
+
+      let foundName = realCandidateName;
+      if (!foundName) {
+        const lastLog = await db.collection("whatsapp_incoming_logs").findOne({
+          phone: cleanPhone,
+          senderName: { $exists: true, $nin: ["Candidate", "candidate", ""] },
+        });
+        if (lastLog?.senderName) {
+          foundName = lastLog.senderName;
+        }
+      }
+
+      if (foundName) {
+        existing.name = foundName;
+        await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: foundName } });
+      }
     }
 
     // Sync live CRM data (like meeting completion, payment status, occupation, experience, country) if lead exists
     const lead = existing.leadId
       ? await db.collection("leads").findOne({ id: existing.leadId })
-      : await db.collection("leads").findOne({ phone: cleanPhone });
+      : await db.collection("leads").findOne({
+          $or: [
+            { phone: cleanPhone },
+            { phone: `+${cleanPhone}` },
+            { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+          ],
+        });
 
     if (lead) {
       if (!existing.leadId) existing.leadId = lead.id;
+      if (lead.name && (!existing.name || existing.name === "Candidate" || existing.name.toLowerCase().includes("test"))) {
+        existing.name = lead.name;
+        await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: lead.name } });
+      }
       if (lead.country) {
         const matchCountry = findCountryByNameOrCode(lead.country);
         if (matchCountry) {
@@ -456,6 +484,42 @@ export async function processIncomingWhatsAppMessage(params: {
   // --- AUTO-EXTRACT & PERSIST CANDIDATE PROFILE DETAILS FROM EVERY MESSAGE ---
   // =========================================================================
   const profileUpdates: Record<string, unknown> = {};
+
+  // 0. Candidate Name extraction (e.g. "My name is John Doe", "I am Rohit Sharma", "Name: Sunil")
+  if (!session.name || session.name === "Candidate" || session.name.toLowerCase().includes("test")) {
+    const namePatterns = [
+      /^(?:my\s+name\s+is|i\s+am|i'm|im|this\s+is)\s+([A-Za-z]{2,25}(?:\s+[A-Za-z]{2,25}){1,3})/i,
+      /^name\s*[:=\-]\s*([A-Za-z]{2,25}(?:\s+[A-Za-z]{2,25}){0,3})/i,
+      /^([A-Za-z]{2,25}\s+[A-Za-z]{2,25})\s+(?:here|speaking)\b/i,
+    ];
+    for (const pat of namePatterns) {
+      const match = cleanText.match(pat);
+      if (match && match[1]) {
+        const potentialName = match[1].trim();
+        const lower = potentialName.toLowerCase();
+        if (
+          !lower.includes("interested") &&
+          !lower.includes("looking") &&
+          !lower.includes("applying") &&
+          !lower.includes("australia") &&
+          !lower.includes("eligible") &&
+          !lower.includes("mechanical") &&
+          !lower.includes("engineer") &&
+          !lower.includes("not")
+        ) {
+          session.name = potentialName;
+          profileUpdates.name = potentialName;
+          if (session.leadId) {
+            await db.collection("leads").updateOne(
+              { id: session.leadId },
+              { $set: { name: potentialName, updatedAt: new Date() } }
+            );
+          }
+          break;
+        }
+      }
+    }
+  }
 
   // 1. Occupation & Sector from official 691 list
   const occMatch = findEligibleOccupation(cleanText);

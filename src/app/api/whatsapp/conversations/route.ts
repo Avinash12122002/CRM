@@ -57,30 +57,109 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 3. For any missing phones, synthesize minimal conversation object
-    const conversations = sessions.map((s) => ({
-      phone: s.phone,
-      name: s.name || s.senderName || "Candidate",
-      email: s.email || null,
-      countryCode: s.countryCode || (s.phone.startsWith("91") ? "IN" : ""),
-      countryName: s.countryName || (s.phone.startsWith("91") ? "India" : "International"),
-      timeZone: s.timeZone || "Asia/Kolkata",
-      timeZoneLabel: s.timeZoneLabel || "IST",
-      currentStep: s.currentStep || "WELCOME",
-      lastMessage: s.lastMessage || s.lastOutboundMessage || "Started WhatsApp conversation",
-      lastMessageAt: s.lastMessageAt || s.lastOutboundAt || s.updatedAt || s.createdAt,
-      lastSender: s.lastSender || "bot",
-      unreadCount: s.unreadCount || 0,
-      bookedSlot: s.bookedSlot || null,
-      leadId: s.leadId || null,
-    }));
+    // 3. Batch-lookup matching leads from CRM leads collection to display actual candidate names
+    const allPhones = Array.from(new Set([...sessionPhones, ...additionalPhones]));
+    const phoneTenDigits = allPhones
+      .map((p) => p.slice(-10))
+      .filter((p) => p.length >= 7);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leadMapByPhone = new Map<string, any>();
+    if (allPhones.length > 0) {
+      const matchingLeads = await db
+        .collection("leads")
+        .find({
+          $or: [
+            { phone: { $in: allPhones } },
+            { phone: { $in: allPhones.map((p) => `+${p}`) } },
+            ...phoneTenDigits.map((p) => ({ phone: { $regex: `${p}$` } })),
+          ],
+        })
+        .toArray();
+
+      for (const lead of matchingLeads) {
+        if (lead.phone) {
+          const clean = String(lead.phone).replace(/[^\d]/g, "");
+          leadMapByPhone.set(clean, lead);
+          if (clean.length >= 10) {
+            leadMapByPhone.set(clean.slice(-10), lead);
+          }
+        }
+      }
+    }
+
+    // 4. Batch-lookup profile names captured from WhatsApp Meta contact payload
+    const incomingNameMap = new Map<string, string>();
+    if (allPhones.length > 0) {
+      const incomingLogs = await db
+        .collection("whatsapp_incoming_logs")
+        .find({
+          phone: { $in: allPhones },
+          senderName: { $exists: true, $nin: ["Candidate", "candidate", ""] },
+        })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      for (const log of incomingLogs) {
+        if (log.phone && log.senderName && !incomingNameMap.has(log.phone)) {
+          incomingNameMap.set(log.phone, log.senderName);
+        }
+      }
+    }
+
+    // 5. Synthesize conversations with real candidate names
+    const conversations = sessions.map((s) => {
+      const lead = leadMapByPhone.get(s.phone) || leadMapByPhone.get(s.phone.slice(-10));
+      const profileName = incomingNameMap.get(s.phone);
+      const actualName =
+        (s.name && s.name !== "Candidate" && !s.name.toLowerCase().includes("test") ? s.name : null) ||
+        lead?.name ||
+        profileName ||
+        (s.senderName && s.senderName !== "Candidate" && !s.senderName.toLowerCase().includes("test") ? s.senderName : null) ||
+        "Candidate";
+
+      // Self-heal: If we discovered the actual name and the session had generic "Candidate", update session
+      if (actualName !== "Candidate" && (!s.name || s.name === "Candidate" || s.name.toLowerCase().includes("test"))) {
+        db.collection("whatsapp_sessions")
+          .updateOne(
+            { phone: s.phone },
+            { $set: { name: actualName, leadId: lead?.id || s.leadId || undefined } }
+          )
+          .catch(() => {});
+      }
+
+      return {
+        phone: s.phone,
+        name: actualName,
+        email: s.email || lead?.email || null,
+        countryCode: s.countryCode || (s.phone.startsWith("91") ? "IN" : ""),
+        countryName: s.countryName || (s.phone.startsWith("91") ? "India" : "International"),
+        timeZone: s.timeZone || "Asia/Kolkata",
+        timeZoneLabel: s.timeZoneLabel || "IST",
+        currentStep: s.currentStep || "WELCOME",
+        lastMessage: s.lastMessage || s.lastOutboundMessage || "Started WhatsApp conversation",
+        lastMessageAt: s.lastMessageAt || s.lastOutboundAt || s.updatedAt || s.createdAt,
+        lastSender: s.lastSender || "bot",
+        unreadCount: s.unreadCount || 0,
+        bookedSlot: s.bookedSlot || null,
+        leadId: lead?.id || s.leadId || null,
+      };
+    });
 
     for (const phone of additionalPhones) {
       const lastMsg = recentMessages.find((m) => m.phone === phone);
+      const lead = leadMapByPhone.get(phone) || leadMapByPhone.get(phone.slice(-10));
+      const profileName = incomingNameMap.get(phone);
+      const actualName =
+        lead?.name ||
+        profileName ||
+        (lastMsg?.senderName && lastMsg.senderName !== "Candidate" ? lastMsg.senderName : null) ||
+        "Candidate";
+
       conversations.push({
         phone,
-        name: "Candidate",
-        email: null,
+        name: actualName,
+        email: lead?.email || null,
         countryCode: phone.startsWith("91") ? "IN" : "",
         countryName: phone.startsWith("91") ? "India" : "International",
         timeZone: "Asia/Kolkata",
@@ -91,7 +170,7 @@ export async function GET(req: NextRequest) {
         lastSender: lastMsg?.sender || "candidate",
         unreadCount: 0,
         bookedSlot: null,
-        leadId: null,
+        leadId: lead?.id || null,
       });
     }
 
@@ -289,4 +368,73 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+/**
+ * PATCH /api/whatsapp/conversations
+ * Update candidate actual name or profile details for a WhatsApp conversation.
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const cookie = req.headers.get("cookie") || "";
+    const matches = cookie.match(/(^|; )token=([^;]+)/);
+    const token = matches ? matches[2] : null;
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload || payload.role !== "admin") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
+    const body = await req.json();
+    const { phone, name, email } = body;
+
+    const cleanPhone = String(phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
+    if (!cleanPhone) {
+      return NextResponse.json({ error: "Phone is required" }, { status: 400 });
+    }
+
+    const trimmedName = typeof name === "string" ? name.trim() : undefined;
+    const trimmedEmail = typeof email === "string" ? email.trim() : undefined;
+
+    const { db } = await connectToDatabase();
+    const updateFields: Record<string, unknown> = { updatedAt: new Date() };
+    if (trimmedName !== undefined) updateFields.name = trimmedName;
+    if (trimmedEmail !== undefined) updateFields.email = trimmedEmail;
+
+    // 1. Update whatsapp_sessions
+    await db.collection("whatsapp_sessions").updateOne(
+      { phone: cleanPhone },
+      { $set: updateFields },
+      { upsert: true }
+    );
+
+    // 2. Also update matching lead in CRM if exists
+    if (trimmedName) {
+      await db.collection("leads").updateMany(
+        {
+          $or: [
+            { phone: cleanPhone },
+            { phone: `+${cleanPhone}` },
+            { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+          ],
+        },
+        { $set: { name: trimmedName, updatedAt: new Date() } }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      phone: cleanPhone,
+      name: trimmedName,
+      email: trimmedEmail,
+    });
+  } catch (err) {
+    console.error("[PATCH /api/whatsapp/conversations Error]", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
 
