@@ -265,6 +265,16 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Users
                 </Link>
               )}
+              {role === "admin" && (
+                <Link
+                  href="/dashboard/cv"
+                  className={deskLinkClass(
+                    isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv/")
+                  )}
+                >
+                  CV
+                </Link>
+              )}
               {/* All Attendance — admin only */}
               {role === "admin" && (
                 <Link href="/dashboard/attendance-admin" className={deskLinkClass(isActive("/dashboard/attendance-admin"))}>
@@ -523,6 +533,16 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 className={navLinkClass(isActive("/dashboard/users"))}
               >
                 Users
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/cv"
+                className={navLinkClass(
+                  isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")
+                )}
+              >
+                CV
               </Link>
             )}
             {/* All Attendance — admin only */}
