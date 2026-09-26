@@ -121,6 +121,22 @@ export async function POST(req: NextRequest) {
       metadata: { leadName: lead.name },
     });
 
+    // Send automated WhatsApp confirmation to candidate
+    try {
+      const { sendMeetingCancelledNotification } = await import("@/lib/whatsapp/meetingNotifications");
+      await sendMeetingCancelledNotification({
+        db,
+        lead: {
+          id: lead.id,
+          name: lead.name,
+          phone: lead.phone,
+          meetingDetails: lead.meetingDetails,
+        },
+      });
+    } catch (waErr) {
+      console.warn("Failed to dispatch WhatsApp meeting cancelled notification:", waErr);
+    }
+
     return NextResponse.json({
       message: "Meeting cancelled successfully",
     });
