@@ -916,15 +916,33 @@ export async function processIncomingWhatsAppMessage(params: {
     actionId === "BTN_482_YES" ||
     (session.currentStep === "WELCOME" &&
       ["yes", "yep", "yeah", "interested", "sure", "ok", "okay"].some((w) =>
-        lowerText === w || lowerText.includes(w)
+        lowerText === w || (w === "ok" ? /\bok\b/.test(lowerText) : lowerText.includes(w))
       ));
 
   // Negative check (handles button clicks or typed equivalents like "not right now", "no", "maybe later")
+  // CRITICAL: Word boundary matching prevents false positives like "nonsense", "normal", "nothing", "nobody"!
+  const NEGATIVE_EXACT_OR_PREFIXES = [
+    "not right now",
+    "not now",
+    "not interested",
+    "maybe later",
+    "later",
+    "no thanks",
+    "no thank you",
+    "dont want",
+    "don't want",
+  ];
   const isNegative =
     actionId === "BTN_482_NO" ||
     actionId === "BTN_CONSULT_NO" ||
-    ["no", "not now", "not right now", "not interested", "later", "maybe later"].some((w) =>
-      lowerText === w || lowerText.startsWith(w)
+    lowerText === "no" ||
+    lowerText === "nope" ||
+    lowerText === "nah" ||
+    lowerText.startsWith("no ") ||
+    lowerText.startsWith("no,") ||
+    lowerText.startsWith("no.") ||
+    NEGATIVE_EXACT_OR_PREFIXES.some(
+      (w) => lowerText === w || lowerText.startsWith(w + " ") || lowerText.endsWith(" " + w)
     );
 
   // Email format check
@@ -2031,10 +2049,36 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // 11. Free-form conversational message -> Consult Context-Aware AI
-  const aiAnswer = await generateAiResponse({
-    message: cleanText,
-    session,
-  });
+  let aiAnswer = "";
+  try {
+    aiAnswer = await generateAiResponse({
+      message: cleanText,
+      session,
+    });
+  } catch (err) {
+    console.error("[WhatsApp AI] generateAiResponse threw error:", err);
+  }
+
+  // Guaranteed fallback: If AI returned empty or failed, send an intelligent human response
+  if (!aiAnswer || !aiAnswer.trim()) {
+    const candidateName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        ? session.name
+        : "there";
+
+    if (session.bookedSlot) {
+      aiAnswer =
+        `Hello ${candidateName}! 👋\n\n` +
+        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `🔗 **Google Meet Link:** ${getStaticGoogleMeetLink()}\n\n` +
+        `I am Aria, Senior Registered Migration Counselor at The Migration School (TMS Visa). If you have any questions about eligible occupations, requirements, or anything you'd like to prepare for the consultation, please feel free to ask right here! 🇦🇺`;
+    } else {
+      aiAnswer =
+        `Hello ${candidateName}! 👋\n\n` +
+        `Thank you for messaging The Migration School (TMS Visa) 🇦🇺.\n\n` +
+        `I am Aria, Senior Registered Migration Counselor. How can I assist you with your Australia Employer Sponsored Work Visa query today? You can ask any question regarding our process, requirements, or eligible occupations!`;
+    }
+  }
 
   await sendTextMessage(session.phone, aiAnswer);
   return { replyText: aiAnswer, step: session.currentStep };

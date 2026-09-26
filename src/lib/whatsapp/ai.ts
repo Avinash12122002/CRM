@@ -240,16 +240,15 @@ RESPONSE DIRECTIVES:
       const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
       if (groqKey) {
         const groqModels = [
-          process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-          "llama-3.1-8b-instant",
-          "gemma2-9b-it",
-          "mixtral-8x7b-32768",
+          process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+          "openai/gpt-oss-120b",
+          "openai/gpt-oss-20b",
         ];
 
         for (const model of groqModels) {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4500);
+            const timeoutId = setTimeout(() => controller.abort(), 2500);
 
             const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
               method: "POST",
@@ -288,7 +287,7 @@ RESPONSE DIRECTIVES:
       if (geminiKey) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4500);
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
 
           const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
           const res = await fetch(geminiUrl, {
@@ -331,7 +330,7 @@ RESPONSE DIRECTIVES:
       if (openAiKey) {
         try {
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4500);
+          const timeoutId = setTimeout(() => controller.abort(), 2500);
 
           const res = await fetch("https://api.openai.com/v1/chat/completions", {
             method: "POST",
