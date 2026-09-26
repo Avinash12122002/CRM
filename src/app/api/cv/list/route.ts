@@ -62,70 +62,7 @@ export async function GET(req: NextRequest) {
       return existing;
     };
 
-    // 1. Load from MongoDB `leads` collection (Sales documents & attached CVs)
-    const leadsWithDocs = await db
-      .collection("leads")
-      .find({
-        $or: [
-          { "salesDocument.fileId": { $exists: true, $ne: null } },
-          { cvFiles: { $exists: true, $ne: [] } },
-          { hasCv: true },
-        ],
-      })
-      .project({
-        id: 1,
-        name: 1,
-        phone: 1,
-        salesDocument: 1,
-        cvFiles: 1,
-        updatedAt: 1,
-      })
-      .toArray();
 
-    for (const lead of leadsWithDocs) {
-      const phone = String(lead.phone || `lead_${lead.id}`);
-      const folder = getOrCreateFolder(phone, lead.name, lead.id);
-
-      // Add salesDocument if present
-      if (lead.salesDocument?.fileName) {
-        const fileId = String(lead.salesDocument.fileId);
-        const fileName = lead.salesDocument.fileName;
-        const exists = folder.files.some((f) => f.fileName === fileName);
-        if (!exists) {
-          folder.files.push({
-            id: fileId,
-            fileName,
-            mimeType: "application/pdf",
-            url: `/api/chat/files/${fileId}`,
-            downloadUrl: `/api/chat/files/${fileId}`,
-            source: "crm_upload",
-            receivedAt: lead.salesDocument.uploadedAt || lead.updatedAt,
-          });
-        }
-      }
-
-      // Add cvFiles array if present
-      if (Array.isArray(lead.cvFiles)) {
-        for (const file of lead.cvFiles) {
-          const fileName = file.filename || file.fileName;
-          if (!fileName) continue;
-          const exists = folder.files.some((f) => f.fileName === fileName);
-          if (!exists) {
-            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : file.publicUrl || `/api/leads/${lead.id}/document`;
-            folder.files.push({
-              id: file.gridFsFileId,
-              fileName,
-              sizeBytes: file.size,
-              mimeType: file.mimeType || "application/pdf",
-              url: fileUrl,
-              downloadUrl: fileUrl,
-              source: "whatsapp",
-              receivedAt: file.receivedAt || file.syncedAt,
-            });
-          }
-        }
-      }
-    }
 
     // 2. Load from MongoDB `whatsapp_sessions` collection
     const sessionsWithDocs = await db
