@@ -954,11 +954,11 @@ export async function processIncomingWhatsAppMessage(params: {
         session,
       });
 
-      const welcomeReply =
-        `${aiAnswer}\n\n` +
-        `*Would you like to explore your eligibility for the Australia Employer Sponsored Work Visa?*`;
+      // Send the comprehensive human visa expert reply first via plain text (avoids Meta 1024-char interactive button limit)
+      await sendTextMessage(session.phone, aiAnswer);
 
-      await sendQuickReplyButtons(session.phone, welcomeReply, [
+      const buttonPrompt = `*Would you like to explore your eligibility for the Australia Employer Sponsored Work Visa?*`;
+      await sendQuickReplyButtons(session.phone, buttonPrompt, [
         { id: "BTN_482_YES", title: "Yes, Interested" },
         { id: "BTN_482_NO", title: "Not Right Now" },
       ]);
@@ -969,7 +969,7 @@ export async function processIncomingWhatsAppMessage(params: {
         followupCount: 0,
         nextFollowupAt: nextFollowup,
       });
-      return { replyText: welcomeReply, step: "WELCOME" };
+      return { replyText: `${aiAnswer}\n\n${buttonPrompt}`, step: "WELCOME" };
     }
 
     const welcomeText =

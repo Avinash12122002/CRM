@@ -41,24 +41,43 @@ export async function GET(
       phoneVariations.push(cleanPhone.slice(2));
       phoneVariations.push(`0${cleanPhone.slice(2)}`);
       phoneVariations.push(`+91${cleanPhone.slice(2)}`);
+    } else if (cleanPhone.length === 10) {
+      phoneVariations.push(`91${cleanPhone}`);
+      phoneVariations.push(`+91${cleanPhone}`);
+      phoneVariations.push(`0${cleanPhone}`);
     }
+
+    const last10Digits = cleanPhone.slice(-10);
+    const phoneRegex = last10Digits.length >= 7 ? new RegExp(`${last10Digits}$`) : null;
+
+    const phoneFilter: Record<string, unknown> = {
+      $or: [
+        { phone: { $in: phoneVariations } },
+        { from: { $in: phoneVariations } },
+        { to: { $in: phoneVariations } },
+        ...(phoneRegex
+          ? [
+              { phone: phoneRegex },
+              { from: phoneRegex },
+              { to: phoneRegex },
+            ]
+          : []),
+      ],
+    };
 
     // 1. Fetch from unified whatsapp_messages (primary source of truth)
     const messages = await db
       .collection("whatsapp_messages")
-      .find({
-        $or: [
-          { phone: { $in: phoneVariations } },
-          { from: { $in: phoneVariations } },
-          { to: { $in: phoneVariations } },
-        ],
-      })
+      .find(phoneFilter)
       .sort({ createdAt: 1 })
       .toArray();
 
     // 2. Fetch candidate session details
     const session = await db.collection("whatsapp_sessions").findOne({
-      $or: [{ phone: { $in: phoneVariations } }],
+      $or: [
+        { phone: { $in: phoneVariations } },
+        ...(phoneRegex ? [{ phone: phoneRegex }] : []),
+      ],
     });
 
     // 3. Resilient merge: Check whatsapp_incoming_logs to ensure no candidate message was missed
@@ -68,17 +87,13 @@ export async function GET(
         $or: [
           { phone: { $in: phoneVariations } },
           { from: { $in: phoneVariations } },
+          ...(phoneRegex ? [{ phone: phoneRegex }, { from: phoneRegex }] : []),
         ],
       })
       .sort({ createdAt: 1 })
       .toArray();
 
     const existingMessageIds = new Set(messages.map((m) => m.messageId).filter(Boolean));
-    const existingCandidateTexts = new Set(
-      messages
-        .filter((m) => m.sender === "candidate")
-        .map((m) => `${(m.text || "").trim()}_${new Date(m.createdAt).getMinutes()}`)
-    );
 
     for (const inc of incomingLogs) {
       const incId = inc.rawMessage?.id || (inc._id ? inc._id.toString() : undefined);
@@ -90,16 +105,27 @@ export async function GET(
           : inc.msgType === "image"
           ? "[Image]"
           : `[${inc.msgType}]`);
-      const key = `${(text || "").trim()}_${new Date(inc.createdAt).getMinutes()}`;
 
+      // If messageId is already in messages, skip
       if (incId && existingMessageIds.has(incId)) {
         continue;
       }
-      if (existingCandidateTexts.has(key)) {
+
+      // Check if message with same text was already logged within 5 seconds
+      const incTime = new Date(inc.createdAt).getTime();
+      const normIncText = (text || "").trim();
+      const alreadyLogged = messages.some((m) => {
+        if (m.sender !== "candidate") return false;
+        if ((m.text || "").trim() !== normIncText) return false;
+        return Math.abs(new Date(m.createdAt).getTime() - incTime) < 5000;
+      });
+
+      if (alreadyLogged) {
         continue;
       }
 
       messages.push({
+        _id: inc._id,
         phone: cleanPhone,
         sender: "candidate",
         senderName: inc.senderName || "Candidate",
@@ -108,7 +134,7 @@ export async function GET(
         messageId: incId,
         createdAt: inc.createdAt,
       } as any);
-      existingCandidateTexts.add(key);
+      if (incId) existingMessageIds.add(incId);
     }
 
     // 4. Safe Deduplication:
@@ -124,8 +150,16 @@ export async function GET(
         if (m.messageId && prev.messageId && m.messageId === prev.messageId) {
           return true;
         }
-        // NEVER merge messages across different senders (candidate vs bot/admin)
+        // NEVER merge candidate messages with outbound bot/admin messages
         if (m.sender !== prev.sender) {
+          // If one was logged as 'bot' and the other as 'admin' for the same outbound text within 10 seconds, merge them!
+          if (
+            ((m.sender === "admin" && prev.sender === "bot") || (m.sender === "bot" && prev.sender === "admin")) &&
+            (prev.text || "").trim() === normText &&
+            Math.abs(new Date(prev.createdAt).getTime() - mTime) < 10000
+          ) {
+            return true;
+          }
           return false;
         }
         // If candidate sent message, only merge if identical within 2 seconds (rapid network duplicate)

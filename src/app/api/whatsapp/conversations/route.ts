@@ -47,13 +47,25 @@ export async function GET(req: NextRequest) {
       .collection("whatsapp_messages")
       .find({})
       .sort({ createdAt: -1 })
-      .limit(200)
+      .limit(300)
+      .toArray();
+
+    const recentIncoming = await db
+      .collection("whatsapp_incoming_logs")
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(300)
       .toArray();
 
     const additionalPhones = new Set<string>();
     for (const m of recentMessages) {
       if (m.phone && !sessionPhones.has(m.phone)) {
         additionalPhones.add(m.phone);
+      }
+    }
+    for (const inc of recentIncoming) {
+      if (inc.phone && !sessionPhones.has(inc.phone)) {
+        additionalPhones.add(inc.phone);
       }
     }
 
@@ -148,12 +160,14 @@ export async function GET(req: NextRequest) {
 
     for (const phone of additionalPhones) {
       const lastMsg = recentMessages.find((m) => m.phone === phone);
+      const lastInc = recentIncoming.find((i) => i.phone === phone);
       const lead = leadMapByPhone.get(phone) || leadMapByPhone.get(phone.slice(-10));
       const profileName = incomingNameMap.get(phone);
       const actualName =
         lead?.name ||
         profileName ||
         (lastMsg?.senderName && lastMsg.senderName !== "Candidate" ? lastMsg.senderName : null) ||
+        (lastInc?.senderName && lastInc.senderName !== "Candidate" ? lastInc.senderName : null) ||
         "Candidate";
 
       conversations.push({
@@ -165,8 +179,8 @@ export async function GET(req: NextRequest) {
         timeZone: "Asia/Kolkata",
         timeZoneLabel: "IST",
         currentStep: "WELCOME",
-        lastMessage: lastMsg?.text || "Conversation started",
-        lastMessageAt: lastMsg?.createdAt || new Date(),
+        lastMessage: lastMsg?.text || lastInc?.textBody || "Conversation started",
+        lastMessageAt: lastMsg?.createdAt || lastInc?.createdAt || new Date(),
         lastSender: lastMsg?.sender || "candidate",
         unreadCount: 0,
         bookedSlot: null,
