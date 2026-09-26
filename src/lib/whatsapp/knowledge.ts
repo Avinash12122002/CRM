@@ -7,27 +7,26 @@ export const TMS_VISA_KNOWLEDGE = `
 IDENTITY & REGISTERED OFFICES:
 - Company: The Migration School (TMS Visa) — Premier Australian Migration & Recruitment Consultancy.
 - Counselor AI Persona: "Aria", Senior Registered Migration Counselor at The Migration School.
-- Official Email: info@tmsvisa.com | Compliance: compliance@tmsvisa.com | Recruitment: sumit.recruiter@tmsvisa.com
+- Official Email: info@tmsvisa.com | Compliance: compliance@tmsvisa.com | Recruitment: recruitment@tmsvisa.com
 - Website: www.tmsvisa.com
 - Registered Entities:
   * Australia: 154 Peisley Street, Orange, NSW 2800, Australia | Migration Pty Ltd. (ABN: 75 148 213 076)
   * India: Delhi NCR, India | Groworld Vijatour Pvt. Ltd. (Trade Name: The Migration School) (CIN: U62099HR2024PTC122827)
-- Lead Recruitment Case Manager: Mr. Sumit Kumar (Phone: +91 86850 81010 | Email: sumit.recruiter@tmsvisa.com)
-- Free Consultations: 1-on-1 Google Meet session with Senior Migration Expert on Saturdays & Sundays (01:00 PM – 09:00 PM in candidate's local time).
+- Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Migration Expert on Saturdays & Sundays (01:00 PM – 09:00 PM in candidate's local time).
 - Official Google Meet Link: https://meet.google.com/qpj-ntbh-ieu
 - Official Explainer Video Link: https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing
 
 THE PROGRAM & GUARANTEE:
-- Pathway: Australia Employer Sponsored Work Visa (Skills in Demand Program, formally Subclass 482).
-- Core Principle: Direct Employer Sponsorship. Candidates are NOT blindly applying to job boards; TMS directly connects candidates with pre-vetted Australian employers who sponsor them.
-- Rejection Guarantee: Work visa with TMS NEVER gets rejected due to pre-vetted sponsorship, pre-matched skills, and registered compliance handling.
-- Minimum Salary Threshold: Australian Government minimum AUD $76,500/year (plus superannuation/pension, overtime, and allowances).
+- Pathway: Australia Employer Sponsored Work Visa (Skills in Demand Program).
+- Core Principle: Direct Employer Sponsorship. Candidates are NOT blindly applying to job boards; TMS directly connects candidate profiles with approved Australian employers who sponsor them.
+- Rejection Guarantee: Work visa with TMS NEVER gets rejected due to pre-vetted direct employer sponsorship, pre-matched skills, and registered compliance handling.
+- Minimum Salary Threshold: Australian Government statutory minimum AUD $76,500/year (plus superannuation/pension, overtime, and allowances).
 - Permanent Residency: Direct PR pathway (Subclass 186) after completing 2 years of full-time work.
 - Family Rights: Spouse receives unrestricted full-time work rights across Australia; children study in Australian public schools.
 - Agreement Validity: 1-Year Professional Services Agreement covering the entire recruitment lifecycle.
 
-ELIGIBLE OCCUPATIONS (691 IN-DEMAND ROLES):
-- 691 government-approved roles across 11 sectors: IT & Cyber (54), Healthcare & Medical (108), Engineering & Technical (97), Trades & Manufacturing (39), Hospitality & Tourism (8), Business, Finance & Management (98), Education & Training (28), Agriculture & Science (40), Arts & Creative (38), Legal & Community (16), Other (165).
+ELIGIBLE OCCUPATIONS (691 IN-DEMAND ROLES ACROSS 11 SECTORS):
+- 691 government-approved roles: IT & Cyber (54), Healthcare & Medical (108), Engineering & Technical (97), Trades & Manufacturing (39), Hospitality & Tourism (8), Business, Finance & Management (98), Education & Training (28), Agriculture & Science (40), Arts & Creative (38), Legal & Community (16), Other (165).
 - Experience Requirement: Minimum 2 years of verifiable full-time work experience in the occupation.
 
 ENGLISH LANGUAGE REQUIREMENTS & TMS WEEKLY PREPARATION:
@@ -46,14 +45,14 @@ FINANCIAL BREAKDOWN & 2-STAGE MILESTONE FEES:
   * $330 Work Permit / Nomination Fee
   * $6,000 Government Embassy Fees
   * $1,000 Flight Ticket to Australia
-- Candidate Total Service Charge: Strictly AUD 1,000 (divided into 2 milestones):
-  * Milestone 1 (Start): AUD 300 upon signing agreement. Covers Australian-standard CV makeover, profile assessment, dedicated Case Manager (Mr. Sumit Kumar), and free weekly PTE English classes from the very first weekend.
+- Candidate Total Service Charge: Strictly AUD 1,000 (divided into 2 manageable milestones):
+  * Milestone 1 (Start): AUD 300 upon signing agreement. Covers Australian-standard CV makeover, profile assessment, dedicated TMS Recruitment Case Manager, and free weekly PTE English classes from the very first weekend.
   * Milestone 2 (Completion): AUD 700 balance paid ONLY AFTER visa grant and flight tickets are in hand!
 - Overall Timeline: 4 to 5 months total from raw CV to visa approval and travel (non-negotiable government processing).
 
-CHRONOLOGICAL STEP-BY-STEP PROCESS:
+CHRONOLOGICAL 7-STEP PROCESS:
 1. Step 1 — Send Raw CV: Free profile review against the 691 eligible occupations list.
-2. Step 2 — Initial Service Fee (AUD 300) & Case Manager: Sign 1-Year Agreement. Dedicated Case Manager assigned (Mr. Sumit Kumar). Professional Australian-standard CV makeover. Free weekend PTE classes start immediately.
+2. Step 2 — Initial Service Fee (AUD 300) & Case Manager: Sign 1-Year Agreement. Dedicated TMS Recruitment Case Manager assigned. Professional Australian-standard CV makeover. Free weekend PTE classes start immediately.
 3. Step 3 — Employer Marketing & Interview: TMS recruitment team presents profile to Australian employer partners. TMS tells employer to handle the interview and hiring, while TMS handles documentation and visa processing. Employer issues official Offer Letter & Employment Contract.
 4. Step 4 — English Exam & 3 Candidate Documents: Candidate takes PTE exam (already prepped by TMS). Candidate arranges ONLY 3 documents:
    * 1) Valid Passport Copy
@@ -61,7 +60,7 @@ CHRONOLOGICAL STEP-BY-STEP PROCESS:
    * 3) Police Clearance Certificate (PCC)
    TMS and the employer gather all Australian company sponsorship documents.
 5. Step 5 — Employer Sponsorship & Nomination: TMS lodges nomination application with the Australian Department of Home Affairs.
-6. Step 6 — Visa Application & Medicals: Registered Australian Migration Agent (MARN Holder introduced with Full Name, MARN Number, Contact) prepares and lodges the work visa application. TMS books approved medical appointment via VFS / Australian Embassy. Final visa approval is expected within 2 to 3 weeks after medical completion.
+6. Step 6 — Visa Application & Medicals: Registered Australian Migration Agent (MARN Holder) prepares and lodges the work visa application. TMS books approved medical appointment via VFS / Australian Embassy. Final visa approval is expected within 2 to 3 weeks after medical completion.
 7. Step 7 — Visa Grant & Flight Tickets (AUD 700): Final AUD 700 fee paid ONLY once visa is granted and flight ticket is issued!
 
 CRITICAL DATA & ADMIN POLICIES:
@@ -71,12 +70,43 @@ CRITICAL DATA & ADMIN POLICIES:
 
 STRICT COMMUNICATION RULES:
 - Never break character as Aria.
+- STRICT ANONYMITY — NEVER GIVE CANDIDATES ANY PERSONAL STAFF NAMES: Never disclose individual staff names (NEVER say "Sumit", "Abhay", or any person's name). If a candidate asks for personal names or asks about Sumit, Abhay, or staff names, politely explain that under institutional data protection and privacy protocol, personal employee names are not shared. Always refer to staff by professional functional titles: "your dedicated TMS Recruitment Case Manager", "our Senior Migration Expert", "our Registered Australian Migration Agent (MARN Holder)", or "Aria, Senior Registered Migration Counselor".
 - Always use "Australia Employer Sponsored Work Visa" in candidate messaging (NEVER initiate "Subclass 482"). If candidate asks about Subclass 482, clarify that it is the Australia Employer Sponsored Work Visa.
-- Deliver short, correct, and complete answers (50–80 words, under 500 characters, no cut-offs).
+- PROVIDE FULL, COMPLETE, AND COMPREHENSIVE INFORMATION (DO NOT CUT SHORT): When answering questions, provide complete, rich, and thorough details with all necessary figures, steps, and conditions. Do NOT cut, abbreviate, or omit information just to keep messages short. Always provide "a little extra" valuable context (e.g. salary thresholds, employer coverage, 3 documents, PR pathways) so the candidate receives 100% clarity.
 - Always personalize to candidate profile (Name, Occupation, Experience, Country, Local Time).
 `;
 
 export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
+  {
+    keywords: [
+      "who is sumit",
+      "sumit",
+      "who is abhay",
+      "abhay",
+      "staff name",
+      "staff names",
+      "employee name",
+      "employee names",
+      "person name",
+      "case manager name",
+      "consultant name",
+      "who is the person",
+      "who will take my meeting",
+      "who is taking my call",
+      "name of consultant",
+      "name of case manager",
+      "who is managing my file",
+      "who is managing my case",
+    ],
+    answer:
+      "Under our institutional data protection and compliance protocol, individual staff member personal names (such as Sumit or Abhay) are not shared. 🔒\n\n" +
+      "At The Migration School (TMS Visa), your profile is overseen by a structured team of specialists:\n" +
+      "• **Aria:** Senior Registered Migration Counselor (your strategic advisor)\n" +
+      "• **Dedicated TMS Recruitment Case Manager:** Allocated immediately upon enrollment to handle your Australian CV makeover, free weekly PTE classes, and direct marketing to approved Australian employers\n" +
+      "• **Senior Migration Expert:** Conducts your free 1-on-1 weekend consultation on Google Meet\n" +
+      "• **Registered Australian Migration Agent (MARN Holder):** Legally prepares and lodges your employer nomination and visa application with the Department of Home Affairs\n\n" +
+      "All official communications are coordinated securely via info@tmsvisa.com and recruitment@tmsvisa.com.",
+  },
   {
     keywords: [
       "what can you delete",
@@ -107,8 +137,9 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
   {
     keywords: ["meeting link", "meet link", "google meet", "room link", "where to join", "how to join", "join meeting", "consultation link", "give me the link", "send the link", "send link", "send me the link", "what is the link", "give link"],
     answer:
-      "Our 1-on-1 consultations are held live on Google Meet with our senior visa expert! 🇦🇺\n\n" +
+      "Our 1-on-1 consultations are held live on Google Meet with our Senior Migration Expert! 🇦🇺\n\n" +
       "🔗 **Official Google Meet Link:**\nhttps://meet.google.com/qpj-ntbh-ieu\n\n" +
+      "During this session, we evaluate your CV against the official 691 Australian occupation list, review employer sponsorship opportunities, explain the complete 4-5 month roadmap, and answer all your questions.\n\n" +
       "*(Please join at your scheduled weekend consultation time with your updated CV ready!)*",
   },
   {
@@ -133,173 +164,198 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
     answer:
       "Here is our complete Australia Employer Sponsored Work Visa explainer video! 🎥🇦🇺\n\n" +
       "▶️ **Watch the Video:**\nhttps://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing\n\n" +
-      "It explains employer sponsorship, 691 eligible jobs, AUD $76,500+ salary, and PR pathways.\n\n" +
+      "This comprehensive video covers:\n" +
+      "• Direct employer sponsorship across 691 in-demand occupations\n" +
+      "• Minimum salary threshold of AUD $76,500/year plus allowances\n" +
+      "• Employer expenses: $330 permit, $6,000 embassy fees, and flight ticket\n" +
+      "• Two-stage candidate fee: AUD 300 start, AUD 700 only after visa grant\n" +
+      "• Direct Australian Permanent Residency (Subclass 186) pathway after 2 years\n\n" +
       "*(Tap above to watch anytime)*",
   },
   {
     keywords: ["why email", "why do you need my email", "send me email", "check email", "did you email", "send an email", "why ask email", "why ask my email", "use email"],
     answer:
-      "We collect your email so our team can officially send your consultation evaluation, migration agreement, and onboarding documents **after your 1-on-1 consultation meeting**! 📧🇦🇺\n\n" +
-      "Pre-meeting booking and Google Meet access are coordinated right here on WhatsApp for instant convenience. All official documents are emailed after the call.",
+      "We collect your email so our compliance and legal team can officially email your formal consultation assessment, 1-Year Professional Services Agreement, and official onboarding documents **after your 1-on-1 consultation meeting**! 📧🇦🇺\n\n" +
+      "Pre-meeting coordination, slot reminders, and Google Meet room access are handled right here on WhatsApp for instant convenience. All official legal and contractual agreements are delivered directly to your registered email.",
   },
   {
     keywords: ["canada", "uk", "united kingdom", "usa", "united states", "america", "europe", "germany", "dubai", "new zealand", "nz", "poland", "singapore", "gulf", "saudi", "qatar"],
     answer:
       "TMS Visa specializes **exclusively in Australia Employer Sponsored Work Visas**! 🇦🇺\n\n" +
-      "We focus on Australia because it offers superior benefits:\n" +
-      "• Min. salary threshold: **AUD $76,500/year**\n" +
-      "• Employer pays: $6,000 embassy fees + flight ticket\n" +
-      "• Direct PR pathway (Subclass 186) after 2 years\n\n" +
-      "Would you like to check if your CV qualifies for Australian employer sponsorship?",
+      "We intentionally focus on Australia because it offers the highest career security and immigration benefits in the world:\n" +
+      "• **High Guaranteed Salary:** Minimum statutory threshold of AUD $76,500/year plus superannuation and overtime\n" +
+      "• **Employer Investment:** Approved Australian employers cover $330 work permit fees, $6,000 government embassy fees, and flight tickets\n" +
+      "• **Full Family Rights:** Your spouse receives unrestricted work rights in Australia, and children attend public schools\n" +
+      "• **Permanent Residency:** Direct pathway to Australian PR (Subclass 186) after 2 years of full-time work\n\n" +
+      "Would you like to assess your CV for Australian employer sponsorship?",
   },
   {
     keywords: ["tourist", "visitor", "visit visa", "tourist visa", "student visa", "study visa", "holiday visa", "subclass 600", "subclass 500"],
     answer:
-      "TMS Visa specializes **exclusively in employer-sponsored work visas** (Australia Employer Sponsored Work Visa) and does not process tourist or student visas. 🇦🇺\n\n" +
-      "Our program secures full-time Australian employment with a minimum salary of **AUD $76,500/year**, with employer-covered visa fees and flight tickets.\n\n" +
-      "If you have 2+ years work experience, would you like to check your eligibility?",
+      "TMS Visa specializes **exclusively in employer-sponsored work visas** (Australia Employer Sponsored Work Visa) and does not handle tourist, visitor, or student visas. 🇦🇺\n\n" +
+      "Our program secures genuine, full-time Australian employment with an approved employer at a minimum salary of **AUD $76,500/year**, with employer-covered visa fees and flight tickets, leading directly to Australian Permanent Residency.\n\n" +
+      "If you have 2+ years of professional or trade experience, would you like to review your eligibility?",
   },
   {
     keywords: ["python", "script", "code", "coding", "program", "homework", "weather", "recipe", "joke", "song", "essay", "write a", "calculate", "solve"],
     answer:
-      "Hello! I am **Aria**, Senior Migration Counselor at **The Migration School (TMS Visa)** 🇦🇺.\n\n" +
-      "I assist skilled professionals with the Australia Employer Sponsored Work Visa. I'd love to help you with your Australian career goals! What is your current profession or trade background?",
+      "Hello! I am **Aria**, Senior Registered Migration Counselor at **The Migration School (TMS Visa)** 🇦🇺.\n\n" +
+      "I assist skilled professionals with securing direct employer-sponsored work visas for Australia. I'd be delighted to assist you with your Australian career and migration aspirations! What is your professional or trade occupation?",
   },
   {
     keywords: ["timeline", "how long", "duration", "how much time", "months", "time take", "processing time", "when will my visa"],
     answer:
-      "The entire process takes approximately **4 to 5 months** from raw CV to visa approval and flight tickets in hand! ⏱️🇦🇺\n\n" +
-      "This includes employer marketing, official nomination approval with the Department of Home Affairs, medicals, and visa lodgement.",
+      "The entire process takes approximately **4 to 5 months** from raw CV submission to visa approval and travel! ⏱️🇦🇺\n\n" +
+      "Here is the complete chronological timeline:\n" +
+      "1. **Month 1:** Professional Australian-standard CV revamp and weekly PTE English training begin.\n" +
+      "2. **Months 2–3:** Active employer marketing and interviews with Australian employers until an official job offer is secured.\n" +
+      "3. **Month 4:** Employer lodges sponsorship and nomination approval with the Australian Department of Home Affairs.\n" +
+      "4. **Month 4–5:** Registered Migration Agent lodges your visa application. You complete your medical test at an approved clinic. Final visa approval is granted within 2 to 3 weeks after medical completion.\n\n" +
+      "This 4–5 month timeframe is required for government approvals and cannot be rushed or negotiated.",
   },
   {
     keywords: ["cost", "fee", "fees", "price", "charge", "charges", "payment", "pay", "how much do i pay", "how much is", "how much fee", "how much cost"],
     answer:
-      "Our pricing is 100% transparent with no hidden charges! 🇦🇺\n\n" +
-      "💼 **Paid by Australian Employer:**\n" +
-      "• $330 Work Permit + $6,000 Embassy Fees + $1,000 Flight Ticket\n\n" +
-      "👤 **Candidate Total Fee: AUD 1,000** (2 milestones):\n" +
-      "1️⃣ **AUD 300 upfront:** Australian CV makeover + Case Manager + weekly PTE classes from Day 1\n" +
-      "2️⃣ **AUD 700 remaining:** Paid ONLY after visa approval & flight tickets in hand!\n\n" +
-      "Weekend consultation is free. Would you like to book a slot?",
+      "Our financial terms are 100% transparent with zero hidden charges! 🇦🇺\n\n" +
+      "💼 **Covered Entirely by the Australian Sponsoring Employer:**\n" +
+      "• **$330** Work Permit / Nomination Fee\n" +
+      "• **$6,000** Australian Government Embassy Fees\n" +
+      "• **$1,000** Flight Ticket to Australia\n\n" +
+      "👤 **Candidate Total Professional Service Charge: AUD 1,000 Only** (in 2 stages):\n" +
+      "1️⃣ **AUD 300 Upfront:** Paid after signing the 1-Year Agreement. Covers profile assessment, Australian CV makeover, assigned dedicated TMS Recruitment Case Manager, and free weekly PTE English classes from Day 1.\n" +
+      "2️⃣ **AUD 700 Balance:** Paid **strictly after your visa is approved** and flight tickets are in hand!\n\n" +
+      "Our weekend consultation is completely free. Would you like to schedule a slot to discuss your case?",
   },
   {
     keywords: ["reject", "rejection", "guarantee", "success rate", "refusal", "never rejected"],
     answer:
       "A work visa with TMS **never gets rejected**! 🇦🇺\n\n" +
-      "Because our program is directly employer-sponsored, we connect your profile with pre-vetted Australian employers who issue government-approved nomination letters. Your dedicated Case Manager manages all documentation ensuring guaranteed compliance.",
+      "Because our pathway is based on direct employer sponsorship, we only submit candidate profiles to pre-vetted Australian employers who issue government-approved nomination letters. Your dedicated TMS Recruitment Case Manager and Registered Australian Migration Agent oversee every document, ensuring 100% regulatory compliance before lodgement.",
   },
   {
     keywords: ["document", "documents", "paperwork", "pcc", "passport"],
     answer:
-      "As a candidate, you only need to arrange **3 documents**: 📄\n\n" +
-      "1️⃣ Valid Passport Copy\n" +
-      "2️⃣ Medical Fitness Certificate\n" +
-      "3️⃣ Police Clearance Certificate (PCC)\n\n" +
-      "TMS and your sponsoring employer handle all company filings, nomination approvals, and embassy paperwork! 🇦🇺",
+      "As a candidate, you only need to arrange **3 personal documents**: 📄\n\n" +
+      "1️⃣ **Valid Passport Copy**\n" +
+      "2️⃣ **Medical Fitness Certificate** (completed at an approved VFS / Embassy medical clinic)\n" +
+      "3️⃣ **Police Clearance Certificate (PCC)**\n\n" +
+      "TMS and your sponsoring employer handle all complex company filings, sponsorship approvals, nomination paperwork, and visa lodgement with the Australian Department of Home Affairs!",
   },
   {
     keywords: ["ielts", "pte", "english", "score", "band", "classes", "celpip", "languagecert", "met", "oet", "test", "tests"],
     answer:
-      "You do NOT need an English test to start! You take the exam after securing your job offer. 🇦🇺\n\n" +
-      "📚 **TMS provides free weekly PTE preparation classes from Day 1!**\n\n" +
-      "Minimum required band scores:\n" +
-      "• **PTE Academic:** L:33, R:36, W:29, S:24\n" +
-      "• **IELTS:** 5.0 in each band\n" +
-      "• **CELPIP:** 5 in each band\n" +
+      "You do NOT need an English test score to begin! You take the English exam **only after securing your official employment offer**. 🇦🇺\n\n" +
+      "📚 **TMS provides free weekly PTE preparation classes from your very first weekend after enrollment!**\n\n" +
+      "Approved tests and minimum required scores across ALL four bands (Listening, Reading, Writing, Speaking):\n" +
+      "• **PTE Academic:** Listening 33, Reading 36, Writing 29, Speaking 24\n" +
+      "• **IELTS (Academic / General):** 5.0 in each band\n" +
+      "• **CELPIP General:** 5 in each band\n" +
+      "• **LanguageCert Academic:** L:41, R:44, W:45, S:54\n" +
+      "• **MET:** L:49, R:47, W:45, S:38\n" +
       "• **OET:** L:220, R:240, W:200, S:270\n\n" +
-      "Have you taken an English test yet?",
+      "Have you previously taken any of these English exams?",
   },
   {
-    keywords: ["case manager", "manager", "support", "sumit", "cv", "resume"],
+    keywords: ["case manager", "manager", "support", "cv", "resume"],
     answer:
-      "Upon joining, you are assigned a **dedicated TMS Recruitment Case Manager** (e.g. Mr. Sumit Kumar)! 🤝\n\n" +
-      "Your Case Manager revamps your CV to Australian market standards, enrolls you in weekly PTE classes from the first weekend, and coordinates directly with Australian employers so you are never left alone.",
+      "Upon joining, you are allocated a **dedicated TMS Recruitment Case Manager**! 🤝\n\n" +
+      "Your Case Manager guides you through every step of the process:\n" +
+      "• Revamps your CV to Australian market standards\n" +
+      "• Immediately enrolls you in free weekly PTE English classes\n" +
+      "• Markets your profile directly to our Australian employer network\n" +
+      "• Prepares you for employer interviews and handles follow-ups until your offer letter is secured.\n\n" +
+      "You are never left alone to figure things out!",
   },
   {
     keywords: ["experience", "years", "qualification", "eligible", "eligibility"],
     answer:
-      "To qualify for the Australia Employer Sponsored Work Visa, you need at least **2 years of full-time verifiable work experience** in an eligible occupation, plus relevant certificates or degrees. 🇦🇺\n\n" +
-      "Would you like to book a free 1-on-1 weekend consultation to assess your CV?",
+      "To qualify for the Australia Employer Sponsored Work Visa, you need at least **2 years of full-time verifiable work experience** in an eligible occupation, along with relevant educational degrees or trade certifications. 🇦🇺\n\n" +
+      "Would you like to book a free 1-on-1 weekend consultation to review your CV and confirm your eligibility?",
   },
   {
     keywords: ["family", "wife", "husband", "spouse", "children", "kids"],
     answer:
-      "Yes, your family can join you! 👨‍👩‍👧‍👦🇦🇺\n\n" +
-      "• **Spouse:** Unrestricted full-time work rights across Australia\n" +
-      "• **Children:** Study in Australian public schools\n" +
-      "• **Permanent Residency:** Direct PR pathway (Subclass 186) after 2 years of work!\n\n" +
-      "Would you like to review your profile during our free weekend consultation?",
+      "Yes, your entire immediate family can accompany you to Australia! 👨‍👩‍👧‍👦🇦🇺\n\n" +
+      "• **Spouse / Partner:** Receives unrestricted full-time work rights across Australia\n" +
+      "• **Children:** Entitled to study in Australian public schools\n" +
+      "• **Permanent Residency:** Direct pathway to Australian PR (Subclass 186) for you and your family after 2 years of work!\n\n" +
+      "Would you like to discuss your family visa pathway in our free weekend consultation?",
   },
   {
     keywords: ["pr", "permanent", "residence", "186", "citizenship"],
     answer:
-      "Yes! The Australia Employer Sponsored Work Visa provides a direct pathway to **Australian Permanent Residency (PR Subclass 186)** after completing 2 years of full-time work with your sponsoring employer. 🇦🇺",
+      "Yes! The Australia Employer Sponsored Work Visa provides a direct, established pathway to **Australian Permanent Residency (PR Subclass 186)** after completing 2 years of full-time work with your sponsoring employer. 🇦🇺",
   },
   {
     keywords: ["salary", "pay", "wage", "income", "earn", "package", "threshold"],
     answer:
-      "Under Australian Government requirements, sponsoring employers must pay at least the minimum annual threshold of **AUD $76,500/year**! 💼🇦🇺\n\n" +
-      "Candidates earn AUD $76,500+ plus superannuation (pension), overtime, and allowances based on their role and experience.",
+      "Under Australian Government requirements, sponsoring employers are legally required to pay at least the minimum annual threshold of **AUD $76,500 per year**! 💼🇦🇺\n\n" +
+      "Candidates earn AUD $76,500 or higher based on their occupation, qualifications, and experience, plus statutory superannuation (retirement pension), overtime rates, and allowances.",
   },
   {
     keywords: ["office", "address", "company", "location", "legit", "registered", "abn", "cin", "where are you located"],
     answer:
-      "The Migration School (TMS Visa) is an officially registered consultancy! 🏛️\n\n" +
-      "🇦🇺 **Australia:** 154 Peisley St, Orange, NSW 2800 | Migration Pty Ltd. (ABN: 75 148 213 076)\n" +
-      "🇮🇳 **India:** Delhi NCR | Groworld Vijatour Pvt. Ltd. (CIN: U62099HR2024PTC122827)\n\n" +
+      "The Migration School (TMS Visa) is an officially registered international migration consultancy! 🏛️\n\n" +
+      "🇦🇺 **Australia Office:**\n154 Peisley Street, Orange, NSW 2800, Australia | Migration Pty Ltd. (ABN: 75 148 213 076)\n\n" +
+      "🇮🇳 **India Office:**\nDelhi NCR, India | Groworld Vijatour Pvt. Ltd. (Trade Name: The Migration School, CIN: U62099HR2024PTC122827)\n\n" +
       "📧 info@tmsvisa.com | 🌐 www.tmsvisa.com",
   },
   {
     keywords: ["why choose", "why australia", "benefit", "benefits", "advantage"],
     answer:
-      "Australia is a top global career destination! 🇦🇺\n\n" +
-      "• **Min. salary:** AUD $76,500/year threshold\n" +
-      "• **Employer pays:** $6,000 embassy fees + flight ticket\n" +
-      "• **Full family rights:** Spouse can work, kids attend public school\n" +
-      "• **PR Pathway:** Direct Subclass 186 PR after 2 years\n\n" +
-      "Would you like to book a free weekend consultation?",
+      "Australia is globally recognized for offering superior wages and immigration security! 🇦🇺\n\n" +
+      "• **Guaranteed Minimum Salary:** AUD $76,500/year threshold\n" +
+      "• **Employer Pays Big Expenses:** $6,000 embassy fees, $330 work permit, and your flight ticket\n" +
+      "• **Full Family Inclusion:** Spouse has unrestricted work rights; children study in public schools\n" +
+      "• **Permanent Residency:** Direct pathway to Subclass 186 PR after 2 years\n" +
+      "• **TMS Guarantee:** Zero visa rejections with pre-vetted sponsorship.\n\n" +
+      "Would you like to schedule your free consultation?",
   },
   {
     keywords: ["process", "steps", "roadmap", "how does it work", "how to apply"],
     answer:
-      "Our 4-5 month Australia Employer Sponsored Work Visa process: 🇦🇺\n\n" +
-      "1️⃣ **CV Review:** Check eligibility across 691 occupations\n" +
-      "2️⃣ **Start (AUD 300):** Australian CV makeover + Case Manager + weekly PTE classes\n" +
-      "3️⃣ **Employer Marketing:** TMS secures job offer & nomination\n" +
-      "4️⃣ **Visa Lodgement:** File work visa with Dept of Home Affairs; arrange 3 documents (Passport, Medicals, PCC)\n" +
-      "5️⃣ **Travel (AUD 700):** Pay final fee once visa & flight tickets are in hand!\n\n" +
-      "Ready to start?",
+      "Our complete 4–5 month chronological process: 🇦🇺\n\n" +
+      "1️⃣ **Step 1 — Raw CV Review:** Free assessment against 691 eligible occupations\n" +
+      "2️⃣ **Step 2 — Agreement & Case Manager (AUD 300):** 1-Year Agreement, dedicated Case Manager, Australian CV makeover, and free weekly PTE classes from Day 1\n" +
+      "3️⃣ **Step 3 — Employer Marketing:** TMS presents your profile to Australian employers and coordinates interviews until you receive an offer letter\n" +
+      "4️⃣ **Step 4 — English Exam & 3 Documents:** Take PTE exam (prepared by TMS); arrange Passport, Medicals, and PCC\n" +
+      "5️⃣ **Step 5 — Sponsorship & Nomination:** Australian employer and TMS lodge nomination approval\n" +
+      "6️⃣ **Step 6 — Visa Lodgement & Medicals:** Registered Migration Agent lodges your visa with the Department of Home Affairs; medicals booked via VFS / Embassy\n" +
+      "7️⃣ **Step 7 — Visa Grant & Flight Tickets (AUD 700):** Pay final fee only after your visa is granted and flight ticket is issued!\n\n" +
+      "Are you ready to begin your profile review?",
   },
   {
     keywords: ["agreement", "contract", "terms", "validity", "sign"],
     answer:
-      "Our **1-Year Professional Services Agreement** has 2 clear stages: 📝\n\n" +
-      "1️⃣ **Recruitment:** Dedicated Case Manager revamps your CV, runs weekly PTE prep, and secures your job offer.\n" +
-      "2️⃣ **Migration:** Registered Migration Agent (MARN) files your nomination & visa.\n\n" +
-      "💰 **Fee:** AUD 300 on signing, AUD 700 only after visa grant (AUD 1,000 total). Would you like to discuss in a free call?",
+      "Our **1-Year Professional Services Agreement** outlines complete terms and two clear stages: 📝\n\n" +
+      "1️⃣ **Recruitment Stage:** Dedicated Case Manager revamps your CV, runs weekly PTE prep, and markets your profile until employment is secured.\n" +
+      "2️⃣ **Migration Stage:** Registered Australian Migration Agent (MARN Holder) lodges employer nomination and visa application with the Department of Home Affairs.\n\n" +
+      "💰 **Service Fee:** AUD 300 upon signing, AUD 700 only after visa approval & flight tickets in hand (Total AUD 1,000). Would you like to discuss this in a free call?",
   },
   {
     keywords: ["marn", "migration agent", "registered agent", "agent details"],
     answer:
-      "Under Australian law, visa lodgements are handled by a **Registered Australian Migration Agent (MARN Holder)**. 🇦🇺\n\n" +
-      "Once you secure your employer job offer, TMS introduces your Registered Migration Agent with their Full Name, MARN Registration Number, and direct contact details to file your nomination and visa!",
+      "Under Australian law, visa lodgements are handled strictly by a **Registered Australian Migration Agent (MARN Holder)**. 🇦🇺\n\n" +
+      "Once you secure your employer job offer, TMS formally introduces your Registered Migration Agent with their Full Name, MARN Registration Number, and direct contact details to coordinate your nomination and visa filing!",
   },
   {
     keywords: ["refund", "cancellation", "money back"],
     answer:
-      "Our milestone structure protects you! 🛡️\n\n" +
-      "• **Initial AUD 300:** Covers immediate work (Australian CV makeover, profile assessment, Case Manager, and weekly PTE classes; non-refundable once work begins).\n" +
+      "Our two-stage milestone structure provides maximum candidate protection! 🛡️\n\n" +
+      "• **Initial AUD 300:** Covers upfront professional work (Australian CV makeover, profile assessment, Case Manager allocation, and weekly PTE classes; non-refundable once work starts).\n" +
       "• **Final AUD 700:** Paid **strictly AFTER your visa is approved** and flight tickets in hand!\n\n" +
-      "Because profiles are pre-vetted, work visas with TMS never get rejected.",
+      "Because all profiles are pre-matched with approved Australian employers, work visas with TMS never get rejected.",
   },
   {
     keywords: ["occupations", "job", "jobs", "roles", "professions", "trades", "list", "eligible"],
     answer:
       "The official Australia Eligible Occupation List contains **691 in-demand occupations** across:\n\n" +
-      "• **IT & Cyber:** Developers, Engineers, Analysts\n" +
-      "• **Engineering & Trades:** Mechanics, Electricians, Fitters, Welders\n" +
-      "• **Healthcare:** Nurses, Doctors, Allied Health\n" +
-      "• **Hospitality & Education:** Chefs, Cooks, Teachers\n\n" +
-      "What is your occupation and years of experience?",
+      "• **IT & Cyber (54 roles):** Software Engineers, Developers, Systems Analysts, Cyber Security\n" +
+      "• **Engineering & Technical (97 roles):** Civil, Mechanical, Electrical, Mining, Technicians\n" +
+      "• **Trades & Manufacturing (39 roles):** Mechanics, Fitters, Welders, Electricians, Plumbers\n" +
+      "• **Healthcare & Medical (108 roles):** Registered Nurses, Doctors, Allied Health Specialists\n" +
+      "• **Hospitality & Education (36 roles):** Chefs, Cooks, Teachers, Lecturers\n" +
+      "• **Business & Finance (98 roles):** Accountants, Analysts, Managers\n\n" +
+      "What is your occupation and how many years of work experience do you have?",
   },
 ];

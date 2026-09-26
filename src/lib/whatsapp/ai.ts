@@ -165,15 +165,32 @@ ${TMS_VISA_KNOWLEDGE}
 ${contextBlock}
 
 RESPONSE DIRECTIVES:
-1. SPECIFIC TO CANDIDATE:
+1. STRICT ANONYMITY — ZERO PERSONAL STAFF NAMES:
+- NEVER tell the candidate any individual employee or person names (NEVER say "Sumit", "Abhay", or any person's name).
+- If the candidate explicitly asks for personal names or asks about Sumit, Abhay, or staff names, state:
+  "Under our institutional data protection and compliance protocol, individual staff member personal names (such as Sumit or Abhay) are not shared. You will be assigned a dedicated TMS Recruitment Case Manager and a Senior Migration Expert who directly oversee your file."
+- ALWAYS refer to staff strictly by professional functional titles: "your dedicated TMS Recruitment Case Manager", "our Senior Migration Expert", "our Registered Australian Migration Agent (MARN Holder)", or "Aria, Senior Registered Migration Counselor".
+
+2. SPECIFIC TO CANDIDATE:
 - Greet candidate by name (${session.name && session.name !== "Candidate" ? session.name : "there"}).
 - Directly relate your response to their profile facts (Occupation: ${session.occupation || "their occupation"}, Experience: ${session.yearsExperience || "their experience"}, Location: ${session.countryName}, Local Time: ${session.timeZoneLabel}).
-- Answer the candidate's exact question in your very first sentence.
+- Answer the candidate's exact question thoroughly in your very first sentence.
 
-2. SHORT, CORRECT, AND COMPLETE:
-- Target length: 50–80 words (STRICTLY UNDER 500 CHARACTERS).
-- NEVER cut off or stop mid-sentence. Always finish your thoughts and call-to-action completely.
-- Structure: Direct answer -> 2-3 short bullet points -> 1 brief closing question.
+3. COMPLETE & FULL INFORMATION (CONCISE, STRUCTURED, NEVER CUT OFF):
+- Deliver complete, accurate, and full information with "a little extra" helpful context, but keep it well-structured and concise (under 280 words) so it is perfect for WhatsApp reading.
+- DO NOT cut, omit, or skip essential information (always include the exact costs, employer coverage, 3 documents, salary threshold, timeline, and PR pathway when relevant).
+- NO rambling or multi-paragraph introductory essays: Start directly with the answer!
+- ALWAYS ensure your reply finishes completely with a proper closing sentence or next step. NEVER leave a sentence or bullet point unfinished!
+- Key facts to include concisely:
+  * Minimum salary: AUD $76,500/year threshold plus superannuation and allowances.
+  * Australian employer covers: $330 work permit + $6,000 embassy fees + $1,000 flight ticket to Australia.
+  * Candidate fee: AUD 1,000 total (AUD 300 to start; AUD 700 balance only after visa approval & flight tickets in hand).
+  * 3 candidate documents: only Passport, Medical Fitness, and Police Clearance (PCC) needed from candidate.
+  * English requirements: No exam needed to start; TMS provides free weekly PTE classes from week 1; exam taken after job offer (PTE Academic L:33, R:36, W:29, S:24 or IELTS 5.0).
+  * Timeline: 4 to 5 months total from raw CV to visa approval and travel.
+  * PR pathway: Direct Australian Permanent Residency (Subclass 186) after 2 years.
+  * Rejection guarantee: Direct pre-vetted employer sponsorship ensures work visas with TMS never get rejected.
+- Format responses using clean WhatsApp bullet points and bold headings (do NOT use wide Markdown tables with pipes | | as they break on mobile).
 - Never initiate "Subclass 482" — always use "Australia Employer Sponsored Work Visa".
 `;
 
@@ -184,14 +201,13 @@ RESPONSE DIRECTIVES:
       if (groqKey) {
         const models = [
           process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
-          "allam-2-7b",
           "openai/gpt-oss-120b",
           "openai/gpt-oss-20b",
         ];
 
         for (const model of models) {
           try {
-            const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            let res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -208,10 +224,36 @@ RESPONSE DIRECTIVES:
               }),
             });
 
+            // If rate limited by Groq (429), parse wait duration and retry once
+            if (res.status === 429) {
+              const errBody = await res.text();
+              const waitMatch = errBody.match(/try again in ([\d\.]+)s/i);
+              const waitSeconds = waitMatch ? Math.min(parseFloat(waitMatch[1]) + 0.5, 5) : 2.5;
+              console.warn(`[WhatsApp AI] Groq (${model}) rate limited (429). Retrying in ${waitSeconds}s...`);
+              await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
+
+              res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${groqKey}`,
+                },
+                body: JSON.stringify({
+                  model,
+                  messages: [
+                    { role: "system", content: SYSTEM_PROMPT },
+                    { role: "user", content: message },
+                  ],
+                  max_tokens: 650,
+                  temperature: 0.3,
+                }),
+              });
+            }
+
             if (res.ok) {
               const data = await res.json();
               const replyText = data.choices?.[0]?.message?.content;
-              if (replyText) {
+              if (replyText && replyText.trim().length > 0) {
                 return replyText.trim();
               }
             } else {
@@ -294,6 +336,32 @@ RESPONSE DIRECTIVES:
   const lower = message.toLowerCase();
 
   const meetUrl = process.env.GOOGLE_MEET_LINK || "https://meet.google.com/qpj-ntbh-ieu";
+
+  // 0. Strict Anonymity Fallback: If candidate specifically asks for staff names (Sumit, Abhay, etc.)
+  const isAskingStaffName =
+    lower.includes("sumit") ||
+    lower.includes("abhay") ||
+    lower.includes("staff name") ||
+    lower.includes("employee name") ||
+    lower.includes("person name") ||
+    lower.includes("case manager name") ||
+    lower.includes("consultant name") ||
+    lower.includes("who is managing") ||
+    lower.includes("who is my case manager") ||
+    lower.includes("who is taking my call") ||
+    lower.includes("who is taking my meeting");
+
+  if (isAskingStaffName) {
+    return (
+      `Under our institutional data protection and compliance protocol, individual staff member personal names (such as Sumit or Abhay) are not shared. 🔒\n\n` +
+      `At The Migration School (TMS Visa), your profile is overseen by a structured team of specialists:\n` +
+      `• **Aria:** Senior Registered Migration Counselor (your initial guidance & program advisor)\n` +
+      `• **Dedicated TMS Recruitment Case Manager:** Allocated immediately upon enrollment to handle your Australian CV makeover, free weekly PTE classes, and direct marketing to approved Australian employers\n` +
+      `• **Senior Migration Expert:** Conducts your free 1-on-1 weekend consultation on Google Meet\n` +
+      `• **Registered Australian Migration Agent (MARN Holder):** Prepares and lodges your official employer nomination and visa application with the Department of Home Affairs\n\n` +
+      `All official communications are coordinated securely via info@tmsvisa.com and recruitment@tmsvisa.com.`
+    );
+  }
 
   // 1. If candidate is specifically asking for the meeting link / Google Meet link
   const isAskingLink =
