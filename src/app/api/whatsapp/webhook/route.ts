@@ -88,6 +88,18 @@ export async function POST(req: NextRequest) {
         rawMessage: message,
         createdAt: new Date(),
       });
+
+      // Log to unified live chat collection
+      const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+      await logWhatsAppMessage({
+        db,
+        phone,
+        sender: "candidate",
+        senderName,
+        text: textBody || (selectedId ? `[Button clicked: ${selectedId}]` : `[${msgType}]`),
+        msgType: type,
+        messageId: message.id,
+      });
     } catch (dbLogErr) {
       console.warn("[WhatsApp Webhook] Could not save incoming log:", dbLogErr);
     }

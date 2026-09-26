@@ -7,7 +7,7 @@ import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
 import CvNavbarDropdown from "@/components/CvNavbarDropdown";
 import WhatsAppOtpModal from "@/components/WhatsAppOtpModal";
-import { KeyRound } from "lucide-react";
+import { KeyRound, MessageSquare } from "lucide-react";
 
 type DashboardNavbarProps = {
   user: {
@@ -39,6 +39,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const [todoCount, setTodoCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const [whatsappUnreadCount, setWhatsappUnreadCount] = useState(0);
 
   const role = (user.role || "").trim().toLowerCase();
 
@@ -87,6 +88,27 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
 
     loadTodoCount();
     const interval = setInterval(loadTodoCount, 15000);
+    return () => clearInterval(interval);
+  }, [role]);
+
+  // Admin WhatsApp unread candidate messages count
+  useEffect(() => {
+    if (role !== "admin") return;
+
+    const loadWhatsappUnread = async () => {
+      try {
+        const res = await fetch("/api/whatsapp/conversations/unread");
+        if (res.ok) {
+          const data = await res.json();
+          setWhatsappUnreadCount(data.unreadCount || 0);
+        }
+      } catch (err) {
+        // Silently ignore polling error
+      }
+    };
+
+    loadWhatsappUnread();
+    const interval = setInterval(loadWhatsappUnread, 8000);
     return () => clearInterval(interval);
   }, [role]);
 
@@ -267,6 +289,23 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               )}
               {role === "admin" && (
                 <CvNavbarDropdown isActive={isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")} />
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/dashboard/whatsapp"
+                  className={`${deskLinkClass(
+                    isActive("/dashboard/whatsapp") || pathname.startsWith("/dashboard/whatsapp")
+                  )} relative inline-flex items-center gap-1.5`}
+                  title="WhatsApp Candidate Live Chat"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>WhatsApp</span>
+                  {whatsappUnreadCount > 0 && (
+                    <span className="bg-emerald-500 text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center leading-none">
+                      {whatsappUnreadCount}
+                    </span>
+                  )}
+                </Link>
               )}
               {role === "admin" && (
                 <button
@@ -536,6 +575,24 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 )}
               >
                 CV
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/whatsapp"
+                className={`${navLinkClass(
+                  isActive("/dashboard/whatsapp") || pathname.startsWith("/dashboard/whatsapp")
+                )} flex items-center justify-between pr-4`}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-500" />
+                  <span>WhatsApp Chat</span>
+                </div>
+                {whatsappUnreadCount > 0 && (
+                  <span className="bg-emerald-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                    {whatsappUnreadCount}
+                  </span>
+                )}
               </Link>
             )}
             {role === "admin" && (
