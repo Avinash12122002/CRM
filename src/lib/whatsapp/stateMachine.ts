@@ -672,10 +672,9 @@ export async function processIncomingWhatsAppMessage(params: {
   if (actionId === "BTN_ASK_VIDEO") {
     const videoUrl = getVideo482Url();
     const videoReply =
-      `Here is our Australia Subclass 482 Skills in Demand explainer video! 🎥🇦🇺\n\n` +
+      `Australia Subclass 482 video! 🎥🇦🇺\n\n` +
       `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
-      `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n` +
-      `*(Tap the link above to watch anytime)*`;
+      `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n`;
 
     await sendTextMessage(session.phone, videoReply);
     return { replyText: videoReply, step: session.currentStep };
@@ -846,7 +845,7 @@ export async function processIncomingWhatsAppMessage(params: {
     }
 
     const emailPrompt =
-      `Great! To register your profile in our system, **please reply with your Email Address:**`;
+      `Great! To Share All The Details With You, **please reply with your Email Address:**`;
 
     await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL" });
     await sendTextMessage(session.phone, emailPrompt);
