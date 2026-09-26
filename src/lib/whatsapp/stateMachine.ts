@@ -776,7 +776,12 @@ export async function processIncomingWhatsAppMessage(params: {
       { id: "BTN_482_NO", title: "Not Right Now" },
     ]);
 
-    await updateSession(db, session.phone, { currentStep: "WELCOME" });
+    const nextFollowup = new Date(Date.now() + 48 * 3600 * 1000);
+    await updateSession(db, session.phone, {
+      currentStep: "WELCOME",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
+    });
     return { replyText: welcomeText, step: "WELCOME" };
   }
 

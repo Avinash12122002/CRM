@@ -36,6 +36,7 @@ export async function GET(req: NextRequest) {
       .find({
         currentStep: {
           $in: [
+            "WELCOME",
             "AWAITING_REENGAGEMENT",
             "VIDEO_SENT_AWAITING_INTEREST",
             "AWAITING_EMAIL",
@@ -58,14 +59,26 @@ export async function GET(req: NextRequest) {
         const timePrompt = isIndia
           ? `between 01:00 PM and 09:00 PM IST`
           : `in your local time (${session.timeZoneLabel})`;
-        const msg =
-          `Hi ${session.name || "there"}! 👋 Just checking in to see if you had a chance to review our **Australia Subclass 482 Work Visa** overview.\n\n` +
-          `Our senior consultant is conducting free 1-on-1 profile evaluations this weekend ${timePrompt}. Would you like to reserve a 1-hour slot?`;
 
-        await sendQuickReplyButtons(session.phone, msg, [
-          { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-          { id: "BTN_CONSULT_NO", title: "Not Right Now" },
-        ]);
+        const msg =
+          session.currentStep === "WELCOME"
+            ? `Hi ${session.name || "there"}! 👋 We noticed you recently reached out to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+              `We assist skilled professionals with Australia Subclass 482 Employer-Sponsored Work Visas. Are you interested in checking your visa eligibility?`
+            : `Hi ${session.name || "there"}! 👋 Just checking in to see if you had a chance to review our **Australia Subclass 482 Work Visa** overview.\n\n` +
+              `Our senior consultant is conducting free 1-on-1 profile evaluations this weekend ${timePrompt}. Would you like to reserve a 1-hour slot?`;
+
+        const buttons =
+          session.currentStep === "WELCOME"
+            ? [
+                { id: "BTN_482_YES", title: "Yes, Interested" },
+                { id: "BTN_482_NO", title: "Not Right Now" },
+              ]
+            : [
+                { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+                { id: "BTN_CONSULT_NO", title: "Not Right Now" },
+              ];
+
+        await sendQuickReplyButtons(session.phone, msg, buttons);
 
         await updateSession(db, session.phone, {
           followupCount: 1,
