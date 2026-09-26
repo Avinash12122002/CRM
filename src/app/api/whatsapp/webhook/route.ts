@@ -31,159 +31,211 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const entry = body?.entry?.[0];
-    const change = entry?.changes?.[0];
-    const value = change?.value;
-    const message = value?.messages?.[0];
-    const contact = value?.contacts?.[0];
+    const entries = body?.entry || [];
+    let processedCount = 0;
 
-    // Ignore status notifications (sent, delivered, read receipts)
-    if (!message) {
-      return NextResponse.json({ status: "ignored_no_message" }, { status: 200 });
-    }
+    for (const entry of entries) {
+      const changes = entry?.changes || [];
+      for (const change of changes) {
+        const value = change?.value;
+        const messages = value?.messages || [];
+        const contact = value?.contacts?.[0];
+        const defaultSenderName = contact?.profile?.name || "Candidate";
 
-    const phone = message.from; // Sender's phone number e.g. "2348012345678"
-    const senderName = contact?.profile?.name || "Candidate";
-    const msgType = message.type;
+        for (const message of messages) {
+          if (!message || !message.from) continue;
 
-    let textBody: string | undefined = undefined;
-    let selectedId: string | undefined = undefined;
-    let type: "text" | "interactive_button" | "interactive_list" = "text";
+          const rawPhone = String(message.from || "");
+          const phone = rawPhone.replace(/[^\d]/g, "").replace(/^00/, "");
+          const senderName = defaultSenderName;
+          const msgType = message.type;
 
-    if (msgType === "text") {
-      textBody = message.text?.body;
-      type = "text";
-    } else if (msgType === "interactive") {
-      const interactive = message.interactive;
-      if (interactive.type === "button_reply") {
-        selectedId = interactive.button_reply?.id;
-        textBody = interactive.button_reply?.title;
-        type = "interactive_button";
-      } else if (interactive.type === "list_reply") {
-        selectedId = interactive.list_reply?.id;
-        textBody = interactive.list_reply?.title;
-        type = "interactive_list";
-      }
-    } else if (msgType === "button") {
-      selectedId = message.button?.payload;
-      textBody = message.button?.text;
-      type = "interactive_button";
-    }
+          let textBody: string | undefined = undefined;
+          let selectedId: string | undefined = undefined;
+          let type: "text" | "interactive_button" | "interactive_list" | "document" | "image" | "video" = "text";
 
-    console.log(`[WhatsApp Webhook] Incoming message from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
-
-    // Log message to DB for auditing and debugging
-    let db;
-    try {
-      const { connectToDatabase } = await import("@/lib/mongodb");
-      const dbConn = await connectToDatabase();
-      db = dbConn.db;
-
-      await db.collection("whatsapp_incoming_logs").insertOne({
-        phone,
-        senderName,
-        msgType,
-        textBody,
-        selectedId,
-        rawMessage: message,
-        createdAt: new Date(),
-      });
-
-      // Log to unified live chat collection
-      const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
-      await logWhatsAppMessage({
-        db,
-        phone,
-        sender: "candidate",
-        senderName,
-        text: textBody || (selectedId ? `[Button clicked: ${selectedId}]` : `[${msgType}]`),
-        msgType: type,
-        messageId: message.id,
-      });
-    } catch (dbLogErr) {
-      console.warn("[WhatsApp Webhook] Could not save incoming log:", dbLogErr);
-    }
-
-    // Handle Document (PDF) and Image uploads from candidate
-    // Saves to folder cv/<candidate_phone_number>/ and public/cv/<candidate_phone_number>/
-    if (msgType === "document" || msgType === "image") {
-      const mediaObj = msgType === "document" ? message.document : message.image;
-      if (mediaObj?.id) {
-        if (!db) {
-          const { connectToDatabase } = await import("@/lib/mongodb");
-          const dbConn = await connectToDatabase();
-          db = dbConn.db;
-        }
-
-        const { handleIncomingWhatsAppMedia } = await import("@/lib/whatsapp/media");
-        await handleIncomingWhatsAppMedia({
-          db,
-          phone,
-          senderName,
-          mediaType: msgType,
-          mediaObj: {
-            id: mediaObj.id,
-            filename: mediaObj.filename,
-            mime_type: mediaObj.mime_type,
-            caption: mediaObj.caption,
-          },
-        });
-
-        return NextResponse.json({ status: "media_processed" }, { status: 200 });
-      }
-    }
-
-    // Check if incoming message is an OTP / verification code (e.g. from Instagram, Facebook, Meta)
-    const isOtp =
-      textBody &&
-      (/\b(otp|code|verification|verify|confirm|instagram|facebook|meta|security code)\b/i.test(textBody) ||
-        /^\s*(\d{4,8}|[A-Z0-9]{4,8})\s*$/i.test(textBody));
-
-    if (isOtp) {
-      console.log(`🚨 [WHATSAPP OTP / VERIFICATION CODE RECEIVED] From +${phone}: "${textBody}"`);
-
-      if (db) {
-        // Store in dedicated whatsapp_otps collection
-        await db.collection("whatsapp_otps").insertOne({
-          phone,
-          senderName,
-          code: textBody,
-          createdAt: new Date(),
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-        });
-
-        // Trigger in-app notification for admin
-        try {
-          const { createNotification } = await import("@/lib/notifications");
-          const adminUsers = await db.collection("users").find({ role: "admin" }).toArray();
-          for (const admin of adminUsers) {
-            await createNotification({
-              userId: admin.id,
-              title: "🔑 WhatsApp OTP / Verification Code Received",
-              message: `Code / Message: "${textBody}" (From: +${phone})`,
-              type: "whatsapp_otp",
-              link: "/dashboard",
-            });
+          if (msgType === "text") {
+            textBody = message.text?.body;
+            type = "text";
+          } else if (msgType === "interactive") {
+            const interactive = message.interactive;
+            if (interactive?.type === "button_reply") {
+              selectedId = interactive.button_reply?.id;
+              textBody = interactive.button_reply?.title;
+              type = "interactive_button";
+            } else if (interactive?.type === "list_reply") {
+              selectedId = interactive.list_reply?.id;
+              textBody = interactive.list_reply?.title;
+              type = "interactive_list";
+            }
+          } else if (msgType === "button") {
+            selectedId = message.button?.payload;
+            textBody = message.button?.text;
+            type = "interactive_button";
+          } else if (msgType === "document") {
+            textBody = message.document?.caption || message.document?.filename || "[Document / CV]";
+            type = "document";
+          } else if (msgType === "image") {
+            textBody = message.image?.caption || "[Image]";
+            type = "image";
+          } else if (msgType === "video") {
+            textBody = message.video?.caption || "[Video]";
+            type = "video";
+          } else if (msgType === "audio" || msgType === "voice") {
+            textBody = "[Voice Note / Audio]";
+            type = "text";
+          } else if (msgType === "location") {
+            const locName = message.location?.name || message.location?.address || "";
+            textBody = locName ? `[Location: ${locName}]` : `[Location: ${message.location?.latitude}, ${message.location?.longitude}]`;
+            type = "text";
+          } else if (msgType === "reaction") {
+            textBody = message.reaction?.emoji ? `[Reaction: ${message.reaction.emoji}]` : "[Reaction]";
+            type = "text";
           }
-        } catch (notifErr) {
-          console.warn("[WhatsApp Webhook] Could not dispatch OTP notification:", notifErr);
+
+          console.log(`[WhatsApp Webhook] Incoming message from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
+
+          // 1. Log message to DB for auditing and debugging
+          let db;
+          try {
+            const { connectToDatabase } = await import("@/lib/mongodb");
+            const dbConn = await connectToDatabase();
+            db = dbConn.db;
+
+            await db.collection("whatsapp_incoming_logs").insertOne({
+              phone,
+              senderName,
+              msgType,
+              textBody,
+              selectedId,
+              rawMessage: message,
+              createdAt: new Date(),
+            });
+
+            // 2. Log to unified live chat collection (always logs candidate message!)
+            const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+            await logWhatsAppMessage({
+              db,
+              phone,
+              sender: "candidate",
+              senderName,
+              text: textBody || (selectedId ? `[Button clicked: ${selectedId}]` : `[${msgType}]`),
+              msgType: type,
+              messageId: message.id,
+            });
+          } catch (dbLogErr) {
+            console.warn("[WhatsApp Webhook] Could not save incoming log:", dbLogErr);
+          }
+
+          // 3. Handle Document (PDF) and Image uploads from candidate
+          if (msgType === "document" || msgType === "image") {
+            const mediaObj = msgType === "document" ? message.document : message.image;
+            if (mediaObj?.id) {
+              if (!db) {
+                const { connectToDatabase } = await import("@/lib/mongodb");
+                const dbConn = await connectToDatabase();
+                db = dbConn.db;
+              }
+
+              const { handleIncomingWhatsAppMedia } = await import("@/lib/whatsapp/media");
+              const mediaResult = await handleIncomingWhatsAppMedia({
+                db,
+                phone,
+                senderName,
+                mediaType: msgType,
+                mediaObj: {
+                  id: mediaObj.id,
+                  filename: mediaObj.filename,
+                  mime_type: mediaObj.mime_type,
+                  caption: mediaObj.caption,
+                },
+              });
+
+              // If media was saved, update the message document in whatsapp_messages with mediaUrl
+              if (mediaResult?.filePath) {
+                try {
+                  await db.collection("whatsapp_messages").updateOne(
+                    { messageId: message.id },
+                    {
+                      $set: {
+                        mediaUrl: mediaResult.filePath,
+                        mediaFileName: mediaResult.filename || mediaObj.filename,
+                      },
+                    }
+                  );
+                } catch (updateErr) {
+                  console.warn("[WhatsApp Webhook] Could not update mediaUrl on message:", updateErr);
+                }
+              }
+
+              processedCount++;
+              continue;
+            }
+          }
+
+          // 4. Check if incoming message is an OTP / verification code
+          const isOtp =
+            textBody &&
+            (/\b(otp|code|verification|verify|confirm|instagram|facebook|meta|security code)\b/i.test(textBody) ||
+              /^\s*(\d{4,8}|[A-Z0-9]{4,8})\s*$/i.test(textBody));
+
+          if (isOtp) {
+            console.log(`🚨 [WHATSAPP OTP / VERIFICATION CODE RECEIVED] From +${phone}: "${textBody}"`);
+
+            if (db) {
+              await db.collection("whatsapp_otps").insertOne({
+                phone,
+                senderName,
+                code: textBody,
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+              });
+
+              try {
+                const { createNotification } = await import("@/lib/notifications");
+                const adminUsers = await db.collection("users").find({ role: "admin" }).toArray();
+                for (const admin of adminUsers) {
+                  await createNotification({
+                    userId: admin.id,
+                    title: "🔑 WhatsApp OTP / Verification Code Received",
+                    message: `Code / Message: "${textBody}" (From: +${phone})`,
+                    type: "whatsapp_otp",
+                    link: "/dashboard",
+                  });
+                }
+              } catch (notifErr) {
+                console.warn("[WhatsApp Webhook] Could not dispatch OTP notification:", notifErr);
+              }
+            }
+
+            processedCount++;
+            continue;
+          }
+
+          // 5. Process regular messages through candidate state machine
+          try {
+            const stateMessageType: "text" | "interactive_button" | "interactive_list" =
+              type === "interactive_button" || type === "interactive_list"
+                ? type
+                : "text";
+
+            await processIncomingWhatsAppMessage({
+              phone,
+              senderName,
+              messageType: stateMessageType,
+              textBody,
+              selectedId,
+            });
+          } catch (stateErr) {
+            console.error(`[WhatsApp Webhook] State machine error for +${phone}:`, stateErr);
+          }
+
+          processedCount++;
         }
       }
-
-      // Return immediately so this OTP message does not trigger the candidate visa booking flow
-      return NextResponse.json({ status: "otp_received", message: textBody }, { status: 200 });
     }
 
-    // Process regular messages through candidate state machine
-    await processIncomingWhatsAppMessage({
-      phone,
-      senderName,
-      messageType: type,
-      textBody,
-      selectedId,
-    });
-
-    return NextResponse.json({ status: "success" }, { status: 200 });
+    return NextResponse.json({ status: "success", processedMessages: processedCount }, { status: 200 });
   } catch (err) {
     console.error("[WhatsApp Webhook Error]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

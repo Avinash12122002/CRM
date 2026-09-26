@@ -65,21 +65,26 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
       }
     }
 
-    const recentThreshold = new Date(createdAt.getTime() - 30000);
-    const recentDuplicate = await db.collection("whatsapp_messages").findOne({
-      phone: cleanPhone,
-      text: text.trim(),
-      createdAt: { $gte: recentThreshold },
-    });
+    // NEVER drop candidate messages by text comparison! Candidates can legitimately send repeat messages or match bot prompts.
+    // Only deduplicate bot/admin outbound messages if dispatched to the same phone with identical text within 4 seconds.
+    if (sender !== "candidate") {
+      const recentThreshold = new Date(createdAt.getTime() - 4000);
+      const recentDuplicate = await db.collection("whatsapp_messages").findOne({
+        phone: cleanPhone,
+        sender,
+        text: text.trim(),
+        createdAt: { $gte: recentThreshold },
+      });
 
-    if (recentDuplicate) {
-      if (recentDuplicate.sender === "bot" && sender === "admin") {
-        await db.collection("whatsapp_messages").updateOne(
-          { _id: recentDuplicate._id },
-          { $set: { sender: "admin", senderName: messageDoc.senderName } }
-        );
+      if (recentDuplicate) {
+        if (recentDuplicate.sender === "bot" && sender === "admin") {
+          await db.collection("whatsapp_messages").updateOne(
+            { _id: recentDuplicate._id },
+            { $set: { sender: "admin", senderName: messageDoc.senderName } }
+          );
+        }
+        return;
       }
-      return;
     }
 
     // 1. Insert into unified messages collection

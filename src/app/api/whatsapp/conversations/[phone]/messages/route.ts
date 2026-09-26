@@ -36,78 +36,85 @@ export async function GET(
 
     const { db } = await connectToDatabase();
 
+    const phoneVariations = [cleanPhone, `+${cleanPhone}`];
+    if (cleanPhone.startsWith("91") && cleanPhone.length === 12) {
+      phoneVariations.push(cleanPhone.slice(2));
+      phoneVariations.push(`0${cleanPhone.slice(2)}`);
+      phoneVariations.push(`+91${cleanPhone.slice(2)}`);
+    }
+
     // 1. Fetch from unified whatsapp_messages (primary source of truth)
     const messages = await db
       .collection("whatsapp_messages")
-      .find({ phone: cleanPhone })
+      .find({
+        $or: [
+          { phone: { $in: phoneVariations } },
+          { from: { $in: phoneVariations } },
+          { to: { $in: phoneVariations } },
+        ],
+      })
       .sort({ createdAt: 1 })
       .toArray();
 
     // 2. Fetch candidate session details
-    const session = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
+    const session = await db.collection("whatsapp_sessions").findOne({
+      $or: [{ phone: { $in: phoneVariations } }],
+    });
 
-    // 3. Fallback only if whatsapp_messages is completely empty (historical migration)
-    if (messages.length === 0) {
-      const incomingLogs = await db
-        .collection("whatsapp_incoming_logs")
-        .find({
-          $or: [
-            { phone: cleanPhone },
-            { phone: `+${cleanPhone}` },
-            { phone: cleanPhone.startsWith("91") ? cleanPhone.slice(2) : cleanPhone },
-          ],
-        })
-        .sort({ createdAt: 1 })
-        .toArray();
+    // 3. Resilient merge: Check whatsapp_incoming_logs to ensure no candidate message was missed
+    const incomingLogs = await db
+      .collection("whatsapp_incoming_logs")
+      .find({
+        $or: [
+          { phone: { $in: phoneVariations } },
+          { from: { $in: phoneVariations } },
+        ],
+      })
+      .sort({ createdAt: 1 })
+      .toArray();
 
-      const outgoingLogs = await db
-        .collection("whatsapp_outgoing_logs")
-        .find({
-          $or: [
-            { phone: cleanPhone },
-            { phone: `+${cleanPhone}` },
-          ],
-        })
-        .sort({ createdAt: 1 })
-        .toArray();
+    const existingMessageIds = new Set(messages.map((m) => m.messageId).filter(Boolean));
+    const existingCandidateTexts = new Set(
+      messages
+        .filter((m) => m.sender === "candidate")
+        .map((m) => `${(m.text || "").trim()}_${new Date(m.createdAt).getMinutes()}`)
+    );
 
-      const existingTexts = new Set<string>();
+    for (const inc of incomingLogs) {
+      const incId = inc.rawMessage?.id || (inc._id ? inc._id.toString() : undefined);
+      const text =
+        inc.textBody ||
+        inc.selectedId ||
+        (inc.msgType === "document"
+          ? "[Document]"
+          : inc.msgType === "image"
+          ? "[Image]"
+          : `[${inc.msgType}]`);
+      const key = `${(text || "").trim()}_${new Date(inc.createdAt).getMinutes()}`;
 
-      for (const inc of incomingLogs) {
-        const text = inc.textBody || inc.selectedId || `[${inc.msgType}]`;
-        if (text && !existingTexts.has(text.trim())) {
-          messages.push({
-            phone: cleanPhone,
-            sender: "candidate",
-            senderName: inc.senderName || "Candidate",
-            text,
-            msgType: inc.msgType || "text",
-            createdAt: inc.createdAt,
-          } as any);
-          existingTexts.add(text.trim());
-        }
+      if (incId && existingMessageIds.has(incId)) {
+        continue;
+      }
+      if (existingCandidateTexts.has(key)) {
+        continue;
       }
 
-      for (const out of outgoingLogs) {
-        const text = out.message || "";
-        if (text && !existingTexts.has(text.trim())) {
-          const sender = out.sentByRole === "admin" ? "admin" : "bot";
-          messages.push({
-            phone: cleanPhone,
-            sender,
-            senderName: out.sentByName || (sender === "admin" ? "Admin" : "TMS Automation"),
-            text,
-            msgType: "text",
-            createdAt: out.createdAt,
-          } as any);
-          existingTexts.add(text.trim());
-        }
-      }
+      messages.push({
+        phone: cleanPhone,
+        sender: "candidate",
+        senderName: inc.senderName || "Candidate",
+        text,
+        msgType: inc.msgType || "text",
+        messageId: incId,
+        createdAt: inc.createdAt,
+      } as any);
+      existingCandidateTexts.add(key);
     }
 
-    // 4. Strict Deduplication:
-    // If two messages have identical text within 2 minutes (120,000ms), or identical messageId, merge into one.
-    // If one is 'admin' and one is 'bot', always prefer 'admin'.
+    // 4. Safe Deduplication:
+    // - Two messages with identical messageId are merged.
+    // - Candidate messages are NEVER merged with bot or admin messages!
+    // - Messages from candidate are never dropped by text match.
     const deduplicatedMessages: typeof messages = [];
     for (const m of messages) {
       const normText = (m.text || "").trim();
@@ -117,9 +124,18 @@ export async function GET(
         if (m.messageId && prev.messageId && m.messageId === prev.messageId) {
           return true;
         }
+        // NEVER merge messages across different senders (candidate vs bot/admin)
+        if (m.sender !== prev.sender) {
+          return false;
+        }
+        // If candidate sent message, only merge if identical within 2 seconds (rapid network duplicate)
+        if (m.sender === "candidate") {
+          return (prev.text || "").trim() === normText && Math.abs(new Date(prev.createdAt).getTime() - mTime) < 2000;
+        }
+        // For bot/admin outbound messages, debounce within 6 seconds
         const sameNormText = (prev.text || "").trim() === normText;
         const timeDiff = Math.abs(new Date(prev.createdAt).getTime() - mTime);
-        return sameNormText && timeDiff < 120000; // 2 minutes window
+        return sameNormText && timeDiff < 6000;
       });
 
       if (dupIndex === -1) {
