@@ -50,8 +50,8 @@ export interface WhatsAppSession {
   timeZoneLabel: string;
   currentStep: WhatsAppStep;
   leadId?: number; // Linked integer CRM lead ID
-  followupCount: number; // 0, 1, 2, 3 (for 6-day cycle: Day 2, 4, 6)
-  paymentFollowupCount?: number; // Count for post-meeting unpaid follow-ups
+  followupCount: number; // 0-7 for 7-day follow-up cycle
+  paymentFollowupCount?: number;
   lastFollowupSentAt?: Date;
   nextFollowupAt?: Date;
   videoSentAt?: Date;
@@ -62,15 +62,38 @@ export interface WhatsAppSession {
   cvFileName?: string;
 
   // Candidate Qualifications & Profiling
-  occupation?: string; // Extracted or CRM occupation
-  occupationSector?: string; // Sector from 691 list
-  yearsExperience?: string | number; // e.g. "5" or "5+ years"
-  highestQualification?: string; // e.g. "Bachelor of Engineering", "Diploma"
-  englishTestStatus?: string; // e.g. "PTE 45", "IELTS 6.5", "Preparing with TMS"
-  candidateNotes?: string[]; // Log of key candidate details / preferences
+  occupation?: string;
+  occupationSector?: string;
+  yearsExperience?: string | number;
+  highestQualification?: string;
+  englishTestStatus?: string;
+  candidateNotes?: string[];
+
+  // Extended Candidate Profile (auto-extracted from conversation)
+  currentJobTitle?: string;       // e.g. "Software Engineer", "Nurse", "Chef"
+  currentEmployer?: string;       // e.g. "Infosys", "Apollo Hospital"
+  currentSalary?: string;         // e.g. "INR 8 LPA"
+  desiredSalary?: string;         // e.g. "AUD 90,000"
+  maritalStatus?: string;         // e.g. "Married", "Single"
+  ageRange?: string;              // e.g. "28", "30-35"
+  familySize?: string;            // e.g. "Wife + 1 child"
+  hasPassport?: boolean;          // true/false
+  languageSpoken?: string;        // e.g. "Hindi, English"
+  candidateGoals?: string;        // e.g. "PR pathway", "Better salary"
+  adminNotes?: string;            // Notes added by admin from CRM
+  lastOutboundMessage?: string;   // Last message sent BY system TO candidate
+  lastOutboundAt?: Date;
+
+  // Full Conversation History (every message candidate ever sent)
+  conversationHistory?: Array<{
+    role: "candidate" | "system"; // who sent this message
+    message: string;              // actual text
+    timestamp: Date;              // when it was sent
+    step: string;                 // which funnel step they were at
+  }>;
 
   // Meeting Lifecycle Tracking
-  meetingStatus?: MeetingStatusType; // "none" | "booked" | "rescheduled" | "canceled" | "completed"
+  meetingStatus?: MeetingStatusType;
   meetingBookedAt?: Date;
   meetingRescheduledAt?: Date;
   meetingRescheduledCount?: number;
@@ -80,15 +103,15 @@ export interface WhatsAppSession {
   meetingHistory?: MeetingHistoryItem[];
 
   bookedSlot?: {
-    date: string; // YYYY-MM-DD
-    candidateTime: string; // e.g. "16:30" (WAT)
-    candidateTimeLabel: string; // e.g. "04:30 PM WAT"
-    istTime: string; // e.g. "21:00" (IST)
-    istTimeLabel: string; // e.g. "09:00 PM IST"
+    date: string;
+    candidateTime: string;
+    candidateTimeLabel: string;
+    istTime: string;
+    istTimeLabel: string;
     meetingUserId: number;
     meetingUserName: string;
   };
-  activeSlotsDate?: string; // Date currently being viewed for slot selection
+  activeSlotsDate?: string;
   meetingCompleted?: boolean;
   paymentPending?: boolean;
   lastInteractionAt: Date;
@@ -97,15 +120,15 @@ export interface WhatsAppSession {
 }
 
 export interface WeekendSlot {
-  date: string; // YYYY-MM-DD
-  dayLabel: string; // e.g. "Sunday, 28 Sep"
-  istStartTime: string; // e.g. "11:00"
-  istEndTime: string; // e.g. "11:30"
-  candidateDate: string; // YYYY-MM-DD in candidate timezone
-  candidateStartTime: string; // e.g. "06:30"
-  candidateEndTime: string; // e.g. "07:00"
-  candidateDisplayLabel: string; // "04:30 PM - 05:00 PM (Nigeria WAT)"
-  istDisplayLabel: string; // "11:00 AM - 11:30 AM (IST)"
+  date: string;
+  dayLabel: string;
+  istStartTime: string;
+  istEndTime: string;
+  candidateDate: string;
+  candidateStartTime: string;
+  candidateEndTime: string;
+  candidateDisplayLabel: string;
+  istDisplayLabel: string;
   available: boolean;
   meetingUserId?: number;
 }

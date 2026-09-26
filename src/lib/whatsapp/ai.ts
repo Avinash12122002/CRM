@@ -17,67 +17,110 @@ export async function generateAiResponse(params: {
 
   const matchedOcc = findEligibleOccupation(message);
 
-  // Build rich candidate live profile
+  // Build rich candidate live profile — fed to AI as system context
   let contextBlock = `
-CANDIDATE LIVE CRM PROFILE & DOSSIER:
+CANDIDATE LIVE CRM PROFILE & FULL DOSSIER:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+IDENTITY:
 - Candidate Name: ${session.name || "Candidate"}
 - Phone Number: +${session.phone}
 - Email Address: ${session.email || "Not shared yet"}
 - Country of Residence: ${session.countryName} (${session.timeZoneLabel})
+- Age: ${session.ageRange || "Not specified"}
+- Marital Status: ${session.maritalStatus || "Not specified"}
+- Family / Dependents: ${session.familySize || "Not specified"}
+- Languages Spoken: ${session.languageSpoken || "Not specified"}
+
+VISA INTEREST:
 - Destination of Interest: ${session.interestedCountry || "Australia"}
 - Target Visa Pathway: Australia Subclass 482 Skills in Demand Work Visa (Direct Employer Sponsored)
+- Candidate Goals: ${session.candidateGoals || "Not specified"}
+
+PROFESSIONAL BACKGROUND:
 - Known Occupation: ${session.occupation || "Not specified yet"}${session.occupationSector ? ` (Sector: ${session.occupationSector})` : ""}
+- Current Job Title: ${session.currentJobTitle || "Not specified"}
+- Current Employer: ${session.currentEmployer || "Not specified"}
 - Work Experience: ${session.yearsExperience || "Not specified yet"}
+- Current Salary: ${session.currentSalary || "Not specified"}
+- Desired Salary in Australia: ${session.desiredSalary || "Not specified"}
 - Educational Qualification: ${session.highestQualification || "Not specified yet"}
 - English Language Status: ${session.englishTestStatus || "Preparing with TMS / Pending"}
-- Funnel State: ${session.currentStep}
+- Passport Status: ${session.hasPassport === true ? "Has valid passport ✅" : session.hasPassport === false ? "No passport ❌" : "Not specified"}
+
+FUNNEL STATUS:
+- Current Funnel Step: ${session.currentStep}
 - Meeting Lifecycle Status: ${session.meetingStatus || (session.bookedSlot ? "booked" : "none")}
+- Info Email Sent: ${session.infoEmailSentAt ? "Yes ✅" : "No"}
+- CV Received: ${session.cvReceivedAt ? `Yes ✅ (${new Date(session.cvReceivedAt).toLocaleDateString()})` : "Not received yet"}
+- CV File: ${session.cvFileName || "None"}
 `;
 
   if (matchedOcc) {
     contextBlock += `
-- INQUIRED OCCUPATION MATCH:
-  * Role: "${matchedOcc.role}"
-  * Sector: "${matchedOcc.category}"
-  * Status: CONFIRMED on the official 691 Australia Subclass 482 Eligible Occupation List.
-  * Instruction: Confidently confirm to the candidate that their role "${matchedOcc.role}" is on the official list under ${matchedOcc.category}!
+INQUIRED OCCUPATION MATCH:
+- Role: "${matchedOcc.role}"
+- Sector: "${matchedOcc.category}"
+- Status: CONFIRMED on the official 691 Australia Subclass 482 Eligible Occupation List.
+- Instruction: Confidently confirm to the candidate that their role "${matchedOcc.role}" is on the official list under ${matchedOcc.category}!
 `;
   }
 
   if (session.bookedSlot) {
     contextBlock += `
-- ACTIVE CONFIRMED CONSULTATION:
-  * Date: ${session.bookedSlot.date}
-  * Candidate Local Time: ${session.bookedSlot.candidateTimeLabel}
-  * Consultant: TMS Visa Senior Migration Expert
-  * Status: ${session.meetingStatus || "booked"}
-  * Rescheduled Count: ${session.meetingRescheduledCount || 0} times
-  * TIMEZONE RULE: Always state the candidate's time as ${session.bookedSlot.candidateTimeLabel}. Do NOT mention IST to international candidates.
+ACTIVE CONFIRMED CONSULTATION:
+- Date: ${session.bookedSlot.date}
+- Candidate Local Time: ${session.bookedSlot.candidateTimeLabel}
+- Consultant: TMS Visa Senior Migration Expert
+- Status: ${session.meetingStatus || "booked"}
+- Rescheduled Count: ${session.meetingRescheduledCount || 0} times
+- TIMEZONE RULE: Always state the candidate's time as ${session.bookedSlot.candidateTimeLabel}. Do NOT mention IST to international candidates.
 `;
   } else if (session.meetingStatus === "canceled") {
     contextBlock += `
-- CONSULTATION CANCELLATION DETAILS:
-  * Status: Canceled
-  * Canceled At: ${session.meetingCanceledAt ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
-  * Reason: ${session.meetingCancellationReason || "Requested by candidate"}
-  * CRITICAL INSTRUCTION: Candidate's meeting was cancelled. Remind candidate that their consultation was cancelled and encourage them to reschedule for an upcoming weekend (Saturdays & Sundays, 01:00 PM – 09:00 PM IST in 1-hour slots) in their local time.
+CONSULTATION CANCELLATION DETAILS:
+- Status: Canceled
+- Canceled At: ${session.meetingCanceledAt ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
+- Reason: ${session.meetingCancellationReason || "Requested by candidate"}
+- CRITICAL INSTRUCTION: Candidate's meeting was cancelled. Remind candidate that their consultation was cancelled and encourage them to reschedule for an upcoming weekend (Saturdays & Sundays, 01:00 PM – 09:00 PM IST in 1-hour slots) in their local time.
 `;
   }
 
   if (session.meetingHistory && session.meetingHistory.length > 0) {
     contextBlock += `
-- MEETING TIMELINE & HISTORY:
+MEETING TIMELINE & HISTORY:
 ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().split('T')[0]}] ${h.action.toUpperCase()}: ${h.date || ""} ${h.candidateTime || ""} ${h.reason ? `(Reason: ${h.reason})` : ""}`).join("\n")}
 `;
   }
 
   if (session.meetingCompleted || session.meetingStatus === "completed") {
     contextBlock += `
-- CONSULTATION OUTCOME:
-  * Status: Consultation Successfully Completed
-  * Completed On: ${session.meetingCompletedAt ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
-  * CRITICAL INSTRUCTION: The 1-on-1 consultation has ALREADY been completed! Under NO circumstances offer, prompt, or mention booking or rescheduling a meeting. Inform candidate that their file is in onboarding/documentation review.
-  * Enrollment Payment Status: ${session.paymentPending ? "Pending (Awaiting AUD 300 Initial Service Fee)" : "Settled / In Progress"}
+CONSULTATION OUTCOME:
+- Status: Consultation Successfully Completed
+- Completed On: ${session.meetingCompletedAt ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
+- CRITICAL INSTRUCTION: The 1-on-1 consultation has ALREADY been completed! Under NO circumstances offer, prompt, or mention booking or rescheduling a meeting. Inform candidate that their file is in onboarding/documentation review.
+- Enrollment Payment Status: ${session.paymentPending ? "Pending (Awaiting AUD 300 Initial Service Fee)" : "Settled / In Progress"}
+`;
+  }
+
+  // Inject last 15 messages from conversation history for full context
+  if (session.conversationHistory && session.conversationHistory.length > 0) {
+    const recentHistory = session.conversationHistory.slice(-15); // last 15 messages
+    contextBlock += `
+RECENT CONVERSATION HISTORY (Last ${recentHistory.length} messages — use this for personalized context):
+${recentHistory.map((h, i) => `  [${i + 1}] ${h.role === "candidate" ? "CANDIDATE" : "TMS BOT"} (${h.step}) [${new Date(h.timestamp).toLocaleDateString()}]: "${h.message.slice(0, 200)}"`).join("\n")}
+
+IMPORTANT: Use the conversation history above to:
+1. Understand what the candidate has already told you (occupation, experience, goals, family, etc.)
+2. Never ask for information the candidate has already provided.
+3. Reference their specific details when answering (e.g. "Since you mentioned you're a ${session.occupation || "skilled professional"} with ${session.yearsExperience || "relevant experience"}...")
+4. Give fully personalized answers, not generic ones.
+`;
+  }
+
+  if (session.adminNotes) {
+    contextBlock += `
+ADMIN NOTES (Internal CRM notes about this candidate):
+${session.adminNotes}
 `;
   }
 
@@ -268,7 +311,7 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
 
   if (isAskingVideoLink) {
     return (
-      `Here is our Australia Subclass 482 explainer video! 🎥🇦🇺\n\n` +
+      `Here is our Australia Employer Sponsored Work Visa explainer video! 🎥🇦🇺\n\n` +
       `▶️ **Watch the Video:**\n${videoUrl}\n\n` +
       `It covers employer sponsorship, 691 eligible jobs, AUD $76,500+ salary, and PR pathways.\n\n` +
       `*(Tap above to watch anytime)*`
@@ -351,7 +394,7 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
   if (matchedOcc) {
     return (
       `Great news, ${session.name || "there"}! 🎉\n\n` +
-      `**${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under **${matchedOcc.category}** on the official Australian Subclass 482 Eligible Occupation List (691 Roles)!\n\n` +
+      `**${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under **${matchedOcc.category}** on the official Australian Employer Sponsored Work Visa Eligible Occupation List!\n\n` +
       `With 2+ years experience, you can qualify for employer sponsorship with a minimum **AUD $76,500/year** salary.\n\n` +
       `Would you like to book a free 1-on-1 weekend consultation to assess your CV?`
     );
@@ -376,7 +419,7 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
   if (!session.email) {
     return (
       `Hello! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
-      `We specialize in employer-sponsored work visas for Australia (Subclass 482). To register your profile in our CRM, **could you please share your Email Address?**`
+      `We specialize in employer-sponsored work visas for Australia (Australia Employer Sponsored Work Visa). To register your profile in our CRM, **could you please share your Email Address?**`
     );
   }
 
@@ -396,6 +439,6 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
   // General conversational greeting fallback
   return (
     `Hello! 👋 Thank you for reaching out to The Migration School (TMS Visa) 🇦🇺.\n\n` +
-    `How can I assist you with your Australia Subclass 482 Work Visa today? Feel free to ask about eligibility, the 5-step process, or booking a free weekend consultation!`
+    `How can I assist you with your Australia Employer Sponsored Work Visa today? Feel free to ask about eligibility, the 5-step process, or booking a free weekend consultation!`
   );
 }

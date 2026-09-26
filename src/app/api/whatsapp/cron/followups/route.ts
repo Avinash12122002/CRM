@@ -3,7 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { WhatsAppSession } from "@/lib/whatsapp/types";
 import { updateSession, getStaticGoogleMeetLink, sendConsultationBookingPrompt } from "@/lib/whatsapp/stateMachine";
 import { sendQuickReplyButtons, sendTextMessage } from "@/lib/whatsapp/client";
-import { formatDateInZone, format12hTime } from "@/lib/whatsapp/timezone";
+import { formatDateInZone, format12hTime, getNext10AmInTimezone } from "@/lib/whatsapp/timezone";
 import { STEP_FOLLOWUP_MESSAGES } from "@/lib/whatsapp/followupTemplates";
 
 /**
@@ -129,9 +129,11 @@ export async function GET(req: NextRequest) {
           await sendTextMessage(session.phone, dayTemplate.message);
         }
 
-        // Schedule next reminder for tomorrow (24 hours), or mark COLD if day 7 reached
+        // Schedule next reminder for 10 AM tomorrow in candidate's LOCAL timezone
         const isFinalDay = targetDay >= 7;
-        const nextFollowup = isFinalDay ? undefined : new Date(Date.now() + 24 * 3600 * 1000);
+        const nextFollowup = isFinalDay
+          ? undefined
+          : getNext10AmInTimezone(session.timeZone || "Asia/Kolkata");
 
         await updateSession(db, session.phone, {
           followupCount: targetDay,
@@ -180,7 +182,7 @@ export async function GET(req: NextRequest) {
           `⏰ *Time:* ${candTime12h} (${slot.candidateTimezone || "Local"})\n` +
           `🇮🇳 *India Time:* ${ist12h} IST\n\n` +
           `🔗 *Google Meet Link:*\n${meetLink}\n\n` +
-          `Our Australian visa specialist is ready to evaluate your Subclass 482 file. Please tap the link to join on time! 🇦🇺`;
+          `Our Australian visa specialist is ready to evaluate your Australia Employer Sponsored Work Visa file. Please tap the link to join on time! 🇦🇺`;
 
         await sendTextMessage(slot.phone, reminderMsg);
 

@@ -5,12 +5,12 @@ export interface FollowUpItem {
 }
 
 export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
-  // Step 1: Welcome & Initial Subclass 482 Interest
+  // Step 1: Welcome & Initial Interest
   STEP_1_WELCOME: [
     {
       day: 1,
       message:
-        `Australia is actively hiring! 🇦🇺 The Subclass 482 visa is a direct, fully employer-sponsored work visa allowing you to live and work in Australia with your family.\n\n` +
+        `Australia is actively hiring! 🇦🇺 The Australia Employer Sponsored Work Visa is a direct, fully employer-sponsored work visa allowing you to live and work in Australia with your family.\n\n` +
         `Tap below to learn how you can qualify:`,
       buttons: [
         { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -20,7 +20,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 2,
       message:
-        `Did you know? Under the Australia Subclass 482 visa, your sponsoring Australian employer covers your nomination and legal fees! 💼\n\n` +
+        `Did you know? Under the Australia Employer Sponsored Work Visa, your sponsoring Australian employer covers your nomination and legal fees! 💼\n\n` +
         `Don't miss this opportunity to advance your international career. Tap below:`,
       buttons: [
         { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -40,7 +40,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 4,
       message:
-        `Australian employers urgently need skilled workers across healthcare, trades, engineering, IT, hospitality, and management. They offer fully sponsored work visas! 🇦🇺\n\n` +
+        `Australian employers urgently need skilled workers across healthcare, trades, engineering, IT, hospitality, and management. They offer fully employer sponsored work visas! 🇦🇺\n\n` +
         `Are you ready to explore your options?`,
       buttons: [
         { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -50,7 +50,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 5,
       message:
-        `Direct Pathway to Permanent Residency (PR): Working on an employer-sponsored Subclass 482 visa provides a clear transitional pathway to Australian permanent residency! 🌏\n\n` +
+        `Direct Pathway to Permanent Residency (PR): Working on an Australia Employer Sponsored Work Visa provides a clear transitional pathway to Australian permanent residency! 🌏\n\n` +
         `Take the first step today:`,
       buttons: [
         { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -70,7 +70,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 7,
       message:
-        `Final Opportunity: Our Australian employer sponsorship assessment round is closing soon. If you wish to assess your eligibility for Australia Subclass 482, tap below.\n\n` +
+        `Final Opportunity: Our Australian employer sponsorship assessment round is closing soon. If you wish to assess your eligibility for the Australia Employer Sponsored Work Visa, tap below.\n\n` +
         `Otherwise, no further messages will be sent!`,
       buttons: [
         { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -85,7 +85,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 1,
       message:
         `We are waiting to share all the visa details with you! 📩\n\n` +
-        `Please reply with your email address so our migration team can send you the complete Subclass 482 Employer Sponsorship pack.`,
+        `Please reply with your email address so our migration team can send you the complete Australia Employer Sponsored Work Visa information pack.`,
     },
     {
       day: 2,
@@ -117,7 +117,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 7,
       message:
-        `Final Reminder: Share your email address today to receive the Australia Subclass 482 Work Visa information pack. This is our last reminder! 📩`,
+        `Final Reminder: Share your email address today to receive the Australia Employer Sponsored Work Visa information pack. This is our last reminder! 📩`,
     },
   ],
 
@@ -127,7 +127,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 1,
       message:
         `This is a fully employer-sponsored work visa where the Australian employer pays major charges! 🇦🇺\n\n` +
-        `Book a free 1-on-1 meeting with us to know more about the Australia sponsored work visa:`,
+        `Book a free 1-on-1 meeting with us to know more about the Australia Employer Sponsored Work Visa:`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
         { id: "BTN_CONSULT_NO", title: "Maybe Later" },
@@ -155,7 +155,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 4,
       message:
-        `Weekend Consultations Open: Our senior Australian visa consultants have limited free 1-on-1 video slots this Saturday and Sunday. Tap below to reserve your 15-minute call:`,
+        `Weekend Consultations Open: Our senior Australian visa consultants have limited free 1-on-1 video slots this Saturday and Sunday. Tap below to reserve your free call:`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
         { id: "BTN_CONSULT_NO", title: "Maybe Later" },
@@ -164,7 +164,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 5,
       message:
-        `Verify your ANZSCO occupation and discover how Australian employers sponsor overseas skilled candidates. Book your free consultation today! 🇦🇺`,
+        `Verify your occupation and discover how Australian employers sponsor overseas skilled candidates on the Australia Employer Sponsored Work Visa. Book your free consultation today! 🇦🇺`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
         { id: "BTN_CONSULT_NO", title: "Maybe Later" },
@@ -203,13 +203,13 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 2,
       message:
         `Talk 1-on-1 with our live Australian visa agent! 🤝\n\n` +
-        `Pick a date on the calendar to discuss direct employer sponsorship for Subclass 482:`,
+        `Pick a date on the calendar to discuss the Australia Employer Sponsored Work Visa:`,
       buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
       day: 3,
       message:
-        `Know more about the Australian sponsored work visa: Tap below to pick an upcoming Saturday or Sunday that fits your schedule! 🇦🇺`,
+        `Know more about the Australia Employer Sponsored Work Visa: Tap below to pick an upcoming Saturday or Sunday that fits your schedule! 🇦🇺`,
       buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
@@ -221,7 +221,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 5,
       message:
-        `Reserve 15 minutes to verify your qualifications and ANZSCO job category with our visa desk. Pick a date below:`,
+        `Reserve 15 minutes to verify your qualifications and job category with our visa desk. Pick a date below:`,
       buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
@@ -244,7 +244,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 1,
       message:
         `You selected your consultation date! ⏰\n\n` +
-        `Please pick your convenient 12-hour time slot (between 01:00 PM and 09:00 PM IST) to lock in your meeting:`,
+        `Please pick your convenient time slot (between 01:00 PM and 09:00 PM IST) to lock in your meeting:`,
       buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
     },
     {
@@ -256,7 +256,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 3,
       message:
-        `Complete your booking in 10 seconds: Select a time slot to confirm your 1-on-1 Australian work visa consultation! 📅`,
+        `Complete your booking in 10 seconds: Select a time slot to confirm your 1-on-1 Australia Employer Sponsored Work Visa consultation! 📅`,
       buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
     },
     {
@@ -291,12 +291,12 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 1,
       message:
         `Please share your CV / Resume with us! 📄\n\n` +
-        `Our compliance and employer matching team is waiting to verify your Australia visa eligibility.`,
+        `Our compliance and employer matching team is waiting to verify your Australia Employer Sponsored Work Visa eligibility.`,
     },
     {
       day: 2,
       message:
-        `This visa is fully sponsored by employer, so please share your CV to move forward! 🇦🇺\n\n` +
+        `This visa is fully sponsored by your employer, so please share your CV to move forward! 🇦🇺\n\n` +
         `Send it in PDF or Word document format right here.`,
     },
     {
@@ -317,12 +317,12 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 6,
       message:
-        `Don't delay your Subclass 482 visa file! Send your CV today so our senior review team can assess your job eligibility. 🇦🇺`,
+        `Don't delay your Australia Employer Sponsored Work Visa file! Send your CV today so our senior review team can assess your job eligibility. 🇦🇺`,
     },
     {
       day: 7,
       message:
-        `Final Reminder: Please share your CV with us today to proceed with your Australian employer-sponsored work visa application. 📄`,
+        `Final Reminder: Please share your CV with us today to proceed with your Australia Employer Sponsored Work Visa application. 📄`,
     },
   ],
 
@@ -338,7 +338,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 2,
       message:
-        `We missed you! 🤝 Please reschedule your free 1-on-1 consultation so our team can evaluate your Australian Subclass 482 visa file:`,
+        `We missed you! 🤝 Please reschedule your free 1-on-1 consultation so our team can evaluate your Australia Employer Sponsored Work Visa file:`,
       buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {

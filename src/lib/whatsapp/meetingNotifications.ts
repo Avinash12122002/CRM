@@ -123,6 +123,11 @@ export async function sendMeetingCancelledNotification(params: {
   // Sync whatsapp_sessions record so state machine knows to track rescheduling
   try {
     const now = new Date();
+    // Find candidate timezone for smart scheduling
+    const { getNext10AmInTimezone } = await import("@/lib/whatsapp/timezone");
+    const session = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
+    const candidateTz = (session?.timeZone as string) || "Asia/Kolkata";
+
     await db.collection("whatsapp_sessions").updateOne(
       { phone: cleanPhone },
       {
@@ -132,7 +137,7 @@ export async function sendMeetingCancelledNotification(params: {
           bookedSlot: null,
           currentStep: "RESCHEDULING_DATE",
           followupCount: 0,
-          nextFollowupAt: new Date(Date.now() + 24 * 3600 * 1000),
+          nextFollowupAt: getNext10AmInTimezone(candidateTz), // 10 AM candidate's local time
           updatedAt: now,
         },
         $push: {
@@ -147,4 +152,41 @@ export async function sendMeetingCancelledNotification(params: {
   } catch (dbErr) {
     console.warn(`[WhatsApp] Could not update session status for +${cleanPhone}:`, dbErr);
   }
+
+  // Update CRM leads collection — mark lead status as "meeting-rescheduled"
+  try {
+    const now = new Date();
+    const lead = await db.collection("leads").findOne({
+      $or: [
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+      ],
+    });
+    if (lead) {
+      await db.collection("leads").updateOne(
+        { id: lead.id },
+        {
+          $set: {
+            status: "meeting-rescheduled",
+            meetingStatus: "cancelled",
+            meetingCancelledAt: now,
+            meetingDetails: null,
+            updatedAt: now,
+          },
+          $push: {
+            history: {
+              action: "meeting_cancelled_crm",
+              performedByName: "WhatsApp Automation",
+              timestamp: now,
+              details: `Meeting cancelled. Status set to meeting-rescheduled. Reschedule message sent via WhatsApp.`,
+            } as any,
+          },
+        }
+      );
+    }
+  } catch (leadErr) {
+    console.warn(`[WhatsApp] Could not update CRM lead status for +${cleanPhone}:`, leadErr);
+  }
 }
+

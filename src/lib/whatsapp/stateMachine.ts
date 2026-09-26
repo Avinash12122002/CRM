@@ -8,6 +8,7 @@ import {
   extractShortTimezone,
   findCountryByNameOrCode,
   format12hTime,
+  getNext10AmInTimezone,
 } from "./timezone";
 import { findEligibleOccupation } from "./occupations";
 import {
@@ -281,7 +282,7 @@ async function syncCrmLead(
           email: session.email || existingLead.email,
           country: session.countryName,
           interestedCountry: "Australia",
-          jobApplied: "Subclass 482 Work Visa",
+          jobApplied: "Australia Employer Sponsored Work Visa",
           leadSource: "WhatsApp Ad Automation",
           updatedAt: now,
         },
@@ -298,7 +299,7 @@ async function syncCrmLead(
     email: session.email || "",
     country: session.countryName,
     interestedCountry: "Australia",
-    jobApplied: "Subclass 482 Work Visa",
+    jobApplied: "Australia Employer Sponsored Work Visa",
     leadSource: "WhatsApp Ad Automation",
     status,
     isAgent: false,
@@ -372,7 +373,7 @@ export async function sendTimedVideoAndProcessGuide(
 
     if (isWebOrDriveLink) {
       const videoIntro =
-        `🎥 *Australia Subclass 482 Work Visa — Process Guide Video* 🇦🇺\n\n` +
+        `🎥 *Australia Employer Sponsored Work Visa — Process Guide Video* 🇦🇺\n\n` +
         `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
         `▶️ *Watch the Video Here:*\n${videoUrl}\n\n` +
         `*(Tap the link above to watch the video anytime)*`;
@@ -381,7 +382,7 @@ export async function sendTimedVideoAndProcessGuide(
       await sendVideoMessage(
         phone,
         videoUrl,
-        "🇦🇺 Australia Subclass 482 Work Visa Process Guide by The Migration School",
+        "🇦🇺 Australia Employer Sponsored Work Visa Process Guide by The Migration School",
       );
     }
   }
@@ -426,16 +427,43 @@ export async function processIncomingWhatsAppMessage(params: {
 
   const lowerText = cleanText.toLowerCase().replace(/[^a-z0-9@. ]/g, "").trim();
 
-  // --- Auto-extract and persist candidate profile details ---
-  // 1. Occupation & Sector from 691 list
+  // =========================================================================
+  // --- SAVE EVERY CANDIDATE MESSAGE TO conversationHistory (for AI training) ---
+  // =========================================================================
+  if (cleanText && !actionId) {
+    // Only save real typed text messages (not button clicks — those are stored as actions)
+    try {
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: session.phone },
+        {
+          $push: {
+            conversationHistory: {
+              role: "candidate",
+              message: cleanText.slice(0, 1000), // cap at 1000 chars
+              timestamp: new Date(),
+              step: session.currentStep,
+            } as any,
+          },
+          $set: { lastInteractionAt: new Date(), updatedAt: new Date() },
+        }
+      );
+    } catch (histErr) {
+      console.warn("[WhatsApp] Could not save conversation history:", histErr);
+    }
+  }
+
+  // =========================================================================
+  // --- AUTO-EXTRACT & PERSIST CANDIDATE PROFILE DETAILS FROM EVERY MESSAGE ---
+  // =========================================================================
+  const profileUpdates: Record<string, unknown> = {};
+
+  // 1. Occupation & Sector from official 691 list
   const occMatch = findEligibleOccupation(cleanText);
   if (occMatch && (!session.occupation || session.occupation !== occMatch.role)) {
     session.occupation = occMatch.role;
     session.occupationSector = occMatch.category;
-    await updateSession(db, session.phone, {
-      occupation: occMatch.role,
-      occupationSector: occMatch.category,
-    });
+    profileUpdates.occupation = occMatch.role;
+    profileUpdates.occupationSector = occMatch.category;
     if (session.leadId) {
       await db.collection("leads").updateOne(
         { id: session.leadId },
@@ -447,13 +475,13 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
-  // 2. Years of Experience
+  // 2. Years of Experience (e.g. "5 years experience", "8+ yrs")
   const expRegex = /\b(\d{1,2})\s*(?:\+|\s*plus)?\s*(?:years?|yrs?)(?:\s*of)?\s*(?:experience|exp)?\b/i;
   const expMatch = cleanText.match(expRegex);
   if (expMatch && (!session.yearsExperience || session.yearsExperience !== `${expMatch[1]} years`)) {
     const expStr = `${expMatch[1]} years`;
     session.yearsExperience = expStr;
-    await updateSession(db, session.phone, { yearsExperience: expStr });
+    profileUpdates.yearsExperience = expStr;
     if (session.leadId) {
       await db.collection("leads").updateOne(
         { id: session.leadId },
@@ -462,27 +490,97 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
-  // 3. English Language Test / Score
+  // 3. English Language Test & Score (IELTS, PTE, TOEFL, OET, CELPIP)
   const englishRegex = /\b(ielts|pte|toefl|celpip|oet)\s*(?:overall\s*)?(\d+(?:\.\d+)?)\b/i;
   const engMatch = cleanText.match(englishRegex);
   if (engMatch) {
     const engStr = `${engMatch[1].toUpperCase()} ${engMatch[2]}`;
     session.englishTestStatus = engStr;
-    await updateSession(db, session.phone, { englishTestStatus: engStr });
+    profileUpdates.englishTestStatus = engStr;
   }
 
   // 4. Highest Qualification
-  const qualRegex = /\b(master'?s?|bachelor'?s?|b\.?tech|m\.?tech|degree|diploma|phd|mba|bsc|msc|bca|mca)\b/i;
+  const qualRegex = /\b(master'?s?|bachelor'?s?|b\.?tech|m\.?tech|degree|diploma|phd|mba|bsc|msc|bca|mca|b\.?e\.?|m\.?e\.?|b\.?sc|m\.?sc)\b/i;
   const qualMatch = cleanText.match(qualRegex);
   if (qualMatch && !session.highestQualification) {
     session.highestQualification = qualMatch[0].toUpperCase();
-    await updateSession(db, session.phone, { highestQualification: qualMatch[0].toUpperCase() });
+    profileUpdates.highestQualification = qualMatch[0].toUpperCase();
   }
 
-  // 5. Destination of Interest
+  // 5. Age / Age Range (e.g. "I am 28 years old", "age 32", "28 yrs old")
+  const ageRegex = /\b(?:i\s*am\s*|age\s*|aged?\s*|i'm\s*)?(\d{2})\s*(?:years?\s*old|yrs?\s*old|yo\b)/i;
+  const ageMatch = cleanText.match(ageRegex);
+  if (ageMatch && !session.ageRange) {
+    session.ageRange = ageMatch[1];
+    profileUpdates.ageRange = ageMatch[1];
+  }
+
+  // 6. Marital Status
+  const maritalRegex = /\b(married|single|divorced|widowed|unmarried|engaged)\b/i;
+  const maritalMatch = cleanText.match(maritalRegex);
+  if (maritalMatch && !session.maritalStatus) {
+    session.maritalStatus = maritalMatch[1].charAt(0).toUpperCase() + maritalMatch[1].slice(1).toLowerCase();
+    profileUpdates.maritalStatus = session.maritalStatus;
+  }
+
+  // 7. Family / Dependents (e.g. "wife and 2 kids", "1 child", "my family of 4")
+  const familyRegex = /\b(?:(?:wife|husband|spouse|partner)\s*(?:and\s*)?)?(\d+)?\s*(?:child(?:ren)?|kids?|son|daughter|dependents?)\b/i;
+  const familyMatch = cleanText.match(familyRegex);
+  if (familyMatch && !session.familySize) {
+    session.familySize = familyMatch[0].trim();
+    profileUpdates.familySize = session.familySize;
+  }
+
+  // 8. Passport Status
+  const passportRegex = /\b(i\s*have\s*(?:a\s*)?passport|passport\s*ready|valid\s*passport|no\s*passport|don'?t\s*have\s*passport|passport\s*not\s*ready)\b/i;
+  const passportMatch = cleanText.match(passportRegex);
+  if (passportMatch && session.hasPassport === undefined) {
+    const hasIt = !/no|don'?t|not ready/.test(passportMatch[0].toLowerCase());
+    session.hasPassport = hasIt;
+    profileUpdates.hasPassport = hasIt;
+  }
+
+  // 9. Current Job Title (e.g. "I work as a Software Engineer", "I am a Nurse")
+  const jobTitleRegex = /\b(?:i\s*(?:am\s*(?:a\s*|an\s*)?|work\s*as\s*(?:a\s*|an\s*)?|am\s*working\s*as\s*(?:a\s*|an\s*)?))([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,3})/;
+  const jobTitleMatch = cleanText.match(jobTitleRegex);
+  if (jobTitleMatch && !session.currentJobTitle && jobTitleMatch[1].length > 3) {
+    session.currentJobTitle = jobTitleMatch[1].trim();
+    profileUpdates.currentJobTitle = session.currentJobTitle;
+  }
+
+  // 10. Current Employer (e.g. "I work at Infosys", "working in TCS", "employed with Apollo")
+  const employerRegex = /\b(?:work(?:ing)?\s*(?:at|in|with|for)|employed\s*(?:at|with|by)|company\s*(?:is|name)?)\s*([A-Z][A-Za-z\s&.]{2,30})/;
+  const employerMatch = cleanText.match(employerRegex);
+  if (employerMatch && !session.currentEmployer) {
+    session.currentEmployer = employerMatch[1].trim();
+    profileUpdates.currentEmployer = session.currentEmployer;
+  }
+
+  // 11. Current Salary (e.g. "8 LPA", "INR 60000", "salary is 1.2 LPA")
+  const salaryRegex = /\b(?:(?:INR|₹|Rs\.?)\s*)?(\d+(?:\.\d+)?)\s*(?:lpa|lakh|lac|l\.?p\.?a|per\s*annum|per\s*month|pm|k\s*pm)/i;
+  const salaryMatch = cleanText.match(salaryRegex);
+  if (salaryMatch && !session.currentSalary) {
+    session.currentSalary = salaryMatch[0].trim();
+    profileUpdates.currentSalary = session.currentSalary;
+  }
+
+  // 12. Goals / Intent (e.g. "I want PR", "looking for better salary", "want to settle in Australia")
+  const goalRegex = /\b((?:want|looking)\s*(?:to|for)\s*(?:PR|permanent\s*residency|settle|better\s*salary|immigrate|migrate|work\s*abroad|move\s*to\s*australia))\b/i;
+  const goalMatch = cleanText.match(goalRegex);
+  if (goalMatch && !session.candidateGoals) {
+    session.candidateGoals = goalMatch[0].trim();
+    profileUpdates.candidateGoals = session.candidateGoals;
+  }
+
+  // 13. Destination of Interest (default Australia)
   if (!session.interestedCountry) {
     session.interestedCountry = "Australia";
-    await updateSession(db, session.phone, { interestedCountry: "Australia" });
+    profileUpdates.interestedCountry = "Australia";
+  }
+
+  // Persist all extracted profile fields in one DB write (if any were extracted)
+  if (Object.keys(profileUpdates).length > 0) {
+    await updateSession(db, session.phone, profileUpdates as Partial<WhatsAppSession>);
   }
 
   // --- Guard: If Consultation Meeting is Already Completed ---
@@ -517,7 +615,7 @@ export async function processIncomingWhatsAppMessage(params: {
         `Hello ${candidateDisplayName}! 👋\n\n` +
         `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
         `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation and agreement.\n\n` +
-        `If you have any questions about your Subclass 482 visa file or payment, feel free to reply right here! 🇦🇺`;
+        `If you have any questions about your Australia Employer Sponsored Work Visa file or payment, feel free to reply right here! 🇦🇺`;
 
       await sendTextMessage(session.phone, alreadyDoneMsg);
       return { replyText: alreadyDoneMsg, step: "MEETING_COMPLETED" };
@@ -644,7 +742,7 @@ export async function processIncomingWhatsAppMessage(params: {
     const cancelMsg =
       `Hello ${session.name || "there"}! 👋\n\n` +
       `Your consultation meeting has been cancelled. ℹ️\n\n` +
-      `Please reschedule your 1-on-1 session for an upcoming weekend so our expert can assess your Australian Subclass 482 visa file.\n\n` +
+      `Please reschedule your 1-on-1 session for an upcoming weekend so our expert can assess your Australia Employer Sponsored Work Visa file.\n\n` +
       `👉 Tap below to choose an available time slot:`;
 
     await sendQuickReplyButtons(session.phone, cancelMsg, [
@@ -688,7 +786,7 @@ export async function processIncomingWhatsAppMessage(params: {
   if (actionId === "BTN_ASK_VIDEO") {
     const videoUrl = getVideo482Url();
     const videoReply =
-      `Australia Subclass 482 video! 🎥🇦🇺\n\n` +
+      `Australia Employer Sponsored Work Visa video! 🎥🇦🇺\n\n` +
       `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
       `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n`;
 
@@ -728,7 +826,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await sendQuickReplyButtons(session.phone, welcomeBackMsg, [
       { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
-      { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
+      { id: "BTN_ASK_VIDEO", title: "Watch Visa Video" },
     ]);
     return { replyText: welcomeBackMsg, step: "BOOKED" };
   }
@@ -744,7 +842,7 @@ export async function processIncomingWhatsAppMessage(params: {
     const cancelledGreetingMsg =
       `Hello${nameGreeting}! Welcome back to The Migration School (TMS Visa) 🇦🇺.\n\n` +
       `Your consultation meeting was previously cancelled. ℹ️\n\n` +
-      `Please reschedule your 1-on-1 session for an upcoming weekend so our expert can assess your Australian Subclass 482 visa file!\n\n` +
+      `Please reschedule your 1-on-1 session for an upcoming weekend so our expert can assess your Australia Employer Sponsored Work Visa file!\n\n` +
       `👉 Tap below to choose an available time slot:`;
 
     await sendQuickReplyButtons(session.phone, cancelledGreetingMsg, [
@@ -779,14 +877,14 @@ export async function processIncomingWhatsAppMessage(params: {
     const welcomeText =
       `Hello ☺️! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
       `We specialize in employer-sponsored work visas for Australia.\n\n` +
-      `*Are you interested in the Australia Subclass 482 Work Visa?*`;
+      `*Are you interested in the Australia Employer Sponsored Work Visa?*`;
 
     await sendQuickReplyButtons(session.phone, welcomeText, [
       { id: "BTN_482_YES", title: "Yes, Interested" },
       { id: "BTN_482_NO", title: "Not Right Now" },
     ]);
 
-    const nextFollowup = new Date(Date.now() + 24 * 3600 * 1000);
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, session.phone, {
       currentStep: "WELCOME",
       followupCount: 0,
@@ -797,11 +895,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 2. Candidate said NO / Maybe Later at any stage -> Trigger 7-day reminder cycle for their current step
   if (isNegative) {
-    const noReply =
-      `No problem at all! Feel free to review our updates anytime when you are ready to explore Australian migration with TMS Visa 🇦🇺.\n\n` +
-      `We'll keep you posted with relevant visa updates. Have a wonderful day!`;
-
-    const nextFollowup = new Date(Date.now() + 24 * 3600 * 1000);
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
     const targetStep: WhatsAppStep =
       actionId === "BTN_CONSULT_NO" ||
       session.currentStep === "AWAITING_CONSULTATION_DECISION" ||
@@ -822,6 +916,40 @@ export async function processIncomingWhatsAppMessage(params: {
       nextFollowupAt: nextFollowup,
     });
 
+    // If candidate said Maybe Later at consultation step — send re-engagement button so they can come back
+    if (targetStep === "AWAITING_CONSULTATION_DECISION") {
+      const noReply =
+        `No problem at all! 😊 Take your time.\n\n` +
+        `Whenever you are ready, we are here to help you explore the Australia Employer Sponsored Work Visa — this is a fully employer-sponsored visa where the Australian employer covers your sponsorship charges! 🇦🇺\n\n` +
+        `Tap below when you are ready to book your free consultation:`;
+      const btnRes = await sendQuickReplyButtons(session.phone, noReply, [
+        { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+      ]);
+      if (!btnRes.success) {
+        await sendTextMessage(session.phone, noReply);
+      }
+      return { replyText: noReply, step: targetStep };
+    }
+
+    // If candidate said Not Right Now at the welcome step — send re-engagement button
+    if (targetStep === "WELCOME" || actionId === "BTN_482_NO") {
+      const noReply =
+        `No problem at all! 😊 Take your time.\n\n` +
+        `Whenever you are ready, we are here to help you explore the Australia Employer Sponsored Work Visa! 🇦🇺 Remember — it is a fully employer-sponsored work visa where Australian employers pay for your sponsorship.\n\n` +
+        `Tap below if you change your mind:`;
+      const btnRes = await sendQuickReplyButtons(session.phone, noReply, [
+        { id: "BTN_482_YES", title: "Yes, Interested" },
+        { id: "BTN_482_NO", title: "Maybe Later" },
+      ]);
+      if (!btnRes.success) {
+        await sendTextMessage(session.phone, noReply);
+      }
+      return { replyText: noReply, step: targetStep };
+    }
+
+    const noReply =
+      `No problem at all! Feel free to review our updates anytime when you are ready to explore Australian migration with TMS Visa 🇦🇺.\n\n` +
+      `We'll keep you posted with relevant visa updates. Have a wonderful day!`;
     await sendTextMessage(session.phone, noReply);
     return { replyText: noReply, step: targetStep };
   }
@@ -831,7 +959,7 @@ export async function processIncomingWhatsAppMessage(params: {
     const emailPrompt =
       `Great! To Share All The Details With You, *please reply with your Email Address:*`;
 
-    const nextFollowup = new Date(Date.now() + 24 * 3600 * 1000);
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, session.phone, {
       currentStep: "AWAITING_EMAIL",
       followupCount: 0,
@@ -849,7 +977,19 @@ export async function processIncomingWhatsAppMessage(params: {
     const domain = extractedEmail.includes("@") ? extractedEmail.split("@")[1] : "";
     const isValidDomain = domain.includes(".") && domain.length >= 4;
 
-    if (!isValidFormat || !isValidDomain) {
+    // Whitelist of accepted email providers (gmail, yahoo, outlook, hotmail, etc.)
+    const ACCEPTED_DOMAINS = [
+      "gmail.com", "googlemail.com",
+      "yahoo.com", "yahoo.in", "yahoo.co.in", "yahoo.co.uk", "yahoo.com.au",
+      "outlook.com", "outlook.in", "hotmail.com", "hotmail.in", "live.com",
+      "icloud.com", "me.com",
+      "rediffmail.com", "protonmail.com", "proton.me",
+      "aol.com", "mail.com", "zoho.com", "ymail.com",
+      // Also allow corporate / custom domains that have at least 2-part structure
+    ];
+    const isWhitelistedDomain = ACCEPTED_DOMAINS.includes(domain) || (domain.includes(".") && !domain.startsWith(".") && domain.split(".").every(part => part.length >= 2));
+
+    if (!isValidFormat || !isValidDomain || !isWhitelistedDomain) {
       const invalidEmailMsg =
         `⚠️ Please enter a valid email address (e.g. yourname@gmail.com or yourname@yahoo.com) so we can send you the official visa details.`;
       await sendTextMessage(session.phone, invalidEmailMsg);
@@ -862,7 +1002,7 @@ export async function processIncomingWhatsAppMessage(params: {
       email: extractedEmail,
       currentStep: "AWAITING_CONSULTATION_DECISION" as WhatsAppStep,
       infoEmailSentAt: new Date(),
-      nextFollowupAt: new Date(Date.now() + 24 * 3600 * 1000),
+      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
       followupCount: 0,
     };
     const leadId = await syncCrmLead(db, updatedSession, "new-lead");
@@ -893,7 +1033,7 @@ export async function processIncomingWhatsAppMessage(params: {
       infoEmailSentAt: now,
       videoSentAt: now,
       consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
-      nextFollowupAt: new Date(Date.now() + 24 * 3600 * 1000),
+      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
       followupCount: 0,
     });
 
@@ -1172,10 +1312,10 @@ export async function processIncomingWhatsAppMessage(params: {
       const rows = part2Slots.map((s, idx) => ({
         id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
         title: (isIndia
-          ? `${s.istStartTime} - ${s.istEndTime} IST`
+          ? `${format12hTime(s.istStartTime)} - ${format12hTime(s.istEndTime)} IST`
           : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
         description: (isIndia
-          ? `Slot #${idx + 9} (IST)`
+          ? `Slot #${idx + 9} (1 Hour)`
           : `Slot #${idx + 9} (${tzShort})`).slice(0, 72),
       }));
 
@@ -1204,10 +1344,10 @@ export async function processIncomingWhatsAppMessage(params: {
       const rows = part1Slots.map((s, idx) => ({
         id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
         title: (isIndia
-          ? `${s.istStartTime} - ${s.istEndTime} IST`
+          ? `${format12hTime(s.istStartTime)} - ${format12hTime(s.istEndTime)} IST`
           : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
         description: (isIndia
-          ? `Slot #${idx + 1} (IST)`
+          ? `Slot #${idx + 1} (1 Hour)`
           : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
       }));
 
@@ -1486,7 +1626,7 @@ export async function processIncomingWhatsAppMessage(params: {
           title: isReschedule ? "WhatsApp Meeting Rescheduled" : "New WhatsApp Meeting Booked",
           message: isReschedule
             ? `1-on-1 consultation with ${session.name || "WhatsApp Candidate"} was RESCHEDULED to ${meetingDate} at ${candStartObj.display12h} (${session.timeZoneLabel}) / ${istStart} IST.`
-            : `1-on-1 Australia 482 consultation booked with ${session.name || "WhatsApp Candidate"} on ${meetingDate} at ${candStartObj.display12h} (${session.timeZoneLabel}) / ${istStart} IST.`,
+            : `1-on-1 Australia Employer Sponsored Work Visa consultation booked with ${session.name || "WhatsApp Candidate"} on ${meetingDate} at ${candStartObj.display12h} (${session.timeZoneLabel}) / ${istStart} IST.`,
           type: "meeting_scheduled",
           link: `/dashboard/leads/${leadId}`,
         });
@@ -1547,7 +1687,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     const confirmationMsg = isReschedule
       ? `Dear ${candidateDisplayName},\n\n` +
-      `Your *Australia Subclass 482 Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
+      `Your *Australia Employer Sponsored Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
       `📅 *New Date:* ${formattedDate}\n` +
       `⏰ *New Time:* ${timeDisplay}\n` +
       `💻 *Google Meet:* ${meetLink}\n\n` +
@@ -1556,7 +1696,7 @@ export async function processIncomingWhatsAppMessage(params: {
       `*Best regards,*\n` +
       `*TMS Visa*`
       : `Dear ${candidateDisplayName},\n\n` +
-      `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
+      `Thank you for showing your interest in the *Australia Employer Sponsored Work Visa*.\n\n` +
       `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
       `📅 *Date:* ${formattedDate}\n` +
       `⏰ *Time:* ${timeDisplay}\n` +
@@ -1591,7 +1731,7 @@ export async function processIncomingWhatsAppMessage(params: {
     lowerText.includes("give video") ||
     lowerText.includes("explainer video") ||
     lowerText.includes("process video") ||
-    lowerText.includes("482 video") ||
+    lowerText.includes("visa video") ||
     (lowerText.includes("link") && lowerText.includes("video")) ||
     (lowerText.includes("video") &&
       (lowerText.includes("where") ||
@@ -1606,7 +1746,7 @@ export async function processIncomingWhatsAppMessage(params: {
   if (isAskingVideoLink) {
     const videoUrl = getVideo482Url();
     const videoReply =
-      `Here is our Australia Subclass 482 Skills in Demand explainer video! 🎥🇦🇺\n\n` +
+      `Here is our Australia Employer Sponsored Work Visa explainer video! 🎥🇦🇺\n\n` +
       `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
       `It explains employer sponsorship requirements, eligible occupations, salary benchmarks (AUD $76,500+), and relocation pathways.\n\n` +
       `*(Tap the link above to watch anytime)*`;
@@ -1637,7 +1777,7 @@ export async function processIncomingWhatsAppMessage(params: {
       const alreadyDoneMsg =
         `Hello ${session.name || "there"}! 👋\n\n` +
         `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-        `Your Australia Subclass 482 visa profile is currently in progress with our onboarding team. Feel free to ask any question regarding your file!`;
+        `Your Australia Employer Sponsored Work Visa profile is currently in progress with our onboarding team. Feel free to ask any question regarding your file!`;
       await sendTextMessage(session.phone, alreadyDoneMsg);
       return { replyText: alreadyDoneMsg, step: "MEETING_COMPLETED" };
     }

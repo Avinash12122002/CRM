@@ -378,3 +378,85 @@ export function findCountryByNameOrCode(nameOrCode: string): CountryTimezoneInfo
     ) || null
   );
 }
+
+/**
+ * Calculates the next 10:00 AM in the candidate's local timezone.
+ * If it is already past 10:00 AM there today, returns 10:00 AM tomorrow.
+ * This ensures follow-up messages are always sent at a reasonable hour
+ * in the candidate's own country — not IST or UTC.
+ *
+ * @param candidateTimeZone IANA timezone string e.g. "Africa/Lagos", "Asia/Kolkata"
+ * @param fromDate Optional base date (default = now)
+ * @returns UTC Date object representing next 10:00 AM in that timezone
+ */
+export function getNext10AmInTimezone(candidateTimeZone: string, fromDate?: Date): Date {
+  const base = fromDate || new Date();
+  const tz = candidateTimeZone || "Asia/Kolkata";
+
+  try {
+    // Get the current hour in the candidate's timezone
+    const nowInCandidateTz = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(base);
+
+    const year = parseInt(nowInCandidateTz.find((p) => p.type === "year")?.value || "2026");
+    const month = parseInt(nowInCandidateTz.find((p) => p.type === "month")?.value || "1") - 1;
+    const day = parseInt(nowInCandidateTz.find((p) => p.type === "day")?.value || "1");
+    const hour = parseInt(nowInCandidateTz.find((p) => p.type === "hour")?.value || "0");
+
+    // Build 10:00 AM today in that timezone using a UTC trick:
+    // Create a date in the candidate's local midnight, then add 10 hours
+    // We do this by finding the UTC offset via formatting 00:00 local time
+    const localMidnightStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}T10:00:00`;
+
+    // Use Intl to resolve what UTC time corresponds to 10:00 AM local
+    // by creating the date and asking what time it is in UTC
+    const candidateDate = new Date(
+      new Date(localMidnightStr).toLocaleString("en-US", { timeZone: "UTC" }),
+    );
+
+    // Build a proper UTC timestamp for 10 AM in the candidate's tz
+    // Approach: format 10:00 AM local as an ISO string, then parse
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const todayLocalDate = formatter.format(base); // "YYYY-MM-DD"
+
+    // Create a fake date string at 10:00 in that timezone and convert to UTC
+    // The trick: format a UTC time that, when displayed in that timezone, shows 10:00
+    // We binary-search by trying UTC offset of the timezone
+    // Simpler: use the fact that we know the local date is todayLocalDate
+    // and construct 10 AM local, then find the UTC equivalent
+    const guess = new Date(`${todayLocalDate}T10:00:00`);
+    // Adjust: find what time "guess" is in candidate tz
+    const guessHour = parseInt(
+      new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour: "2-digit",
+        hour12: false,
+      }).format(guess),
+    );
+    // Calculate offset needed (in ms)
+    const offsetMs = (10 - guessHour) * 3600 * 1000;
+    const target10Am = new Date(guess.getTime() + offsetMs);
+
+    // If it is already past 10 AM there (or within 5 min), schedule for tomorrow
+    const isAlreadyPast = base.getTime() >= target10Am.getTime() - 5 * 60 * 1000;
+    if (isAlreadyPast) {
+      return new Date(target10Am.getTime() + 24 * 3600 * 1000);
+    }
+    return target10Am;
+  } catch {
+    // Fallback: just use 24 hours from now (safe default)
+    return new Date(base.getTime() + 24 * 3600 * 1000);
+  }
+}
