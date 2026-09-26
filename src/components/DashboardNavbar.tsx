@@ -255,14 +255,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                   Email
                 </Link>
               )}
-              {role === "admin" && (
-                <Link
-                  href="/dashboard/whatsapp-simulator"
-                  className={deskLinkClass(isActive("/dashboard/whatsapp-simulator"))}
-                >
-                  WhatsApp Funnel
-                </Link>
-              )}
+
               {role === "admin" && (
                 <Link href="/dashboard/users" className={deskLinkClass(isActive("/dashboard/users"))}>
                   Users
@@ -507,14 +500,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 Email
               </Link>
             )}
-            {role === "admin" && (
-              <Link
-                href="/dashboard/whatsapp-simulator"
-                className={navLinkClass(isActive("/dashboard/whatsapp-simulator"))}
-              >
-                WhatsApp Funnel
-              </Link>
-            )}
+
             {role === "admin" && (
               <Link
                 href="/dashboard/users"
