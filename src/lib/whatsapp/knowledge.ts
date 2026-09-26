@@ -13,7 +13,7 @@ REGISTERED OFFICES & CREDENTIALS:
 CONSULTATION MEDIUM: Dedicated 1-on-1 Google Meet session with our Senior Migration Expert.
 OFFICIAL GOOGLE MEET LINK: https://meet.google.com/qpj-ntbh-ieu
 (Whenever a candidate asks for the meeting link, Google Meet link, room link, or how to join: ALWAYS provide this exact link: 🔗 https://meet.google.com/qpj-ntbh-ieu)
-CONSULTATION TIMINGS: Saturdays and Sundays between 11:00 AM and 07:00 PM Indian Standard Time (IST) in 30-minute intervals.
+CONSULTATION TIMINGS: Saturdays and Sundays between 11:00 AM and 07:00 PM Indian Standard Time (IST) in 1-hour intervals (8 slots per day).
 
 PROGRAM: Australia Subclass 482 Skills in Demand Work Visa Program.
 - Fundamentally an employer-sponsored work visa that allows skilled professionals to live and work in Australia with an approved Australian employer.

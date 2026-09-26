@@ -944,35 +944,27 @@ export async function processIncomingWhatsAppMessage(params: {
             isIndia,
           });
 
-        if (nextWeekend.availableSlots.length > 8) {
-          await sendQuickReplyButtons(session.phone, overviewText, [
-            { id: `BTN_SLOTS_PART1_${nextDate}`, title: "Select Slots 1 - 8" },
-            { id: `BTN_SLOTS_PART2_${nextDate}`, title: "Select Slots 9 - 16" },
-            { id: "BTN_CHANGE_DAY", title: "Change Date" },
-          ]);
-        } else {
-          const sections = [
-            {
-              title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
-              rows: nextWeekend.availableSlots.map((s, idx) => ({
-                id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-                title: (isIndia
-                  ? `${s.istStartTime} - ${s.istEndTime} IST`
-                  : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-                description: (isIndia
-                  ? `Slot #${idx + 1} (IST)`
-                  : `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`).slice(0, 72),
-              })),
-            },
-          ];
-          await sendInteractiveList(
-            session.phone,
-            "Choose Your Slot",
-            overviewText,
-            "Select Slot",
-            sections,
-          );
-        }
+        const sections = [
+          {
+            title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
+            rows: nextWeekend.availableSlots.map((s, idx) => ({
+              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+              title: (isIndia
+                ? `${s.istStartTime} - ${s.istEndTime} IST`
+                : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+              description: (isIndia
+                ? `Slot #${idx + 1} (1 Hour)`
+                : `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`).slice(0, 72),
+            })),
+          },
+        ];
+        await sendInteractiveList(
+          session.phone,
+          "Choose Your Slot",
+          overviewText,
+          "Select Slot",
+          sections,
+        );
 
         return { replyText: overviewText, step: "SELECTING_SLOT" };
       } else {
@@ -998,7 +990,7 @@ export async function processIncomingWhatsAppMessage(params: {
       activeSlotsDate: meetingDate,
     });
 
-    // Send complete overview text of all available slots with 2 select slot options (8 in each)
+    // Send complete overview text of all available 1-hour slots
     const overviewText = formatSlotsOverview({
       slots: availableSlots,
       dayLabel,
@@ -1006,36 +998,28 @@ export async function processIncomingWhatsAppMessage(params: {
       isIndia,
     });
 
-    if (availableSlots.length > 8) {
-      await sendQuickReplyButtons(session.phone, overviewText, [
-        { id: `BTN_SLOTS_PART1_${meetingDate}`, title: "Select Slots 1 - 8" },
-        { id: `BTN_SLOTS_PART2_${meetingDate}`, title: "Select Slots 9 - 16" },
-        { id: "BTN_CHANGE_DAY", title: "Change Date" },
-      ]);
-    } else {
-      const sections = [
-        {
-          title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
-          rows: availableSlots.map((s, idx) => ({
-            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-            title: (isIndia
-              ? `${s.istStartTime} - ${s.istEndTime} IST`
-              : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-            description: (isIndia
-              ? `Slot #${idx + 1} (IST)`
-              : `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`).slice(0, 72),
-          })),
-        },
-      ];
+    const sections = [
+      {
+        title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
+        rows: availableSlots.map((s, idx) => ({
+          id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+          title: (isIndia
+            ? `${s.istStartTime} - ${s.istEndTime} IST`
+            : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
+          description: (isIndia
+            ? `Slot #${idx + 1} (1 Hour)`
+            : `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`).slice(0, 72),
+        })),
+      },
+    ];
 
-      await sendInteractiveList(
-        session.phone,
-        "Choose Your Slot",
-        overviewText,
-        "Select Slot",
-        sections,
-      );
-    }
+    await sendInteractiveList(
+      session.phone,
+      "Choose Your Slot",
+      overviewText,
+      "Select Slot",
+      sections,
+    );
 
     return { replyText: overviewText, step: "SELECTING_SLOT" };
   }
@@ -1266,14 +1250,10 @@ export async function processIncomingWhatsAppMessage(params: {
       }
     }
 
-    // Compute 30-min end times
+    // Compute 1-hour end times (e.g. 11:00 -> 12:00, 18:00 -> 19:00)
     const [h, m] = istStart.split(":").map(Number);
-    let endH = h;
-    let endM = m + 30;
-    if (endM >= 60) {
-      endH += 1;
-      endM -= 60;
-    }
+    const endH = h + 1;
+    const endM = m;
     const istEnd = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
     const candStartObj = convertIstSlotToCandidateTime(
       meetingDate,

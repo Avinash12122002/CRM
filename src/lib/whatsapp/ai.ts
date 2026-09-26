@@ -234,7 +234,7 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
         `Hello ${session.name || "there"}! 👋\n\n` +
         `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
         `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-        `Consultations run on weekends (30 mins). Would you like to select a slot in your local time?`
+        `Consultations run on weekends in 1-hour sessions. Would you like to select a slot in your local time?`
       );
     }
   }
@@ -352,7 +352,7 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
       `Great news, ${session.name || "there"}! 🎉\n\n` +
       `**${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under **${matchedOcc.category}** on the official Australian Subclass 482 Eligible Occupation List (691 Roles)!\n\n` +
       `With 2+ years experience, you can qualify for employer sponsorship with a minimum **AUD $76,500/year** salary.\n\n` +
-      `Would you like to book a free 30-minute weekend consultation to assess your CV?`
+      `Would you like to book a free 1-on-1 weekend consultation to assess your CV?`
     );
   }
 
@@ -387,7 +387,7 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
       : `in your local time (${session.timeZoneLabel})`;
     return (
       `Thank you for contacting The Migration School (TMS Visa) 🇦🇺.\n\n` +
-      `Our senior visa expert holds free 30-minute 1-on-1 consultations this weekend ${timePrompt}.\n\n` +
+      `Our senior visa expert holds free 1-on-1 consultations this weekend ${timePrompt}.\n\n` +
       `Would you like to select an available time slot?`
     );
   }

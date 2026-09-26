@@ -36,8 +36,7 @@ export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
     }).format(now),
     10
   );
-  const isPastLastSlotToday =
-    currentHourIST > 18 || (currentHourIST === 18 && currentMinIST >= 30);
+  const isPastLastSlotToday = currentHourIST >= 18;
 
   const weekendDays: WeekendDayOption[] = [];
   let checkDate = new Date(`${todayISTStr}T12:00:00+05:30`);
@@ -103,8 +102,8 @@ export async function findNextAvailableWeekendDay(params: {
 }
 
 /**
- * Generates all 30-minute consultation slots strictly between 11:00 AM and 07:00 PM IST
- * for a specific date, checked against booked meetings in MongoDB.
+ * Generates all 1-hour consultation slots strictly between 11:00 AM and 07:00 PM IST
+ * for a specific date (8 slots per day), checked against booked meetings in MongoDB.
  * Hides any booked slots completely.
  */
 export async function getAvailableWeekendSlots(params: {
@@ -140,28 +139,20 @@ export async function getAvailableWeekendSlots(params: {
 
   const slots: WeekendSlot[] = [];
 
-  // Strictly 30-minute intervals, total 16 meetings in a day (11:00 AM to 07:00 PM IST)
+  // Strictly 1-hour intervals, exactly 8 meetings in a day (11:00 AM to 07:00 PM IST)
   // Converted to every candidate's country local time zone!
-  const all16SlotTimes = [
-    { start: "11:00", end: "11:30" },
-    { start: "11:30", end: "12:00" },
-    { start: "12:00", end: "12:30" },
-    { start: "12:30", end: "13:00" },
-    { start: "13:00", end: "13:30" },
-    { start: "13:30", end: "14:00" },
-    { start: "14:00", end: "14:30" },
-    { start: "14:30", end: "15:00" },
-    { start: "15:00", end: "15:30" },
-    { start: "15:30", end: "16:00" },
-    { start: "16:00", end: "16:30" },
-    { start: "16:30", end: "17:00" },
-    { start: "17:00", end: "17:30" },
-    { start: "17:30", end: "18:00" },
-    { start: "18:00", end: "18:30" },
-    { start: "18:30", end: "19:00" },
+  const all8SlotTimes = [
+    { start: "11:00", end: "12:00" },
+    { start: "12:00", end: "13:00" },
+    { start: "13:00", end: "14:00" },
+    { start: "14:00", end: "15:00" },
+    { start: "15:00", end: "16:00" },
+    { start: "16:00", end: "17:00" },
+    { start: "17:00", end: "18:00" },
+    { start: "18:00", end: "19:00" },
   ];
 
-  for (const item of all16SlotTimes) {
+  for (const item of all8SlotTimes) {
     const istStart = item.start;
     const istEnd = item.end;
 
@@ -217,7 +208,7 @@ export async function getAvailableWeekendSlots(params: {
 
 /**
  * Formats all available slots for a day into a single complete overview
- * with all 16 slots formatted in the candidate's country local time.
+ * with all 8 slots formatted in the candidate's country local time.
  */
 export function formatSlotsOverview(params: {
   slots: WeekendSlot[];
@@ -239,9 +230,9 @@ export function formatSlotsOverview(params: {
     const lastPart = isIndia
       ? "07:00 PM"
       : slots[slots.length - 1].candidateDisplayLabel.split(" - ")[1].split(" (")[0].trim();
-    text += `(30-minute 1-on-1 sessions between ${firstLocal} - ${lastPart} ${tzShort})\n\n`;
+    text += `(1-hour 1-on-1 sessions between ${firstLocal} - ${lastPart} ${tzShort})\n\n`;
   } else {
-    text += `(30-minute 1-on-1 sessions in your local time — ${tzShort})\n\n`;
+    text += `(1-hour 1-on-1 sessions in your local time — ${tzShort})\n\n`;
   }
 
   slots.forEach((s, idx) => {
@@ -249,19 +240,14 @@ export function formatSlotsOverview(params: {
     if (isIndia) {
       const istStart12h = convertIstSlotToCandidateTime(s.date, s.istStartTime, "Asia/Kolkata").display12h;
       const istEnd12h = convertIstSlotToCandidateTime(s.date, s.istEndTime, "Asia/Kolkata").display12h;
-      text += `*${num}.* ${istStart12h} - ${istEnd12h} IST\n`;
+      text += `*${num}.* ${istStart12h} - ${istEnd12h}\n`;
     } else {
-      const candRange = s.candidateDisplayLabel.split(" (")[0].trim(); // e.g. "06:30 AM - 07:00 AM"
-      text += `*${num}.* ${candRange} ${tzShort}\n`;
+      const candRange = s.candidateDisplayLabel.split(" (")[0].trim(); // e.g. "06:30 AM - 07:30 AM"
+      text += `*${num}.* ${candRange}\n`;
     }
   });
 
-  if (slots.length > 8) {
-    text += `\n👉 Tap **Select Slots 1 - 8** or **Select Slots 9 - 16** below, or reply with your slot number (*1* to *${slots.length}*) or time.\n`;
-    text += `🔄 Want a different date? Tap *Change Date*.`;
-  } else {
-    text += `\n👉 Tap *Select Slot* below to choose, or reply with your slot number (*1* to *${slots.length}*) or time.\n`;
-    text += `🔄 Want a different date? Tap *Change Date*.`;
-  }
+  text += `\n👉 Tap *Select Slot* below or reply with your slot number (*1* to *${slots.length}*).\n`;
+  text += `🔄 Want a different date? Tap *Change Date*.`;
   return text;
 }

@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
           : `in your local time (${session.timeZoneLabel})`;
         const msg =
           `Hi ${session.name || "there"}! 👋 Just checking in to see if you had a chance to review our **Australia Subclass 482 Work Visa** overview.\n\n` +
-          `Our senior consultant is conducting free 1-on-1 profile evaluations this weekend ${timePrompt}. Would you like to reserve a 30-minute slot?`;
+          `Our senior consultant is conducting free 1-on-1 profile evaluations this weekend ${timePrompt}. Would you like to reserve a 1-hour slot?`;
 
         await sendQuickReplyButtons(session.phone, msg, [
           { id: "BTN_CONSULT_YES", title: "Book Consultation" },
