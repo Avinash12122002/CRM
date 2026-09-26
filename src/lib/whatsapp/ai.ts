@@ -15,6 +15,39 @@ export async function generateAiResponse(params: {
     process.env.AI_API_KEY ||
     process.env.GEMINI_API_KEY;
 
+  const lowerMsg = (message || "").toLowerCase().trim();
+
+  // 1. Strict Security & Policy Check: Deletion, Purge, Reset, or Removal of Data/Chats/Profiles
+  const isDeletionRequest =
+    lowerMsg.includes("delete") ||
+    lowerMsg.includes("erase") ||
+    lowerMsg.includes("purge") ||
+    lowerMsg.includes("wipe") ||
+    lowerMsg.includes("start from fresh") ||
+    lowerMsg.includes("start fresh") ||
+    lowerMsg.includes("clear chat") ||
+    lowerMsg.includes("clear history") ||
+    ((lowerMsg.includes("reset") || lowerMsg.includes("remove")) &&
+      (lowerMsg.includes("chat") ||
+        lowerMsg.includes("data") ||
+        lowerMsg.includes("profile") ||
+        lowerMsg.includes("everything") ||
+        lowerMsg.includes("cv") ||
+        lowerMsg.includes("record") ||
+        lowerMsg.includes("history") ||
+        lowerMsg.includes("info") ||
+        lowerMsg.includes("account") ||
+        lowerMsg.includes("from fresh") ||
+        lowerMsg.includes("conversation")));
+
+  if (isDeletionRequest) {
+    return (
+      `I cannot delete any personal data, chat history, or CRM profiles. 🔒\n\n` +
+      `Candidates cannot perform data deletion, profile removal, or conversation resets through this chat. All account modifications and data management operations are strictly restricted and handled exclusively by our authorized CRM Administrator for verification and compliance.\n\n` +
+      `For official administrative inquiries, please contact our team at info@tmsvisa.com.`
+    );
+  }
+
   const matchedOcc = findEligibleOccupation(message);
 
   // Build rich candidate live profile — fed to AI as system context
@@ -33,7 +66,7 @@ IDENTITY:
 
 VISA INTEREST:
 - Destination of Interest: ${session.interestedCountry || "Australia"}
-- Target Visa Pathway: Australia Subclass 482 Skills in Demand Work Visa (Direct Employer Sponsored)
+- Target Visa Pathway: Australia Employer Sponsored Work Visa (Skills in Demand)
 - Candidate Goals: ${session.candidateGoals || "Not specified"}
 
 PROFESSIONAL BACKGROUND:
@@ -60,7 +93,7 @@ FUNNEL STATUS:
 INQUIRED OCCUPATION MATCH:
 - Role: "${matchedOcc.role}"
 - Sector: "${matchedOcc.category}"
-- Status: CONFIRMED on the official 691 Australia Subclass 482 Eligible Occupation List.
+- Status: CONFIRMED on the official 691 Australia Employer Sponsored Work Visa Eligible Occupation List.
 - Instruction: Confidently confirm to the candidate that their role "${matchedOcc.role}" is on the official list under ${matchedOcc.category}!
 `;
   }
@@ -102,17 +135,17 @@ CONSULTATION OUTCOME:
 `;
   }
 
-  // Inject last 15 messages from conversation history for full context
+  // Inject last 6 messages from conversation history for full context without token bloat
   if (session.conversationHistory && session.conversationHistory.length > 0) {
-    const recentHistory = session.conversationHistory.slice(-15); // last 15 messages
+    const recentHistory = session.conversationHistory.slice(-6); // last 6 messages
     contextBlock += `
 RECENT CONVERSATION HISTORY (Last ${recentHistory.length} messages — use this for personalized context):
-${recentHistory.map((h, i) => `  [${i + 1}] ${h.role === "candidate" ? "CANDIDATE" : "TMS BOT"} (${h.step}) [${new Date(h.timestamp).toLocaleDateString()}]: "${h.message.slice(0, 200)}"`).join("\n")}
+${recentHistory.map((h, i) => `  [${i + 1}] ${h.role === "candidate" ? "CANDIDATE" : "TMS BOT"}: "${h.message.slice(0, 140)}"`).join("\n")}
 
 IMPORTANT: Use the conversation history above to:
 1. Understand what the candidate has already told you (occupation, experience, goals, family, etc.)
 2. Never ask for information the candidate has already provided.
-3. Reference their specific details when answering (e.g. "Since you mentioned you're a ${session.occupation || "skilled professional"} with ${session.yearsExperience || "relevant experience"}...")
+3. Reference their specific details when answering.
 4. Give fully personalized answers, not generic ones.
 `;
   }
@@ -124,15 +157,24 @@ ${session.adminNotes}
 `;
   }
 
-  const LENGTH_DIRECTIVE = `
-CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
-- Target length: STRICTLY UNDER 500 CHARACTERS total (approx. 60–80 words).
-- DO NOT cut off or leave sentences incomplete! Always finish your sentence, thought, and call-to-action completely.
-- Deliver the full, accurate core answer concisely without conversational filler.
-- Recommended structure:
-  1) Friendly, direct 1-sentence answer.
-  2) 2-3 short bullet points with key numbers/facts (e.g. AUD $76,500 salary, AUD 300 + 700 fee, 4-5 months, 691 occupations).
-  3) 1 brief closing question or call-to-action.
+  const SYSTEM_PROMPT = `
+You are Aria, Senior Registered Migration Counselor at The Migration School (TMS Visa).
+
+${TMS_VISA_KNOWLEDGE}
+
+${contextBlock}
+
+RESPONSE DIRECTIVES:
+1. SPECIFIC TO CANDIDATE:
+- Greet candidate by name (${session.name && session.name !== "Candidate" ? session.name : "there"}).
+- Directly relate your response to their profile facts (Occupation: ${session.occupation || "their occupation"}, Experience: ${session.yearsExperience || "their experience"}, Location: ${session.countryName}, Local Time: ${session.timeZoneLabel}).
+- Answer the candidate's exact question in your very first sentence.
+
+2. SHORT, CORRECT, AND COMPLETE:
+- Target length: 50–80 words (STRICTLY UNDER 500 CHARACTERS).
+- NEVER cut off or stop mid-sentence. Always finish your thoughts and call-to-action completely.
+- Structure: Direct answer -> 2-3 short bullet points -> 1 brief closing question.
+- Never initiate "Subclass 482" — always use "Australia Employer Sponsored Work Visa".
 `;
 
   if (apiKey) {
@@ -142,9 +184,9 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
       if (groqKey) {
         const models = [
           process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+          "allam-2-7b",
           "openai/gpt-oss-120b",
           "openai/gpt-oss-20b",
-          "allam-2-7b",
         ];
 
         for (const model of models) {
@@ -158,11 +200,11 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
               body: JSON.stringify({
                 model,
                 messages: [
-                  { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${LENGTH_DIRECTIVE}\n\n${contextBlock}` },
+                  { role: "system", content: SYSTEM_PROMPT },
                   { role: "user", content: message },
                 ],
-                max_tokens: 350,
-                temperature: 0.5,
+                max_tokens: 650,
+                temperature: 0.3,
               }),
             });
 
@@ -194,14 +236,14 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
                 role: "user",
                 parts: [
                   {
-                    text: `${TMS_VISA_KNOWLEDGE}\n\n${LENGTH_DIRECTIVE}\n\n${contextBlock}\n\nCandidate says: "${message}"\n\nProvide your concise WhatsApp reply as Aria (STRICTLY UNDER 500 CHARACTERS, complete and never cut off):`,
+                    text: `${SYSTEM_PROMPT}\n\nCandidate says: "${message}"\n\nProvide your concise WhatsApp reply as Aria (STRICTLY UNDER 500 CHARACTERS, complete and never cut off):`,
                   },
                 ],
               },
             ],
             generationConfig: {
-              maxOutputTokens: 350,
-              temperature: 0.5,
+              maxOutputTokens: 500,
+              temperature: 0.4,
             },
           }),
         });
@@ -227,11 +269,11 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
           body: JSON.stringify({
             model: "gpt-4o-mini",
             messages: [
-              { role: "system", content: `${TMS_VISA_KNOWLEDGE}\n\n${LENGTH_DIRECTIVE}\n\n${contextBlock}` },
+              { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: message },
             ],
-            max_tokens: 350,
-            temperature: 0.5,
+            max_tokens: 500,
+            temperature: 0.4,
           }),
         });
 

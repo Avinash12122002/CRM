@@ -51,6 +51,37 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
   };
 
   try {
+    // 0. Deduplication check: prevent multiple logs of the same dispatch
+    if (messageId) {
+      const existing = await db.collection("whatsapp_messages").findOne({ messageId });
+      if (existing) {
+        if (existing.sender === "bot" && sender === "admin") {
+          await db.collection("whatsapp_messages").updateOne(
+            { _id: existing._id },
+            { $set: { sender: "admin", senderName: messageDoc.senderName } }
+          );
+        }
+        return;
+      }
+    }
+
+    const recentThreshold = new Date(createdAt.getTime() - 12000);
+    const recentDuplicate = await db.collection("whatsapp_messages").findOne({
+      phone: cleanPhone,
+      text: text.trim(),
+      createdAt: { $gte: recentThreshold },
+    });
+
+    if (recentDuplicate) {
+      if (recentDuplicate.sender === "bot" && sender === "admin") {
+        await db.collection("whatsapp_messages").updateOne(
+          { _id: recentDuplicate._id },
+          { $set: { sender: "admin", senderName: messageDoc.senderName } }
+        );
+      }
+      return;
+    }
+
     // 1. Insert into unified messages collection
     await db.collection("whatsapp_messages").insertOne(messageDoc);
 

@@ -71,12 +71,12 @@ export async function GET(
       .toArray();
 
     // Merge without duplicates (using text + timestamp proximity)
-    const existingTexts = new Set(messages.map((m) => `${m.sender}_${m.text}`));
+    const existingIds = new Set(messages.map((m) => m.messageId).filter(Boolean));
+    const existingTexts = new Set(messages.map((m) => m.text));
 
     for (const inc of incomingLogs) {
       const text = inc.textBody || inc.selectedId || `[${inc.msgType}]`;
-      const key = `candidate_${text}`;
-      if (!existingTexts.has(key)) {
+      if (!existingTexts.has(text) && (!inc.messageId || !existingIds.has(inc.messageId))) {
         messages.push({
           phone: cleanPhone,
           sender: "candidate",
@@ -85,15 +85,14 @@ export async function GET(
           msgType: inc.msgType || "text",
           createdAt: inc.createdAt,
         } as any);
-        existingTexts.add(key);
+        existingTexts.add(text);
       }
     }
 
     for (const out of outgoingLogs) {
       const text = out.message || "";
-      const sender = out.sentByRole === "admin" ? "admin" : "bot";
-      const key = `${sender}_${text}`;
-      if (!existingTexts.has(key)) {
+      if (!existingTexts.has(text) && (!out.messageId || !existingIds.has(out.messageId))) {
+        const sender = out.sentByRole === "admin" ? "admin" : "bot";
         messages.push({
           phone: cleanPhone,
           sender,
@@ -102,12 +101,34 @@ export async function GET(
           msgType: "text",
           createdAt: out.createdAt,
         } as any);
-        existingTexts.add(key);
+        existingTexts.add(text);
+      }
+    }
+
+    // Filter any remaining adjacent duplicate texts within 15 seconds
+    const deduplicatedMessages: typeof messages = [];
+    for (const m of messages) {
+      const isDup = deduplicatedMessages.some((prev) => {
+        const sameText = prev.text === m.text;
+        const timeDiff = Math.abs(new Date(prev.createdAt).getTime() - new Date(m.createdAt).getTime());
+        return sameText && timeDiff < 15000;
+      });
+
+      if (!isDup) {
+        deduplicatedMessages.push(m);
+      } else {
+        // If the duplicate is 'admin' and existing is 'bot', upgrade the existing to 'admin'
+        const idx = deduplicatedMessages.findIndex(
+          (prev) => prev.text === m.text && Math.abs(new Date(prev.createdAt).getTime() - new Date(m.createdAt).getTime()) < 15000
+        );
+        if (idx !== -1 && m.sender === "admin" && deduplicatedMessages[idx].sender === "bot") {
+          deduplicatedMessages[idx] = m;
+        }
       }
     }
 
     // Sort all chronologically
-    messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    deduplicatedMessages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     // 4. Mark conversation as READ
     await db.collection("whatsapp_sessions").updateOne(
@@ -127,7 +148,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       phone: cleanPhone,
-      messages: messages.map((m) => ({
+      messages: deduplicatedMessages.map((m) => ({
         id: String(m._id || m.messageId || `${m.sender}_${new Date(m.createdAt).getTime()}`),
         sender: m.sender,
         senderName: m.senderName,
@@ -219,8 +240,8 @@ export async function POST(
 
     const trimmedMsg = message.trim();
 
-    // 1. Dispatch WhatsApp message via official Meta Cloud API client
-    const sendResult = await sendTextMessage(cleanPhone, trimmedMsg);
+    // 1. Dispatch WhatsApp message via official Meta Cloud API client (with skipLog: true so client.ts doesn't duplicate-log as bot)
+    const sendResult = await sendTextMessage(cleanPhone, trimmedMsg, { skipLog: true });
 
     if (!sendResult.success) {
       return NextResponse.json(

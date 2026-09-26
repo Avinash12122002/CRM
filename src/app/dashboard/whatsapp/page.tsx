@@ -256,6 +256,12 @@ export default function WhatsAppChatPage() {
         toast.error(errData.error || "Failed to send WhatsApp message");
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
       } else {
+        const data = await res.json();
+        if (data?.message) {
+          setMessages((prev) =>
+            prev.map((m) => (m.id === tempId ? { ...data.message, id: data.message.id || tempId } : m))
+          );
+        }
         fetchConversations(true);
       }
     } catch (err) {

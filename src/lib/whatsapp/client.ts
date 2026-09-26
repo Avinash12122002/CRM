@@ -22,10 +22,19 @@ function getApiConfig() {
   return { token, phoneNumberId, isConfigured };
 }
 
+interface DispatchOptions {
+  skipLog?: boolean;
+  sender?: "bot" | "admin";
+  senderName?: string;
+}
+
 /**
  * Dispatch raw payload to Meta WhatsApp Cloud API
  */
-async function sendMetaRequest(payload: Record<string, unknown>): Promise<SendResult> {
+async function sendMetaRequest(
+  payload: Record<string, unknown>,
+  options?: DispatchOptions
+): Promise<SendResult> {
   const { token, phoneNumberId, isConfigured } = getApiConfig();
 
   if (!isConfigured) {
@@ -56,50 +65,53 @@ async function sendMetaRequest(payload: Record<string, unknown>): Promise<SendRe
 
     const messageId = data?.messages?.[0]?.id;
 
-    // Asynchronously log to unified whatsapp_messages collection
-    (async () => {
-      try {
-        const { connectToDatabase } = await import("@/lib/mongodb");
-        const { logWhatsAppMessage } = await import("./messageLogger");
-        const { db } = await connectToDatabase();
-        const to = String(payload.to || "");
-        const type = String(payload.type || "text");
-        let text = "";
-        let buttons: Array<{ id: string; title: string }> | undefined;
-        let mediaUrl: string | undefined;
+    // Asynchronously log to unified whatsapp_messages collection (unless caller handles logging)
+    if (!options?.skipLog) {
+      (async () => {
+        try {
+          const { connectToDatabase } = await import("@/lib/mongodb");
+          const { logWhatsAppMessage } = await import("./messageLogger");
+          const { db } = await connectToDatabase();
+          const to = String(payload.to || "");
+          const type = String(payload.type || "text");
+          let text = "";
+          let buttons: Array<{ id: string; title: string }> | undefined;
+          let mediaUrl: string | undefined;
 
-        if (type === "text") {
-          text = (payload.text as any)?.body || "";
-        } else if (type === "interactive") {
-          const interactive = payload.interactive as any;
-          text = interactive?.body?.text || "";
-          if (interactive?.action?.buttons) {
-            buttons = interactive.action.buttons.map((b: any) => ({
-              id: b.reply?.id,
-              title: b.reply?.title,
-            }));
+          if (type === "text") {
+            text = (payload.text as any)?.body || "";
+          } else if (type === "interactive") {
+            const interactive = payload.interactive as any;
+            text = interactive?.body?.text || "";
+            if (interactive?.action?.buttons) {
+              buttons = interactive.action.buttons.map((b: any) => ({
+                id: b.reply?.id,
+                title: b.reply?.title,
+              }));
+            }
+          } else if (type === "video") {
+            mediaUrl = (payload.video as any)?.link;
+            text = (payload.video as any)?.caption || `[Video] ${mediaUrl}`;
           }
-        } else if (type === "video") {
-          mediaUrl = (payload.video as any)?.link;
-          text = (payload.video as any)?.caption || `[Video] ${mediaUrl}`;
-        }
 
-        if (to && text) {
-          await logWhatsAppMessage({
-            db,
-            phone: to,
-            sender: "bot",
-            text,
-            msgType: type as any,
-            buttons,
-            mediaUrl,
-            messageId,
-          });
+          if (to && text) {
+            await logWhatsAppMessage({
+              db,
+              phone: to,
+              sender: options?.sender || "bot",
+              senderName: options?.senderName,
+              text,
+              msgType: type as any,
+              buttons,
+              mediaUrl,
+              messageId,
+            });
+          }
+        } catch (logErr) {
+          // Silent error so message delivery is unaffected
         }
-      } catch (logErr) {
-        // Silent error so message delivery is unaffected
-      }
-    })();
+      })();
+    }
 
     return { success: true, messageId };
   } catch (err) {
@@ -111,17 +123,24 @@ async function sendMetaRequest(payload: Record<string, unknown>): Promise<SendRe
 /**
  * Send standard plain-text message
  */
-export async function sendTextMessage(to: string, text: string): Promise<SendResult> {
-  return sendMetaRequest({
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to,
-    type: "text",
-    text: {
-      body: text,
-      preview_url: true,
+export async function sendTextMessage(
+  to: string,
+  text: string,
+  options?: DispatchOptions
+): Promise<SendResult> {
+  return sendMetaRequest(
+    {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "text",
+      text: {
+        body: text,
+        preview_url: true,
+      },
     },
-  });
+    options
+  );
 }
 
 /**
