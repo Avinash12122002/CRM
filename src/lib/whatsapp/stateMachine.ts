@@ -481,9 +481,85 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // =========================================================================
+  // --- UPDATE INTERCEPTORS (email/name change requested by candidate) ---
+  // These fire BEFORE profile extraction so the candidate's reply is treated
+  // as the new value, not as general conversation.
+  // =========================================================================
+
+  // EMAIL UPDATE: Candidate was asked to reply with their new email address
+  if (session.currentStep === "AWAITING_EMAIL_UPDATE" && cleanText && !actionId) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const candidate = cleanText.trim().toLowerCase();
+    const prevStep = session.meetingCompleted
+      ? "MEETING_COMPLETED"
+      : session.bookedSlot
+      ? "BOOKED"
+      : (session.currentStep as string).replace("AWAITING_EMAIL_UPDATE", "AWAITING_CONSULTATION_DECISION") as import("./types").WhatsAppStep;
+
+    if (emailRegex.test(candidate)) {
+      // Save to session
+      await updateSession(db, session.phone, {
+        email: candidate,
+        currentStep: prevStep as import("./types").WhatsAppStep,
+      });
+      // Save to CRM lead
+      if (session.leadId) {
+        await db.collection("leads").updateOne(
+          { id: session.leadId },
+          { $set: { email: candidate, updatedAt: new Date() } }
+        );
+      }
+      const confirm = `✅ Done! Your registered email has been updated to **${candidate}**.\n\nAll future official correspondence will now be sent to this address. If you have any other questions, feel free to ask! 🇦🇺`;
+      await sendTextMessage(session.phone, confirm);
+      return { replyText: confirm, step: prevStep as import("./types").WhatsAppStep };
+    } else {
+      const retry = `⚠️ That doesn't look like a valid email address.\n\nPlease reply with your correct email (e.g. yourname@gmail.com) to update your profile.`;
+      await sendTextMessage(session.phone, retry);
+      return { replyText: retry, step: "AWAITING_EMAIL_UPDATE" };
+    }
+  }
+
+  // NAME UPDATE: Candidate was asked to reply with their correct name
+  if (session.currentStep === "AWAITING_NAME_UPDATE" && cleanText && !actionId) {
+    const prevStep = session.meetingCompleted
+      ? "MEETING_COMPLETED"
+      : session.bookedSlot
+      ? "BOOKED"
+      : ("AWAITING_CONSULTATION_DECISION" as import("./types").WhatsAppStep);
+
+    // Accept any 2-50 character name (letters, spaces, hyphens, apostrophes)
+    const nameRegex = /^[A-Za-z\s'\-]{2,50}$/;
+    const candidate = cleanText.trim();
+    const wordCount = candidate.split(/\s+/).length;
+
+    if (nameRegex.test(candidate) && wordCount >= 1 && wordCount <= 5) {
+      // Save to session
+      await updateSession(db, session.phone, {
+        name: candidate,
+        currentStep: prevStep,
+      });
+      // Save to CRM lead
+      if (session.leadId) {
+        await db.collection("leads").updateOne(
+          { id: session.leadId },
+          { $set: { name: candidate, updatedAt: new Date() } }
+        );
+      }
+      const confirm = `✅ Got it! Your registered name has been updated to **${candidate}**.\n\nIf anything else needs updating, just let me know! 😊🇦🇺`;
+      await sendTextMessage(session.phone, confirm);
+      return { replyText: confirm, step: prevStep };
+    } else {
+      const retry = `⚠️ Please reply with your correct full name (e.g. "Rahul Sharma" or "Maria Santos") to update your profile.`;
+      await sendTextMessage(session.phone, retry);
+      return { replyText: retry, step: "AWAITING_NAME_UPDATE" };
+    }
+  }
+
+  // =========================================================================
   // --- AUTO-EXTRACT & PERSIST CANDIDATE PROFILE DETAILS FROM EVERY MESSAGE ---
   // =========================================================================
   const profileUpdates: Record<string, unknown> = {};
+
 
   // 0. Candidate Name extraction (e.g. "My name is John Doe", "I am Rohit Sharma", "Name: Sunil")
   if (!session.name || session.name === "Candidate" || session.name.toLowerCase().includes("test")) {
@@ -1919,7 +1995,42 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: meetReply, step: session.currentStep };
   }
 
-  // 10. Free-form conversational message -> Consult Context-Aware Meta AI
+  // 10. Update intent detection — BEFORE calling AI, check if candidate wants to change email/name
+  // This sets the session to the right AWAITING_*_UPDATE step so the NEXT message is intercepted.
+  const lowerClean = cleanText.toLowerCase();
+
+  const wantsEmailChange =
+    (lowerClean.includes("change") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
+    (lowerClean.includes("update") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
+    (lowerClean.includes("wrong") && lowerClean.includes("email")) ||
+    (lowerClean.includes("new") && lowerClean.includes("email")) ||
+    (lowerClean.includes("correct") && lowerClean.includes("email"));
+
+  const wantsNameChange =
+    (lowerClean.includes("change") && (lowerClean.includes("name") || lowerClean.includes("naam"))) ||
+    (lowerClean.includes("update") && lowerClean.includes("name")) ||
+    (lowerClean.includes("wrong") && lowerClean.includes("name")) ||
+    (lowerClean.includes("correct") && lowerClean.includes("name"));
+
+  if (wantsEmailChange) {
+    await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL_UPDATE" });
+    const emailChangePrompt =
+      `Of course! To update your registered email address, please reply with your new, correct email address right here.\n\n` +
+      `📧 **Please reply with: Your New Email Address**`;
+    await sendTextMessage(session.phone, emailChangePrompt);
+    return { replyText: emailChangePrompt, step: "AWAITING_EMAIL_UPDATE" };
+  }
+
+  if (wantsNameChange) {
+    await updateSession(db, session.phone, { currentStep: "AWAITING_NAME_UPDATE" });
+    const nameChangePrompt =
+      `Absolutely! Please reply with your **correct full name** and we will update your profile record immediately.\n\n` +
+      `📝 **Please reply with: Your Correct Full Name**`;
+    await sendTextMessage(session.phone, nameChangePrompt);
+    return { replyText: nameChangePrompt, step: "AWAITING_NAME_UPDATE" };
+  }
+
+  // 11. Free-form conversational message -> Consult Context-Aware AI
   const aiAnswer = await generateAiResponse({
     message: cleanText,
     session,

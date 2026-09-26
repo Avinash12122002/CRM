@@ -25,6 +25,8 @@ import {
   MessageSquare,
   Send,
   MessageCircle,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -72,6 +74,16 @@ export default function CandidateCvExplorerPage() {
   const [messageTarget, setMessageTarget] = useState<CandidateFolder | null>(null);
   const [messageText, setMessageText] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
+
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: "file" | "folder";
+    phone: string;
+    candidateName: string;
+    fileId?: string;
+    fileName?: string;
+  } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // 1. Authenticate user
   useEffect(() => {
@@ -285,6 +297,72 @@ export default function CandidateCvExplorerPage() {
       toast.error("Network error while sending message", { id: toastId });
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  // Delete a single file
+  const handleDeleteFile = async () => {
+    if (!deleteTarget || deleteTarget.type !== "file") return;
+    setDeleting(true);
+    const toastId = toast.loading(`Deleting ${deleteTarget.fileName}...`);
+    try {
+      const res = await fetch("/api/cv/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: deleteTarget.phone,
+          fileId: deleteTarget.fileId,
+          fileName: deleteTarget.fileName,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`"${deleteTarget.fileName}" deleted`, { id: toastId });
+        // Remove from local state
+        setFolders((prev) =>
+          prev
+            .map((f) => ({
+              ...f,
+              files: f.phone === deleteTarget.phone
+                ? f.files.filter((file) => file.fileName !== deleteTarget.fileName)
+                : f.files,
+            }))
+            .filter((f) => f.files.length > 0 || f.phone !== deleteTarget.phone)
+        );
+        setDeleteTarget(null);
+      } else {
+        toast.error(data.error || "Failed to delete file", { id: toastId });
+      }
+    } catch {
+      toast.error("Network error while deleting", { id: toastId });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Delete entire candidate folder
+  const handleDeleteFolder = async () => {
+    if (!deleteTarget || deleteTarget.type !== "folder") return;
+    setDeleting(true);
+    const toastId = toast.loading(`Deleting all files for ${deleteTarget.candidateName}...`);
+    try {
+      const res = await fetch("/api/cv/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: deleteTarget.phone, deleteAll: true }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`All files for ${deleteTarget.candidateName} deleted`, { id: toastId });
+        setFolders((prev) => prev.filter((f) => f.phone !== deleteTarget.phone));
+        setDeleteTarget(null);
+      } else {
+        toast.error(data.error || "Failed to delete folder", { id: toastId });
+      }
+    } catch {
+      toast.error("Network error while deleting", { id: toastId });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -534,7 +612,7 @@ export default function CandidateCvExplorerPage() {
                         </span>
                       </div>
 
-                      {/* Right Action: Send Message Button + View Lead */}
+                      {/* Right Action: Send Message Button + View Lead + Delete Folder */}
                       <div className="flex items-center gap-2 font-sans shrink-0" onClick={(e) => e.stopPropagation()}>
                         <button
                           type="button"
@@ -556,6 +634,24 @@ export default function CandidateCvExplorerPage() {
                             <ExternalLink className="w-3 h-3" />
                           </Link>
                         )}
+
+                        {/* Delete entire candidate folder */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteTarget({
+                              type: "folder",
+                              phone: folder.phone,
+                              candidateName: folder.candidateName,
+                            });
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-300 dark:border-red-800/50 bg-red-50 dark:bg-red-950/30 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 text-xs font-semibold transition"
+                          title={`Delete all files for ${folder.candidateName}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete All</span>
+                        </button>
                       </div>
                     </div>
 
@@ -609,7 +705,7 @@ export default function CandidateCvExplorerPage() {
                                 )}
                               </div>
 
-                              {/* Action Buttons: Preview & Download */}
+                              {/* Action Buttons: Preview, Download & Delete */}
                               <div className="flex items-center gap-1.5 font-sans shrink-0">
                                 <button
                                   onClick={() => {
@@ -635,6 +731,24 @@ export default function CandidateCvExplorerPage() {
                                   <Download className="w-3.5 h-3.5" />
                                   <span>Download</span>
                                 </a>
+
+                                {/* Delete single file */}
+                                <button
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      type: "file",
+                                      phone: folder.phone,
+                                      candidateName: folder.candidateName,
+                                      fileId: file.id,
+                                      fileName: file.fileName,
+                                    })
+                                  }
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/60 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/50 text-xs font-medium transition"
+                                  title="Delete this file"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Delete</span>
+                                </button>
                               </div>
                             </div>
                           );
@@ -842,6 +956,103 @@ export default function CandidateCvExplorerPage() {
                   <span>{sendingMessage ? "Sending..." : "Send Message"}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Delete Confirmation Modal ─────────────────────────── */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150 font-sans">
+          <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 border border-red-200 dark:border-red-900/50 shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-red-100 dark:border-red-900/40 px-6 py-4 bg-red-50 dark:bg-red-950/30">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-red-100 dark:bg-red-900/60 border border-red-300 dark:border-red-700 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    {deleteTarget.type === "folder" ? "Delete All Files?" : "Delete File?"}
+                  </h3>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                    This action cannot be undone
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-3">
+              {deleteTarget.type === "file" ? (
+                <>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                    You are about to permanently delete:
+                  </p>
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
+                    <FileText className="w-4 h-4 text-red-500 shrink-0" />
+                    <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                      {deleteTarget.fileName}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                    From candidate folder:{" "}
+                    <span className="font-mono font-medium text-zinc-700 dark:text-zinc-300">
+                      {deleteTarget.candidateName} (+{deleteTarget.phone})
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-zinc-700 dark:text-zinc-300">
+                    You are about to permanently delete{" "}
+                    <strong className="text-red-600 dark:text-red-400">ALL documents</strong>{" "}
+                    for:
+                  </p>
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
+                    <Folder className="w-4 h-4 text-amber-500 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                        {deleteTarget.candidateName}
+                      </p>
+                      <p className="text-xs font-mono text-zinc-500 dark:text-zinc-400">
+                        +{deleteTarget.phone}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">
+                    ⚠️ This will remove all CVs and documents from GridFS, the session record, and the lead record permanently.
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-zinc-200 dark:border-zinc-800 px-6 py-3.5 bg-zinc-50 dark:bg-zinc-900/60">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="px-4 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={deleteTarget.type === "file" ? handleDeleteFile : handleDeleteFolder}
+                disabled={deleting}
+                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className={`w-3.5 h-3.5 ${deleting ? "animate-pulse" : ""}`} />
+                <span>{deleting ? "Deleting..." : deleteTarget.type === "folder" ? "Delete All Files" : "Delete File"}</span>
+              </button>
             </div>
           </div>
         </div>
