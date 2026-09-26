@@ -20,29 +20,58 @@ export async function POST(req: NextRequest) {
 
     const { db } = await connectToDatabase();
     const col = db.collection("cv_viewed_records");
+    const now = new Date();
 
-    if (markAll && Array.isArray(fileKeys) && fileKeys.length > 0) {
-      const ops = fileKeys.map((k: string) => ({
-        updateOne: {
-          filter: { userId: payload.id, fileKey: String(k) },
-          update: { $set: { userId: payload.id, fileKey: String(k), viewedAt: new Date() } },
-          upsert: true,
+    const userId = payload.id;
+    const userFilter = { $in: [userId, Number(userId), String(userId)].filter((v) => v !== undefined && !isNaN(v as any)) };
+
+    // Handle "Mark all read"
+    if (markAll) {
+      // 1. Set global __ALL__ watermark for this admin user
+      await col.updateOne(
+        { userId: userFilter, fileKey: "__ALL__" },
+        {
+          $set: {
+            userId,
+            fileKey: "__ALL__",
+            allViewedAt: now,
+            viewedAt: now,
+          },
         },
-      }));
-      await col.bulkWrite(ops);
-      return NextResponse.json({ success: true, marked: fileKeys.length });
+        { upsert: true }
+      );
+
+      // 2. Also record any individual file keys provided
+      if (Array.isArray(fileKeys) && fileKeys.length > 0) {
+        const ops = fileKeys.map((k: string) => ({
+          updateOne: {
+            filter: { userId, fileKey: String(k) },
+            update: { $set: { userId, fileKey: String(k), viewedAt: now } },
+            upsert: true,
+          },
+        }));
+        await col.bulkWrite(ops);
+      }
+
+      return NextResponse.json({
+        success: true,
+        markAll: true,
+        allViewedAt: now,
+        markedCount: fileKeys?.length || 0,
+      });
     }
 
+    // Handle single document mark as viewed
     if (fileKey) {
       await col.updateOne(
-        { userId: payload.id, fileKey: String(fileKey) },
-        { $set: { userId: payload.id, fileKey: String(fileKey), viewedAt: new Date() } },
+        { userId, fileKey: String(fileKey) },
+        { $set: { userId, fileKey: String(fileKey), viewedAt: now } },
         { upsert: true }
       );
       return NextResponse.json({ success: true, fileKey });
     }
 
-    return NextResponse.json({ error: "Missing fileKey or fileKeys" }, { status: 400 });
+    return NextResponse.json({ error: "Missing fileKey or markAll flag" }, { status: 400 });
   } catch (err) {
     console.error("[POST /api/cv/viewed Error]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -63,15 +92,20 @@ export async function GET(req: NextRequest) {
     }
 
     const { db } = await connectToDatabase();
+    const userId = payload.id;
+    const userFilter = { $in: [userId, Number(userId), String(userId)].filter((v) => v !== undefined && !isNaN(v as any)) };
+
     const records = await db
       .collection("cv_viewed_records")
-      .find({ userId: payload.id })
-      .project({ fileKey: 1 })
+      .find({ userId: userFilter })
       .toArray();
+
+    const allRecord = records.find((r: any) => r.fileKey === "__ALL__");
 
     return NextResponse.json({
       success: true,
-      viewedKeys: records.map((r) => r.fileKey),
+      allViewedAt: allRecord?.allViewedAt || null,
+      viewedKeys: records.map((r: any) => r.fileKey).filter((k: string) => k !== "__ALL__"),
     });
   } catch (err) {
     console.error("[GET /api/cv/viewed Error]", err);

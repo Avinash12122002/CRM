@@ -137,20 +137,30 @@ export async function GET(req: NextRequest) {
     // Sort folders by total files descending
     foldersArray.sort((a, b) => b.totalFiles - a.totalFiles);
 
-    // Fetch viewed records for this admin user
+    // Fetch viewed records for this admin user (support number & string ID)
+    const userId = payload.id;
+    const userFilter = { $in: [userId, Number(userId), String(userId)].filter((v) => v !== undefined && !isNaN(v as any)) };
+
     const viewedRecords = await db
       .collection("cv_viewed_records")
-      .find({ userId: payload.id })
-      .project({ fileKey: 1 })
+      .find({ userId: userFilter })
       .toArray();
+
+    const allRecord = viewedRecords.find((r: any) => r.fileKey === "__ALL__");
+    const allViewedAt = allRecord?.allViewedAt ? new Date(allRecord.allViewedAt).getTime() : 0;
     const viewedKeysSet = new Set(viewedRecords.map((r: any) => String(r.fileKey)));
 
     let unreadCount = 0;
     for (const folder of foldersArray) {
       for (const file of folder.files) {
-        const fileKey = String(file.id || `${folder.phone}_${file.fileName}`);
+        const fileKey = String(file.fileKey || file.id || `${folder.phone}_${file.fileName}`);
         file.fileKey = fileKey;
-        file.isViewed = viewedKeysSet.has(fileKey);
+
+        const isIndividuallyViewed = viewedKeysSet.has(fileKey);
+        const fileTime = file.receivedAt ? new Date(file.receivedAt).getTime() : 0;
+        const isBeforeMarkAll = allViewedAt > 0 && fileTime > 0 && fileTime <= allViewedAt;
+
+        file.isViewed = Boolean(isIndividuallyViewed || isBeforeMarkAll);
         if (!file.isViewed) {
           unreadCount++;
         }

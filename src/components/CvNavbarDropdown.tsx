@@ -67,25 +67,45 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
       if (res.ok) {
         const data = await res.json();
         const list: CandidateFolder[] = Array.isArray(data?.folders) ? data.folders : [];
-        setFolders(list);
+        const localMarkAll = typeof window !== "undefined" ? localStorage.getItem("cv_last_mark_all_read") : null;
+        const localMarkAllTime = localMarkAll ? new Date(localMarkAll).getTime() : 0;
+        let localSavedKeys = new Set<string>();
+        try {
+          if (typeof window !== "undefined") {
+            localSavedKeys = new Set(JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]"));
+          }
+        } catch {}
+
+        // Apply server + local markAll fallback
+        const processedList = list.map((folder) => ({
+          ...folder,
+          files: (folder.files || []).map((file) => {
+            const fKey = String(file.fileKey || file.id || `${folder.phone}_${file.fileName}`);
+            const fileTime = file.receivedAt ? new Date(file.receivedAt).getTime() : 0;
+            const isViewed = Boolean(
+              file.isViewed ||
+              localSavedKeys.has(fKey) ||
+              (localMarkAllTime > 0 && fileTime > 0 && fileTime <= localMarkAllTime)
+            );
+            return { ...file, fileKey: fKey, isViewed };
+          }),
+        }));
+
+        setFolders(processedList);
         setExpandedFolders((prev) => {
           if (prev.size === 0) {
-            return new Set(list.map((f) => String(f?.phone || "")).filter(Boolean));
+            return new Set(processedList.map((f) => String(f?.phone || "")).filter(Boolean));
           }
           return prev;
         });
 
-        if (typeof data.unreadCount === "number") {
-          setUnreadCount(data.unreadCount);
-        } else {
-          let count = 0;
-          for (const f of list) {
-            for (const file of f.files || []) {
-              if (!file.isViewed) count++;
-            }
+        let count = 0;
+        for (const f of processedList) {
+          for (const file of f.files || []) {
+            if (!file.isViewed) count++;
           }
-          setUnreadCount(count);
         }
+        setUnreadCount(count);
       }
     } catch (err) {
       console.error("Failed to load CVs in navbar:", err);
@@ -197,20 +217,34 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
 
   // Mark all documents as viewed
   const markAllAsViewed = async () => {
+    // 1. Gather all keys synchronously from current folders
     const allKeys: string[] = [];
+    for (const folder of folders || []) {
+      for (const f of folder.files || []) {
+        const fKey = String(f.fileKey || f.id || `${folder.phone}_${f.fileName}`);
+        if (fKey) allKeys.push(fKey);
+      }
+    }
+
+    // 2. Optimistically mark all in state
     setFolders((prevFolders) =>
       prevFolders.map((folder) => ({
         ...folder,
-        files: (folder.files || []).map((f) => {
-          const fKey = f.fileKey || f.id || `${f.fileName}`;
-          if (fKey) allKeys.push(fKey);
-          return { ...f, isViewed: true };
-        }),
+        files: (folder.files || []).map((f) => ({ ...f, isViewed: true })),
       }))
     );
-
     setUnreadCount(0);
 
+    // 3. Persist mark all to localStorage as immediate offline fallback
+    const nowIso = new Date().toISOString();
+    try {
+      localStorage.setItem("cv_last_mark_all_read", nowIso);
+      const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
+      const merged = Array.from(new Set([...saved, ...allKeys]));
+      localStorage.setItem("cv_viewed_keys", JSON.stringify(merged));
+    } catch {}
+
+    // 4. Send request to backend
     try {
       await fetch("/api/cv/viewed", {
         method: "POST",
