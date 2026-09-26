@@ -10,19 +10,16 @@ export async function GET(
     }>;
   },
 ) {
-  const params =
-    await context.params;
+  const params = await context.params;
 
-  const bucket =
-    await getGridFSBucket();
+  if (!params.id || !ObjectId.isValid(params.id)) {
+    return new Response("Invalid file ID", { status: 400 });
+  }
 
-  const fileId =
-    new ObjectId(params.id);
+  const bucket = await getGridFSBucket();
+  const fileId = new ObjectId(params.id);
 
-  const files =
-    await bucket.find({
-      _id: fileId,
-    }).toArray();
+  const files = await bucket.find({ _id: fileId }).toArray();
 
   if (!files.length) {
     return new Response(

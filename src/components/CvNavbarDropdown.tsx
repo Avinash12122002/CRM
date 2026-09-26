@@ -181,8 +181,8 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
   }, [isOpen]);
 
   // Mark single document as viewed (decreases unread badge count)
-  const markAsViewed = async (file: DocFile) => {
-    const key = file.fileKey || file.id || `${file.fileName}`;
+  const markAsViewed = async (file: DocFile, folderPhone?: string) => {
+    const key = file.fileKey || file.id || (folderPhone ? `${folderPhone}_${file.fileName}` : `${file.fileName}`);
     if (!key) return;
 
     if (file.isViewed) return;
@@ -192,7 +192,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
       prevFolders.map((folder) => ({
         ...folder,
         files: (folder.files || []).map((f) => {
-          const fKey = f.fileKey || f.id || `${f.fileName}`;
+          const fKey = f.fileKey || f.id || (folder.phone ? `${folder.phone}_${f.fileName}` : `${f.fileName}`);
           if (fKey === key) {
             return { ...f, isViewed: true };
           }
@@ -202,6 +202,15 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     );
 
     setUnreadCount((prev) => Math.max(0, prev - 1));
+
+    // Save to local storage for instant zero-lag offline caching
+    try {
+      const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
+      if (!saved.includes(key)) {
+        saved.push(key);
+        localStorage.setItem("cv_viewed_keys", JSON.stringify(saved));
+      }
+    } catch {}
 
     // Save to backend
     try {
@@ -533,7 +542,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    markAsViewed(file);
+                                    markAsViewed(file, folder.phone);
                                     setPreviewFile(file);
                                   }}
                                   className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
@@ -546,7 +555,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                                   download={fileName}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    markAsViewed(file);
+                                    markAsViewed(file, folder.phone);
                                   }}
                                   target="_blank"
                                   rel="noopener noreferrer"

@@ -97,6 +97,40 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 2. Load genuine candidate cvFiles from `leads` collection (from WhatsApp or candidate upload)
+    const leadsWithCv = await db
+      .collection("leads")
+      .find({
+        cvFiles: { $exists: true, $ne: [] },
+      })
+      .project({ id: 1, name: 1, phone: 1, cvFiles: 1 })
+      .toArray();
+
+    for (const lead of leadsWithCv) {
+      const phone = String(lead.phone || `lead_${lead.id}`);
+      const folder = getOrCreateFolder(phone, lead.name, lead.id);
+      if (Array.isArray(lead.cvFiles)) {
+        for (const file of lead.cvFiles) {
+          const fileName = file.filename || file.fileName;
+          if (!fileName) continue;
+          const exists = folder.files.some((f) => f.fileName === fileName);
+          if (!exists) {
+            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : file.publicUrl;
+            folder.files.push({
+              id: file.gridFsFileId,
+              fileName,
+              sizeBytes: file.size,
+              mimeType: file.mimeType || "application/pdf",
+              url: fileUrl,
+              downloadUrl: fileUrl,
+              source: "whatsapp",
+              receivedAt: file.receivedAt || file.syncedAt,
+            });
+          }
+        }
+      }
+    }
+
     // 3. Query GridFS `chatFiles.files` for any WhatsApp candidate media
     const gridFiles = await db
       .collection("chatFiles.files")
@@ -139,7 +173,13 @@ export async function GET(req: NextRequest) {
 
     // Fetch viewed records for this admin user (support number & string ID)
     const userId = payload.id;
-    const userFilter = { $in: [userId, Number(userId), String(userId)].filter((v) => v !== undefined && !isNaN(v as any)) };
+    const userCandidates: any[] = [userId];
+    if (typeof userId === "number") {
+      userCandidates.push(String(userId));
+    } else if (typeof userId === "string" && !isNaN(Number(userId))) {
+      userCandidates.push(Number(userId));
+    }
+    const userFilter = { $in: Array.from(new Set(userCandidates)) };
 
     const viewedRecords = await db
       .collection("cv_viewed_records")

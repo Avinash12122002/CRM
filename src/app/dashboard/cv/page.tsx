@@ -21,6 +21,7 @@ import {
   Phone,
   User,
   ShieldCheck,
+  CheckCheck,
 } from "lucide-react";
 
 interface DocFile {
@@ -96,11 +97,36 @@ export default function CandidateCvExplorerPage() {
       const res = await fetch("/api/cv/list");
       if (res.ok) {
         const data = await res.json();
-        const folderList: CandidateFolder[] = data.folders || [];
-        setFolders(folderList);
+        const folderList: CandidateFolder[] = Array.isArray(data?.folders) ? data.folders : [];
+
+        // Synchronize with local storage watermark
+        const localMarkAll = typeof window !== "undefined" ? localStorage.getItem("cv_last_mark_all_read") : null;
+        const localMarkAllTime = localMarkAll ? new Date(localMarkAll).getTime() : 0;
+        let localSavedKeys = new Set<string>();
+        try {
+          if (typeof window !== "undefined") {
+            localSavedKeys = new Set(JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]"));
+          }
+        } catch {}
+
+        const processedList = folderList.map((folder) => ({
+          ...folder,
+          files: (folder.files || []).map((file) => {
+            const fKey = String(file.fileKey || file.id || `${folder.phone}_${file.fileName}`);
+            const fileTime = file.receivedAt ? new Date(file.receivedAt).getTime() : 0;
+            const isViewed = Boolean(
+              file.isViewed ||
+              localSavedKeys.has(fKey) ||
+              (localMarkAllTime > 0 && fileTime > 0 && fileTime <= localMarkAllTime)
+            );
+            return { ...file, fileKey: fKey, isViewed };
+          }),
+        }));
+
+        setFolders(processedList);
 
         // Auto-expand all folders by default so everything is immediately visible
-        const allKeys = new Set(folderList.map((f) => f.phone));
+        const allKeys = new Set(processedList.map((f) => f.phone));
         setExpandedFolders(allKeys);
       }
     } catch (err) {
@@ -134,31 +160,80 @@ export default function CandidateCvExplorerPage() {
     setExpandedFolders(new Set(folders.map((f) => f.phone)));
   };
 
+  const collapseAll = () => {
+    setExpandedFolders(new Set());
+  };
+
   // Mark document as viewed
-  const markAsViewed = async (file: DocFile) => {
-    const key = file.fileKey || file.id || `${file.fileName}`;
+  const markAsViewed = async (file: DocFile, folderPhone?: string) => {
+    const key = file.fileKey || file.id || (folderPhone ? `${folderPhone}_${file.fileName}` : `${file.fileName}`);
     if (!key || file.isViewed) return;
+
+    // Optimistically mark viewed in state
+    setFolders((prev) =>
+      prev.map((f) => ({
+        ...f,
+        files: (f.files || []).map((item) => {
+          const itemKey = item.fileKey || item.id || (f.phone ? `${f.phone}_${item.fileName}` : `${item.fileName}`);
+          return itemKey === key ? { ...item, isViewed: true } : item;
+        }),
+      }))
+    );
+
+    // Save to localStorage for instant synchronization across tabs & navbar
+    try {
+      const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
+      if (!saved.includes(key)) {
+        saved.push(key);
+        localStorage.setItem("cv_viewed_keys", JSON.stringify(saved));
+      }
+    } catch {}
+
     try {
       await fetch("/api/cv/viewed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileKey: key }),
       });
-      setFolders((prev) =>
-        prev.map((f) => ({
-          ...f,
-          files: (f.files || []).map((item) =>
-            (item.fileKey || item.id || item.fileName) === key
-              ? { ...item, isViewed: true }
-              : item
-          ),
-        }))
-      );
-    } catch {}
+    } catch (err) {
+      console.error("Failed to mark document viewed:", err);
+    }
   };
 
-  const collapseAll = () => {
-    setExpandedFolders(new Set());
+  // Mark all documents as viewed
+  const markAllAsViewed = async () => {
+    const allKeys: string[] = [];
+    for (const folder of folders || []) {
+      for (const f of folder.files || []) {
+        const fKey = String(f.fileKey || f.id || `${folder.phone}_${f.fileName}`);
+        if (fKey) allKeys.push(fKey);
+      }
+    }
+
+    setFolders((prevFolders) =>
+      prevFolders.map((folder) => ({
+        ...folder,
+        files: (folder.files || []).map((f) => ({ ...f, isViewed: true })),
+      }))
+    );
+
+    const nowIso = new Date().toISOString();
+    try {
+      localStorage.setItem("cv_last_mark_all_read", nowIso);
+      const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
+      const merged = Array.from(new Set([...saved, ...allKeys]));
+      localStorage.setItem("cv_viewed_keys", JSON.stringify(merged));
+    } catch {}
+
+    try {
+      await fetch("/api/cv/viewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markAll: true, fileKeys: allKeys }),
+      });
+    } catch (err) {
+      console.error("Failed to mark all documents viewed:", err);
+    }
   };
 
   // Filtered folders based on search (100% null-safe)
@@ -198,6 +273,13 @@ export default function CandidateCvExplorerPage() {
       0
     );
   }, [filteredFolders]);
+
+  const unreadDocsCount = useMemo(() => {
+    return (folders || []).reduce(
+      (acc, f) => acc + (Array.isArray(f?.files) ? f.files.filter((file) => !file.isViewed).length : 0),
+      0
+    );
+  }, [folders]);
 
   const formatSize = (bytes?: number) => {
     if (!bytes || isNaN(bytes)) return "";
@@ -260,6 +342,12 @@ export default function CandidateCvExplorerPage() {
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-medium">Total Files</div>
               <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{totalDocsCount}</div>
             </div>
+            {unreadDocsCount > 0 && (
+              <div className="px-3.5 py-2 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/40 text-center shadow-xs">
+                <div className="text-[11px] text-red-600 dark:text-red-400 uppercase tracking-wider font-semibold">New / Unread</div>
+                <div className="text-lg font-bold text-red-600 dark:text-red-400">{unreadDocsCount}</div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -277,6 +365,16 @@ export default function CandidateCvExplorerPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {unreadDocsCount > 0 && (
+              <button
+                onClick={markAllAsViewed}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-xs font-semibold text-emerald-700 dark:text-emerald-300 transition shadow-xs"
+                title="Mark all candidate documents as viewed"
+              >
+                <CheckCheck className="w-3.5 h-3.5" />
+                <span>Mark All Read</span>
+              </button>
+            )}
             <button
               onClick={expandAll}
               className="px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition"
@@ -439,13 +537,19 @@ export default function CandidateCvExplorerPage() {
                                 >
                                   {file.source === "whatsapp" ? "WhatsApp" : "CRM Doc"}
                                 </span>
+
+                                {!file.isViewed && (
+                                  <span className="shrink-0 px-1.5 py-0.5 text-[9px] font-bold uppercase rounded bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 font-sans">
+                                    NEW
+                                  </span>
+                                )}
                               </div>
 
                               {/* Action Buttons: Preview & Download */}
                               <div className="flex items-center gap-1.5 font-sans shrink-0">
                                 <button
                                   onClick={() => {
-                                    markAsViewed(file);
+                                    markAsViewed(file, folder.phone);
                                     setPreviewFile(file);
                                   }}
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-medium transition"
@@ -458,7 +562,7 @@ export default function CandidateCvExplorerPage() {
                                 <a
                                   href={file.downloadUrl}
                                   download={file.fileName}
-                                  onClick={() => markAsViewed(file)}
+                                  onClick={() => markAsViewed(file, folder.phone)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition shadow-xs"
@@ -503,6 +607,7 @@ export default function CandidateCvExplorerPage() {
                 <a
                   href={previewFile.downloadUrl}
                   download={previewFile.fileName}
+                  onClick={() => markAsViewed(previewFile)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition shadow-xs"
@@ -547,6 +652,7 @@ export default function CandidateCvExplorerPage() {
                   <a
                     href={previewFile.downloadUrl}
                     download={previewFile.fileName}
+                    onClick={() => markAsViewed(previewFile)}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition shadow-xs"
                   >
                     <Download className="w-4 h-4" /> Download to View

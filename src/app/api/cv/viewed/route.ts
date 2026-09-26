@@ -23,7 +23,13 @@ export async function POST(req: NextRequest) {
     const now = new Date();
 
     const userId = payload.id;
-    const userFilter = { $in: [userId, Number(userId), String(userId)].filter((v) => v !== undefined && !isNaN(v as any)) };
+    const userCandidates: any[] = [userId];
+    if (typeof userId === "number") {
+      userCandidates.push(String(userId));
+    } else if (typeof userId === "string" && !isNaN(Number(userId))) {
+      userCandidates.push(Number(userId));
+    }
+    const userFilter = { $in: Array.from(new Set(userCandidates)) };
 
     // Handle "Mark all read"
     if (markAll) {
@@ -45,7 +51,7 @@ export async function POST(req: NextRequest) {
       if (Array.isArray(fileKeys) && fileKeys.length > 0) {
         const ops = fileKeys.map((k: string) => ({
           updateOne: {
-            filter: { userId, fileKey: String(k) },
+            filter: { userId: userFilter, fileKey: String(k) },
             update: { $set: { userId, fileKey: String(k), viewedAt: now } },
             upsert: true,
           },
@@ -64,7 +70,7 @@ export async function POST(req: NextRequest) {
     // Handle single document mark as viewed
     if (fileKey) {
       await col.updateOne(
-        { userId, fileKey: String(fileKey) },
+        { userId: userFilter, fileKey: String(fileKey) },
         { $set: { userId, fileKey: String(fileKey), viewedAt: now } },
         { upsert: true }
       );
@@ -93,7 +99,13 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
     const userId = payload.id;
-    const userFilter = { $in: [userId, Number(userId), String(userId)].filter((v) => v !== undefined && !isNaN(v as any)) };
+    const userCandidates: any[] = [userId];
+    if (typeof userId === "number") {
+      userCandidates.push(String(userId));
+    } else if (typeof userId === "string" && !isNaN(Number(userId))) {
+      userCandidates.push(Number(userId));
+    }
+    const userFilter = { $in: Array.from(new Set(userCandidates)) };
 
     const records = await db
       .collection("cv_viewed_records")
