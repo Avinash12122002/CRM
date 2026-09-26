@@ -630,13 +630,24 @@ export async function processIncomingWhatsAppMessage(params: {
       return { replyText: askCvMsg, step: "AWAITING_CV" };
     }
 
-    // 3. If CV was already received
+    // 3. If CV was already received and candidate explicitly asks about review status
     if (session.cvReceivedAt) {
-      const cvUnderReviewMsg =
-        `Thanks for sharing your CV with us! Our review team is reviewing your qualification and job availability according to your work experience.\n\n` +
-        `Our team expects to call you from an Australian number shortly. 🇦🇺📞`;
-      await sendTextMessage(session.phone, cvUnderReviewMsg);
-      return { replyText: cvUnderReviewMsg, step: "MEETING_COMPLETED" };
+      const isCvStatusInquiry =
+        lowerText.includes("cv status") ||
+        lowerText.includes("resume status") ||
+        lowerText.includes("checked my cv") ||
+        lowerText.includes("check my cv") ||
+        lowerText.includes("reviewed my cv") ||
+        lowerText.includes("review my cv") ||
+        lowerText.includes("did you see my cv");
+
+      if (isCvStatusInquiry) {
+        const cvUnderReviewMsg =
+          `Thanks for checking in! Our review team is reviewing your qualification and job availability according to your work experience.\n\n` +
+          `Our team expects to call you from an Australian number shortly. 🇦🇺📞`;
+        await sendTextMessage(session.phone, cvUnderReviewMsg);
+        return { replyText: cvUnderReviewMsg, step: "MEETING_COMPLETED" };
+      }
     }
 
     // 4. If candidate sends a greeting ("hi", "hello", etc.) or restart
@@ -872,6 +883,31 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 1c. Brand-new candidate or explicit reset
   if (actionId === "RESTART_FLOW" || (isGreeting && !session.email && !session.bookedSlot) || isFreshWelcome) {
+    if (isFreshWelcome && cleanText.length > 0 && !isGreeting) {
+      // The candidate sent an actual question or background details at the start!
+      const aiAnswer = await generateAiResponse({
+        message: cleanText,
+        session,
+      });
+
+      const welcomeReply =
+        `${aiAnswer}\n\n` +
+        `*Would you like to explore your eligibility for the Australia Employer Sponsored Work Visa?*`;
+
+      await sendQuickReplyButtons(session.phone, welcomeReply, [
+        { id: "BTN_482_YES", title: "Yes, Interested" },
+        { id: "BTN_482_NO", title: "Not Right Now" },
+      ]);
+
+      const nextFollowup = getNext10AmInTimezone(session.timeZone);
+      await updateSession(db, session.phone, {
+        currentStep: "WELCOME",
+        followupCount: 0,
+        nextFollowupAt: nextFollowup,
+      });
+      return { replyText: welcomeReply, step: "WELCOME" };
+    }
+
     const welcomeText =
       `Hello ☺️! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
       `We specialize in employer-sponsored work visas for Australia.\n\n` +
@@ -988,6 +1024,26 @@ export async function processIncomingWhatsAppMessage(params: {
     const isWhitelistedDomain = ACCEPTED_DOMAINS.includes(domain) || (domain.includes(".") && !domain.startsWith(".") && domain.split(".").every(part => part.length >= 2));
 
     if (!isValidFormat || !isValidDomain || !isWhitelistedDomain) {
+      // Check if candidate is asking a question or conversing rather than an attempted email
+      const isQuestionOrInquiry =
+        cleanText.includes("?") ||
+        !cleanText.includes("@") ||
+        cleanText.split(/\s+/).length > 2;
+
+      if (isQuestionOrInquiry) {
+        const aiAnswer = await generateAiResponse({
+          message: cleanText,
+          session,
+        });
+
+        const replyWithEmailPrompt =
+          `${aiAnswer}\n\n` +
+          `Whenever you're ready, *please reply with your Email Address* so our team can officially register your profile and email your full visa roadmap:`;
+
+        await sendTextMessage(session.phone, replyWithEmailPrompt);
+        return { replyText: replyWithEmailPrompt, step: "AWAITING_EMAIL" };
+      }
+
       const invalidEmailMsg =
         `⚠️ Please enter a valid email address (e.g. yourname@gmail.com or yourname@yahoo.com) so we can send you the official visa details.`;
       await sendTextMessage(session.phone, invalidEmailMsg);
