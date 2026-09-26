@@ -25,6 +25,7 @@ import {
   UserCheck,
   Sparkles,
   Info,
+  Trash2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -347,6 +348,40 @@ export default function WhatsAppChatPage() {
     }
   };
 
+  // Handle Deleting a Conversation
+  const handleDeleteConversation = async (phone: string, convName?: string) => {
+    const displayName = convName || `+${phone}`;
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete the conversation with ${displayName}?\n\nAll chat messages, session records, and history for this number will be deleted permanently.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/whatsapp/conversations?phone=${phone}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success(`Conversation with ${displayName} deleted`);
+        if (selectedPhone === phone) {
+          setSelectedPhone(null);
+          setMessages([]);
+          setSession(null);
+          setLead(null);
+        }
+        fetchConversations();
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to delete conversation");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete conversation");
+    }
+  };
+
   const selectedConv = conversations.find((c) => c.phone === selectedPhone);
 
   const formatMsgTime = (isoString?: string) => {
@@ -591,11 +626,24 @@ export default function WhatsAppChatPage() {
                           {conv.currentStep.replace(/_/g, " ")}
                         </span>
 
-                        {hasUnread && (
-                          <span className="bg-emerald-600 text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center leading-none">
-                            {conv.unreadCount}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteConversation(conv.phone, conv.name);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-red-500 rounded transition"
+                            title="Delete Conversation"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                          {hasUnread && (
+                            <span className="bg-emerald-600 text-white text-[9px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center leading-none">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -680,6 +728,15 @@ export default function WhatsAppChatPage() {
                     title="Toggle Candidate Dossier"
                   >
                     <Info className="w-3.5 h-3.5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteConversation(selectedConv.phone, selectedConv.name)}
+                    className="p-1 rounded border border-zinc-200 dark:border-zinc-800 text-zinc-400 hover:text-red-600 hover:border-red-300 dark:hover:border-red-900 hover:bg-red-50 dark:hover:bg-red-950/40 transition"
+                    title="Delete Conversation"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>

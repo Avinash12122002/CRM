@@ -209,3 +209,84 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+/**
+ * DELETE /api/whatsapp/conversations
+ * Delete one or multiple WhatsApp candidate conversations, sessions, and messages.
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const cookie = req.headers.get("cookie") || "";
+    const matches = cookie.match(/(^|; )token=([^;]+)/);
+    const token = matches ? matches[2] : null;
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload || payload.role !== "admin") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const phoneParam = searchParams.get("phone");
+
+    let phonesToDelete: string[] = [];
+    if (phoneParam) {
+      phonesToDelete.push(phoneParam);
+    } else {
+      try {
+        const body = await req.json();
+        if (Array.isArray(body.phones)) {
+          phonesToDelete = body.phones;
+        } else if (body.phone) {
+          phonesToDelete.push(body.phone);
+        }
+      } catch {}
+    }
+
+    const cleanPhones = phonesToDelete
+      .map((p) => String(p || "").replace(/[^\d]/g, "").replace(/^00/, ""))
+      .filter((p) => p.length >= 8);
+
+    if (cleanPhones.length === 0) {
+      return NextResponse.json({ error: "Valid phone number(s) required" }, { status: 400 });
+    }
+
+    const { db } = await connectToDatabase();
+
+    // 1. Delete from whatsapp_sessions
+    const sessionRes = await db.collection("whatsapp_sessions").deleteMany({
+      phone: { $in: cleanPhones },
+    });
+
+    // 2. Delete from whatsapp_messages
+    const msgRes = await db.collection("whatsapp_messages").deleteMany({
+      $or: [
+        { phone: { $in: cleanPhones } },
+        { from: { $in: cleanPhones } },
+        { to: { $in: cleanPhones } },
+      ],
+    });
+
+    // 3. Delete from logs
+    await db.collection("whatsapp_incoming_logs").deleteMany({
+      $or: [{ phone: { $in: cleanPhones } }, { from: { $in: cleanPhones } }],
+    });
+    await db.collection("whatsapp_outgoing_logs").deleteMany({
+      $or: [{ phone: { $in: cleanPhones } }, { to: { $in: cleanPhones } }],
+    });
+
+    return NextResponse.json({
+      success: true,
+      deletedSessions: sessionRes.deletedCount,
+      deletedMessages: msgRes.deletedCount,
+      deletedPhones: cleanPhones,
+    });
+  } catch (err) {
+    console.error("[DELETE /api/whatsapp/conversations Error]", err);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
+
