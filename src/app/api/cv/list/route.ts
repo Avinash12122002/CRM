@@ -41,20 +41,21 @@ export async function GET(req: NextRequest) {
     const foldersMap = new Map<string, CandidateFolder>();
 
     const getOrCreateFolder = (phone: string, name: string = "Candidate", leadId?: number | null) => {
-      const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
+      const cleanPhone = String(phone || "").replace(/[^\d]/g, "").replace(/^00/, "") || "Unknown";
+      const cleanName = typeof name === "string" && name.trim() ? name.trim() : "Candidate";
       if (!foldersMap.has(cleanPhone)) {
         foldersMap.set(cleanPhone, {
           phone: cleanPhone,
           leadId: leadId || null,
-          candidateName: name,
+          candidateName: cleanName,
           totalFiles: 0,
           files: [],
         });
       }
       const existing = foldersMap.get(cleanPhone)!;
       if (leadId && !existing.leadId) existing.leadId = leadId;
-      if (name && name !== "Candidate" && existing.candidateName === "Candidate") {
-        existing.candidateName = name;
+      if (cleanName && cleanName !== "Candidate" && existing.candidateName === "Candidate") {
+        existing.candidateName = cleanName;
       }
       return existing;
     };

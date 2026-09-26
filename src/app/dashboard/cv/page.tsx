@@ -136,17 +136,19 @@ export default function CandidateCvExplorerPage() {
     setExpandedFolders(new Set());
   };
 
-  // Filtered folders based on search
+  // Filtered folders based on search (100% null-safe)
   const filteredFolders = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return folders;
+    const q = String(search || "").trim().toLowerCase();
+    if (!q) return folders || [];
 
-    return folders
+    return (folders || [])
       .map((folder) => {
-        const phoneMatch = folder.phone.toLowerCase().includes(q);
-        const nameMatch = folder.candidateName.toLowerCase().includes(q);
-        const matchingFiles = folder.files.filter((file) =>
-          file.fileName.toLowerCase().includes(q)
+        if (!folder) return null;
+        const phoneMatch = String(folder.phone || "").toLowerCase().includes(q);
+        const nameMatch = String(folder.candidateName || "").toLowerCase().includes(q);
+        const filesArr = Array.isArray(folder.files) ? folder.files : [];
+        const matchingFiles = filesArr.filter((file) =>
+          String(file?.fileName || "").toLowerCase().includes(q)
         );
 
         if (phoneMatch || nameMatch) {
@@ -166,31 +168,35 @@ export default function CandidateCvExplorerPage() {
   }, [folders, search]);
 
   const totalDocsCount = useMemo(() => {
-    return filteredFolders.reduce((acc, f) => acc + f.files.length, 0);
+    return (filteredFolders || []).reduce(
+      (acc, f) => acc + (Array.isArray(f?.files) ? f.files.length : 0),
+      0
+    );
   }, [filteredFolders]);
 
   const formatSize = (bytes?: number) => {
-    if (!bytes) return "";
+    if (!bytes || isNaN(bytes)) return "";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const getFileIcon = (fileName: string, mime?: string) => {
-    const lower = fileName.toLowerCase();
-    if (lower.endsWith(".pdf") || mime?.includes("pdf")) {
-      return <FileText className="w-4 h-4 text-red-500" />;
+  const getFileIcon = (fileName?: string, mime?: string) => {
+    const lower = String(fileName || "").toLowerCase();
+    const mimeLower = String(mime || "").toLowerCase();
+    if (lower.endsWith(".pdf") || mimeLower.includes("pdf")) {
+      return <FileText className="w-4 h-4 text-red-500 shrink-0" />;
     }
     if (
       lower.endsWith(".jpg") ||
       lower.endsWith(".jpeg") ||
       lower.endsWith(".png") ||
       lower.endsWith(".webp") ||
-      mime?.includes("image")
+      mimeLower.includes("image")
     ) {
-      return <ImageIcon className="w-4 h-4 text-purple-500" />;
+      return <ImageIcon className="w-4 h-4 text-purple-500 shrink-0" />;
     }
-    return <FileGeneric className="w-4 h-4 text-blue-500" />;
+    return <FileGeneric className="w-4 h-4 text-blue-500 shrink-0" />;
   };
 
   if (!currentUser) return null;
@@ -486,20 +492,20 @@ export default function CandidateCvExplorerPage() {
 
             {/* Modal Body / Viewer */}
             <div className="flex-1 bg-zinc-100 dark:bg-zinc-950 overflow-hidden flex items-center justify-center p-2">
-              {previewFile.fileName.toLowerCase().endsWith(".pdf") ||
-              previewFile.mimeType?.includes("pdf") ? (
+              {String(previewFile.fileName || "").toLowerCase().endsWith(".pdf") ||
+              String(previewFile.mimeType || "").includes("pdf") ? (
                 <iframe
                   src={previewFile.url}
                   className="w-full h-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white"
                   title="PDF Preview"
                 />
-              ) : previewFile.fileName.toLowerCase().match(/\.(jpe?g|png|webp|gif)$/) ||
-                previewFile.mimeType?.includes("image") ? (
+              ) : String(previewFile.fileName || "").toLowerCase().match(/\.(jpe?g|png|webp|gif)$/) ||
+                String(previewFile.mimeType || "").includes("image") ? (
                 <div className="w-full h-full flex items-center justify-center p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewFile.url}
-                    alt={previewFile.fileName}
+                    alt={String(previewFile.fileName || "Image")}
                     className="max-w-full max-h-full object-contain rounded-lg shadow-md"
                   />
                 </div>

@@ -62,9 +62,9 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
       const res = await fetch("/api/cv/list");
       if (res.ok) {
         const data = await res.json();
-        const list: CandidateFolder[] = data.folders || [];
+        const list: CandidateFolder[] = Array.isArray(data?.folders) ? data.folders : [];
         setFolders(list);
-        setExpandedFolders(new Set(list.map((f) => f.phone)));
+        setExpandedFolders(new Set(list.map((f) => String(f?.phone || "")).filter(Boolean)));
       }
     } catch (err) {
       console.error("Failed to load CVs in navbar:", err);
@@ -134,8 +134,9 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     };
   }, [isOpen]);
 
-  const toggleFolder = (phone: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleFolder = (phone?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!phone) return;
     setExpandedFolders((prev) => {
       const next = new Set(prev);
       if (next.has(phone)) next.delete(phone);
@@ -144,13 +145,22 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     });
   };
 
-  const filteredFolders = folders
+  // 100% null-safe filtering: will never throw on null/undefined candidateName, phone, or files
+  const filteredFolders = (folders || [])
     .map((folder) => {
-      const q = search.trim().toLowerCase();
+      if (!folder) return null;
+      const q = String(search || "").trim().toLowerCase();
       if (!q) return folder;
-      const matchPhone = folder.phone.toLowerCase().includes(q);
-      const matchName = folder.candidateName.toLowerCase().includes(q);
-      const matchFiles = folder.files.filter((f) => f.fileName.toLowerCase().includes(q));
+
+      const phoneStr = String(folder.phone || "").toLowerCase();
+      const nameStr = String(folder.candidateName || "").toLowerCase();
+      const filesArr = Array.isArray(folder.files) ? folder.files : [];
+
+      const matchPhone = phoneStr.includes(q);
+      const matchName = nameStr.includes(q);
+      const matchFiles = filesArr.filter((f) =>
+        String(f?.fileName || "").toLowerCase().includes(q)
+      );
 
       if (matchPhone || matchName) return folder;
       if (matchFiles.length > 0) return { ...folder, files: matchFiles };
@@ -158,21 +168,25 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     })
     .filter(Boolean) as CandidateFolder[];
 
-  const totalFiles = folders.reduce((sum, f) => sum + f.totalFiles, 0);
+  const totalFiles = (folders || []).reduce(
+    (sum, f) => sum + (f?.totalFiles || (Array.isArray(f?.files) ? f.files.length : 0)),
+    0
+  );
 
-  const getFileIcon = (fileName: string, mime?: string) => {
-    const lower = fileName.toLowerCase();
-    if (lower.endsWith(".pdf") || mime?.includes("pdf")) {
+  const getFileIcon = (fileName?: string, mime?: string) => {
+    const lower = String(fileName || "").toLowerCase();
+    const mimeLower = String(mime || "").toLowerCase();
+    if (lower.endsWith(".pdf") || mimeLower.includes("pdf")) {
       return <FileText className="w-3.5 h-3.5 text-red-500 shrink-0" />;
     }
-    if (lower.match(/\.(jpe?g|png|webp|gif)$/) || mime?.includes("image")) {
+    if (lower.match(/\.(jpe?g|png|webp|gif)$/) || mimeLower.includes("image")) {
       return <ImageIcon className="w-3.5 h-3.5 text-purple-500 shrink-0" />;
     }
     return <FileGeneric className="w-3.5 h-3.5 text-blue-500 shrink-0" />;
   };
 
   const formatSize = (bytes?: number) => {
-    if (!bytes) return "";
+    if (!bytes || isNaN(bytes)) return "";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -283,14 +297,16 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
               </div>
             ) : (
               filteredFolders.map((folder, fIdx) => {
-                const isExpanded = expandedFolders.has(folder.phone);
+                const phoneKey = String(folder?.phone || `folder_${fIdx}`);
+                const isExpanded = expandedFolders.has(phoneKey);
                 const isLastFolder = fIdx === filteredFolders.length - 1;
+                const fileList = Array.isArray(folder?.files) ? folder.files : [];
 
                 return (
-                  <div key={folder.phone} className="space-y-1">
+                  <div key={phoneKey} className="space-y-1">
                     {/* Folder Row: └── <candidate_phone_number>/ */}
                     <div
-                      onClick={(e) => toggleFolder(folder.phone, e)}
+                      onClick={(e) => toggleFolder(phoneKey, e)}
                       className="group flex items-center justify-between p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition text-zinc-800 dark:text-zinc-200"
                     >
                       <div className="flex items-center gap-1.5 truncate">
@@ -303,16 +319,16 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                           <Folder className="w-4 h-4 text-amber-500 shrink-0" />
                         )}
                         <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs">
-                          {folder.phone}/
+                          {phoneKey}/
                         </span>
                         <span className="font-sans text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                          ({folder.candidateName})
+                          ({String(folder?.candidateName || "Candidate")})
                         </span>
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="text-[10px] text-zinc-400 font-sans">
-                          {folder.files.length}
+                          {fileList.length}
                         </span>
                         {isExpanded ? (
                           <ChevronDown className="w-3.5 h-3.5 text-emerald-500" />
@@ -325,8 +341,9 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                     {/* Files inside folder: ├── Resume_John_Doe.pdf */}
                     {isExpanded && (
                       <div className="pl-6 space-y-1">
-                        {folder.files.map((file, fileIdx) => {
-                          const isLastFile = fileIdx === folder.files.length - 1;
+                        {fileList.map((file, fileIdx) => {
+                          const isLastFile = fileIdx === fileList.length - 1;
+                          const fileName = String(file?.fileName || "document.pdf");
 
                           return (
                             <div
@@ -337,14 +354,14 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                                 <span className="text-zinc-400 select-none">
                                   {isLastFile ? "└──" : "├──"}
                                 </span>
-                                {getFileIcon(file.fileName, file.mimeType)}
+                                {getFileIcon(fileName, file?.mimeType)}
                                 <span className="text-zinc-700 dark:text-zinc-300 truncate font-medium">
-                                  {file.fileName}
+                                  {fileName}
                                 </span>
                               </div>
 
                               <div className="flex items-center gap-1 shrink-0 font-sans">
-                                {file.sizeBytes && (
+                                {file?.sizeBytes && (
                                   <span className="text-[10px] text-zinc-400">
                                     {formatSize(file.sizeBytes)}
                                   </span>
@@ -361,8 +378,8 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                                   <Eye className="w-3 h-3" />
                                 </button>
                                 <a
-                                  href={file.downloadUrl}
-                                  download={file.fileName}
+                                  href={file?.downloadUrl || file?.url || "#"}
+                                  download={fileName}
                                   onClick={(e) => e.stopPropagation()}
                                   target="_blank"
                                   rel="noopener noreferrer"
@@ -408,7 +425,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
               <div className="flex items-center gap-2 truncate max-w-md">
                 {getFileIcon(previewFile.fileName, previewFile.mimeType)}
                 <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 truncate">
-                  {previewFile.fileName}
+                  {String(previewFile.fileName || "Document")}
                 </span>
                 {previewFile.sizeBytes && (
                   <span className="text-[11px] text-zinc-400">
@@ -418,8 +435,8 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
               </div>
               <div className="flex items-center gap-2">
                 <a
-                  href={previewFile.downloadUrl}
-                  download={previewFile.fileName}
+                  href={previewFile.downloadUrl || previewFile.url || "#"}
+                  download={String(previewFile.fileName || "document")}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-medium transition"
@@ -438,20 +455,20 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
 
             {/* Content Viewer */}
             <div className="flex-1 bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center p-2 overflow-hidden">
-              {previewFile.fileName.toLowerCase().endsWith(".pdf") ||
-              previewFile.mimeType?.includes("pdf") ? (
+              {String(previewFile.fileName || "").toLowerCase().endsWith(".pdf") ||
+              String(previewFile.mimeType || "").includes("pdf") ? (
                 <iframe
                   src={previewFile.url}
                   className="w-full h-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white"
                   title="PDF Preview"
                 />
-              ) : previewFile.fileName.toLowerCase().match(/\.(jpe?g|png|webp|gif)$/) ||
-                previewFile.mimeType?.includes("image") ? (
+              ) : String(previewFile.fileName || "").toLowerCase().match(/\.(jpe?g|png|webp|gif)$/) ||
+                String(previewFile.mimeType || "").includes("image") ? (
                 <div className="w-full h-full flex items-center justify-center p-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={previewFile.url}
-                    alt={previewFile.fileName}
+                    alt={String(previewFile.fileName || "Image")}
                     className="max-w-full max-h-full object-contain rounded-lg shadow-md"
                   />
                 </div>
@@ -462,8 +479,8 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
                     Direct preview not available for this file type.
                   </p>
                   <a
-                    href={previewFile.downloadUrl}
-                    download={previewFile.fileName}
+                    href={previewFile.downloadUrl || previewFile.url || "#"}
+                    download={String(previewFile.fileName || "document")}
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium"
                   >
                     <Download className="w-3 h-3" /> Download to view
