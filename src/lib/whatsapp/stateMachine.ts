@@ -487,6 +487,60 @@ export async function processIncomingWhatsAppMessage(params: {
     await updateSession(db, session.phone, { interestedCountry: "Australia" });
   }
 
+  // --- Guard: If Consultation Meeting is Already Completed ---
+  // No options or buttons to book a meeting are allowed once completed.
+  const isMeetingDone =
+    session.meetingCompleted === true ||
+    session.meetingStatus === "completed" ||
+    session.currentStep === "MEETING_COMPLETED";
+
+  if (isMeetingDone) {
+    const candidateDisplayName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        ? session.name
+        : "there";
+
+    // 1. If candidate attempts to book, reschedule, or select slots after completing consultation
+    const triesToBookAgain =
+      actionId === "BTN_CONSULT_YES" ||
+      actionId === "BTN_RESCHEDULE" ||
+      actionId === "BTN_RESCHEDULE_MEETING" ||
+      actionId.startsWith("DAY_DATE_") ||
+      actionId.startsWith("DAY_SELECT_") ||
+      actionId.startsWith("SLOT_") ||
+      actionId.startsWith("BTN_SLOTS_") ||
+      lowerText.includes("book") ||
+      lowerText.includes("schedule") ||
+      lowerText.includes("reschedule") ||
+      (lowerText.includes("meeting") && (lowerText.includes("link") || lowerText.includes("when") || lowerText.includes("time") || lowerText.includes("room")));
+
+    if (triesToBookAgain) {
+      const alreadyDoneMsg =
+        `Hello ${candidateDisplayName}! 👋\n\n` +
+        `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+        `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation and agreement.\n\n` +
+        `If you have any questions about your Subclass 482 visa file or payment, feel free to reply right here! 🇦🇺`;
+
+      await sendTextMessage(session.phone, alreadyDoneMsg);
+      return { replyText: alreadyDoneMsg, step: "MEETING_COMPLETED" };
+    }
+
+    // 2. If candidate sends a greeting ("hi", "hello", etc.) or restart
+    if (
+      actionId === "RESTART_FLOW" ||
+      ["hi", "hello", "hey", "start", "restart", "menu", "namaste", "hlo", "hii", "good morning", "good evening", "good afternoon"].includes(lowerText) ||
+      lowerText.startsWith("hi ") ||
+      lowerText.startsWith("hello ")
+    ) {
+      const alreadyDoneGreeting =
+        `Hello ${candidateDisplayName}! Welcome back to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+        `Your consultation has already been completed and your file is in progress. How can our team assist you today? Feel free to ask any question!`;
+
+      await sendTextMessage(session.phone, alreadyDoneGreeting);
+      return { replyText: alreadyDoneGreeting, step: "MEETING_COMPLETED" };
+    }
+  }
+
   // --- Meeting Cancellation Request Check ---
   const isCancelRequest =
     actionId === "CANCEL_MEETING" ||
@@ -572,11 +626,13 @@ export async function processIncomingWhatsAppMessage(params: {
     }
 
     const cancelMsg =
-      `Your consultation scheduled for **${canceledSlot.date}** at **${canceledSlot.candidateTimeLabel}** has been cancelled. ✅\n\n` +
-      `Whenever you are ready to reschedule or discuss your Australia Subclass 482 visa options, feel free to tap below or reply here anytime!`;
+      `Hello ${session.name || "there"}! 👋\n\n` +
+      `Your consultation meeting has been cancelled. ℹ️\n\n` +
+      `Please reschedule your 1-on-1 session for an upcoming weekend so our expert can assess your Australian Subclass 482 visa file.\n\n` +
+      `👉 Tap below to choose an available time slot:`;
 
     await sendQuickReplyButtons(session.phone, cancelMsg, [
-      { id: "BTN_RESCHEDULE_MEETING", title: "Book New Date" },
+      { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
     ]);
 
     return { replyText: cancelMsg, step: "AWAITING_REENGAGEMENT" };
@@ -662,7 +718,28 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: welcomeBackMsg, step: "BOOKED" };
   }
 
-  // 1b. If candidate already registered their email and sends a greeting ("hi", "hello", etc.)
+  // 1b. If candidate's meeting was cancelled and sends a greeting ("hi", "hello", etc.)
+  if (isGreeting && (session.meetingStatus === "canceled" || session.currentStep === "AWAITING_REENGAGEMENT") && !session.bookedSlot && session.email) {
+    const candidateDisplayName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        ? session.name
+        : "";
+    const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+
+    const cancelledGreetingMsg =
+      `Hello${nameGreeting}! Welcome back to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+      `Your consultation meeting was previously cancelled. ℹ️\n\n` +
+      `Please reschedule your 1-on-1 session for an upcoming weekend so our expert can assess your Australian Subclass 482 visa file!\n\n` +
+      `👉 Tap below to choose an available time slot:`;
+
+    await sendQuickReplyButtons(session.phone, cancelledGreetingMsg, [
+      { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
+      { id: "BTN_ASK_VIDEO", title: "Watch 482 Video" },
+    ]);
+    return { replyText: cancelledGreetingMsg, step: "AWAITING_REENGAGEMENT" };
+  }
+
+  // 1c. If candidate already registered their email and sends a greeting ("hi", "hello", etc.)
   if (isGreeting && session.email) {
     const candidateDisplayName =
       session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
@@ -752,7 +829,7 @@ export async function processIncomingWhatsAppMessage(params: {
           rows: weekends.map((w) => ({
             id: `DAY_DATE_${w.date}`,
             title: w.displayLabel.slice(0, 24),
-            description: isIndia ? `${w.dayName} · 11 AM - 7 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
+            description: isIndia ? `${w.dayName} · 1 PM - 9 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
           })),
         },
       ];
@@ -819,6 +896,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 5. Candidate wants Consultation or wants to Reschedule/Change Date -> Show 10 Upcoming Weekend Dates (~whole month)
   const isRescheduleIntent =
     actionId === "BTN_RESCHEDULE" ||
+    actionId === "BTN_RESCHEDULE_MEETING" ||
     actionId === "BTN_CHANGE_DAY" ||
     lowerText.includes("reschedule") ||
     lowerText.includes("wrong time") ||
@@ -852,7 +930,7 @@ export async function processIncomingWhatsAppMessage(params: {
         rows: weekends.map((w) => ({
           id: `DAY_DATE_${w.date}`,
           title: w.displayLabel.slice(0, 24), // e.g. "Sat, 26 Sep"
-          description: isIndia ? `${w.dayName} · 11 AM - 7 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
+          description: isIndia ? `${w.dayName} · 1 PM - 9 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
         })),
       },
     ];
@@ -864,8 +942,8 @@ export async function processIncomingWhatsAppMessage(params: {
       `Please select your new preferred weekend date from the upcoming month:`
       : `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
       (isIndia
-        ? `All slots run strictly between 11:00 AM and 07:00 PM IST in 30-minute intervals.\n\n`
-        : `All slots run in 30-minute intervals in your local time (**${session.timeZoneLabel}**).\n\n`) +
+        ? `All slots run strictly between 01:00 PM and 09:00 PM IST in 1-hour intervals.\n\n`
+        : `All slots run in 1-hour intervals converted to your local time (**${session.timeZoneLabel}**).\n\n`) +
       `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
 
     await sendInteractiveList(
@@ -1522,6 +1600,15 @@ export async function processIncomingWhatsAppMessage(params: {
         lowerText.includes("call")));
 
   if (isAskingMeetLink) {
+    if (isMeetingDone) {
+      const alreadyDoneMsg =
+        `Hello ${session.name || "there"}! 👋\n\n` +
+        `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+        `Your Australia Subclass 482 visa profile is currently in progress with our onboarding team. Feel free to ask any question regarding your file!`;
+      await sendTextMessage(session.phone, alreadyDoneMsg);
+      return { replyText: alreadyDoneMsg, step: "MEETING_COMPLETED" };
+    }
+
     const meetUrl = getStaticGoogleMeetLink();
     let meetReply: string;
     if (session.bookedSlot) {
@@ -1535,7 +1622,7 @@ export async function processIncomingWhatsAppMessage(params: {
         `Hello ${session.name || "there"}! 👋\n\n` +
         `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
         `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-        `Consultations are scheduled on Saturdays and Sundays in 30-minute intervals. Would you like to select an available time slot in your local time?`;
+        `Consultations are scheduled on Saturdays and Sundays between 01:00 PM and 09:00 PM IST in 1-hour intervals. Would you like to select an available time slot in your local time?`;
     }
 
     await sendTextMessage(session.phone, meetReply);

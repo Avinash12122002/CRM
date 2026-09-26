@@ -60,7 +60,7 @@ CANDIDATE LIVE CRM PROFILE & DOSSIER:
   * Status: Canceled
   * Canceled At: ${session.meetingCanceledAt ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
   * Reason: ${session.meetingCancellationReason || "Requested by candidate"}
-  * Note: Candidate can rebook anytime for a weekend slot in their local time.
+  * CRITICAL INSTRUCTION: Candidate's meeting was cancelled. Remind candidate that their consultation was cancelled and encourage them to reschedule for an upcoming weekend (Saturdays & Sundays, 01:00 PM – 09:00 PM IST in 1-hour slots) in their local time.
 `;
   }
 
@@ -71,11 +71,12 @@ ${session.meetingHistory.map((h) => `  * [${new Date(h.timestamp).toISOString().
 `;
   }
 
-  if (session.meetingCompleted) {
+  if (session.meetingCompleted || session.meetingStatus === "completed") {
     contextBlock += `
 - CONSULTATION OUTCOME:
   * Status: Consultation Successfully Completed
   * Completed On: ${session.meetingCompletedAt ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
+  * CRITICAL INSTRUCTION: The 1-on-1 consultation has ALREADY been completed! Under NO circumstances offer, prompt, or mention booking or rescheduling a meeting. Inform candidate that their file is in onboarding/documentation review.
   * Enrollment Payment Status: ${session.paymentPending ? "Pending (Awaiting AUD 300 Initial Service Fee)" : "Settled / In Progress"}
 `;
   }
@@ -383,7 +384,7 @@ CRITICAL WHATSAPP MESSAGE LENGTH & ZERO CUT-OFF RULES:
   if (lower.includes("book") || lower.includes("slot") || lower.includes("call") || lower.includes("consult")) {
     const isIndia = session.countryCode === "IN";
     const timePrompt = isIndia
-      ? "between 11:00 AM and 07:00 PM IST"
+      ? "between 01:00 PM and 09:00 PM IST"
       : `in your local time (${session.timeZoneLabel})`;
     return (
       `Thank you for contacting The Migration School (TMS Visa) 🇦🇺.\n\n` +

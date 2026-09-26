@@ -89,15 +89,13 @@ export async function sendMeetingCancelledNotification(params: {
 
   const messageText =
     `Hello ${candidateName}! 👋\n\n` +
-    `This is to confirm that your 1-on-1 Australian Visa consultation has been cancelled. ℹ️\n\n` +
-    `📅 *Status: Consultation Cancelled*\n` +
-    `🇦🇺 *Australia Subclass 482 Pathway:*\n` +
-    `You can still qualify for direct employer sponsorship with a minimum AUD $76,500/year salary threshold.\n\n` +
-    `Whenever you are ready to book an upcoming weekend slot, just reply here or tap below! 🤝`;
+    `Your 1-on-1 Australian Visa consultation has been cancelled. ℹ️\n\n` +
+    `Please reschedule your session for an upcoming weekend (Saturdays & Sundays, 01:00 PM – 09:00 PM IST) so our team can evaluate your Australia Subclass 482 visa file!\n\n` +
+    `👉 Tap below to choose an available time slot:`;
 
   try {
     const btnRes = await sendQuickReplyButtons(cleanPhone, messageText, [
-      { id: "BTN_RESCHEDULE_MEETING", title: "Book New Date" },
+      { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
     ]);
     if (!btnRes.success) {
       await sendTextMessage(cleanPhone, messageText);

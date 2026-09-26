@@ -36,7 +36,7 @@ export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
     }).format(now),
     10
   );
-  const isPastLastSlotToday = currentHourIST >= 18;
+  const isPastLastSlotToday = currentHourIST >= 20;
 
   const weekendDays: WeekendDayOption[] = [];
   let checkDate = new Date(`${todayISTStr}T12:00:00+05:30`);
@@ -102,7 +102,7 @@ export async function findNextAvailableWeekendDay(params: {
 }
 
 /**
- * Generates all 1-hour consultation slots strictly between 11:00 AM and 07:00 PM IST
+ * Generates all 1-hour consultation slots strictly between 01:00 PM and 09:00 PM IST
  * for a specific date (8 slots per day), checked against booked meetings in MongoDB.
  * Hides any booked slots completely.
  */
@@ -139,17 +139,17 @@ export async function getAvailableWeekendSlots(params: {
 
   const slots: WeekendSlot[] = [];
 
-  // Strictly 1-hour intervals, exactly 8 meetings in a day (11:00 AM to 07:00 PM IST)
+  // Strictly 1-hour intervals, exactly 8 meetings in a day (01:00 PM to 09:00 PM IST)
   // Converted to every candidate's country local time zone!
   const all8SlotTimes = [
-    { start: "11:00", end: "12:00" },
-    { start: "12:00", end: "13:00" },
     { start: "13:00", end: "14:00" },
     { start: "14:00", end: "15:00" },
     { start: "15:00", end: "16:00" },
     { start: "16:00", end: "17:00" },
     { start: "17:00", end: "18:00" },
     { start: "18:00", end: "19:00" },
+    { start: "19:00", end: "20:00" },
+    { start: "20:00", end: "21:00" },
   ];
 
   for (const item of all8SlotTimes) {
@@ -222,13 +222,13 @@ export function formatSlotsOverview(params: {
 
   const tzShort = extractShortTimezone(candidateTimeZoneLabel);
 
-  // Dynamic candidate country local time range in header (e.g. 06:30 AM - 02:30 PM WAT, or 11:00 AM - 07:00 PM IST)
+  // Dynamic candidate country local time range in header (e.g. 08:30 AM - 04:30 PM WAT, or 01:00 PM - 09:00 PM IST)
   if (slots.length > 0) {
     const firstLocal = isIndia
-      ? "11:00 AM"
+      ? "01:00 PM"
       : slots[0].candidateDisplayLabel.split(" - ")[0].trim();
     const lastPart = isIndia
-      ? "07:00 PM"
+      ? "09:00 PM"
       : slots[slots.length - 1].candidateDisplayLabel.split(" - ")[1].split(" (")[0].trim();
     text += `(1-hour 1-on-1 sessions between ${firstLocal} - ${lastPart} ${tzShort})\n\n`;
   } else {

@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
         // Day 2 Reminder
         const isIndia = session.countryCode === "IN";
         const timePrompt = isIndia
-          ? `between 11:00 AM and 07:00 PM IST`
+          ? `between 01:00 PM and 09:00 PM IST`
           : `in your local time (${session.timeZoneLabel})`;
         const msg =
           `Hi ${session.name || "there"}! 👋 Just checking in to see if you had a chance to review our **Australia Subclass 482 Work Visa** overview.\n\n` +
