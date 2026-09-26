@@ -46,3 +46,7 @@ next-env.d.ts
 *.m4v
 *.mov
 
+# Candidate documents (stored in MongoDB GridFS, never stored on disk inside crm-main)
+/cv/
+/public/cv/
+

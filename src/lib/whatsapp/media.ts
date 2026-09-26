@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { Db } from "mongodb";
 import { sendTextMessage, sendQuickReplyButtons } from "./client";
 import { createNotification } from "@/lib/notifications";
@@ -129,53 +127,31 @@ export async function handleIncomingWhatsAppMedia(params: {
   const fallbackPrefix = mediaType === "document" ? "cv_document" : "candidate_image";
   const finalFilename = sanitizeFilename(mediaObj.filename, finalMime, fallbackPrefix);
 
-  // 2. Define Folder Paths:
-  // Root project folder: cv/<candidate_phone_number>/
-  const rootCvDir = path.join(process.cwd(), "cv", cleanPhone);
-  // Public folder for static serving: public/cv/<candidate_phone_number>/
-  const publicCvDir = path.join(process.cwd(), "public", "cv", cleanPhone);
-
   try {
-    await fs.promises.mkdir(rootCvDir, { recursive: true });
-    await fs.promises.mkdir(publicCvDir, { recursive: true });
+    // 2. Upload directly to MongoDB GridFS for permanent database storage (no local disk files)
+    const { getGridFSBucket } = await import("@/lib/gridfs");
+    const bucket = await getGridFSBucket();
+    const uploadStream = bucket.openUploadStream(finalFilename, {
+      contentType: finalMime,
+      metadata: {
+        candidatePhone: cleanPhone,
+        senderName,
+        source: "whatsapp",
+        mediaType,
+        receivedAt: now,
+      },
+    });
 
-    const rootFilePath = path.join(rootCvDir, finalFilename);
-    const publicFilePath = path.join(publicCvDir, finalFilename);
-
-    // Save to disk locations
-    await fs.promises.writeFile(rootFilePath, downloaded.buffer);
-    await fs.promises.writeFile(publicFilePath, downloaded.buffer);
-
-    console.log(`[WhatsApp Media] Successfully saved to: ${rootFilePath}`);
-    console.log(`[WhatsApp Media] Public web access: /cv/${cleanPhone}/${finalFilename}`);
-
-    // Upload to GridFS for permanent database storage (works on Vercel)
-    let gridFsFileId: string | null = null;
-    try {
-      const { getGridFSBucket } = await import("@/lib/gridfs");
-      const bucket = await getGridFSBucket();
-      const uploadStream = bucket.openUploadStream(finalFilename, {
-        contentType: finalMime,
-        metadata: {
-          candidatePhone: cleanPhone,
-          senderName,
-          source: "whatsapp",
-          mediaType,
-          receivedAt: now,
-        },
+    await new Promise<void>((resolve, reject) => {
+      uploadStream.end(downloaded.buffer, (err) => {
+        if (err) reject(err);
+        else resolve();
       });
+    });
 
-      await new Promise<void>((resolve, reject) => {
-        uploadStream.end(downloaded.buffer, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-
-      gridFsFileId = uploadStream.id.toString();
-    } catch (gridFsErr) {
-      console.warn("[WhatsApp Media] GridFS storage warning:", gridFsErr);
-    }
+    const gridFsFileId = uploadStream.id.toString();
+    const fileUrl = `/api/chat/files/${gridFsFileId}`;
+    console.log(`[WhatsApp Media] Successfully saved to MongoDB GridFS with ID: ${gridFsFileId} (${fileUrl})`);
 
     // 3. Update WhatsApp Session in MongoDB
     const fileRecord = {
@@ -183,8 +159,7 @@ export async function handleIncomingWhatsAppMedia(params: {
       mediaType,
       mimeType: finalMime,
       size: downloaded.buffer.length,
-      relativePath: `cv/${cleanPhone}/${finalFilename}`,
-      publicUrl: gridFsFileId ? `/api/chat/files/${gridFsFileId}` : `/cv/${cleanPhone}/${finalFilename}`,
+      publicUrl: fileUrl,
       gridFsFileId,
       caption: mediaObj.caption || null,
       receivedAt: now,
@@ -198,8 +173,8 @@ export async function handleIncomingWhatsAppMedia(params: {
         },
         $set: {
           hasUploadedCv: true,
-          lastUploadedCvPath: `cv/${cleanPhone}/${finalFilename}`,
-          lastUploadedCvUrl: `/cv/${cleanPhone}/${finalFilename}`,
+          lastUploadedCvUrl: fileUrl,
+          gridFsFileId,
           updatedAt: now,
         },
       },
@@ -224,12 +199,12 @@ export async function handleIncomingWhatsAppMedia(params: {
               action: "whatsapp_cv_received",
               performedByName: "WhatsApp Automation",
               timestamp: now,
-              details: `Candidate sent ${mediaType} (${finalFilename}) via WhatsApp. Stored in cv/${cleanPhone}/`,
+              details: `Candidate sent ${mediaType} (${finalFilename}) via WhatsApp. Saved securely in database.`,
             } as any,
           },
           $set: {
             hasCv: true,
-            lastCvUrl: `/cv/${cleanPhone}/${finalFilename}`,
+            lastCvUrl: fileUrl,
             updatedAt: now,
           },
         },
@@ -292,11 +267,11 @@ export async function handleIncomingWhatsAppMedia(params: {
 
     return {
       success: true,
-      filePath: `cv/${cleanPhone}/${finalFilename}`,
+      filePath: fileUrl,
       filename: finalFilename,
     };
-  } catch (fsErr) {
-    console.error(`[WhatsApp Media] Error writing file to cv/${cleanPhone}/:`, fsErr);
+  } catch (err) {
+    console.error(`[WhatsApp Media] Error saving media for +${cleanPhone}:`, err);
     return { success: false };
   }
 }

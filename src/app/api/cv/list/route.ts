@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
-import fs from "fs";
-import path from "path";
 
 export interface CandidateDocFile {
   id?: string;
@@ -11,7 +9,7 @@ export interface CandidateDocFile {
   mimeType?: string;
   url: string;
   downloadUrl: string;
-  source: "whatsapp" | "crm_upload" | "disk";
+  source: "whatsapp" | "crm_upload";
   receivedAt?: string;
 }
 
@@ -110,12 +108,14 @@ export async function GET(req: NextRequest) {
           if (!fileName) continue;
           const exists = folder.files.some((f) => f.fileName === fileName);
           if (!exists) {
+            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : file.publicUrl || `/api/leads/${lead.id}/document`;
             folder.files.push({
+              id: file.gridFsFileId,
               fileName,
               sizeBytes: file.size,
               mimeType: file.mimeType || "application/pdf",
-              url: file.url || `/cv/${folder.phone}/${fileName}`,
-              downloadUrl: file.url || `/cv/${folder.phone}/${fileName}`,
+              url: fileUrl,
+              downloadUrl: fileUrl,
               source: "whatsapp",
               receivedAt: file.receivedAt || file.syncedAt,
             });
@@ -141,12 +141,14 @@ export async function GET(req: NextRequest) {
           if (!fileName) continue;
           const exists = folder.files.some((f) => f.fileName === fileName);
           if (!exists) {
+            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : file.publicUrl;
             folder.files.push({
+              id: file.gridFsFileId,
               fileName,
               sizeBytes: file.size,
               mimeType: file.mimeType,
-              url: file.publicUrl || `/cv/${folder.phone}/${fileName}`,
-              downloadUrl: file.publicUrl || `/cv/${folder.phone}/${fileName}`,
+              url: fileUrl,
+              downloadUrl: fileUrl,
               source: "whatsapp",
               receivedAt: file.receivedAt,
             });
@@ -155,47 +157,31 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 3. Scan local disk `cv/` directory (if directory exists)
-    const rootCvDir = path.join(process.cwd(), "cv");
-    if (fs.existsSync(rootCvDir)) {
-      try {
-        const phoneDirs = fs.readdirSync(rootCvDir);
-        for (const phone of phoneDirs) {
-          const folderPath = path.join(rootCvDir, phone);
-          const stat = fs.statSync(folderPath);
-          if (stat.isDirectory()) {
-            const folder = getOrCreateFolder(phone);
-            const diskFiles = fs.readdirSync(folderPath);
+    // 3. Query GridFS `chatFiles.files` for any WhatsApp candidate media
+    const gridFiles = await db
+      .collection("chatFiles.files")
+      .find({
+        "metadata.candidatePhone": { $exists: true },
+      })
+      .toArray();
 
-            for (const fileName of diskFiles) {
-              const filePath = path.join(folderPath, fileName);
-              const fStat = fs.statSync(filePath);
-              const exists = folder.files.some((f) => f.fileName === fileName);
-
-              if (!exists) {
-                const ext = path.extname(fileName).toLowerCase();
-                const mimeType = ext === ".pdf" ? "application/pdf" : ext === ".png" ? "image/png" : "image/jpeg";
-                folder.files.push({
-                  fileName,
-                  sizeBytes: fStat.size,
-                  mimeType,
-                  url: `/cv/${phone}/${fileName}`,
-                  downloadUrl: `/cv/${phone}/${fileName}`,
-                  source: "disk",
-                  receivedAt: fStat.mtime.toISOString(),
-                });
-              } else {
-                // Update sizeBytes if missing
-                const target = folder.files.find((f) => f.fileName === fileName);
-                if (target && !target.sizeBytes) {
-                  target.sizeBytes = fStat.size;
-                }
-              }
-            }
-          }
-        }
-      } catch (dirErr) {
-        console.warn("[CV List API] Warning scanning disk cv/ folder:", dirErr);
+    for (const gf of gridFiles) {
+      const phone = gf.metadata?.candidatePhone;
+      if (!phone) continue;
+      const folder = getOrCreateFolder(phone, gf.metadata?.senderName);
+      const fileName = gf.filename;
+      const exists = folder.files.some((f) => f.fileName === fileName);
+      if (!exists) {
+        folder.files.push({
+          id: gf._id.toString(),
+          fileName,
+          sizeBytes: gf.length,
+          mimeType: gf.contentType,
+          url: `/api/chat/files/${gf._id.toString()}`,
+          downloadUrl: `/api/chat/files/${gf._id.toString()}`,
+          source: "whatsapp",
+          receivedAt: gf.uploadDate || gf.metadata?.receivedAt,
+        });
       }
     }
 
@@ -208,7 +194,7 @@ export async function GET(req: NextRequest) {
         return f;
       });
 
-    // Sort folders by phone
+    // Sort folders by total files descending
     foldersArray.sort((a, b) => b.totalFiles - a.totalFiles);
 
     const totalDocuments = foldersArray.reduce((acc, f) => acc + f.totalFiles, 0);
