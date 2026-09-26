@@ -188,7 +188,20 @@ export default function WhatsAppChatPage() {
       const res = await fetch(`/api/whatsapp/conversations/${phone}/messages`);
       if (res.ok) {
         const data = await res.json();
-        setMessages(data.messages || []);
+        const incoming: ChatMessage[] = data.messages || [];
+        setMessages((prev) => {
+          // Retain any in-flight optimistic message that hasn't appeared in incoming yet
+          const pendingOptimistic = prev.filter(
+            (m) =>
+              m.id.startsWith("temp_") &&
+              !incoming.some(
+                (inc) =>
+                  inc.text.trim() === m.text.trim() &&
+                  Math.abs(new Date(inc.createdAt).getTime() - new Date(m.createdAt).getTime()) < 30000
+              )
+          );
+          return [...incoming, ...pendingOptimistic];
+        });
         setSession(data.session || null);
         setLead(data.lead || null);
 
@@ -258,9 +271,13 @@ export default function WhatsAppChatPage() {
       } else {
         const data = await res.json();
         if (data?.message) {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === tempId ? { ...data.message, id: data.message.id || tempId } : m))
-          );
+          setMessages((prev) => {
+            const alreadyHasServerMsg = prev.some((m) => m.id === data.message.id);
+            if (alreadyHasServerMsg) {
+              return prev.filter((m) => m.id !== tempId);
+            }
+            return prev.map((m) => (m.id === tempId ? { ...data.message, id: data.message.id || tempId } : m));
+          });
         }
         fetchConversations(true);
       }

@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
 
         const confirmMsg =
           `Dear ${lead.name || "Candidate"},\n\n` +
-          `Thank you for showing your interest in the *Australia Subclass 482 Work Visa*.\n\n` +
+          `Thank you for showing your interest in the *Australia Employer Sponsored Work Visa*.\n\n` +
           `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
           `📅 *Date:* ${formattedDate}\n` +
           `⏰ *Time:* ${time12h}\n` +

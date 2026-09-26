@@ -36,7 +36,7 @@ export async function GET(
 
     const { db } = await connectToDatabase();
 
-    // 1. Fetch from unified whatsapp_messages
+    // 1. Fetch from unified whatsapp_messages (primary source of truth)
     const messages = await db
       .collection("whatsapp_messages")
       .find({ phone: cleanPhone })
@@ -46,83 +46,92 @@ export async function GET(
     // 2. Fetch candidate session details
     const session = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
 
-    // 3. Backwards compatibility: Check incoming/outgoing logs if messages collection is empty or partial
-    const incomingLogs = await db
-      .collection("whatsapp_incoming_logs")
-      .find({
-        $or: [
-          { phone: cleanPhone },
-          { phone: `+${cleanPhone}` },
-          { phone: cleanPhone.startsWith("91") ? cleanPhone.slice(2) : cleanPhone },
-        ],
-      })
-      .sort({ createdAt: 1 })
-      .toArray();
+    // 3. Fallback only if whatsapp_messages is completely empty (historical migration)
+    if (messages.length === 0) {
+      const incomingLogs = await db
+        .collection("whatsapp_incoming_logs")
+        .find({
+          $or: [
+            { phone: cleanPhone },
+            { phone: `+${cleanPhone}` },
+            { phone: cleanPhone.startsWith("91") ? cleanPhone.slice(2) : cleanPhone },
+          ],
+        })
+        .sort({ createdAt: 1 })
+        .toArray();
 
-    const outgoingLogs = await db
-      .collection("whatsapp_outgoing_logs")
-      .find({
-        $or: [
-          { phone: cleanPhone },
-          { phone: `+${cleanPhone}` },
-        ],
-      })
-      .sort({ createdAt: 1 })
-      .toArray();
+      const outgoingLogs = await db
+        .collection("whatsapp_outgoing_logs")
+        .find({
+          $or: [
+            { phone: cleanPhone },
+            { phone: `+${cleanPhone}` },
+          ],
+        })
+        .sort({ createdAt: 1 })
+        .toArray();
 
-    // Merge without duplicates (using text + timestamp proximity)
-    const existingIds = new Set(messages.map((m) => m.messageId).filter(Boolean));
-    const existingTexts = new Set(messages.map((m) => m.text));
+      const existingTexts = new Set<string>();
 
-    for (const inc of incomingLogs) {
-      const text = inc.textBody || inc.selectedId || `[${inc.msgType}]`;
-      if (!existingTexts.has(text) && (!inc.messageId || !existingIds.has(inc.messageId))) {
-        messages.push({
-          phone: cleanPhone,
-          sender: "candidate",
-          senderName: inc.senderName || "Candidate",
-          text,
-          msgType: inc.msgType || "text",
-          createdAt: inc.createdAt,
-        } as any);
-        existingTexts.add(text);
+      for (const inc of incomingLogs) {
+        const text = inc.textBody || inc.selectedId || `[${inc.msgType}]`;
+        if (text && !existingTexts.has(text.trim())) {
+          messages.push({
+            phone: cleanPhone,
+            sender: "candidate",
+            senderName: inc.senderName || "Candidate",
+            text,
+            msgType: inc.msgType || "text",
+            createdAt: inc.createdAt,
+          } as any);
+          existingTexts.add(text.trim());
+        }
+      }
+
+      for (const out of outgoingLogs) {
+        const text = out.message || "";
+        if (text && !existingTexts.has(text.trim())) {
+          const sender = out.sentByRole === "admin" ? "admin" : "bot";
+          messages.push({
+            phone: cleanPhone,
+            sender,
+            senderName: out.sentByName || (sender === "admin" ? "Admin" : "TMS Automation"),
+            text,
+            msgType: "text",
+            createdAt: out.createdAt,
+          } as any);
+          existingTexts.add(text.trim());
+        }
       }
     }
 
-    for (const out of outgoingLogs) {
-      const text = out.message || "";
-      if (!existingTexts.has(text) && (!out.messageId || !existingIds.has(out.messageId))) {
-        const sender = out.sentByRole === "admin" ? "admin" : "bot";
-        messages.push({
-          phone: cleanPhone,
-          sender,
-          senderName: out.sentByName || (sender === "admin" ? "Admin" : "TMS Automation"),
-          text,
-          msgType: "text",
-          createdAt: out.createdAt,
-        } as any);
-        existingTexts.add(text);
-      }
-    }
-
-    // Filter any remaining adjacent duplicate texts within 15 seconds
+    // 4. Strict Deduplication:
+    // If two messages have identical text within 2 minutes (120,000ms), or identical messageId, merge into one.
+    // If one is 'admin' and one is 'bot', always prefer 'admin'.
     const deduplicatedMessages: typeof messages = [];
     for (const m of messages) {
-      const isDup = deduplicatedMessages.some((prev) => {
-        const sameText = prev.text === m.text;
-        const timeDiff = Math.abs(new Date(prev.createdAt).getTime() - new Date(m.createdAt).getTime());
-        return sameText && timeDiff < 15000;
+      const normText = (m.text || "").trim();
+      const mTime = new Date(m.createdAt).getTime();
+
+      const dupIndex = deduplicatedMessages.findIndex((prev) => {
+        if (m.messageId && prev.messageId && m.messageId === prev.messageId) {
+          return true;
+        }
+        const sameNormText = (prev.text || "").trim() === normText;
+        const timeDiff = Math.abs(new Date(prev.createdAt).getTime() - mTime);
+        return sameNormText && timeDiff < 120000; // 2 minutes window
       });
 
-      if (!isDup) {
+      if (dupIndex === -1) {
         deduplicatedMessages.push(m);
       } else {
-        // If the duplicate is 'admin' and existing is 'bot', upgrade the existing to 'admin'
-        const idx = deduplicatedMessages.findIndex(
-          (prev) => prev.text === m.text && Math.abs(new Date(prev.createdAt).getTime() - new Date(m.createdAt).getTime()) < 15000
-        );
-        if (idx !== -1 && m.sender === "admin" && deduplicatedMessages[idx].sender === "bot") {
-          deduplicatedMessages[idx] = m;
+        // Upgrade existing 'bot' entry to 'admin' if the incoming is 'admin'
+        if (m.sender === "admin" && deduplicatedMessages[dupIndex].sender !== "admin") {
+          deduplicatedMessages[dupIndex] = {
+            ...deduplicatedMessages[dupIndex],
+            sender: "admin",
+            senderName: m.senderName || "Admin",
+          };
         }
       }
     }

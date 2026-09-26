@@ -1,6 +1,6 @@
 /**
  * Australia Eligible Occupation List (691 Roles)
- * Categorised into 11 broad sectors for Subclass 482 Skills in Demand Work Visa.
+ * Categorised into 11 broad sectors for Australia Employer Sponsored Work Visa.
  */
 
 export const CATEGORIZED_OCCUPATIONS: Record<string, string[]> = {

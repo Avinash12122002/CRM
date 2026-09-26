@@ -65,7 +65,7 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
       }
     }
 
-    const recentThreshold = new Date(createdAt.getTime() - 12000);
+    const recentThreshold = new Date(createdAt.getTime() - 30000);
     const recentDuplicate = await db.collection("whatsapp_messages").findOne({
       phone: cleanPhone,
       text: text.trim(),

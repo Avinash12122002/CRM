@@ -35,8 +35,11 @@ export async function POST(req: NextRequest) {
 
     const trimmedMsg = message.trim();
 
-    // 1. Dispatch WhatsApp message via official Meta Cloud API client
-    const sendResult = await sendTextMessage(cleanPhone, trimmedMsg);
+    // 1. Dispatch WhatsApp message via official Meta Cloud API client as Admin
+    const sendResult = await sendTextMessage(cleanPhone, trimmedMsg, {
+      sender: "admin",
+      senderName: payload.name || "Admin",
+    });
 
     if (!sendResult.success) {
       return NextResponse.json(

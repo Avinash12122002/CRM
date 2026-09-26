@@ -11,7 +11,7 @@ export interface SendWhatsAppInfoEmailParams {
   leadId?: number;
 }
 
-export const DEFAULT_INFO_EMAIL_SUBJECT = "Australia Subclass 482 Skills in Demand Work Visa Program | TMS Visa";
+export const DEFAULT_INFO_EMAIL_SUBJECT = "Australia Employer Sponsored Work Visa Program | TMS Visa";
 
 export const DEFAULT_INFO_EMAIL_HTML = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.8;color:#333;max-width:800px;margin:0 auto;">
 
@@ -22,11 +22,11 @@ Greetings from <strong>TMS – The Migration School!</strong>
 </p>
 
 <p>
-Thank you for your interest in the <strong>Australia Subclass 482 Skills in Demand Work Visa Program.</strong>
+Thank you for your interest in the <strong>Australia Employer Sponsored Work Visa Program (Skills in Demand).</strong>
 </p>
 
 <p>
-The Subclass 482 visa is an employer-sponsored work visa that allows skilled professionals to live and work in Australia with an approved Australian employer. This pathway provides an excellent opportunity for qualified candidates to build their careers in Australia and, depending on future Australian Government policies and your eligibility, may also provide a pathway towards Permanent Residency.
+The Australia Employer Sponsored Work Visa allows skilled professionals to live and work in Australia with an approved Australian employer. This pathway provides an excellent opportunity for qualified candidates to build their careers in Australia and, depending on future Australian Government policies and your eligibility, may also provide a pathway towards Permanent Residency.
 </p>
 
 <p>
@@ -126,7 +126,7 @@ Once you are selected by an employer:
 <h3>Step 6 – Visa Application</h3>
 
 <p>
-Our India office prepares and lodges your Subclass 482 visa application.
+Our India office prepares and lodges your Australia Employer Sponsored Work Visa application.
 </p>
 
 <p>
@@ -136,7 +136,7 @@ At this stage, you will only be required to pay the applicable Australian Govern
 <h3>Step 7 – Visa Approval</h3>
 
 <p>
-Once your Subclass 482 visa is granted:
+Once your Australia Employer Sponsored Work Visa is granted:
 </p>
 
 <ul>
@@ -149,7 +149,7 @@ Once your Subclass 482 visa is granted:
 <h2 style="color:#0b5ed7;">Expected Salary in Australia</h2>
 
 <p>
-Under the current Australian Government requirements for the Subclass 482 Skills in Demand Work Visa, sponsoring employers are generally required to pay employees at least the applicable minimum salary threshold.
+Under current Australian Government requirements for the Australia Employer Sponsored Work Visa, sponsoring employers are generally required to pay employees at least the applicable minimum salary threshold.
 </p>
 
 <p style="font-size:18px;font-weight:bold;color:#198754;">
@@ -406,9 +406,9 @@ export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams)
         leadName: candidateName,
         stage: "info",
         mailbox: "info@tmsvisa.com",
-        templateName: "Australia Subclass 482 Information Pack",
+        templateName: "Australia Employer Sponsored Work Visa Information Pack",
         subject,
-        bodyPreview: "Australia Subclass 482 Skills in Demand Work Visa Program Guide with 2 attachments.",
+        bodyPreview: "Australia Employer Sponsored Work Visa Program Guide with 2 attachments.",
         status: result.success ? "sent" : "failed",
         isFollowup: false,
         followupNumber: 0,

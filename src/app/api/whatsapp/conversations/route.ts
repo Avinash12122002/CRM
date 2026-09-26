@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
       const { sendTextMessage } = await import("@/lib/whatsapp/client");
       const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
 
-      const sendResult = await sendTextMessage(cleanPhone, initialMessage.trim());
+      const sendResult = await sendTextMessage(cleanPhone, initialMessage.trim(), { skipLog: true });
       await logWhatsAppMessage({
         db,
         phone: cleanPhone,

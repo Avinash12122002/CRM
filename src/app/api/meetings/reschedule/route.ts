@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
 
         const reschedMsg =
           `Dear ${lead.name || "Candidate"},\n\n` +
-          `Your *Australia Subclass 482 Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
+          `Your *Australia Employer Sponsored Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
           `📅 *New Date:* ${formattedDate}\n` +
           `⏰ *New Time:* ${time12h}\n` +
           `💻 *Google Meet:* ${meetLink}\n\n` +
