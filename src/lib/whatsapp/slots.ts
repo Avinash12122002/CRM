@@ -29,13 +29,6 @@ export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
     }).format(now),
     10
   );
-  const currentMinIST = parseInt(
-    new Intl.DateTimeFormat("en-US", {
-      timeZone: "Asia/Kolkata",
-      minute: "numeric",
-    }).format(now),
-    10
-  );
   const isPastLastSlotToday = currentHourIST >= 21;
 
   const weekendDays: WeekendDayOption[] = [];

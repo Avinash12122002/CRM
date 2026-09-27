@@ -370,7 +370,7 @@ RESPONSE DIRECTIVES:
                 { role: "system", content: SYSTEM_PROMPT },
                 { role: "user", content: rawMsg },
               ],
-              max_tokens: 600,
+              max_tokens: 450,
               temperature: 0.35,
             }),
             signal: controller.signal,

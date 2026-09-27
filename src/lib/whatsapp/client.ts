@@ -94,13 +94,17 @@ async function sendMetaRequest(
             text = (payload.video as any)?.caption || `[Video] ${mediaUrl}`;
           }
 
-          if (to && text) {
+          // Use fallback label for video/list messages that have no body text,
+          // so they are still logged instead of silently dropped
+          const logText = text || (type === "video" ? `[Video] ${mediaUrl || ""}` : type === "interactive" ? "[Interactive List / Button Message]" : "");
+
+          if (to && logText) {
             await logWhatsAppMessage({
               db,
               phone: to,
               sender: options?.sender || "bot",
               senderName: options?.senderName,
-              text,
+              text: logText,
               msgType: type as any,
               buttons,
               mediaUrl,

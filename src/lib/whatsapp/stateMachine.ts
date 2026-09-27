@@ -205,7 +205,7 @@ export async function getOrCreateSession(
 
   let initialStep: WhatsAppStep = "WELCOME";
   let initialBookedSlot = undefined;
-  let initialMeetingStatus: "none" | "booked" | "rescheduled" | "completed" | "cancelled" = "none";
+  let initialMeetingStatus: "none" | "booked" | "rescheduled" | "canceled" | "completed" = "none";
 
   if (activeSlot) {
     initialStep = "BOOKED";

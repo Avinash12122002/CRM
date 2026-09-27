@@ -266,7 +266,7 @@ export async function POST(req: NextRequest) {
 
             await processIncomingWhatsAppMessage({
               phone,
-              senderName,
+              senderName: effectiveSenderName,
               messageType: stateMessageType,
               textBody,
               selectedId,
