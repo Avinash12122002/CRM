@@ -233,6 +233,7 @@ export function formatTimeInZone(
   timeZone: string,
   hour12: boolean = true,
 ): string {
+  if (!date || isNaN(date.getTime())) return "";
   try {
     return new Intl.DateTimeFormat("en-US", {
       timeZone,
@@ -241,12 +242,16 @@ export function formatTimeInZone(
       hour12,
     }).format(date);
   } catch {
-    return new Intl.DateTimeFormat("en-US", {
-      timeZone: "UTC",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12,
-    }).format(date);
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: "UTC",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12,
+      }).format(date);
+    } catch {
+      return "";
+    }
   }
 }
 
@@ -254,6 +259,7 @@ export function formatTimeInZone(
  * Format date (YYYY-MM-DD) in a specific IANA timezone
  */
 export function formatDateInZone(date: Date, timeZone: string): string {
+  if (!date || isNaN(date.getTime())) return "";
   try {
     const parts = new Intl.DateTimeFormat("en-CA", {
       timeZone,
@@ -267,7 +273,11 @@ export function formatDateInZone(date: Date, timeZone: string): string {
     const day = parts.find((p) => p.type === "day")?.value || "";
     return `${year}-${month}-${day}`;
   } catch {
-    return date.toISOString().split("T")[0];
+    try {
+      return date.toISOString().split("T")[0];
+    } catch {
+      return "";
+    }
   }
 }
 
@@ -286,6 +296,14 @@ export function convertIstSlotToCandidateTime(
   // IST is fixed at UTC+05:30
   const istDateString = `${meetingDate}T${istTime}:00+05:30`;
   const dateObj = new Date(istDateString);
+
+  if (isNaN(dateObj.getTime())) {
+    return {
+      candidateDate: meetingDate || "",
+      candidateTime: istTime || "",
+      display12h: istTime || "",
+    };
+  }
 
   const candidateDate = formatDateInZone(dateObj, candidateTimeZone);
   const candidateTime = formatTimeInZone(dateObj, candidateTimeZone, false); // 24h e.g. "12:00"

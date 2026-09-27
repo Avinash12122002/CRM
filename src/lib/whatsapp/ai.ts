@@ -279,9 +279,9 @@ RESPONSE DIRECTIVES:
       const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
       if (groqKey) {
         const groqModels = [
-          process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
-          "openai/gpt-oss-120b",
-          "openai/gpt-oss-20b",
+          process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+          "llama-3.1-8b-instant",
+          "mixtral-8x7b-32768",
         ];
 
         for (const model of groqModels) {
@@ -301,7 +301,7 @@ RESPONSE DIRECTIVES:
                   { role: "system", content: SYSTEM_PROMPT },
                   { role: "user", content: rawMsg },
                 ],
-                max_tokens: 260,
+                max_tokens: 380,
                 temperature: 0.35,
               }),
               signal: controller.signal,
@@ -344,7 +344,7 @@ RESPONSE DIRECTIVES:
                 },
               ],
               generationConfig: {
-                maxOutputTokens: 260,
+                maxOutputTokens: 380,
                 temperature: 0.35,
               },
             }),
@@ -383,7 +383,7 @@ RESPONSE DIRECTIVES:
                 { role: "system", content: SYSTEM_PROMPT },
                 { role: "user", content: rawMsg },
               ],
-              max_tokens: 260,
+              max_tokens: 380,
               temperature: 0.35,
             }),
             signal: controller.signal,
