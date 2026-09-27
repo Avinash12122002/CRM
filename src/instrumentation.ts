@@ -61,7 +61,20 @@ export async function register() {
     }
   );
 
+  // Fires every minute: checks 10-minute consultation prompts, 1-hour pre-meeting reminders, and daily followups
+  cron.schedule("* * * * *", async () => {
+    try {
+      const { runWhatsAppFollowupEngine } = await import(
+        "@/lib/whatsapp/followupEngine"
+      );
+      const { db } = await connectToDatabase();
+      await runWhatsAppFollowupEngine(db);
+    } catch (err) {
+      console.error("[whatsapp-cron] Runner failed:", err);
+    }
+  });
+
   console.log(
-    "[attendance-cron] Scheduled: fires every night at 00:00 IST (Asia/Kolkata)."
+    "[whatsapp-cron] Scheduled: fires every minute to process due WhatsApp followups."
   );
 }

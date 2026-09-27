@@ -224,6 +224,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (processedCount > 0) {
+      import("@/lib/mongodb")
+        .then(({ connectToDatabase }) => connectToDatabase())
+        .then(({ db }) => {
+          return import("@/lib/whatsapp/followupEngine").then(({ runWhatsAppFollowupEngine }) =>
+            runWhatsAppFollowupEngine(db)
+          );
+        })
+        .catch((e) => console.warn("[webhook] WhatsApp engine check error:", e));
+    }
+
     return NextResponse.json({ status: "success", processedMessages: processedCount }, { status: 200 });
   } catch (err) {
     console.error("[WhatsApp Webhook Error]", err);

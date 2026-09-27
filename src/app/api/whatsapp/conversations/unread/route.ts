@@ -23,6 +23,11 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
+    // Piggyback self-healing check: trigger any due 10-minute prompts or reminders
+    import("@/lib/whatsapp/followupEngine")
+      .then(({ runWhatsAppFollowupEngine }) => runWhatsAppFollowupEngine(db))
+      .catch((e) => console.warn("[unread-poll] WhatsApp engine check error:", e));
+
     const result = await db
       .collection("whatsapp_sessions")
       .aggregate([
