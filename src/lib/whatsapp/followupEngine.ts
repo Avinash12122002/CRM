@@ -4,6 +4,7 @@ import { updateSession, getStaticGoogleMeetLink, sendConsultationBookingPrompt }
 import { sendQuickReplyButtons, sendTextMessage } from "@/lib/whatsapp/client";
 import { formatDateInZone, format12hTime, getNext10AmInTimezone } from "@/lib/whatsapp/timezone";
 import { STEP_FOLLOWUP_MESSAGES } from "@/lib/whatsapp/followupTemplates";
+import { logWhatsAppMessage } from "@/lib/whatsapp/messageLogger";
 
 export interface FollowupRunResult {
   phone: string;
@@ -14,8 +15,9 @@ export interface FollowupRunResult {
 /**
  * Core WhatsApp Automated Engine:
  * 1. Executes due 10-Minute Consultation Prompts (clearing consultationPromptDueAt).
- * 2. Runs the 7-Day Follow-Up Sequence (Day 1 to Day 7 distinct messages) across all steps.
+ * 2. Runs the 7-Day Follow-Up Sequence (Day 1 to Day 7 distinct messages) across all stages.
  * 3. Sends 1-Hour Pre-Meeting reminders with static Google Meet link and strict 12-hour AM/PM time.
+ * All outbound messages are logged to `whatsapp_messages` and `conversationHistory` via `logWhatsAppMessage`.
  */
 export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResult[]> {
   const now = new Date();
@@ -38,10 +40,30 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
     for (const session of dueConsultationSessions) {
       try {
         await sendConsultationBookingPrompt(session.phone);
+
+        const promptText =
+          `*Ready to take the next step towards Australia? 🇦🇺*\n\n` +
+          `Book a 1-on-1 consultation meeting with our Australian Visa Expert to check your job eligibility and visa pathway.`;
+
+        await logWhatsAppMessage({
+          db,
+          phone: session.phone,
+          sender: "bot",
+          senderName: "Aria (TMS Visa)",
+          text: promptText,
+          msgType: "interactive_button",
+          buttons: [
+            { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+            { id: "BTN_CONSULT_NO", title: "Maybe Later" },
+          ],
+          createdAt: now,
+        });
+
         await updateSession(db, session.phone, {
           consultationPromptDueAt: undefined,
           updatedAt: now,
         });
+
         results.push({ phone: session.phone, type: "consultation_prompt_10min" });
       } catch (promptErr) {
         console.warn(`[WhatsApp Followup Engine] Failed to send 10-min prompt to ${session.phone}:`, promptErr);
@@ -78,6 +100,11 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
       .toArray()) as unknown as WhatsAppSession[];
 
     for (const session of activeFollowupSessions) {
+      // If candidate already has an active booked slot and is NOT in AWAITING_CV, skip reminders
+      if (session.bookedSlot && session.currentStep !== "AWAITING_CV") {
+        continue;
+      }
+
       const currentCount = session.followupCount || 0;
       const targetDay = currentCount + 1; // 1 to 7
 
@@ -118,14 +145,33 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
       const dayTemplate = templates.find((t) => t.day === targetDay) || templates[templates.length - 1];
 
       try {
+        let sentMessageId: string | undefined;
+
         if (dayTemplate.buttons && dayTemplate.buttons.length > 0) {
           const btnRes = await sendQuickReplyButtons(session.phone, dayTemplate.message, dayTemplate.buttons);
-          if (!btnRes.success) {
-            await sendTextMessage(session.phone, dayTemplate.message);
+          if (btnRes.success) {
+            sentMessageId = btnRes.messageId;
+          } else {
+            const fallbackTextRes = await sendTextMessage(session.phone, dayTemplate.message);
+            sentMessageId = fallbackTextRes.messageId;
           }
         } else {
-          await sendTextMessage(session.phone, dayTemplate.message);
+          const textRes = await sendTextMessage(session.phone, dayTemplate.message);
+          sentMessageId = textRes.messageId;
         }
+
+        // Log message to unified chat
+        await logWhatsAppMessage({
+          db,
+          phone: session.phone,
+          sender: "bot",
+          senderName: "Aria (TMS Visa)",
+          text: dayTemplate.message,
+          msgType: dayTemplate.buttons && dayTemplate.buttons.length > 0 ? "interactive_button" : "text",
+          buttons: dayTemplate.buttons,
+          messageId: sentMessageId,
+          createdAt: now,
+        });
 
         // Schedule next reminder for 10 AM tomorrow in candidate's LOCAL timezone
         const isFinalDay = targetDay >= 7;
@@ -189,7 +235,18 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
           `🔗 *Google Meet Link:*\n${meetLink}\n\n` +
           `Our Australian visa specialist is ready to evaluate your Australia Employer Sponsored Work Visa file. Please tap the link to join on time! 🇦🇺`;
 
-        await sendTextMessage(slot.phone, reminderMsg);
+        const sendRes = await sendTextMessage(slot.phone, reminderMsg);
+
+        await logWhatsAppMessage({
+          db,
+          phone: slot.phone,
+          sender: "bot",
+          senderName: "Aria (TMS Visa)",
+          text: reminderMsg,
+          msgType: "text",
+          messageId: sendRes.messageId,
+          createdAt: now,
+        });
 
         await db.collection("meetingSlots").updateOne(
           { _id: slot._id },

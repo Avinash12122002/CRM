@@ -412,59 +412,38 @@ export function getNext10AmInTimezone(candidateTimeZone: string, fromDate?: Date
   const tz = candidateTimeZone || "Asia/Kolkata";
 
   try {
-    // Get the current hour in the candidate's timezone
-    const nowInCandidateTz = new Intl.DateTimeFormat("en-CA", {
+    const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
       year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
       hour12: false,
     }).formatToParts(base);
 
-    const year = parseInt(nowInCandidateTz.find((p) => p.type === "year")?.value || "2026");
-    const month = parseInt(nowInCandidateTz.find((p) => p.type === "month")?.value || "1") - 1;
-    const day = parseInt(nowInCandidateTz.find((p) => p.type === "day")?.value || "1");
-    const hour = parseInt(nowInCandidateTz.find((p) => p.type === "hour")?.value || "0");
-
-
-    // Build a proper UTC timestamp for 10 AM in the candidate's tz
-    // Approach: format 10:00 AM local as an ISO string, then parse
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const todayLocalDate = formatter.format(base); // "YYYY-MM-DD"
-
-    // Create a fake date string at 10:00 in that timezone and convert to UTC
-    // The trick: format a UTC time that, when displayed in that timezone, shows 10:00
-    // We binary-search by trying UTC offset of the timezone
-    // Simpler: use the fact that we know the local date is todayLocalDate
-    // and construct 10 AM local, then find the UTC equivalent
-    const guess = new Date(`${todayLocalDate}T10:00:00`);
-    // Adjust: find what time "guess" is in candidate tz
-    const guessHour = parseInt(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: tz,
-        hour: "2-digit",
-        hour12: false,
-      }).format(guess),
-    );
-    // Calculate offset needed (in ms)
-    const offsetMs = (10 - guessHour) * 3600 * 1000;
-    const target10Am = new Date(guess.getTime() + offsetMs);
-
-    // If it is already past 10 AM there (or within 5 min), schedule for tomorrow
-    const isAlreadyPast = base.getTime() >= target10Am.getTime() - 5 * 60 * 1000;
-    if (isAlreadyPast) {
-      return new Date(target10Am.getTime() + 24 * 3600 * 1000);
+    const m: Record<string, number> = {};
+    for (const p of parts) {
+      if (p.type !== "literal") {
+        m[p.type] = parseInt(p.value, 10);
+      }
     }
-    return target10Am;
+
+    const localDateAtBase = new Date(Date.UTC(m.year, m.month - 1, m.day, m.hour, m.minute, m.second));
+    const offsetMs = localDateAtBase.getTime() - base.getTime();
+
+    let targetLocal = new Date(Date.UTC(m.year, m.month - 1, m.day, 10, 0, 0));
+    let targetUtc = new Date(targetLocal.getTime() - offsetMs);
+
+    // If already past 10 AM (or within 5 minutes of 10 AM), schedule for 10 AM tomorrow
+    if (targetUtc.getTime() <= base.getTime() + 5 * 60 * 1000) {
+      targetLocal = new Date(Date.UTC(m.year, m.month - 1, m.day + 1, 10, 0, 0));
+      targetUtc = new Date(targetLocal.getTime() - offsetMs);
+    }
+    return targetUtc;
   } catch {
-    // Fallback: just use 24 hours from now (safe default)
+    // Fallback: 24 hours from now
     return new Date(base.getTime() + 24 * 3600 * 1000);
   }
 }

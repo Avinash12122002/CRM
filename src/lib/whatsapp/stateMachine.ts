@@ -423,6 +423,20 @@ export async function sendTimedVideoAndProcessGuide(
       const s = await db.collection("whatsapp_sessions").findOne({ phone });
       if (s && (s.currentStep === "AWAITING_CONSULTATION_DECISION" || s.currentStep === "VIDEO_SENT_AWAITING_INTEREST") && !s.bookedSlot) {
         await sendConsultationBookingPrompt(phone);
+        const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+        await logWhatsAppMessage({
+          db,
+          phone,
+          sender: "bot",
+          senderName: "Aria (TMS Visa)",
+          text: `*Ready to take the next step towards Australia? 🇦🇺*\n\nBook a 1-on-1 consultation meeting with our Australian Visa Expert to check your job eligibility and visa pathway.`,
+          msgType: "interactive_button",
+          buttons: [
+            { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+            { id: "BTN_CONSULT_NO", title: "Maybe Later" },
+          ],
+          createdAt: new Date(),
+        });
         await updateSession(db, phone, {
           consultationPromptDueAt: undefined,
           updatedAt: new Date(),
@@ -1249,14 +1263,13 @@ export async function processIncomingWhatsAppMessage(params: {
       followupCount: 0,
     });
 
-    // 3. Wait 10 seconds, then send Step 3 video link
-    setTimeout(async () => {
-      try {
-        await sendTimedVideoAndProcessGuide(session.phone, extractedEmail, videoUrl);
-      } catch (delayErr) {
-        console.error("[WhatsApp] Error in video delivery delay:", delayErr);
-      }
-    }, 10000);
+    // 3. Send Step 3 video link after 2 seconds so candidate receives email confirmation notice first
+    try {
+      await delay(2000);
+      await sendTimedVideoAndProcessGuide(session.phone, extractedEmail, videoUrl);
+    } catch (delayErr) {
+      console.error("[WhatsApp] Error in video delivery delay:", delayErr);
+    }
 
     return {
       replyText: emailSentNotice,
