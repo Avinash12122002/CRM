@@ -270,24 +270,31 @@ RESPONSE DIRECTIVES:
 - NEVER accept or pretend to accept a new phone number.
 - Under strict compliance and CRM security, phone numbers cannot be changed through WhatsApp chat because all candidate records, verified files, and consultation bookings are permanently tied to their current active WhatsApp number (+${session.phone}).
 - If candidate asks to change or update their number, firmly explain that registered phone numbers cannot be changed via chat for security reasons. They should message directly from their new WhatsApp number or email info@tmsvisa.com.
+
+9. THINK LIKE GOOGLE & BE SMART — ANALYZE THE EXACT QUESTION (NEVER REPEAT CANNED TEMPLATES):
+- Carefully analyze what the candidate asked or said (whether in English, Hindi, or Hinglish like "Visa ka kya rha", "kya hua", "mera visa kab aayega", "fees kitni hai", "Sir", "Job milegi?").
+- If the candidate asked a specific question, answer THAT question directly and accurately in 1-3 sentences. NEVER send a canned greeting asking for their job title and experience if they already asked a question!
+- If the candidate asks in Hindi or Hinglish, reply in simple, natural, conversational Hinglish/Hindi or English that directly addresses what they asked.
+- If the candidate asks about visa progress/status and you do not have their specific file, think like an intelligent counselor & Google: explain what TMS does (Australia Employer Sponsored Work Visa with min salary AUD $76,500/year), and ask for their resume or registered email ID so you can look up their exact file.
+- If the candidate just greets (e.g. "Sir", "Namaste", "Hello"), respond politely and ask how you can help them with their Australia career or visa pathway today.
 `;
 
-  // 3. Attempt Remote LLM Inference (Groq, Gemini, OpenAI) with 5s timeout
+  // 3. Attempt Remote LLM Inference (Groq, Gemini, OpenAI) with 6s timeout
   if (apiKey) {
     try {
       // 3a. Groq Cloud (Primary Engine - Ultra-fast LPU inference)
       const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
       if (groqKey) {
         const groqModels = [
-          process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-          "llama-3.1-8b-instant",
-          "mixtral-8x7b-32768",
+          process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+          "openai/gpt-oss-120b",
+          "openai/gpt-oss-20b",
         ];
 
         for (const model of groqModels) {
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 2500);
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
 
             const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
               method: "POST",
@@ -761,37 +768,74 @@ function generateHumanVisaExpertReply(params: {
   }
 
   // ============================================================
-  // SHORT / VAGUE MESSAGES — respond contextually based on session state
+  // GREETINGS & DIRECT SALUTATIONS ("Sir", "Mam", "Namaste", "Hello", "Bhai", etc.)
   // ============================================================
-  if (rawLower.length <= 20) {
-    const step = session.currentStep;
-    if (step === "AWAITING_EMAIL") {
+  const isDirectSalutation =
+    rawLower === "sir" ||
+    rawLower === "mam" ||
+    rawLower === "madam" ||
+    rawLower === "namaste" ||
+    rawLower === "bhai" ||
+    rawLower === "hello" ||
+    rawLower === "hlo" ||
+    rawLower === "hi" ||
+    rawLower === "hey" ||
+    rawLower === "good morning" ||
+    rawLower === "good afternoon" ||
+    rawLower === "good evening";
+
+  if (isDirectSalutation) {
+    return (
+      `Namaste${nameSalutation}! 🙏 I am Aria, Senior Registered Migration Counselor at **TMS Visa** Australia.\n\n` +
+      `How can I assist you with your Australia Employer Sponsored Work Visa (AUD $76,500+ min salary) or migration queries today? Feel free to ask any question!`
+    );
+  }
+
+  // ============================================================
+  // STATUS / PROGRESS / "VISA KA KYA RHA" / "KYA HUA" / UPDATES
+  // ============================================================
+  const asksAboutStatus =
+    lower.includes("kya rha") ||
+    lower.includes("kya hua") ||
+    lower.includes("kya ho rha") ||
+    lower.includes("kya chal rha") ||
+    lower.includes("status") ||
+    lower.includes("update") ||
+    lower.includes("progress") ||
+    lower.includes("mera visa") ||
+    lower.includes("meri file") ||
+    lower.includes("kab tak") ||
+    lower.includes("kab hoga") ||
+    lower.includes("kaha tak") ||
+    lower.includes("kuch pata chala") ||
+    lower.includes("any news") ||
+    lower.includes("what happened") ||
+    (lower.includes("visa") && (lower.includes("kya") || lower.includes("kab") || lower.includes("how") || lower.includes("where")));
+
+  if (asksAboutStatus) {
+    if (session.meetingCompleted) {
       return (
-        `Hi${nameSalutation}! 😊 Please reply with your **email address** so our team can officially register your profile and send your complete visa roadmap.\n\n` +
-        `📧 Example: yourname@gmail.com`
-      );
-    }
-    if (step === "AWAITING_CV") {
-      return (
-        `Hi${nameSalutation}! 😊 Please attach your **CV/Resume** (PDF or Word) directly here in WhatsApp so our specialists can begin your eligibility assessment! 📄`
-      );
-    }
-    if (step === "SELECTING_DAY" || step === "SELECTING_SLOT") {
-      return (
-        `Hi${nameSalutation}! 👋 Please select your preferred consultation date and time from the menu above, or type a day like **"Saturday"** or **"Sunday"** to see available slots!`
+        `Hi${nameSalutation}! 🇦🇺 Aapki 1-on-1 consultation complete ho chuki hai aur aapki profile onboarding/documentation review phase mein hai.\n\n` +
+        `Hamari team aapke CV ko verified Australian employers ke saath match kar rahi hai. Jaise hi matching update aayegi, hum aapse direct connect karenge!`
       );
     }
     if (session.bookedSlot) {
       return (
-        `Hi${nameSalutation}! 👋 Your consultation with our Senior Migration Expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
-        `🔗 **Google Meet Link:** ${meetUrl}\n\n` +
-        `Is there anything specific you'd like to ask or prepare before the session?`
+        `Hi${nameSalutation}! 🇦🇺 Aapka consultation meeting confirm hai:\n` +
+        `📅 **Date:** ${session.bookedSlot.date}\n` +
+        `⏰ **Time:** ${session.bookedSlot.candidateTimeLabel}\n\n` +
+        `Is meeting mein hamare senior visa expert aapke CV, ANZSCO job eligibility aur visa roadmap ko live discuss karenge.`
       );
     }
-    // Generic short-message invitation
+    if (session.email) {
+      return (
+        `Hi${nameSalutation}! 🇦🇺 Aapka profile hamare system mein registered hai (${session.email}).\n\n` +
+        `Aapke Australia Employer Sponsored Work Visa file ka agla step hai **1-on-1 expert consultation meeting**. Kya aap weekend par free session schedule karna chahenge?`
+      );
+    }
     return (
-      `Hello${nameSalutation}! 😊 I'm Aria from **TMS Visa**. I'm here to help you explore your Australia career and visa options.\n\n` +
-      `Could you tell me your **current job title** and **years of experience**? I'll check your eligibility for the Australia Employer Sponsored Work Visa (minimum salary AUD $76,500/year) right away! 🇦🇺`
+      `Hi${nameSalutation}! 🇦🇺 Hum Australia Employer Sponsored Work Visa (min salary AUD $76,500/yr) par kaam karte hain.\n\n` +
+      `Aapke specific visa file aur status ko check karne ke liye, kripya apna **registered Email ID** ya **CV/Resume** yahan share karein, taaki hum aapka record live check kar sakein!`
     );
   }
 

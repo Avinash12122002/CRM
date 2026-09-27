@@ -57,6 +57,7 @@ export interface WhatsAppSession {
   lastFollowupSentAt?: Date;
   nextFollowupAt?: Date;
   videoSentAt?: Date;
+  welcomeSentAt?: Date;
   consultationPromptDueAt?: Date;
   infoEmailSentAt?: Date;
   cvReceivedAt?: Date;

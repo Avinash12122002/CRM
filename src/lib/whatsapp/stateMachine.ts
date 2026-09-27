@@ -1055,6 +1055,20 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 1c. Brand-new candidate or explicit reset
   if (actionId === "RESTART_FLOW" || (isGreeting && !session.email && !session.bookedSlot) || isFreshWelcome) {
+    // If the welcome message was already sent once and candidate is asking questions/conversing,
+    // answer their question directly using AI without repeatedly spamming the welcome buttons!
+    if (session.welcomeSentAt && cleanText.length > 0 && actionId !== "RESTART_FLOW") {
+      const aiAnswer = await generateAiResponse({
+        message: cleanText,
+        session,
+      });
+      await sendTextMessage(session.phone, aiAnswer);
+      await updateSession(db, session.phone, {
+        lastInteractionAt: new Date(),
+      });
+      return { replyText: aiAnswer, step: "WELCOME" };
+    }
+
     if (isFreshWelcome && cleanText.length > 0 && !isGreeting) {
       // The candidate sent an actual question or background details at the start!
       const aiAnswer = await generateAiResponse({
@@ -1074,6 +1088,7 @@ export async function processIncomingWhatsAppMessage(params: {
       const nextFollowup = getNext10AmInTimezone(session.timeZone);
       await updateSession(db, session.phone, {
         currentStep: "WELCOME",
+        welcomeSentAt: new Date(),
         followupCount: 0,
         nextFollowupAt: nextFollowup,
       });
@@ -1093,6 +1108,7 @@ export async function processIncomingWhatsAppMessage(params: {
     const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, session.phone, {
       currentStep: "WELCOME",
+      welcomeSentAt: new Date(),
       followupCount: 0,
       nextFollowupAt: nextFollowup,
     });
