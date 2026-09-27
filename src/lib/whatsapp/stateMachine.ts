@@ -876,42 +876,72 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
-  // --- Check: Email Resend, "Send Me Email", or Email Delivery Inquiry ---
-  const isResendEmailRequest =
-    lowerClean === "resend" ||
-    lowerClean === "resend email" ||
-    lowerClean === "send me email" ||
-    lowerClean === "send email" ||
-    lowerClean === "send mail" ||
-    lowerClean === "send me the email" ||
-    lowerClean === "send me the mail" ||
-    lowerClean === "please send email" ||
-    lowerClean === "please send me email" ||
-    lowerClean === "resend mail" ||
-    lowerClean === "send again" ||
-    lowerClean === "email again" ||
-    lowerClean.includes("did not receive email") ||
-    lowerClean.includes("didn't receive email") ||
-    lowerClean.includes("did not get email") ||
-    lowerClean.includes("didn't get email") ||
-    lowerClean.includes("did not get the email") ||
-    lowerClean.includes("haven't received email") ||
-    lowerClean.includes("have not received email") ||
-    lowerClean.includes("not received email") ||
-    lowerClean.includes("haven't got email") ||
-    lowerClean.includes("havent received email") ||
-    lowerClean.includes("email nahi mila") ||
-    lowerClean.includes("email nahi aaya") ||
-    lowerClean.includes("mail nahi mila") ||
-    lowerClean.includes("mail nahi aaya") ||
+  // --- Check: Email Resend, "Send Me Email", 691 List, Brochure, PDF, or Email Delivery Inquiry ---
+  const isAsking691List =
+    lowerClean.includes("691") ||
+    lowerClean.includes("occupation list") ||
+    lowerClean.includes("occupations list") ||
+    lowerClean.includes("eligible list") ||
+    lowerClean.includes("eligible role") ||
+    lowerClean.includes("eligible job") ||
+    lowerClean.includes("all list") ||
+    lowerClean.includes("full list") ||
+    lowerClean.includes("complete list") ||
+    lowerClean.includes("roles list") ||
+    lowerClean.includes("jobs list") ||
+    lowerClean.includes("list of occupation") ||
+    lowerClean.includes("list of job") ||
+    lowerClean.includes("list of role") ||
+    (lowerClean.includes("list") && (lowerClean.includes("give") || lowerClean.includes("send") || lowerClean.includes("share") || lowerClean.includes("show") || lowerClean.includes("bhejo") || lowerClean.includes("do") || lowerClean.includes("all") || lowerClean.includes("where")));
+
+  const isResendOrSendEmailRequest =
+    // Asking to send again or resend (handles typos like "give mer again")
+    lowerClean.includes("resend") ||
+    lowerClean.includes("again") ||
+    lowerClean.includes("send me email") ||
+    lowerClean.includes("send email") ||
+    lowerClean.includes("send mail") ||
+    lowerClean.includes("give me email") ||
+    lowerClean.includes("give email") ||
+    lowerClean.includes("email me") ||
+    lowerClean.includes("mail me") ||
+    lowerClean.includes("email send") ||
+    lowerClean.includes("mail send") ||
     lowerClean.includes("email bhejo") ||
     lowerClean.includes("mail bhejo") ||
     lowerClean.includes("send on email") ||
     lowerClean.includes("share on email") ||
     lowerClean.includes("forward to my email") ||
-    lowerClean.includes("send to my email");
+    lowerClean.includes("send to my email") ||
+    lowerClean.includes("send to email") ||
+    lowerClean.includes("email pe bhejo") ||
+    lowerClean.includes("mail pe bhejo") ||
+    // Delivery issues / not received
+    lowerClean.includes("did not receive") ||
+    lowerClean.includes("didn't receive") ||
+    lowerClean.includes("not received") ||
+    lowerClean.includes("not receive") ||
+    lowerClean.includes("haven't received") ||
+    lowerClean.includes("have not received") ||
+    lowerClean.includes("havent received") ||
+    lowerClean.includes("did not get") ||
+    lowerClean.includes("didn't get") ||
+    lowerClean.includes("not get") ||
+    lowerClean.includes("email nahi") ||
+    lowerClean.includes("mail nahi") ||
+    // Documents, brochure, PDF, guides
+    lowerClean.includes("brochure") ||
+    lowerClean.includes("pte guide") ||
+    lowerClean.includes("information pack") ||
+    lowerClean.includes("info pack") ||
+    lowerClean.includes("visa guide") ||
+    lowerClean.includes("process guide") ||
+    (lowerClean.includes("pdf") && (lowerClean.includes("send") || lowerClean.includes("give") || lowerClean.includes("share") || lowerClean.includes("email") || lowerClean.includes("mail"))) ||
+    (lowerClean.includes("document") && (lowerClean.includes("send") || lowerClean.includes("give") || lowerClean.includes("email") || lowerClean.includes("mail")));
 
-  if (isResendEmailRequest) {
+  const isEmailOrListRequest = isAsking691List || isResendOrSendEmailRequest;
+
+  if (isEmailOrListRequest) {
     const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     const targetEmail = emailMatch ? emailMatch[0].toLowerCase() : session.email;
 
@@ -941,13 +971,20 @@ export async function processIncomingWhatsAppMessage(params: {
           email: targetEmail,
         });
 
-        const successMsg =
-          `✅ We have sent the official Australia Employer Sponsored Work Visa Information Pack to **${targetEmail}**! 📩\n\n` +
-          `📎 **Attached in your email:**\n` +
-          `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
-          `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
-          `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from new corporate domains can sometimes be filtered there).\n\n` +
-          `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`;
+        const successMsg = isAsking691List
+          ? `✅ I have immediately dispatched the complete **691 Eligible Occupation List (PDF)** & **Australia Work Visa Information Pack** to **${targetEmail}**! 📩\n\n` +
+            `📎 **Attached in your email:**\n` +
+            `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+            `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
+            `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** right now.\n\n` +
+            `💡 *Quick Check:* Listing all 691 occupations here is too long for WhatsApp, but you can reply with your **Job Title** and **Years of Experience** right here for a free instant eligibility check! 🇦🇺\n\n` +
+            `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`
+          : `✅ We have immediately sent the official **Australia Employer Sponsored Work Visa Information Pack** to **${targetEmail}**! 📩\n\n` +
+            `📎 **Attached in your email:**\n` +
+            `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+            `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
+            `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from new corporate domains can sometimes be filtered there).\n\n` +
+            `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`;
 
         await sendTextMessage(session.phone, successMsg);
         return { replyText: successMsg, step: session.currentStep };
@@ -961,8 +998,8 @@ export async function processIncomingWhatsAppMessage(params: {
       }
     } else {
       const askEmailMsg =
-        `I would be happy to send you the official Australia Employer Sponsored Work Visa Information Pack & 691 Eligible Occupation List! 📄🇦🇺\n\n` +
-        `Please reply with your **Email Address** (e.g. name@gmail.com) so I can deliver it to your inbox immediately. 📧`;
+        `I would be delighted to send you the official Australia Employer Sponsored Work Visa Information Pack & Complete 691 Eligible Occupation List (PDF)! 📄🇦🇺\n\n` +
+        `Please reply with your **Email Address** (e.g. name@gmail.com) so I can dispatch it to your inbox immediately. 📧`;
 
       await sendTextMessage(session.phone, askEmailMsg);
       return { replyText: askEmailMsg, step: session.currentStep };
@@ -2278,6 +2315,33 @@ export async function processIncomingWhatsAppMessage(params: {
     });
   } catch (err) {
     console.error("[WhatsApp AI] generateAiResponse threw error:", err);
+  }
+  // If the AI response mentions emailing the candidate (e.g. "I've emailed the complete 691-role PDF to ..."),
+  // or if the message asked about information contained in the official email pack,
+  // guarantee that the email is ACTUALLY dispatched via SMTP!
+  const lowerAnswer = aiAnswer.toLowerCase();
+  const mentionsEmailDispatch =
+    lowerAnswer.includes("emailed") ||
+    lowerAnswer.includes("sent to your email") ||
+    lowerAnswer.includes("sent to your registered email") ||
+    lowerAnswer.includes("i've emailed") ||
+    lowerAnswer.includes("ive emailed") ||
+    lowerAnswer.includes("re-triggered") ||
+    lowerAnswer.includes("information pack to");
+
+  if (mentionsEmailDispatch && session.email) {
+    try {
+      const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
+      await sendWhatsAppInfoEmail({
+        phone: session.phone,
+        name: session.name,
+        email: session.email,
+        leadId: session.leadId,
+      });
+      await updateSession(db, session.phone, { infoEmailSentAt: new Date() });
+    } catch (e) {
+      console.warn("[WhatsApp AI] Background email dispatch failed:", e);
+    }
   }
 
   // Guaranteed fallback: If AI returned empty or failed, send an intelligent human response
