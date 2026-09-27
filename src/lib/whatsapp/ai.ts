@@ -61,9 +61,8 @@ export async function generateAiResponse(params: {
 
   if (isDeletionRequest) {
     return (
-      `I cannot delete any personal data, chat history, or CRM profiles. 🔒\n\n` +
-      `Candidates cannot perform data deletion, profile removal, or conversation resets through this chat. All account modifications and data management operations are strictly restricted and handled exclusively by our authorized CRM Administrator for verification and compliance.\n\n` +
-      `For official administrative inquiries, please contact our team at info@tmsvisa.com.`
+      `Data deletion, profile removal, or chat resets cannot be performed through this chat. 🔒\n\n` +
+      `All account data is managed exclusively by our CRM Administrator for compliance and verification. For administrative requests, email: info@tmsvisa.com`
     );
   }
 
@@ -82,13 +81,9 @@ export async function generateAiResponse(params: {
         : "there";
 
     return (
-      `Hello ${candidateName}! 👋\n\n` +
-      `Under our security and verification protocol, **your registered phone number cannot be changed** through this chat. 🔒\n\n` +
-      `Your candidate file, consultation booking, and CRM records are permanently linked to your current verified WhatsApp number (+${session.phone}).\n\n` +
-      `If you have switched to a new phone number:\n` +
-      `• Please initiate a new message directly from your **new WhatsApp number** to start or connect your profile, OR\n` +
-      `• Contact our team at **info@tmsvisa.com** for manual identity verification.\n\n` +
-      `You can still update other details such as your Name, Email, CV, or Consultation Slot right here! 🇦🇺`
+      `Hi ${candidateName}! 🔒 Your registered phone number **cannot be changed** through this chat.\n\n` +
+      `All records are permanently linked to +${session.phone}. If you've switched numbers, message us from your **new WhatsApp number**, or email **info@tmsvisa.com** for verification.\n\n` +
+      `Your Name, Email, CV, or Consultation Slot can still be updated here anytime! 🇦🇺`
     );
   }
 
@@ -108,13 +103,12 @@ export async function generateAiResponse(params: {
 
   if (isAskingStaffName) {
     return (
-      `Under our institutional data protection and compliance protocol, individual staff member personal names (such as Sumit or Abhay) are not shared. 🔒\n\n` +
-      `At The Migration School (TMS Visa), your profile is overseen by a structured team of specialists:\n` +
-      `• **Aria:** Senior Registered Migration Counselor (your initial guidance & program advisor)\n` +
-      `• **Dedicated TMS Recruitment Case Manager:** Allocated immediately upon enrollment to handle your Australian CV makeover, free weekly PTE classes, and direct marketing to approved Australian employers\n` +
-      `• **Senior Migration Expert:** Conducts your free 1-on-1 weekend consultation on Google Meet\n` +
-      `• **Registered Australian Migration Agent (MARN Holder):** Prepares and lodges your official employer nomination and visa application with the Department of Home Affairs\n\n` +
-      `All official communications are coordinated securely via info@tmsvisa.com and recruitment@tmsvisa.com.`
+      `For compliance, individual staff names are not shared. 🔒 Your profile is handled by:\n\n` +
+      `• **Aria** — Senior Migration Counselor (initial guidance)\n` +
+      `• **TMS Recruitment Case Manager** — CV makeover, PTE coaching & employer marketing\n` +
+      `• **Senior Migration Expert** — Free 1-on-1 weekend consultation\n` +
+      `• **Registered Migration Agent (MARN)** — Visa lodgement with Home Affairs\n\n` +
+      `Contact: info@tmsvisa.com`
     );
   }
 
@@ -229,7 +223,7 @@ RESPONSE DIRECTIVES:
 - Relate directly to their facts (Occupation: ${session.occupation || "their occupation"}, Experience: ${session.yearsExperience || "their experience"}, Location: ${session.countryName}).
 
 3. COMPLETE & ACCURATE INFORMATION (CONCISE, STRUCTURED, NEVER CUT OFF):
-- Deliver complete, accurate, and full information with "a little extra" valuable context, but keep it well-structured and concise (under 280 words) for easy WhatsApp reading.
+- Deliver complete, accurate information in a tight, structured format — **under 160 words** for easy WhatsApp reading. Use bullet points, avoid filler phrases, get to the point fast.
 - Key figures to include where relevant:
   * Minimum statutory salary: AUD $76,500/year threshold plus 11.5% superannuation and overtime.
   * Australian employer covers: $330 work permit + $6,000 embassy fees + $1,000 flight ticket to Australia.
@@ -294,7 +288,7 @@ RESPONSE DIRECTIVES:
                   { role: "system", content: SYSTEM_PROMPT },
                   { role: "user", content: rawMsg },
                 ],
-                max_tokens: 650,
+                max_tokens: 450,
                 temperature: 0.35,
               }),
               signal: controller.signal,
@@ -577,57 +571,49 @@ function generateHumanVisaExpertReply(params: {
   // 0. Phone number change request — CANNOT be changed via chat
   if (wantsToChangePhone || isBarePhoneNumber) {
     return (
-      `${frustratedPrefix}Hello${nameSalutation}! 👋\n\n` +
-      `Under our security and verification protocol, **your registered phone number cannot be changed** through this chat. 🔒\n\n` +
-      `Your candidate dossier, consultation booking, and official CRM records are permanently linked to your current verified WhatsApp number (+${session.phone}).\n\n` +
-      `If you have switched to a new phone number:\n` +
-      `• Please initiate a new message directly from your **new WhatsApp number** to start or connect your profile, OR\n` +
-      `• Reach out to our administrative desk at **info@tmsvisa.com** for manual identity verification.\n\n` +
-      `All other details (such as your Name, Email, CV, or Consultation Slot) can still be updated right here! 🇦🇺`
+      `${frustratedPrefix}🔒 Your registered phone number **cannot be changed** through this chat.\n\n` +
+      `Records are permanently linked to +${session.phone}. To use a new number, message from it directly, or email **info@tmsvisa.com**.\n\n` +
+      `Name, Email, CV, or Consultation Slot can still be updated here! 🇦🇺`
     );
   }
 
   // 0A. Email change request
   if (wantsToChangeEmail) {
     return (
-      `${frustratedPrefix}Of course${nameSalutation}! To update your registered email address, please simply reply with your new, correct email address right here.\n\n` +
-      `Our team will update your profile and confirm the change. All future visa roadmap documents and official communications will then be directed to your new email.\n\n` +
-      `📧 Please reply with: **Your New Email Address**`
+      `${frustratedPrefix}Sure${nameSalutation}! Please reply with your **new email address** and we'll update your profile right away.\n\n` +
+      `📧 Reply with: **yourname@example.com**`
     );
   }
 
   // 0B. Name change request
   if (wantsToChangeName) {
     return (
-      `${frustratedPrefix}Absolutely${nameSalutation}! Please reply with your **correct full name** and we will update your profile record immediately.\n\n` +
-      `📝 Please reply with: **Your Correct Full Name**`
+      `${frustratedPrefix}Sure${nameSalutation}! Please reply with your **correct full name** and we'll update your record instantly.\n\n` +
+      `📝 Reply with: **Your Full Name**`
     );
   }
 
   // 0C. CV / Resume upload intent
   if (wantsToUpdateCv) {
     return (
-      `${frustratedPrefix}Great${nameSalutation}! Please go ahead and send your CV/Resume file directly here in WhatsApp (PDF or Word .doc / .docx format preferred).\n\n` +
-      `Our Senior Migration Specialists will review it immediately against the 691 eligible Australian occupations and prepare your personalized assessment report! 📄🇦🇺`
+      `${frustratedPrefix}Please send your CV/Resume here (PDF or Word) 📄 and our specialists will assess it against the 691 eligible Australian occupations right away! 🇦🇺`
     );
   }
 
   // 0D. Identity / Bot / Who are you?
   if (asksIdentityOrBot) {
     return (
-      `${frustratedPrefix}Hello${nameSalutation}! 👋 I'm **Aria**, Senior Registered Migration Counselor at **The Migration School (TMS Visa)** 🇦🇺.\n\n` +
-      `You are communicating directly with our official visa guidance desk. I work alongside our team of Senior Migration Experts and Registered Australian Migration Agents (MARN Holders) to evaluate candidates for Australian employer sponsorship.\n\n` +
-      `How can I help you today?`
+      `${frustratedPrefix}Hi${nameSalutation}! 👋 I'm **Aria**, Senior Migration Counselor at **TMS Visa** 🇦🇺 — your official visa guidance desk.\n\n` +
+      `I work with our Senior Migration Experts and Registered Migration Agents (MARN Holders) to assess candidates for Australian employer sponsorship. How can I help?`
     );
   }
 
   // 0E. How did you get my number / I never applied
   if (asksContactOrigin) {
     return (
-      `${frustratedPrefix}Hello${nameSalutation}! 👋 Thank you for asking — that is a very fair question.\n\n` +
-      `Our recruitment team received your profile through our international skilled migration career portal or a professional job network where you had indicated interest in overseas employment opportunities.\n\n` +
-      `We exclusively work on the **Australia Employer Sponsored Work Visa** (min salary AUD $76,500/year, employer-covered fees, direct PR after 2 years).\n\n` +
-      `If this is not for you, simply reply **"Stop"** and we will immediately remove you from outreach. But if you have 2+ years of work experience, we'd be delighted to give you a free CV evaluation!`
+      `${frustratedPrefix}Hi${nameSalutation}! Your profile was received via our international skilled migration portal or job network.\n\n` +
+      `We work exclusively on the **Australia Employer Sponsored Work Visa** — min salary AUD $76,500/year, employer-covered fees, direct PR after 2 years.\n\n` +
+      `Not interested? Reply **"Stop"** anytime. Have 2+ years experience? We'd love to do a free CV check! 🇦🇺`
     );
   }
 
@@ -643,117 +629,105 @@ function generateHumanVisaExpertReply(params: {
   // 0G. Cost / Fees question (even if expressed with frustration)
   if (asksAboutCost) {
     return (
-      `${frustratedPrefix}Our fee structure is 100% transparent — zero hidden costs${nameSalutation}: 🇦🇺\n\n` +
-      `💼 **Covered Entirely by Your Australian Sponsoring Employer:**\n` +
-      `• $330 Work Permit / Nomination Fee\n` +
-      `• $6,000 Australian Government Embassy & Visa Fees\n` +
-      `• $1,000 Flight Ticket to Australia\n\n` +
-      `👤 **Candidate Total: AUD 1,000 in 2 Safe Milestones:**\n` +
-      `1️⃣ **AUD 300 Upfront** — After signing the 1-Year Agreement (Australian CV makeover, Case Manager, free PTE coaching from Day 1)\n` +
-      `2️⃣ **AUD 700 Balance** — **Strictly after visa is approved and flight tickets are in your hands!**\n\n` +
-      `Our weekend 1-on-1 consultation is completely free. Would you like to schedule your slot?`
+      `${frustratedPrefix}100% transparent fees${nameSalutation} — zero hidden costs: 🇦🇺\n\n` +
+      `💼 **Employer Covers:** $330 permit + $6,000 embassy + $1,000 flight ticket\n\n` +
+      `👤 **Candidate: AUD 1,000 total (2 milestones):**\n` +
+      `1️⃣ **AUD 300** — On signing (CV makeover, Case Manager, free PTE coaching)\n` +
+      `2️⃣ **AUD 700** — Only after visa approval & flight tickets in hand!\n\n` +
+      `Free 1-on-1 weekend consultation available. Want to book?`
     );
   }
 
   // 0H. Salary question (even if expressed with frustration)
   if (asksAboutSalary) {
     return (
-      `${frustratedPrefix}Here is your guaranteed salary protection under Australian law${nameSalutation}: 💼🇦🇺\n\n` +
-      `• **Statutory Minimum (TSMIT):** AUD $76,500/year (approx ₹42–46 Lakhs/year) plus allowances\n` +
-      `• **Superannuation:** Employer pays an additional 11.5% into your Australian retirement fund\n` +
-      `• **Tax-Free Threshold:** First AUD $18,200/year is 100% tax-free\n` +
-      `• **Net Monthly Savings:** Average AUD $1,500–$3,000 after Australian living costs\n\n` +
-      `Would you like to schedule a free consultation to review your specific occupation's salary package?`
+      `${frustratedPrefix}Australian salary protection${nameSalutation}: 💼🇦🇺\n\n` +
+      `• **Min salary:** AUD $76,500/year (~₹42–46 Lakhs) + allowances\n` +
+      `• **Super:** Employer adds 11.5% into your retirement fund\n` +
+      `• **Tax-free:** First AUD $18,200/year is 0% tax\n` +
+      `• **Savings:** ~AUD $1,500–$3,000/month after living costs\n\n` +
+      `Want a free consultation to review your occupation's package?`
     );
   }
 
   // 0I. Process / Timeline / How it works
   if (asksAboutProcess) {
     return (
-      `${frustratedPrefix}Our full process takes **4 to 5 months** from CV to visa approval and travel${nameSalutation}: ⏱️🇦🇺\n\n` +
-      `1️⃣ **Free CV Assessment** — Against 691 eligible occupations\n` +
-      `2️⃣ **Agreement & Case Manager (AUD 300)** — Australian CV makeover, dedicated Case Manager, free weekly PTE coaching from Day 1\n` +
-      `3️⃣ **Employer Marketing** — TMS presents your profile to approved Australian employers until offer received\n` +
-      `4️⃣ **English Exam & 3 Documents** — PTE/IELTS + Passport, Medical Fitness, Police Clearance\n` +
-      `5️⃣ **Sponsorship & Nomination** — Employer files with Department of Home Affairs\n` +
-      `6️⃣ **Visa Lodgement** — Registered Migration Agent (MARN Holder) manages full lodgement\n` +
-      `7️⃣ **Visa Grant & Flight (AUD 700)** — Pay balance ONLY after visa approved & tickets in hand!\n\n` +
-      `Would you like to schedule a free weekend consultation to begin?`
+      `${frustratedPrefix}**4–5 months** from CV to visa approval${nameSalutation}: ⏱️🇦🇺\n\n` +
+      `1️⃣ Free CV Assessment (691 occupations)\n` +
+      `2️⃣ Agreement + Case Manager — AUD 300 (CV makeover + free PTE coaching)\n` +
+      `3️⃣ Employer Marketing — TMS finds your sponsor\n` +
+      `4️⃣ English exam (after job offer) + 3 documents\n` +
+      `5️⃣ Nomination + Visa lodgement by MARN Agent\n` +
+      `6️⃣ Visa grant + flight — pay AUD 700 only then!\n\n` +
+      `Free weekend consultation available — want to book?`
     );
   }
 
   // 0J. Family / Spouse / Children
   if (asksAboutFamily) {
     return (
-      `${frustratedPrefix}Yes, your entire immediate family comes with you to Australia${nameSalutation}! 👨‍👩‍👧‍👦🇦🇺\n\n` +
-      `• **Spouse/Partner:** Full unrestricted work rights in any Australian company from Day 1\n` +
-      `• **Children:** Access to high-standard Australian public schooling and healthcare\n` +
-      `• **Permanent Residency:** After 2 years, you and your entire family receive Australian PR (Subclass 186) together\n\n` +
-      `Would you like to discuss your complete family migration roadmap in our free weekend consultation?`
+      `${frustratedPrefix}Yes! Your whole family comes with you${nameSalutation}! 👨‍👩‍👧‍👦🇦🇺\n\n` +
+      `• **Spouse:** Full unrestricted work rights from Day 1\n` +
+      `• **Children:** Free public schooling & healthcare\n` +
+      `• **PR:** After 2 years, entire family gets Subclass 186 PR together\n\n` +
+      `Want to discuss your family roadmap in our free weekend consultation?`
     );
   }
 
   // 0K. English / IELTS / PTE
   if (asksAboutEnglish) {
     return (
-      `${frustratedPrefix}You do NOT need an English test to start${nameSalutation}! 📚🇦🇺\n\n` +
-      `• You take the exam **only after securing your Australian job offer**\n` +
-      `• **TMS provides free weekly live PTE classes every weekend from your very first week!**\n\n` +
-      `Minimum scores required (very achievable with TMS coaching):\n` +
-      `• **PTE Academic:** L:33, R:36, W:29, S:24\n` +
-      `• **IELTS General/Academic:** 5.0 in each band\n` +
-      `• **Exemptions:** 5+ years schooling taught in English\n\n` +
-      `Have you taken any English test previously?`
+      `${frustratedPrefix}No English test needed to start${nameSalutation}! 📚🇦🇺\n\n` +
+      `• Exam taken **only after your job offer** — TMS gives free weekly PTE coaching from Day 1\n` +
+      `• **PTE:** L:33, R:36, W:29, S:24 | **IELTS:** 5.0 per band\n` +
+      `• Exempt if 5+ years schooling was in English\n\n` +
+      `Have you taken any English test before?`
     );
   }
 
   // 0L. Jobs / Occupations / Vacancies
   if (asksAboutJobs) {
     return (
-      `${frustratedPrefix}Australia's Employer Sponsored Eligible Occupation List covers **691 approved roles** with minimum AUD $76,500/year${nameSalutation}: 🇦🇺📋\n\n` +
-      `High-demand sectors include:\n` +
-      `• **Trades:** Mechanics, Electricians, Welders, Fitters, Chefs, Plumbers, HVAC\n` +
-      `• **Engineering:** Civil, Mechanical, Electrical, Mining, Structural Engineers\n` +
-      `• **IT:** Developers, Cloud/Network Engineers, Cyber Security\n` +
-      `• **Healthcare:** Registered Nurses, Physiotherapists, Medical Technologists\n` +
-      `• **Hospitality:** Restaurant/Hotel Managers, Food Technologists\n\n` +
-      `What is your occupation and years of experience? I'll check your exact ANZSCO code right now!`
+      `${frustratedPrefix}**691 eligible occupations** — min AUD $76,500/year${nameSalutation}: 🇦🇺📋\n\n` +
+      `• **Trades:** Mechanics, Electricians, Welders, Chefs, Plumbers, HVAC\n` +
+      `• **Engineering:** Civil, Mech, Electrical, Mining Engineers\n` +
+      `• **IT:** Developers, Cloud/Cyber/Network Engineers\n` +
+      `• **Healthcare:** Nurses, Physios, Medical Technologists\n\n` +
+      `What's your occupation & years of experience? I'll check your ANZSCO code now!`
     );
   }
 
   // 0M. Documents
   if (asksAboutDocuments) {
     return (
-      `${frustratedPrefix}As a candidate, you only need **3 personal documents${nameSalutation}**: 📄🇦🇺\n\n` +
-      `1️⃣ Valid Passport Copy\n` +
-      `2️⃣ Medical Fitness Certificate (at an approved Embassy-panel clinic)\n` +
-      `3️⃣ Police Clearance Certificate (PCC)\n\n` +
-      `TMS and your sponsoring employer handle all complex company filings, nomination, labour market testing, and full visa lodgement with the Australian Government!`
+      `${frustratedPrefix}Only **3 documents** needed from you${nameSalutation}: 📄🇦🇺\n\n` +
+      `1️⃣ Passport copy  2️⃣ Medical Fitness Certificate  3️⃣ Police Clearance (PCC)\n\n` +
+      `TMS + employer handle all filings, nomination, labour market testing & visa lodgement!`
     );
   }
 
   // 0N. Eligibility question
   if (asksAboutEligibility) {
     return (
-      `${frustratedPrefix}To assess your eligibility for the Australia Employer Sponsored Work Visa${nameSalutation}, here are the core requirements: 🇦🇺✅\n\n` +
-      `• **Occupation:** Must be on the official 691 Eligible Occupation List (ANZSCO)\n` +
-      `• **Experience:** Minimum 2 years full-time verifiable work experience\n` +
-      `• **Age:** Under 45 years for standard pathways (some exceptions for specialized roles)\n` +
-      `• **English:** PTE/IELTS exam AFTER job offer only; TMS provides free coaching from Day 1\n` +
-      `• **Qualification:** Degree, diploma, ITI, or trade apprenticeship depending on occupation\n\n` +
-      `What is your current job title and years of experience? I can give you an instant eligibility verdict!`
+      `${frustratedPrefix}Core eligibility criteria${nameSalutation}: 🇦🇺✅\n\n` +
+      `• **Occupation:** On the 691 ANZSCO eligible list\n` +
+      `• **Experience:** 2+ years full-time verifiable\n` +
+      `• **Age:** Under 45 (exceptions for specialist roles)\n` +
+      `• **English:** PTE/IELTS after job offer; free TMS coaching from Day 1\n` +
+      `• **Qualification:** Degree, diploma, ITI or trade cert (role-dependent)\n\n` +
+      `Tell me your job title & years of experience — I'll give you an instant verdict!`
     );
   }
 
   // 0O. Permanent Residency
   if (asksAboutPr) {
     return (
-      `${frustratedPrefix}Yes! The Australia Employer Sponsored Work Visa provides a **direct, legislation-backed PR pathway**${nameSalutation}! 🇦🇺\n\n` +
-      `• **2-Year Transition:** After 2 years working with your sponsor → apply for Subclass 186 PR\n` +
-      `• **PR Benefits:** Medicare healthcare, free education, social security, live anywhere in Australia\n` +
-      `• **Citizenship:** After 12 months of PR (4 years total) → apply for Australian Citizenship and passport\n` +
-      `• **No Points Test:** Unlike 189/190, no points lottery — employer guarantee means direct pathway\n\n` +
-      `Would you like to discuss your complete PR roadmap in our free weekend consultation?`
+      `${frustratedPrefix}Direct PR pathway${nameSalutation}! 🇦🇺\n\n` +
+      `• **2 years** with sponsor → Subclass 186 PR (no points test, no lottery)\n` +
+      `• **PR benefits:** Medicare, free education, social security, live anywhere\n` +
+      `• **Citizenship:** After 12 months of PR → Australian passport\n\n` +
+      `Want to discuss your PR roadmap in our free weekend consultation?`
     );
   }
 
@@ -762,14 +736,13 @@ function generateHumanVisaExpertReply(params: {
   // ============================================================
   if (isFrustrated || isAngryOrSkeptical) {
     return (
-      `I completely understand your frustration${nameSalutation}. 🤝\n\n` +
-      `There is a lot of misinformation and unauthorized operators in the overseas migration space — your skepticism is warranted and appreciated.\n\n` +
-      `Please know that **The Migration School (TMS Visa)** operates under strict legal compliance:\n` +
-      `• 🇦🇺 **Australia:** 154 Peisley Street, Orange NSW 2800 | ABN: 75 148 213 076\n` +
-      `• 🇮🇳 **India:** Delhi NCR | Groworld Vijatour Pvt Ltd (CIN: U62099HR2024PTC122827)\n` +
-      `• All visa applications filed strictly by licensed **Registered Australian Migration Agents (MARN Holders)**\n` +
-      `• **Milestone safety:** AUD 300 to start; AUD 700 balance payable **ONLY after visa approval & flight tickets in hand**\n\n` +
-      `If there is anything specific about our process, fees, or company that you'd like to verify, I'm right here to answer with full transparency. What would you like to know?`
+      `I understand your frustration${nameSalutation} — migration fraud is real and your skepticism is valid. 🤝\n\n` +
+      `TMS Visa operates under strict legal compliance:\n` +
+      `• 🇦🇺 Orange, NSW 2800 | ABN: 75 148 213 076\n` +
+      `• 🇮🇳 Delhi NCR | Groworld Vijatour Pvt Ltd (CIN: U62099HR2024PTC122827)\n` +
+      `• Visa lodged by licensed **MARN Registered Migration Agents**\n` +
+      `• **Milestone safety:** AUD 300 to start; AUD 700 only after visa + flight tickets in hand\n\n` +
+      `What would you like to verify?`
     );
   }
 
@@ -868,10 +841,8 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("call on my number")
   ) {
     return (
-      `Hello${nameSalutation}! I completely understand your desire to speak live! 📞🇦🇺\n\n` +
-      `Because an Australian Employer Sponsored Work Visa assessment requires reviewing your exact occupation code (ANZSCO), CV credentials, salary thresholds, and sponsorship eligibility, our official technical consultations are conducted **1-on-1 on Google Meet**.\n\n` +
-      `On Google Meet, our Senior Migration Expert shares their screen, audits your CV directly with you, and walks you through the step-by-step roadmap.\n\n` +
-      `Sessions run on Saturdays and Sundays in 1-hour slots in your local time. Would you like to book a weekend session?`
+      `Hi${nameSalutation}! Our consultations run **1-on-1 on Google Meet** 📞🇦🇺 because the expert screen-shares your CV, checks ANZSCO codes, and walks you through the full roadmap live.\n\n` +
+      `Weekend slots (Sat/Sun) available in your local time. Want to book?`
     );
   }
 
@@ -892,11 +863,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("age 5")
   ) {
     return (
-      `Great question,${nameSalutation}! Here are the Australian Government age regulations for employer-sponsored visas: 🇦🇺\n\n` +
-      `• **Primary Age Window:** Candidates **under 45 years of age** are fully eligible for direct employer sponsorship and the subsequent transition to Permanent Residency (Subclass 186).\n` +
-      `• **Age 45 to 50:** Certain specialized regional pathways, high-income threshold earners, and designated skills can qualify for age exemptions.\n` +
-      `• **Minimum Age:** At least 18 years of age with 2+ years of verifiable work experience.\n\n` +
-      `Australian employers value mature, hands-on experience! Would you like to review your CV in our free weekend consultation?`
+      `Age criteria${nameSalutation}: 🇦🇺\n\n` +
+      `• **Under 45:** Fully eligible for employer sponsorship & Subclass 186 PR\n` +
+      `• **45–50:** Possible exemptions for specialist/regional/high-income roles\n` +
+      `• **Minimum:** 18+ years with 2+ years experience\n\n` +
+      `Want to review your CV in a free weekend consultation?`
     );
   }
 
@@ -915,10 +886,10 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("master")
   ) {
     return (
-      `Hello${nameSalutation}! A 4-year university degree is **NOT always mandatory** for Australian employer sponsorship! 🇦🇺\n\n` +
-      `• **Trade & Technical Roles (Chefs, Mechanics, Electricians, Fitters, Welders, Technicians):** A Diploma, ITI certificate, or formal apprenticeship combined with 3+ years of verifiable experience is recognized under Australian Recognition of Prior Learning (RPL).\n` +
-      `• **White-Collar Roles (Engineers, IT, Finance, Healthcare):** A relevant Bachelor's or Master's degree plus 2+ years of experience is standard.\n\n` +
-      `What is your specific job title and how many years of experience do you have? I can check your exact occupation code on the 691 list!`
+      `A 4-year degree is **NOT always required**${nameSalutation}! 🇦🇺\n\n` +
+      `• **Trades** (Chefs, Mechanics, Electricians, Welders): Diploma/ITI + 3+ years experience qualifies via RPL\n` +
+      `• **Professional** (Engineers, IT, Finance, Healthcare): Bachelor's/Master's + 2+ years\n\n` +
+      `Tell me your job title & years of experience — I'll check your ANZSCO code!`
     );
   }
 
@@ -934,11 +905,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("how many years")
   ) {
     return (
-      `Regarding work experience and verification,${nameSalutation}: 💼🇦🇺\n\n` +
-      `• **Required Duration:** A minimum of **2 years of full-time verifiable experience** in your nominated occupation is required by Australian immigration law.\n` +
-      `• **Verification:** Acceptable proofs include work contracts, experience/service letters, bank statements showing salary credits, tax filings (ITR / Form 16 / GOSI / WPS), or official payslips.\n` +
-      `• **Career Gaps:** Brief gaps between jobs are completely acceptable provided you have 2+ cumulative years of verifiable history.\n\n` +
-      `Our team helps format your experience into Australian market standards. How many total years do you have in your field?`
+      `Work experience requirements${nameSalutation}: 💼🇦🇺\n\n` +
+      `• **Minimum:** 2 years full-time verifiable experience\n` +
+      `• **Proofs accepted:** Service letters, bank salary credits, payslips, ITR/Form 16, contracts\n` +
+      `• **Gaps:** Brief gaps are fine as long as total is 2+ cumulative years\n\n` +
+      `How many total years do you have in your field?`
     );
   }
 
@@ -956,12 +927,12 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("pension")
   ) {
     return (
-      `Under Australian immigration law, your salary is legally protected: 💼🇦🇺\n\n` +
-      `• **Statutory Minimum Salary (TSMIT):** Australian sponsoring employers are legally required to pay a minimum of **AUD $76,500 per year** (approx. AUD $6,375/month) plus allowances.\n` +
-      `• **Superannuation (Retirement Fund):** Employer pays an additional **11.5%** into your Australian retirement fund on top of your base salary.\n` +
-      `• **Cost of Living & Savings:** Average monthly living costs for a couple range from AUD $2,500–$3,200, enabling substantial monthly savings.\n` +
-      `• **Taxes:** The first AUD $18,200/year is 100% tax-free in Australia, with progressive brackets thereafter.\n\n` +
-      `Would you like to schedule a free consultation to review compensation for your occupation?`
+      `Australian salary (legally protected)${nameSalutation}: 💼🇦🇺\n\n` +
+      `• **Min (TSMIT):** AUD $76,500/yr (~$6,375/month) + allowances\n` +
+      `• **Superannuation:** +11.5% retirement fund from employer\n` +
+      `• **Tax-free:** First $18,200/yr @ 0%\n` +
+      `• **Savings:** ~AUD $1,500–$3,000/month after living costs\n\n` +
+      `Want a free consultation to review your occupation's package?`
     );
   }
 
@@ -978,15 +949,12 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("installment")
   ) {
     return (
-      `Our financial structure is 100% transparent with zero hidden costs! 🇦🇺\n\n` +
-      `💼 **Covered Entirely by Your Australian Sponsoring Employer:**\n` +
-      `• **$330** Work Permit / Nomination Fee\n` +
-      `• **$6,000** Australian Government Embassy & Visa Fees\n` +
-      `• **$1,000** Flight Ticket to Australia\n\n` +
-      `👤 **Candidate Total Professional Service Charge: AUD 1,000 Only** (in 2 safe milestones):\n` +
-      `1️⃣ **AUD 300 Upfront:** Paid after signing the 1-Year Agreement. Covers profile audit, Australian CV makeover, assigned dedicated TMS Recruitment Case Manager, and free weekly PTE English classes.\n` +
-      `2️⃣ **AUD 700 Balance:** Paid **strictly after your visa is approved** and flight tickets are in hand!\n\n` +
-      `Our weekend 1-on-1 consultation is completely free. Would you like to schedule your slot?`
+      `100% transparent — zero hidden costs: 🇦🇺\n\n` +
+      `💼 **Employer covers:** $330 permit + $6,000 embassy fees + $1,000 flight\n\n` +
+      `👤 **Candidate: AUD 1,000 total (2 milestones)**\n` +
+      `1️⃣ **AUD 300** — On signing (CV makeover, Case Manager, free PTE coaching)\n` +
+      `2️⃣ **AUD 700** — Only after visa approval & flight tickets in hand!\n\n` +
+      `Free weekend consultation available. Want to book?`
     );
   }
 
@@ -1004,14 +972,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("no english")
   ) {
     return (
-      `You do NOT need an English test score to begin! 🇦🇺\n\n` +
-      `You take the English exam **only after securing your official Australian job offer**.\n\n` +
-      `📚 **TMS provides free weekly live PTE classes every weekend from your very first week after joining!**\n\n` +
-      `Approved tests and minimum scores across all 4 bands (Listening, Reading, Writing, Speaking):\n` +
-      `• **PTE Academic:** L:33, R:36, W:29, S:24 (Very achievable with our coaching)\n` +
-      `• **IELTS General / Academic:** 5.0 in each band\n` +
-      `• **Exemptions:** Available if you completed 5+ years of secondary/tertiary education taught in English.\n\n` +
-      `Have you taken any English test previously?`
+      `No English test needed to begin! 📚🇦🇺\n\n` +
+      `• Exam taken **only after job offer** — TMS provides free weekly PTE coaching from Day 1\n` +
+      `• **PTE:** L:33, R:36, W:29, S:24 | **IELTS:** 5.0 per band\n` +
+      `• Exempt if 5+ years schooling was in English\n\n` +
+      `Have you taken any English test before?`
     );
   }
 
@@ -1029,11 +994,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("partner")
   ) {
     return (
-      `Yes, absolutely! Your entire immediate family can accompany you to Australia! 👨‍👩‍👧‍👦🇦🇺\n\n` +
-      `• **Spouse / Partner:** Receives unrestricted full-time work rights in Australia across any company or sector.\n` +
-      `• **Children:** Entitled to attend high-standard Australian public schools and access healthcare.\n` +
-      `• **Permanent Residency:** When you transition to PR (Subclass 186) after 2 years, your spouse and children receive Australian Permanent Residency together with you.\n\n` +
-      `Would you like to discuss your family visa roadmap during our free weekend consultation?`
+      `Yes! Your entire family comes with you! 👨‍👩‍👧‍👦🇦🇺\n\n` +
+      `• **Spouse:** Full unrestricted work rights from Day 1\n` +
+      `• **Children:** Public schooling & healthcare access\n` +
+      `• **PR:** Whole family gets Subclass 186 PR together after 2 years\n\n` +
+      `Want to discuss your family roadmap in our free weekend consultation?`
     );
   }
 
@@ -1048,10 +1013,10 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("sister")
   ) {
     return (
-      `Regarding parents and extended family: 🇦🇺\n\n` +
-      `• **During Work Visa Stage:** Parents can travel to visit you on long-stay Australian Visitor Visas (Subclass 600) with stay periods of up to 12 months.\n` +
-      `• **After Permanent Residency (PR):** Once you transition to Australian Permanent Residency after 2 years, you can officially sponsor your parents for permanent parent visas.\n\n` +
-      `Your spouse and dependent children travel directly with you on your work visa from Day 1.`
+      `Parents & extended family: 🇦🇺\n\n` +
+      `• **During work visa:** Parents can visit on Subclass 600 Visitor Visa (up to 12 months)\n` +
+      `• **After PR (2 years):** You can sponsor parents for permanent parent visas\n\n` +
+      `Spouse & dependent children travel with you from Day 1.`
     );
   }
 
@@ -1065,11 +1030,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("passport") && lower.includes("australia")
   ) {
     return (
-      `Yes! The Australia Employer Sponsored Work Visa provides a direct, legislation-backed pathway to **Australian Permanent Residency (PR Subclass 186)**! 🇦🇺\n\n` +
-      `• **2-Year Transition:** After completing 2 years of full-time work with your sponsoring employer, you and your family are eligible to apply for Permanent Residency.\n` +
-      `• **PR Benefits:** Subsidized Medicare healthcare, free education, social security, and freedom to live anywhere in Australia.\n` +
-      `• **Citizenship:** After holding PR for 12 months (4 years total legal residence), you can apply for Australian Citizenship and an Australian passport.\n\n` +
-      `Would you like to review your career pathway with our Senior Migration Expert this weekend?`
+      `Direct PR pathway! 🇦🇺\n\n` +
+      `• **2 years** with sponsor → Subclass 186 Permanent Residency\n` +
+      `• **Benefits:** Medicare, free education, social security, live anywhere\n` +
+      `• **Citizenship:** 12 months after PR → Australian passport\n\n` +
+      `Want to review your pathway with our Migration Expert this weekend?`
     );
   }
 
@@ -1084,11 +1049,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("flat")
   ) {
     return (
-      `Here is how relocation and accommodation are arranged,${nameSalutation}: ✈️🇦🇺\n\n` +
-      `• **Flight Ticket:** Your sponsoring Australian employer covers your flight ticket (worth ~$1,000 AUD) to Australia.\n` +
-      `• **Initial Accommodation:** Most sponsoring Australian employers provide initial temporary accommodation (2 to 4 weeks in corporate apartments or hotels) or airport pickup to ensure a smooth transition.\n` +
-      `• **Settling In:** Your dedicated TMS Recruitment Case Manager provides pre-departure briefings and guidance on long-term rental leasing in your Australian city.\n\n` +
-      `You are supported throughout your journey until you are comfortably settled!`
+      `Relocation support${nameSalutation}: ✈️🇦🇺\n\n` +
+      `• **Flight:** Employer covers ~AUD $1,000 flight ticket\n` +
+      `• **Accommodation:** Most employers provide 2–4 weeks initial housing/airport pickup\n` +
+      `• **Settling in:** TMS Case Manager gives pre-departure briefings & rental guidance\n\n` +
+      `You're supported every step of the way!`
     );
   }
 
@@ -1103,10 +1068,10 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("bonded")
   ) {
     return (
-      `You are fully protected under Australian Fair Work Ombudsman legislation with the exact same workplace rights as Australian citizens! 🇦🇺\n\n` +
-      `• **Grace Period:** Under updated Australian Migration regulations, if you ever need to change employers, you have a **60 to 180-day grace period** to transfer your sponsorship to another approved sponsor without having to depart Australia.\n` +
-      `• **TMS Ongoing Support:** During your 1-Year Professional Services Agreement, TMS assists you with sponsor transfer coordination if necessary.\n` +
-      `• **No Bondage:** You are an employee, not bound to unsafe conditions. Australian laws prohibit any exploitative employer practices.`
+      `You're fully protected under Australian Fair Work Ombudsman law: 🇦🇺\n\n` +
+      `• **Grace period:** 60–180 days to transfer sponsorship if you change employers\n` +
+      `• **TMS support:** We assist with sponsor transfers during your agreement period\n` +
+      `• **No bondage:** Australian law prohibits any exploitative employer practices`
     );
   }
 
@@ -1125,12 +1090,12 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("cin")
   ) {
     return (
-      `I completely appreciate your due diligence,${nameSalutation}! The Migration School (TMS Visa) is a registered migration and recruitment consultancy operating under strict compliance: 🏛️🇦🇺\n\n` +
-      `🇦🇺 **Australia Registered Entity:**\n154 Peisley Street, Orange, NSW 2800, Australia | Migration Pty Ltd. (ABN: 75 148 213 076)\n\n` +
-      `🇮🇳 **India Corporate Entity:**\nDelhi NCR, India | Groworld Vijatour Pvt. Ltd. (Trade Name: The Migration School, CIN: U62099HR2024PTC122827)\n\n` +
-      `• All visa applications are prepared by licensed **Registered Australian Migration Agents (MARN Holders)**.\n` +
-      `• Milestone protection: AUD 300 to start; AUD 700 only after visa approval & flight tickets in hand.\n\n` +
-      `Would you like to speak face-to-face with our Senior Migration Expert in a Google Meet consultation this weekend?`
+      `TMS Visa is a registered consultancy${nameSalutation}: 🏛️🇦🇺\n\n` +
+      `🇦🇺 **Australia:** 154 Peisley Street, Orange, NSW 2800 | ABN: 75 148 213 076\n` +
+      `🇮🇳 **India:** Groworld Vijatour Pvt Ltd, Delhi NCR | CIN: U62099HR2024PTC122827\n\n` +
+      `• Visa lodged by licensed **MARN Registered Migration Agents**\n` +
+      `• AUD 300 to start; AUD 700 only after visa approval & flight tickets in hand\n\n` +
+      `Want a face-to-face Google Meet consultation this weekend?`
     );
   }
 
@@ -1144,11 +1109,10 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("what if visa not approved")
   ) {
     return (
-      `Work visas with TMS **never get rejected**! 🛡️🇦🇺\n\n` +
-      `Here is why:\n` +
-      `• We do NOT lodge blind applications. We connect you directly with pre-vetted Australian employers who issue government-approved nomination letters.\n` +
-      `• Your file is audited and lodged strictly by a **Registered Australian Migration Agent (MARN Holder)** who ensures 100% compliance with Department of Home Affairs regulations before submission.\n` +
-      `• Milestone safety: Your balance of AUD 700 is payable **only after** your visa is granted and flight ticket is in hand.`
+      `TMS work visas have a **zero rejection track record**! 🛡️🇦🇺\n\n` +
+      `• Direct pre-vetted employer sponsorship — no blind applications\n` +
+      `• Full lodgement by a licensed **MARN Migration Agent** (100% compliant)\n` +
+      `• AUD 700 balance payable **only after** visa approval & flight in hand`
     );
   }
 
@@ -1161,11 +1125,9 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("medical")
   ) {
     return (
-      `As a candidate, you only need to arrange **3 personal documents**: 📄🇦🇺\n\n` +
-      `1️⃣ **Valid Passport Copy**\n` +
-      `2️⃣ **Medical Fitness Certificate** (completed at an approved Australian Embassy panel clinic)\n` +
-      `3️⃣ **Police Clearance Certificate (PCC)**\n\n` +
-      `TMS and your sponsoring Australian employer handle all complex company filings, sponsorship approvals, labor market testing, and visa lodgement paperwork with the Australian Government!`
+      `Only **3 documents** from you: 📄🇦🇺\n\n` +
+      `1️⃣ Passport copy  2️⃣ Medical Fitness Certificate  3️⃣ Police Clearance (PCC)\n\n` +
+      `TMS + your employer handle all filings, sponsorship, labour market testing & visa lodgement!`
     );
   }
 
@@ -1181,15 +1143,14 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("roadmap")
   ) {
     return (
-      `Our complete process takes approximately **4 to 5 months** from raw CV to visa approval and travel! ⏱️🇦🇺\n\n` +
-      `1️⃣ **Step 1 — Raw CV Review:** Free assessment against 691 eligible occupations\n` +
-      `2️⃣ **Step 2 — Agreement & Case Manager (AUD 300):** Australian CV makeover, assigned Case Manager, and free weekly PTE classes from Day 1\n` +
-      `3️⃣ **Step 3 — Employer Marketing:** TMS presents your profile to approved Australian employers and coordinates interviews until an offer letter is issued\n` +
-      `4️⃣ **Step 4 — English Exam & 3 Documents:** Take PTE (prepared by TMS); arrange Passport, Medicals, and PCC\n` +
-      `5️⃣ **Step 5 — Sponsorship & Nomination:** Australian employer lodges nomination\n` +
-      `6️⃣ **Step 6 — Visa Lodgement & Medicals:** Registered Migration Agent lodges visa\n` +
-      `7️⃣ **Step 7 — Visa Grant & Flight Tickets (AUD 700):** Pay final fee only once visa & tickets are in hand!\n\n` +
-      `Would you like to schedule a free 1-on-1 consultation to begin?`
+      `**4–5 months** from CV to visa approval: ⏱️🇦🇺\n\n` +
+      `1️⃣ Free CV review (691 occupations)\n` +
+      `2️⃣ Agreement + Case Manager — AUD 300 (CV makeover + free PTE coaching)\n` +
+      `3️⃣ Employer marketing — TMS finds your sponsor\n` +
+      `4️⃣ English exam (after offer) + Passport, Medical, PCC\n` +
+      `5️⃣ Nomination + Visa lodged by MARN Agent\n` +
+      `6️⃣ Visa grant + flight — pay AUD 700 only then!\n\n` +
+      `Free 1-on-1 consultation available — want to schedule?`
     );
   }
 
@@ -1211,10 +1172,9 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("current country")
   ) {
     return (
-      `Yes, absolutely! The Australia Employer Sponsored Work Visa is an international recruitment pathway. 🌏🇦🇺\n\n` +
-      `Skilled professionals residing across the Gulf (UAE, Saudi Arabia, Qatar, Kuwait, Oman, Bahrain), India, Nepal, Sri Lanka, and worldwide can apply directly from their current location.\n\n` +
-      `Employer interviews are held virtually, and visa medicals are completed at your local Australian Embassy-approved VFS center. You fly directly to Australia once approved!\n\n` +
-      `What is your occupation and current location?`
+      `Yes! You can apply from anywhere in the world! 🌏🇦🇺\n\n` +
+      `UAE, Saudi, Qatar, India, Nepal, Sri Lanka — interviews are virtual, and medicals done at your local Australian Embassy-approved VFS center. You fly to Australia on approval!\n\n` +
+      `What's your occupation and current location?`
     );
   }
 
@@ -1232,9 +1192,9 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("study visa")
   ) {
     return (
-      `TMS Visa specializes **exclusively in Australia Employer Sponsored Work Visas**! 🇦🇺\n\n` +
-      `We focus on Australia because it offers guaranteed minimum statutory wages (AUD $76,500/year), employer-covered embassy fees ($6,000) and flight tickets, full family work rights, and direct Permanent Residency.\n\n` +
-      `We do not process tourist or student visas. If you have 2+ years of professional or trade experience, we would love to assess your CV for Australia!`
+      `TMS Visa specializes **exclusively in Australia Employer Sponsored Work Visas** 🇦🇺 — not tourist, student, or other country visas.\n\n` +
+      `Australia offers: AUD $76,500/year min salary, employer-covered $6,000 embassy fees & flight, full family rights, and direct PR.\n\n` +
+      `Have 2+ years experience? We'd love to assess your CV!`
     );
   }
 
@@ -1249,14 +1209,13 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("batao")
   ) {
     return (
-      `Namaste${nameSalutation}! Hum bilkul aapki poori madad karenge. 🇦🇺\n\n` +
-      `Australia Employer Sponsored Work Visa ek direct employment visa hai jisme Australian company aapko sponsor karti hai:\n` +
-      `• **Minimum Salary:** AUD $76,500/year (approx ₹42–45 Lakhs saal ka)\n` +
-      `• **Employer Kharcha Uthata Hai:** $6,000 embassy fees, $330 work permit aur flight ticket\n` +
-      `• **Aapka Fee:** Sirf AUD 1,000 total (AUD 300 shuru me aur AUD 700 visa aur ticket aane ke baad)\n` +
-      `• **Family:** Wife ko full work rights aur bachho ki padhai free/subsidized hoti hai\n` +
-      `• **PR:** 2 saal kaam karne ke baad permanent residency (PR) milti hai.\n\n` +
-      `Aapka profession kya hai aur kitne saal ka experience hai?`
+      `Namaste${nameSalutation}! 🇦🇺 Australia Employer Sponsored Work Visa mein Australian company aapko sponsor karti hai:\n\n` +
+      `• **Salary:** AUD $76,500/year (~₹42–45 Lakhs)\n` +
+      `• **Employer:** $6,000 embassy + $330 permit + flight ticket cover karta hai\n` +
+      `• **Aapka fee:** AUD 300 shuru mein + AUD 700 sirf visa aur ticket ke baad\n` +
+      `• **Family:** Wife ko work rights, bachon ki free padhai\n` +
+      `• **PR:** 2 saal baad permanent residency\n\n` +
+      `Aapka profession aur experience kitna hai?`
     );
   }
 
@@ -1277,15 +1236,13 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("profiles available")
   ) {
     return (
-      `Australia's official Employer Sponsored Eligible Occupation List encompasses **691 approved occupations** with guaranteed statutory minimum salaries of **AUD $76,500/year** (approx ₹42–45 Lakhs): 🇦🇺📋\n\n` +
-      `Key high-demand industry sectors include:\n` +
-      `• **Trades & Technical:** Auto Mechanics, Diesel Fitters, Electricians, Welders, Carpenters, Chefs, Cooks, Bakers, HVAC Technicians, Plumbers\n` +
-      `• **Engineering & Construction:** Civil, Mechanical, Electrical, Mining, Structural Engineers, Site Supervisors, Project Managers\n` +
-      `• **IT & Software:** Software Developers, Cloud Architects, Cyber Security Specialists, Network Engineers, Systems Analysts\n` +
-      `• **Healthcare & Social Care:** Registered Nurses, Aged Care, Physiotherapists, Medical Technologists\n` +
-      `• **Hospitality & Agriculture:** Hotel/Restaurant Managers, Farm Supervisors, Food Technologists\n\n` +
-      `Sponsoring employers cover $6,000 embassy fees, $330 work permit fees, and flight tickets.\n\n` +
-      `What is your exact trade or profession and how many years of experience do you have? I can look up your exact ANZSCO occupation code!`
+      `**691 eligible occupations** — min AUD $76,500/year (~₹42–45 Lakhs): 🇦🇺📋\n\n` +
+      `• **Trades:** Mechanics, Electricians, Welders, Chefs, Plumbers, HVAC\n` +
+      `• **Engineering:** Civil, Mech, Electrical, Mining, Structural Engineers\n` +
+      `• **IT:** Developers, Cloud, Cyber Security, Network Engineers\n` +
+      `• **Healthcare:** Nurses, Physiotherapists, Medical Technologists\n` +
+      `• **Hospitality:** Hotel/Restaurant Managers, Food Technologists\n\n` +
+      `Employer covers $6,000 embassy + $330 permit + flight. What's your profession & experience?`
     );
   }
 
@@ -1301,11 +1258,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("0 years")
   ) {
     return (
-      `Regarding experience requirements,${nameSalutation}: 💼🇦🇺\n\n` +
-      `Under Australian Department of Home Affairs regulations, direct employer-sponsored work visas require a minimum of **2 years of full-time verifiable work experience** in your nominated occupation.\n\n` +
-      `• **If you have less than 2 years:** We recommend accumulating 2 continuous years in your field with verifiable proof (payslips, service letters, or bank salary deposits) before applying.\n` +
-      `• **Alternative:** If you are a recent graduate, Australian higher education or student visa pathways can be explored to gain Australian work rights and graduate visas.\n\n` +
-      `How many months or years of practical experience, apprenticeships, or internships do you currently have?`
+      `Experience requirements${nameSalutation}: 💼🇦🇺\n\n` +
+      `Australian employer sponsorship requires **minimum 2 years full-time verifiable experience**.\n\n` +
+      `• Less than 2 years? Build up to it with payslips/service letters in your field\n` +
+      `• Recent graduate? Student/graduate visa pathways may apply\n\n` +
+      `How many months/years of experience do you currently have?`
     );
   }
 
@@ -1321,10 +1278,10 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("no have passport")
   ) {
     return (
-      `You do not need a passport in hand right this moment to get started! 🛂🇦🇺\n\n` +
-      `• **Immediate Action:** We can begin your initial CV evaluation against the 691 eligible occupations, Australian CV makeover, and free weekly live PTE coaching immediately.\n` +
-      `• **Timeline:** The complete process takes **4 to 5 months**. A valid passport is only required when your approved Australian employer lodges your formal visa nomination with the Department of Home Affairs.\n\n` +
-      `You can apply for a new or Tatkal/expedited passport at your local passport office in parallel while our team works on your profile!`
+      `No passport needed to get started! 🛂🇦🇺\n\n` +
+      `• We start CV evaluation, makeover & free PTE coaching immediately\n` +
+      `• Passport only needed when employer lodges formal nomination (4–5 months in)\n\n` +
+      `Apply for a new/Tatkal passport in parallel while we work on your profile!`
     );
   }
 
@@ -1342,13 +1299,11 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("score low")
   ) {
     return (
-      `Please do not worry at all about English! 📚🇦🇺\n\n` +
-      `• **No Exam Needed Now:** You do NOT need any test score to begin with TMS. The exam is taken only AFTER you receive your official Australian job offer!\n` +
-      `• **Free Weekly Live Classes:** TMS provides free weekly live PTE classes every weekend from your very first week after joining.\n` +
-      `• **Easily Achievable Requirement:** The required score under employer sponsorship is very modest:\n` +
-      `  - **PTE Academic:** Listening: 33, Reading: 36, Writing: 29, Speaking: 24 (most candidates pass easily within 2–3 weeks of our targeted coaching!)\n` +
-      `  - **IELTS General:** 5.0 in each band.\n\n` +
-      `Our trainers give you exact proven templates, scoring shortcuts, and mock evaluations so you pass on your first attempt!`
+      `Don't worry about English! 📚🇦🇺\n\n` +
+      `• No exam needed to start — take it only after your job offer\n` +
+      `• TMS provides free weekly PTE coaching from Day 1\n` +
+      `• **PTE:** L:33, R:36, W:29, S:24 | **IELTS:** 5.0 per band (most pass in 2–3 weeks with TMS coaching!)\n\n` +
+      `Our trainers provide proven templates, shortcuts & mock tests for a first-attempt pass!`
     );
   }
 
@@ -1364,11 +1319,10 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("subclass 190")
   ) {
     return (
-      `Here is the clear strategic difference between Direct PR (189/190) and the Employer Sponsored Work Visa: 🇦🇺🎯\n\n` +
-      `• **Point-Tested PR (Subclass 189/190):** Requires 85–95+ points based on age, superior English (IELTS 8+), full skill assessments, and state invitation rounds that can take 1 to 3 years with zero guarantee of selection.\n` +
-      `• **Employer Sponsored Work Visa:** **NO points test, NO lottery, NO waiting for invites!** You are hired directly by a pre-vetted Australian employer with a guaranteed minimum statutory salary of **AUD $76,500/year** plus superannuation.\n` +
-      `• **Guaranteed PR Conversion (Subclass 186):** After 2 years of working with your Australian sponsor, you and your family transition directly to Australian Permanent Residency!\n\n` +
-      `It is the fastest and most secure route to settle in Australia with a guaranteed job from Day 1.`
+      `Direct PR (189/190) vs Employer Sponsored: 🇦🇺🎯\n\n` +
+      `• **189/190 PR:** Requires 85–95+ points, IELTS 8+, 1–3 year wait with no guarantee\n` +
+      `• **Employer Sponsored:** No points test, no lottery — hired by pre-vetted employer, AUD $76,500/year guaranteed\n` +
+      `• **PR after 2 years:** Subclass 186 PR for you & family — fastest, most secure route!`
     );
   }
 
@@ -1382,13 +1336,13 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("who is the migration school")
   ) {
     return (
-      `**The Migration School (TMS Visa)** is an international migration consultancy specializing in Australian Employer Sponsored Work Visas: 🏛️🇦🇺\n\n` +
-      `• **Australia Registered Office:** 154 Peisley Street, Orange, NSW 2800, Australia | Migration Pty Ltd (ABN: 75 148 213 076)\n` +
-      `• **India Corporate Office:** Delhi NCR | Groworld Vijatour Pvt Ltd (Trade Name: The Migration School, CIN: U62099HR2024PTC122827)\n` +
-      `• **Legal Compliance:** All filings are audited and lodged strictly by licensed **Registered Australian Migration Agents (MARN Holders)**\n` +
-      `• **Track Record:** Direct corporate employer partnerships across Australia ensuring zero visa rejection track record\n` +
-      `• **Transparent Milestones:** AUD 300 to begin; AUD 700 balance only after visa approval & flight tickets in hand.\n\n` +
-      `Would you like to schedule a free 1-on-1 consultation on Google Meet with our Senior Migration Expert this weekend?`
+      `**The Migration School (TMS Visa)** — Australian Employer Sponsored Work Visa specialists: 🏛️🇦🇺\n\n` +
+      `• 🇦🇺 154 Peisley St, Orange NSW 2800 | ABN: 75 148 213 076\n` +
+      `• 🇮🇳 Delhi NCR | Groworld Vijatour Pvt Ltd (CIN: U62099HR2024PTC122827)\n` +
+      `• All visas lodged by licensed **MARN Migration Agents**\n` +
+      `• Zero rejection track record\n` +
+      `• AUD 300 to start; AUD 700 only after visa + flight in hand\n\n` +
+      `Free Google Meet consultation this weekend?`
     );
   }
 
@@ -1408,22 +1362,22 @@ function generateHumanVisaExpertReply(params: {
     lower === "how to proceed"
   ) {
     return (
-      `Wonderful,${nameSalutation}! Here is how you take the next step: 🇦🇺🚀\n\n` +
-      `1️⃣ **Share Your Current Occupation & Years of Experience:** I will immediately check your ANZSCO code on the official 691 Australia Employer Sponsored Eligible list.\n` +
-      `2️⃣ **Send Your CV / Resume:** You can attach your PDF or Word CV right here in WhatsApp for our senior migration specialists to audit.\n` +
-      `3️⃣ **Free Weekend 1-on-1 Consultation:** We schedule a live Google Meet with our Senior Migration Expert to present your custom 4-5 month migration roadmap.\n\n` +
-      `What is your current job title and how many years of experience do you have?`
+      `Great${nameSalutation}! Here's how to proceed: 🇦🇺🚀\n\n` +
+      `1️⃣ Share your **occupation & years of experience** — I'll check your ANZSCO code\n` +
+      `2️⃣ **Send your CV** (PDF or Word) here in WhatsApp\n` +
+      `3️⃣ **Book a free weekend consultation** on Google Meet for your custom 4–5 month roadmap\n\n` +
+      `What's your current job title and experience?`
     );
   }
 
   // 22. If candidate mentioned an eligible occupation from the official 691 list
   if (matchedOcc) {
     return (
-      `Great news${nameSalutation}! 🎉\n\n` +
-      `**${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under **${matchedOcc.category}** on the official Australian Employer Sponsored Work Visa Eligible Occupation List!\n\n` +
-      `With 2+ years experience, you can qualify for direct employer sponsorship with a minimum statutory salary of **AUD $76,500/year** plus superannuation.\n\n` +
-      `Approved Australian employers cover $6,000 embassy fees, $330 permit fees, and flight tickets, with direct PR after 2 years.\n\n` +
-      `Would you like to book a free 1-on-1 weekend consultation to review your CV?`
+      `Great news${nameSalutation}! 🎉 **${matchedOcc.role}** is **CONFIRMED ELIGIBLE** under *${matchedOcc.category}* on the official 691 list!\n\n` +
+      `• Min salary: **AUD $76,500/year** + super\n` +
+      `• Employer covers $6,000 embassy + $330 permit + flight\n` +
+      `• Direct PR (Subclass 186) after 2 years\n\n` +
+      `Want to book a free weekend consultation to review your CV?`
     );
   }
 
@@ -1437,29 +1391,24 @@ function generateHumanVisaExpertReply(params: {
   // 24. If consultation is completed and candidate asks about next steps
   if (session.meetingCompleted || session.meetingStatus === "completed") {
     return (
-      `Hello${nameSalutation}! Great having you in the consultation session! 🇦🇺\n\n` +
-      `Your Australia Employer Sponsored Work Visa profile is currently in our onboarding review. Our recruitment team evaluates your CV against active employer vacancies with minimum AUD $76,500+ statutory salaries.\n\n` +
-      `If you have any questions about documentation, agreement terms, or PTE preparation, feel free to reply right here!`
+      `Hi${nameSalutation}! 🇦🇺 Your profile is in onboarding review — our team is matching your CV to active employer vacancies (AUD $76,500+ salaries).\n\n` +
+      `Questions on documentation, agreement terms, or PTE prep? Just ask!`
     );
   }
 
   // 25. If candidate is awaiting consultation decision or selecting slots
   if (session.currentStep === "SELECTING_DAY" || session.currentStep === "SELECTING_SLOT") {
     return (
-      `Hello${nameSalutation}! 👋\n\n` +
-      `I'm here to assist you with every aspect of your Australia Employer Sponsored Work Visa file.\n\n` +
-      `You can choose your preferred weekend consultation slot from the interactive menu above, or let me know what questions you have about eligible jobs, salaries, or the 4-5 month timeline!`
+      `Hi${nameSalutation}! 👋 Select your weekend slot from the menu above, or ask me anything about eligible jobs, salaries, or the 4–5 month timeline! 🇦🇺`
     );
   }
 
   // 26. General human visa expert answer for open-ended or out-of-context questions
   return (
-    `Hello${nameSalutation}! 👋 I'm **Aria**, Senior Registered Migration Counselor at **The Migration School (TMS Visa)** 🇦🇺.\n\n` +
-    `We specialize in direct employer-sponsored work visas for Australia across 691 in-demand occupations with a minimum statutory salary of **AUD $76,500/year** plus superannuation.\n\n` +
-    `• **Zero Rejection Track Record:** Pre-vetted corporate employer sponsorship\n` +
-    `• **Employer Covers:** $6,000 embassy fees, $330 permit fees, and flight tickets\n` +
-    `• **Candidate Fee:** AUD 300 to start; AUD 700 only after visa approval\n` +
-    `• **PR Pathway:** Direct transition to Australian Permanent Residency (PR 186) after 2 years\n\n` +
-    `Could you tell me your occupation and how many years of work experience you have? I'd be delighted to evaluate your eligibility!`
+    `Hi${nameSalutation}! 👋 I'm **Aria** from **TMS Visa** 🇦🇺 — specializing in Australia Employer Sponsored Work Visas (691 occupations, min AUD $76,500/year).\n\n` +
+    `• Employer covers: $6,000 embassy + $330 permit + flight\n` +
+    `• Candidate fee: AUD 300 to start; AUD 700 only after visa approval\n` +
+    `• Direct PR after 2 years | Zero rejection track record\n\n` +
+    `What's your occupation and years of experience? I'll check your eligibility now!`
   );
 }
