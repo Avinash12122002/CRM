@@ -1055,9 +1055,13 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 1c. Brand-new candidate or explicit reset
   if (actionId === "RESTART_FLOW" || (isGreeting && !session.email && !session.bookedSlot) || isFreshWelcome) {
-    // If the welcome message was already sent once and candidate is asking questions/conversing,
+    // If the welcome message was already sent once (or candidate has active conversation history) and candidate is asking questions/conversing,
     // answer their question directly using AI without repeatedly spamming the welcome buttons!
-    if (session.welcomeSentAt && cleanText.length > 0 && actionId !== "RESTART_FLOW") {
+    const alreadyWelcomed =
+      Boolean(session.welcomeSentAt) ||
+      Boolean(session.conversationHistory && session.conversationHistory.length > 1);
+
+    if (alreadyWelcomed && cleanText.length > 0 && actionId !== "RESTART_FLOW") {
       const aiAnswer = await generateAiResponse({
         message: cleanText,
         session,
@@ -1065,6 +1069,7 @@ export async function processIncomingWhatsAppMessage(params: {
       await sendTextMessage(session.phone, aiAnswer);
       await updateSession(db, session.phone, {
         lastInteractionAt: new Date(),
+        welcomeSentAt: session.welcomeSentAt || new Date(),
       });
       return { replyText: aiAnswer, step: "WELCOME" };
     }

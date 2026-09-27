@@ -840,35 +840,7 @@ function generateHumanVisaExpertReply(params: {
   }
 
 
-  // 1. Inquiries about meeting link / room access
-  if (
-    lower.includes("meeting link") ||
-    lower.includes("meet link") ||
-    lower.includes("google meet") ||
-    lower.includes("room link") ||
-    lower.includes("where to join") ||
-    lower.includes("how to join") ||
-    lower.includes("give me link") ||
-    lower.includes("send link") ||
-    (lower.includes("link") && (lower.includes("meeting") || lower.includes("consultation") || lower.includes("call")))
-  ) {
-    if (session.bookedSlot) {
-      return (
-        `Hi${nameSalutation}! 👋\n\n` +
-        `Your 1-on-1 consultation with our senior migration expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
-        `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
-        `*(Tap the link above at your scheduled time to join. Please have your CV ready!)* 🇦🇺`
-      );
-    }
-    return (
-      `Hello${nameSalutation}! 👋\n\n` +
-      `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
-      `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-      `Consultations run on weekends in 1-hour sessions. Would you like to select a slot in your local time?`
-    );
-  }
-
-  // 2. Inquiries about explainer video
+  // 1. Inquiries about explainer video
   if (
     lower.includes("video link") ||
     lower.includes("video url") ||
@@ -883,6 +855,36 @@ function generateHumanVisaExpertReply(params: {
       `▶️ **Watch the Video:**\n${videoUrl}\n\n` +
       `It covers employer sponsorship, 691 eligible jobs, AUD $76,500+ salary, and PR pathways.\n\n` +
       `*(Tap above to watch anytime)*`
+    );
+  }
+
+  // 2. Inquiries about meeting link / room access / "send me the link"
+  if (
+    lower.includes("meeting link") ||
+    lower.includes("meet link") ||
+    lower.includes("google meet") ||
+    lower.includes("room link") ||
+    lower.includes("where to join") ||
+    lower.includes("how to join") ||
+    lower.includes("give me link") ||
+    lower.includes("send link") ||
+    lower.includes("send me the link") ||
+    lower.includes("share the link") ||
+    (lower.includes("link") && (lower.includes("meeting") || lower.includes("consultation") || lower.includes("call") || lower.includes("send") || lower.includes("give") || lower.includes("share")))
+  ) {
+    if (session.bookedSlot) {
+      return (
+        `Hi${nameSalutation}! 👋\n\n` +
+        `Your 1-on-1 consultation with our senior migration expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
+        `*(Tap the link above at your scheduled time to join. Please have your CV ready!)* 🇦🇺`
+      );
+    }
+    return (
+      `Hello${nameSalutation}! 👋\n\n` +
+      `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
+      `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
+      `Consultations run on weekends in 1-hour sessions. Would you like to select a slot in your local time?`
     );
   }
 
