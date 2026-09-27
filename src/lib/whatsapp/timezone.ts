@@ -190,11 +190,11 @@ export const COUNTRY_TIMEZONE_MAP: CountryTimezoneInfo[] = [
 
 /** Default fallback when phone country code is not found in the list */
 export const DEFAULT_TIMEZONE: CountryTimezoneInfo = {
-  countryCode: "NG",
-  countryName: "International",
-  dialCode: "234",
-  timeZone: "Africa/Lagos",
-  label: "West Africa Time (WAT)",
+  countryCode: "IN",
+  countryName: "India",
+  dialCode: "91",
+  timeZone: "Asia/Kolkata",
+  label: "India Time (IST)",
 };
 
 /**
