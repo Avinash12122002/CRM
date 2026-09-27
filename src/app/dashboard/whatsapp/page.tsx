@@ -28,6 +28,7 @@ import {
   Trash2,
   Pencil,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -157,6 +158,8 @@ export default function WhatsAppChatPage() {
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isAtBottomRef = useRef<boolean>(true);
+  const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
 
   // 1. Authenticate user
   useEffect(() => {
@@ -184,12 +187,29 @@ export default function WhatsAppChatPage() {
     })();
   }, [router]);
 
-  // Scroll chat to bottom
-  const scrollToBottom = () => {
+  // Monitor user scroll position to avoid snapping to bottom when user scrolls up
+  const handleChatScroll = useCallback(() => {
+    if (!chatScrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatScrollRef.current;
+    // Consider at bottom if within 100px from the bottom
+    const atBottom = scrollHeight - scrollTop - clientHeight < 100;
+    isAtBottomRef.current = atBottom;
+    setShowScrollBottomBtn(!atBottom);
+  }, []);
+
+  // Scroll chat to bottom (only force if explicitly requested or already at bottom)
+  const scrollToBottom = useCallback((force = false, smooth = false) => {
     if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+      if (force || isAtBottomRef.current) {
+        chatScrollRef.current.scrollTo({
+          top: chatScrollRef.current.scrollHeight,
+          behavior: smooth ? "smooth" : "auto",
+        });
+        isAtBottomRef.current = true;
+        setShowScrollBottomBtn(false);
+      }
     }
-  };
+  }, []);
 
   // 2. Fetch Conversations List
   const fetchConversations = useCallback(async (quiet = false) => {
@@ -246,7 +266,17 @@ export default function WhatsAppChatPage() {
                   Math.abs(new Date(inc.createdAt).getTime() - new Date(m.createdAt).getTime()) < 30000
               )
           );
-          return [...incoming, ...pendingOptimistic];
+          const next = [...incoming, ...pendingOptimistic];
+
+          // If the message list has not changed (same length, ids, and content), return prev
+          // to prevent unnecessary re-renders and auto-scroll snapping
+          if (
+            prev.length === next.length &&
+            prev.every((m, idx) => m.id === next[idx].id && m.text === next[idx].text)
+          ) {
+            return prev;
+          }
+          return next;
         });
         setSession(data.session || null);
         setLead(data.lead || null);
@@ -274,10 +304,12 @@ export default function WhatsAppChatPage() {
 
   useEffect(() => {
     if (selectedPhone) {
+      isAtBottomRef.current = true;
+      setShowScrollBottomBtn(false);
       fetchMessages(selectedPhone, false);
-      setTimeout(scrollToBottom, 100);
+      setTimeout(() => scrollToBottom(true), 120);
     }
-  }, [selectedPhone, fetchMessages]);
+  }, [selectedPhone, fetchMessages, scrollToBottom]);
 
   // Poll messages every 4 seconds for live chat stream
   useEffect(() => {
@@ -288,10 +320,12 @@ export default function WhatsAppChatPage() {
     return () => clearInterval(interval);
   }, [selectedPhone, fetchMessages]);
 
-  // Auto-scroll on messages change
+  // Auto-scroll on messages change ONLY if user is already at the bottom
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (isAtBottomRef.current) {
+      scrollToBottom(false);
+    }
+  }, [messages, scrollToBottom]);
 
   // 4. Send Message
   const handleSendMessage = async () => {
@@ -310,7 +344,9 @@ export default function WhatsAppChatPage() {
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
-    setTimeout(scrollToBottom, 50);
+    isAtBottomRef.current = true;
+    setShowScrollBottomBtn(false);
+    setTimeout(() => scrollToBottom(true, true), 50);
 
     try {
       const res = await fetch(`/api/whatsapp/conversations/${selectedPhone}/messages`, {
@@ -842,123 +878,139 @@ export default function WhatsAppChatPage() {
               </div>
 
               {/* Chat Body & Messages Area - Compact Bubbles */}
-              <div
-                ref={chatScrollRef}
-                className="flex-1 overflow-y-auto p-3 space-y-2 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] bg-[size:14px_14px]"
-              >
-                {loadingChat && messages.length === 0 ? (
-                  <div className="py-16 text-center text-xs text-zinc-400 space-y-1.5">
-                    <RefreshCw className="w-4 h-4 animate-spin mx-auto text-emerald-500" />
-                    <p>Loading messages...</p>
-                  </div>
-                ) : messages.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-zinc-400 max-w-sm mx-auto space-y-1.5">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center mx-auto">
-                      <MessageSquare className="w-4 h-4" />
+              <div className="flex-1 relative min-h-0">
+                <div
+                  ref={chatScrollRef}
+                  onScroll={handleChatScroll}
+                  className="absolute inset-0 overflow-y-auto p-3 space-y-2 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#27272a_1px,transparent_1px)] bg-[size:14px_14px]"
+                >
+                  {loadingChat && messages.length === 0 ? (
+                    <div className="py-16 text-center text-xs text-zinc-400 space-y-1.5">
+                      <RefreshCw className="w-4 h-4 animate-spin mx-auto text-emerald-500" />
+                      <p>Loading messages...</p>
                     </div>
-                    <p className="font-semibold text-zinc-700 dark:text-zinc-300 text-xs">
-                      No messages in this chat yet
-                    </p>
-                    <p className="text-[10px] text-zinc-400">
-                      Send a message below to reach out to this candidate on WhatsApp directly!
-                    </p>
-                  </div>
-                ) : (
-                  messages.map((msg, idx) => {
-                    const isCandidate = msg.sender === "candidate";
-                    const isAdmin = msg.sender === "admin";
-                    const isBot = msg.sender === "bot";
+                  ) : messages.length === 0 ? (
+                    <div className="py-12 text-center text-xs text-zinc-400 max-w-sm mx-auto space-y-1.5">
+                      <div className="w-9 h-9 rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center mx-auto">
+                        <MessageSquare className="w-4 h-4" />
+                      </div>
+                      <p className="font-semibold text-zinc-700 dark:text-zinc-300 text-xs">
+                        No messages in this chat yet
+                      </p>
+                      <p className="text-[10px] text-zinc-400">
+                        Send a message below to reach out to this candidate on WhatsApp directly!
+                      </p>
+                    </div>
+                  ) : (
+                    messages.map((msg, idx) => {
+                      const isCandidate = msg.sender === "candidate";
+                      const isAdmin = msg.sender === "admin";
+                      const isBot = msg.sender === "bot";
 
-                    return (
-                      <div
-                        key={msg.id || idx}
-                        className={`w-full flex flex-col ${
-                          isCandidate ? "items-start" : "items-end"
-                        }`}
-                      >
-                        {/* WhatsApp Message Bubble */}
+                      return (
                         <div
-                          className={`max-w-[85%] md:max-w-[70%] lg:max-w-[62%] rounded-2xl px-3 py-1.5 shadow-2xs relative text-[11.5px] leading-relaxed transition ${
-                            isCandidate
-                              ? "bg-white dark:bg-[#202c33] text-zinc-900 dark:text-zinc-100 rounded-tl-xs border border-zinc-200/80 dark:border-zinc-700/60 self-start"
-                              : isAdmin
-                              ? "bg-emerald-600 dark:bg-[#005c4b] text-white rounded-tr-xs border border-emerald-500/30 self-end"
-                              : "bg-emerald-700/90 dark:bg-[#005c4b]/90 text-white rounded-tr-xs border border-emerald-500/30 self-end"
+                          key={msg.id || idx}
+                          className={`w-full flex flex-col ${
+                            isCandidate ? "items-start" : "items-end"
                           }`}
                         >
-                          {/* Sender Label */}
-                          <div className="flex items-center gap-1 text-[9px] mb-0.5">
-                            {isCandidate ? (
-                              <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
-                                <User className="w-2.5 h-2.5" />
-                                {msg.senderName || "Candidate"}
-                              </span>
-                            ) : isAdmin ? (
-                              <span className="font-semibold text-emerald-100 flex items-center gap-0.5">
-                                <UserCheck className="w-2.5 h-2.5" />
-                                You ({msg.senderName || "Admin"})
-                              </span>
-                            ) : (
-                              <span className="font-semibold text-emerald-200/90 flex items-center gap-0.5">
-                                <Bot className="w-2.5 h-2.5" />
-                                TMS Automation
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Text Body */}
-                          <div className="whitespace-pre-wrap break-words">
-                            {msg.text}
-                          </div>
-
-                          {/* Interactive Buttons / Selections */}
-                          {msg.buttons && msg.buttons.length > 0 && (
-                            <div className="mt-1.5 pt-1.5 border-t border-white/20 dark:border-emerald-600/40 flex flex-wrap gap-1">
-                              {msg.buttons.map((b) => (
-                                <span
-                                  key={b.id}
-                                  className="px-2 py-0.5 text-[9.5px] rounded bg-white/20 text-white font-medium"
-                                >
-                                  🔘 {b.title}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Media Attachment if file received */}
-                          {msg.mediaUrl && (
-                            <div className="mt-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-1.5 p-1.5 rounded bg-zinc-100 dark:bg-zinc-900">
-                              <div className="flex items-center gap-1 truncate">
-                                <FileText className="w-3 h-3 text-red-500 shrink-0" />
-                                <span className="truncate font-mono text-[10px]">
-                                  {msg.mediaFileName || "Document"}
-                                </span>
-                              </div>
-                              <a
-                                href={msg.mediaUrl}
-                                download
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-0.5 rounded text-emerald-600 hover:text-emerald-700"
-                              >
-                                <Download className="w-3 h-3" />
-                              </a>
-                            </div>
-                          )}
-
-                          {/* Timestamp & Delivery status */}
+                          {/* WhatsApp Message Bubble */}
                           <div
-                            className={`text-[8.5px] mt-0.5 text-right flex items-center justify-end gap-0.5 ${
-                              isCandidate ? "text-zinc-400" : "text-emerald-100/75"
+                            className={`max-w-[85%] md:max-w-[70%] lg:max-w-[62%] rounded-2xl px-3 py-1.5 shadow-2xs relative text-[11.5px] leading-relaxed transition ${
+                              isCandidate
+                                ? "bg-white dark:bg-[#202c33] text-zinc-900 dark:text-zinc-100 rounded-tl-xs border border-zinc-200/80 dark:border-zinc-700/60 self-start"
+                                : isAdmin
+                                ? "bg-emerald-600 dark:bg-[#005c4b] text-white rounded-tr-xs border border-emerald-500/30 self-end"
+                                : "bg-emerald-700/90 dark:bg-[#005c4b]/90 text-white rounded-tr-xs border border-emerald-500/30 self-end"
                             }`}
                           >
-                            <span>{formatMsgTime(msg.createdAt)}</span>
-                            {!isCandidate && <CheckCheck className="w-2.5 h-2.5 text-emerald-200" />}
+                            {/* Sender Label */}
+                            <div className="flex items-center gap-1 text-[9px] mb-0.5">
+                              {isCandidate ? (
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5">
+                                  <User className="w-2.5 h-2.5" />
+                                  {msg.senderName || "Candidate"}
+                                </span>
+                              ) : isAdmin ? (
+                                <span className="font-semibold text-emerald-100 flex items-center gap-0.5">
+                                  <UserCheck className="w-2.5 h-2.5" />
+                                  You ({msg.senderName || "Admin"})
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-emerald-200/90 flex items-center gap-0.5">
+                                  <Bot className="w-2.5 h-2.5" />
+                                  TMS Automation
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Text Body */}
+                            <div className="whitespace-pre-wrap break-words">
+                              {msg.text}
+                            </div>
+
+                            {/* Interactive Buttons / Selections */}
+                            {msg.buttons && msg.buttons.length > 0 && (
+                              <div className="mt-1.5 pt-1.5 border-t border-white/20 dark:border-emerald-600/40 flex flex-wrap gap-1">
+                                {msg.buttons.map((b) => (
+                                  <span
+                                    key={b.id}
+                                    className="px-2 py-0.5 text-[9.5px] rounded bg-white/20 text-white font-medium"
+                                  >
+                                    🔘 {b.title}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Media Attachment if file received */}
+                            {msg.mediaUrl && (
+                              <div className="mt-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-1.5 p-1.5 rounded bg-zinc-100 dark:bg-zinc-900">
+                                <div className="flex items-center gap-1 truncate">
+                                  <FileText className="w-3 h-3 text-red-500 shrink-0" />
+                                  <span className="truncate font-mono text-[10px]">
+                                    {msg.mediaFileName || "Document"}
+                                  </span>
+                                </div>
+                                <a
+                                  href={msg.mediaUrl}
+                                  download
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-0.5 rounded text-emerald-600 hover:text-emerald-700"
+                                >
+                                  <Download className="w-3 h-3" />
+                                </a>
+                              </div>
+                            )}
+
+                            {/* Timestamp & Delivery status */}
+                            <div
+                              className={`text-[8.5px] mt-0.5 text-right flex items-center justify-end gap-0.5 ${
+                                isCandidate ? "text-zinc-400" : "text-emerald-100/75"
+                              }`}
+                            >
+                              <span>{formatMsgTime(msg.createdAt)}</span>
+                              {!isCandidate && <CheckCheck className="w-2.5 h-2.5 text-emerald-200" />}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Floating Scroll to Bottom Button */}
+                {showScrollBottomBtn && (
+                  <button
+                    type="button"
+                    onClick={() => scrollToBottom(true, true)}
+                    className="absolute bottom-3 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/90 dark:bg-zinc-100/90 text-white dark:text-zinc-900 text-[11px] font-medium shadow-md hover:bg-zinc-800 dark:hover:bg-white transition-all cursor-pointer backdrop-blur-xs animate-in fade-in slide-in-from-bottom-2 duration-150"
+                    title="Scroll to latest messages"
+                  >
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    <span>Scroll to bottom</span>
+                  </button>
                 )}
               </div>
 
