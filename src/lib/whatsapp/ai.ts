@@ -67,6 +67,31 @@ export async function generateAiResponse(params: {
     );
   }
 
+  // 1b. Strict Security Policy Check: Phone Number Cannot Be Changed via Chat
+  const isPhoneNumberChangeRequest =
+    (lowerMsg.includes("change") && (lowerMsg.includes("number") || lowerMsg.includes("phone") || lowerMsg.includes("mobile") || lowerMsg.includes("contact") || lowerMsg.includes("whatsapp"))) ||
+    (lowerMsg.includes("update") && (lowerMsg.includes("number") || lowerMsg.includes("phone") || lowerMsg.includes("mobile") || lowerMsg.includes("contact") || lowerMsg.includes("whatsapp"))) ||
+    (lowerMsg.includes("new") && (lowerMsg.includes("number") || lowerMsg.includes("phone") || lowerMsg.includes("mobile"))) ||
+    (lowerMsg.includes("different") && (lowerMsg.includes("number") || lowerMsg.includes("phone") || lowerMsg.includes("mobile"))) ||
+    (lowerMsg.includes("wrong") && (lowerMsg.includes("number") || lowerMsg.includes("phone") || lowerMsg.includes("mobile")));
+
+  if (isPhoneNumberChangeRequest) {
+    const candidateName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        ? session.name
+        : "there";
+
+    return (
+      `Hello ${candidateName}! 👋\n\n` +
+      `Under our security and verification protocol, **your registered phone number cannot be changed** through this chat. 🔒\n\n` +
+      `Your candidate file, consultation booking, and CRM records are permanently linked to your current verified WhatsApp number (+${session.phone}).\n\n` +
+      `If you have switched to a new phone number:\n` +
+      `• Please initiate a new message directly from your **new WhatsApp number** to start or connect your profile, OR\n` +
+      `• Contact our team at **info@tmsvisa.com** for manual identity verification.\n\n` +
+      `You can still update other details such as your Name, Email, CV, or Consultation Slot right here! 🇦🇺`
+    );
+  }
+
   // 2. Strict Anonymity Fallback: Inquiries about individual staff names (Sumit, Abhay, etc.)
   const isAskingStaffName =
     lowerMsg.includes("sumit") ||
@@ -231,6 +256,13 @@ RESPONSE DIRECTIVES:
 7. OUT-OF-CONTEXT / SLANG / ABBREVIATIONS:
 - Understand intent even if candidate speaks in slang, short replies ("k", "tell", "plz", "how"), or emotional expressions.
 - Always provide an empathetic, human, and informative Australian visa expert answer.
+
+8. STRICT SECURITY POLICY — PHONE NUMBER CANNOT BE CHANGED IN CHAT:
+- NEVER tell the candidate that their phone number has been updated or changed.
+- NEVER ask the candidate to reply with a new phone number.
+- NEVER accept or pretend to accept a new phone number.
+- Under strict compliance and CRM security, phone numbers cannot be changed through WhatsApp chat because all candidate records, verified files, and consultation bookings are permanently tied to their current active WhatsApp number (+${session.phone}).
+- If candidate asks to change or update their number, firmly explain that registered phone numbers cannot be changed via chat for security reasons. They should message directly from their new WhatsApp number or email info@tmsvisa.com.
 `;
 
   // 3. Attempt Remote LLM Inference (Groq, Gemini, OpenAI) with 5s timeout
@@ -416,6 +448,18 @@ function generateHumanVisaExpertReply(params: {
   const lower = rawLower; // Keep original for full checks
 
   // --- STEP 2: Contextual intent detection on the cleaned message ---
+  const wantsToChangePhone =
+    (lowerForTopic.includes("change") && (lowerForTopic.includes("number") || lowerForTopic.includes("phone") || lowerForTopic.includes("mobile") || lowerForTopic.includes("contact") || lowerForTopic.includes("whatsapp"))) ||
+    (lowerForTopic.includes("update") && (lowerForTopic.includes("number") || lowerForTopic.includes("phone") || lowerForTopic.includes("mobile") || lowerForTopic.includes("contact") || lowerForTopic.includes("whatsapp"))) ||
+    (lowerForTopic.includes("new") && (lowerForTopic.includes("number") || lowerForTopic.includes("phone") || lowerForTopic.includes("mobile"))) ||
+    (lowerForTopic.includes("different") && (lowerForTopic.includes("number") || lowerForTopic.includes("phone") || lowerForTopic.includes("mobile"))) ||
+    (lowerForTopic.includes("wrong") && (lowerForTopic.includes("number") || lowerForTopic.includes("phone") || lowerForTopic.includes("mobile")));
+
+  const isBarePhoneNumber =
+    /^\+?[\d\s\-()]{8,18}$/.test(rawLower.trim()) &&
+    rawLower.replace(/\D/g, "").length >= 8 &&
+    rawLower.replace(/\D/g, "").length <= 15;
+
   const wantsToChangeEmail =
     (lowerForTopic.includes("change") && (lowerForTopic.includes("email") || lowerForTopic.includes("mail"))) ||
     (lowerForTopic.includes("update") && (lowerForTopic.includes("email") || lowerForTopic.includes("mail"))) ||
@@ -529,6 +573,19 @@ function generateHumanVisaExpertReply(params: {
   // even if the message contains anger/profanity alongside it.
   // Anger alone (with no other topic) is handled separately below.
   // ============================================================
+
+  // 0. Phone number change request — CANNOT be changed via chat
+  if (wantsToChangePhone || isBarePhoneNumber) {
+    return (
+      `${frustratedPrefix}Hello${nameSalutation}! 👋\n\n` +
+      `Under our security and verification protocol, **your registered phone number cannot be changed** through this chat. 🔒\n\n` +
+      `Your candidate dossier, consultation booking, and official CRM records are permanently linked to your current verified WhatsApp number (+${session.phone}).\n\n` +
+      `If you have switched to a new phone number:\n` +
+      `• Please initiate a new message directly from your **new WhatsApp number** to start or connect your profile, OR\n` +
+      `• Reach out to our administrative desk at **info@tmsvisa.com** for manual identity verification.\n\n` +
+      `All other details (such as your Name, Email, CV, or Consultation Slot) can still be updated right here! 🇦🇺`
+    );
+  }
 
   // 0A. Email change request
   if (wantsToChangeEmail) {

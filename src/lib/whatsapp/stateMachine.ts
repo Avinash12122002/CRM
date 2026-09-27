@@ -2013,9 +2013,46 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: meetReply, step: session.currentStep };
   }
 
-  // 10. Update intent detection — BEFORE calling AI, check if candidate wants to change email/name
-  // This sets the session to the right AWAITING_*_UPDATE step so the NEXT message is intercepted.
+  // 10. Update intent detection — BEFORE calling AI, check if candidate wants to change phone/email/name
+  // NOTE: Phone numbers CANNOT be changed via chat under CRM compliance and security rules.
   const lowerClean = cleanText.toLowerCase();
+
+  const wantsPhoneChange =
+    (lowerClean.includes("change") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||
+    (lowerClean.includes("update") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||
+    (lowerClean.includes("new") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile"))) ||
+    (lowerClean.includes("different") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile"))) ||
+    (lowerClean.includes("wrong") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile")));
+
+  // Standalone phone number sent by candidate (8-15 digits) while not in slot selection or email state
+  const digitsOnly = cleanText.replace(/\D/g, "");
+  const isBarePhoneNumber =
+    digitsOnly.length >= 8 &&
+    digitsOnly.length <= 15 &&
+    /^\+?[\d\s\-()]+$/.test(cleanText.trim()) &&
+    session.currentStep !== "SELECTING_SLOT" &&
+    (session.currentStep as string) !== "AWAITING_EMAIL" &&
+    session.currentStep !== "AWAITING_EMAIL_UPDATE" &&
+    session.currentStep !== "AWAITING_NAME_UPDATE";
+
+  if (wantsPhoneChange || isBarePhoneNumber) {
+    const candidateDisplayName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        ? session.name
+        : "there";
+
+    const phoneNoChangeMsg =
+      `Hello ${candidateDisplayName}! 👋\n\n` +
+      `Under our security and verification protocol, **your registered phone number cannot be changed** through this chat. 🔒\n\n` +
+      `Your candidate dossier, consultation booking, and official CRM records are permanently linked to your verified WhatsApp account (+${session.phone}).\n\n` +
+      `If you have switched to a new phone number:\n` +
+      `• Please initiate a new message directly from your **new WhatsApp number** to start or connect your profile, OR\n` +
+      `• Contact our administrative desk at **info@tmsvisa.com** for manual identity verification.\n\n` +
+      `You can still update other details such as your Name, Email, CV, or Consultation Slot right here. Please let me know how else I can assist you! 🇦🇺`;
+
+    await sendTextMessage(session.phone, phoneNoChangeMsg);
+    return { replyText: phoneNoChangeMsg, step: session.currentStep };
+  }
 
   const wantsEmailChange =
     (lowerClean.includes("change") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
