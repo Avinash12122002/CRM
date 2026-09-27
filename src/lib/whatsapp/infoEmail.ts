@@ -130,7 +130,7 @@ Our India office prepares and lodges your Australia Employer Sponsored Work Visa
 </p>
 
 <p>
-At this stage, you will only be required to pay the applicable Australian Government Visa Application Charges directly to the Department of Home Affairs.
+Your sponsoring Australian employer covers the government sponsorship, nomination, and embassy fees (approx. $6,000+). You do not pay these government embassy/nomination charges.
 </p>
 
 <h3>Step 7 – Visa Approval</h3>
@@ -418,32 +418,30 @@ export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams)
       }
     }
 
-    // Record in email_history
-    if (effectiveLeadId) {
-      try {
-        await recordEmailHistory({
-          leadId: effectiveLeadId,
-          leadName: candidateName,
-          stage: "info",
-          mailbox: "info@tmsvisa.com",
-          templateName: "Australia Employer Sponsored Work Visa Information Pack",
-          subject,
-          bodyPreview: "Australia Employer Sponsored Work Visa Program Guide with 2 attachments.",
-          status: isSuccess ? "sent" : "failed",
-          isFollowup: false,
-          followupNumber: 0,
-          isPendingFollowup: false,
-          cancelled: false,
-          sentAt: now,
-          sentBy: 0,
-          sentByName: "WhatsApp Bot (Automated)",
-          body: html,
-          to: email,
-          error: result.error,
-        });
-      } catch (histErr) {
-        console.warn("[WhatsApp Info Email] Could not record email history:", histErr);
-      }
+    // Record in email_history unconditionally
+    try {
+      await recordEmailHistory({
+        leadId: effectiveLeadId || 0,
+        leadName: candidateName,
+        stage: "info",
+        mailbox: "info@tmsvisa.com",
+        templateName: "Australia Employer Sponsored Work Visa Information Pack",
+        subject,
+        bodyPreview: "Australia Employer Sponsored Work Visa Program Guide with 2 attachments.",
+        status: isSuccess ? "sent" : "failed",
+        isFollowup: false,
+        followupNumber: 0,
+        isPendingFollowup: false,
+        cancelled: false,
+        sentAt: now,
+        sentBy: 0,
+        sentByName: "WhatsApp Bot (Automated)",
+        body: html,
+        to: email,
+        error: result.error,
+      });
+    } catch (histErr) {
+      console.warn("[WhatsApp Info Email] Could not record email history:", histErr);
     }
 
     if (!isSuccess) {

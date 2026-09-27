@@ -165,9 +165,14 @@ export async function getOrCreateSession(
     }
 
     if (!existing.bookedSlot) {
+      const last10 = cleanPhone.slice(-10);
       const activeSlot = await db.collection("meetingSlots").findOne({
-        phone: cleanPhone,
         status: "scheduled",
+        $or: [
+          { phone: cleanPhone },
+          { phone: `+${cleanPhone}` },
+          ...(last10.length === 10 ? [{ phone: last10 }, { phone: `+91${last10}` }, { phone: { $regex: `${last10}$` } }] : []),
+        ],
       });
       if (activeSlot) {
         existing.bookedSlot = {
@@ -200,8 +205,17 @@ export async function getOrCreateSession(
   }
 
   // Check if lead or meeting already exists in CRM for this phone
-  const existingLead = await db.collection("leads").findOne({ phone: cleanPhone });
-  const activeSlot = await db.collection("meetingSlots").findOne({ phone: cleanPhone, status: "scheduled" });
+  const last10 = cleanPhone.slice(-10);
+  const phoneQueries = [
+    { phone: cleanPhone },
+    { phone: `+${cleanPhone}` },
+    ...(last10.length === 10 ? [{ phone: last10 }, { phone: `+91${last10}` }, { phone: { $regex: `${last10}$` } }] : []),
+  ];
+  const existingLead = await db.collection("leads").findOne({ $or: phoneQueries });
+  const activeSlot = await db.collection("meetingSlots").findOne({
+    status: "scheduled",
+    $or: phoneQueries,
+  });
 
   let initialStep: WhatsAppStep = "WELCOME";
   let initialBookedSlot = undefined;
@@ -228,7 +242,7 @@ export async function getOrCreateSession(
     leadId: existingLead?.id,
     countryCode: country.countryCode,
     countryName: country.countryName,
-    interestedCountry: "Australia",
+    interestedCountry: existingLead?.interestedCountry || "Australia",
     timeZone: country.timeZone,
     timeZoneLabel: country.label,
     currentStep: initialStep,
@@ -236,6 +250,10 @@ export async function getOrCreateSession(
     followupCount: 0,
     meetingStatus: initialMeetingStatus,
     meetingHistory: [],
+    occupation: existingLead?.occupations?.[0] || existingLead?.occupation,
+    yearsExperience: existingLead?.experience,
+    meetingCompleted: existingLead?.meetingStatus === "completed" || existingLead?.status === "follow-up",
+    paymentPending: existingLead?.status === "payment-pending" || existingLead?.status === "document-pending",
     lastInteractionAt: now,
     createdAt: now,
     updatedAt: now,

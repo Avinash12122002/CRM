@@ -272,7 +272,7 @@ export async function scheduleNextFollowup(leadId: number) {
 // ─────────────────────────────────────────────
 
 export interface EmailHistoryRecord {
-  leadId: number;
+  leadId?: number;
   leadName: string;
   stage: EmailStage;
   mailbox: string;
