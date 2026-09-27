@@ -222,17 +222,30 @@ RESPONSE DIRECTIVES:
 - Greet candidate by name (${session.name && session.name !== "Candidate" ? session.name : "there"}).
 - Relate directly to their facts (Occupation: ${session.occupation || "their occupation"}, Experience: ${session.yearsExperience || "their experience"}, Location: ${session.countryName}).
 
-3. COMPLETE & ACCURATE INFORMATION (CONCISE, STRUCTURED, NEVER CUT OFF):
-- Deliver complete, accurate information in a tight, structured format — **under 160 words** for easy WhatsApp reading. Use bullet points, avoid filler phrases, get to the point fast.
-- Key figures to include where relevant:
-  * Minimum statutory salary: AUD $76,500/year threshold plus 11.5% superannuation and overtime.
-  * Australian employer covers: $330 work permit + $6,000 embassy fees + $1,000 flight ticket to Australia.
+3. ULTRA-CONCISE & SHORT WHATSAPP FORMAT (STRICT LIMIT: 60 TO 100 WORDS MAX — NEVER CUT INFORMATION):
+- Candidates read on mobile WhatsApp. Every response MUST be SHORT, CRISP, and QUICK TO READ. Long essays or huge multi-section dumps are STRICTLY FORBIDDEN.
+- NEVER CUT ANY INFORMATION: When answering ANY question, include all essential facts, figures, and rules requested, but state them in tight, compact 1-line bullet points.
+- NO VERBOSE INTROS: Never write long introductory preambles (e.g. NEVER say "Here is the complete, step-by-step journey for your Australia Employer Sponsored Work Visa with TMS Visa:"). Jump directly to the answer.
+- NO SEPARATE REDUNDANT BLOCKS: Never append a separate "Key Benefits" section or regurgitate information already covered. If explaining the process, integrate key figures directly into the bullets or a 2-line summary.
+- IF CANDIDATE ASKS ABOUT PROCESS / STEPS / HOW IT WORKS:
+  Give a tight 5-step roadmap + key figures (all under 95 words):
+  1️⃣ CV Review: Free check across 691 eligible roles
+  2️⃣ Onboarding (AUD 300): Case Manager, CV makeover & free weekly PTE coaching
+  3️⃣ Employer Match: Interview & official job offer from approved Australian sponsor
+  4️⃣ Docs & Visa: Only 3 docs (Passport, Medical, PCC) + PTE (after offer); MARN Agent lodges visa
+  5️⃣ Travel & Balance (AUD 700): AUD 700 paid ONLY after visa grant & flight tickets in hand!
+  Employer covers: $330 permit + $6,000 embassy + $1,000 flight. Min salary AUD $76,500/yr. PR in 2 yrs. 4-5 months total.
+- Key figures to include when relevant:
+  * Minimum statutory salary: AUD $76,500/year threshold plus 11.5% superannuation.
+  * Australian employer covers: $330 work permit + $6,000 embassy fees + $1,000 flight ticket.
   * Candidate fee: Exactly AUD 1,000 total (AUD 300 to start; AUD 700 balance only after visa approval & flight tickets in hand).
   * 3 candidate documents: only Passport copy, Medical Fitness, and Police Clearance (PCC).
   * English requirements: No exam needed to start; TMS provides free weekly PTE coaching from week 1; exam taken after job offer (PTE Academic L:33, R:36, W:29, S:24 or IELTS 5.0).
   * Timeline: 4 to 5 months total from raw CV to visa approval and travel.
   * PR pathway: Direct Australian Permanent Residency (Subclass 186) after 2 years.
   * Rejection guarantee: Direct pre-vetted employer sponsorship ensures work visas with TMS never get rejected.
+- Structure: 1 brief greeting line → 3 to 5 compact bullet points → 1 closing CTA line.
+- MAXIMUM TOTAL LENGTH: 60 to 100 words. Absolutely NEVER exceed 110 words.
 - Never initiate "Subclass 482" — always use "Australia Employer Sponsored Work Visa".
 
 4. RESPONDING TO "ARE YOU A BOT / ARE YOU AI / WHO ARE YOU":
@@ -288,7 +301,7 @@ RESPONSE DIRECTIVES:
                   { role: "system", content: SYSTEM_PROMPT },
                   { role: "user", content: rawMsg },
                 ],
-                max_tokens: 450,
+                max_tokens: 260,
                 temperature: 0.35,
               }),
               signal: controller.signal,
@@ -325,13 +338,13 @@ RESPONSE DIRECTIVES:
                   role: "user",
                   parts: [
                     {
-                      text: `${SYSTEM_PROMPT}\n\nCandidate says: "${rawMsg}"\n\nProvide your WhatsApp reply as Aria (Under 280 words, complete and never cut off):`,
+                      text: `${SYSTEM_PROMPT}\n\nCandidate says: "${rawMsg}"\n\nProvide your WhatsApp reply as Aria (STRICTLY UNDER 95 WORDS, short, punchy, keeping ALL key figures and facts, suitable for mobile WhatsApp):`,
                     },
                   ],
                 },
               ],
               generationConfig: {
-                maxOutputTokens: 600,
+                maxOutputTokens: 260,
                 temperature: 0.35,
               },
             }),
@@ -339,13 +352,13 @@ RESPONSE DIRECTIVES:
           });
           clearTimeout(timeoutId);
 
-          if (res.ok) {
-            const data = await res.json();
-            const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (replyText && replyText.trim().length > 10) {
-              return sanitizeStaffNames(replyText.trim());
+            if (res.ok) {
+              const data = await res.json();
+              const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (replyText && replyText.trim().length > 10) {
+                return sanitizeStaffNames(replyText.trim());
+              }
             }
-          }
         } catch {
           // Fallback to local expert
         }
@@ -370,7 +383,7 @@ RESPONSE DIRECTIVES:
                 { role: "system", content: SYSTEM_PROMPT },
                 { role: "user", content: rawMsg },
               ],
-              max_tokens: 450,
+              max_tokens: 260,
               temperature: 0.35,
             }),
             signal: controller.signal,
@@ -653,14 +666,15 @@ function generateHumanVisaExpertReply(params: {
   // 0I. Process / Timeline / How it works
   if (asksAboutProcess) {
     return (
-      `${frustratedPrefix}**4–5 months** from CV to visa approval${nameSalutation}: ⏱️🇦🇺\n\n` +
-      `1️⃣ Free CV Assessment (691 occupations)\n` +
-      `2️⃣ Agreement + Case Manager — AUD 300 (CV makeover + free PTE coaching)\n` +
-      `3️⃣ Employer Marketing — TMS finds your sponsor\n` +
-      `4️⃣ English exam (after job offer) + 3 documents\n` +
-      `5️⃣ Nomination + Visa lodgement by MARN Agent\n` +
-      `6️⃣ Visa grant + flight — pay AUD 700 only then!\n\n` +
-      `Free weekend consultation available — want to book?`
+      `${frustratedPrefix}4–5 month Australia Work Visa process${nameSalutation}: 🇦🇺⏱️\n\n` +
+      `1️⃣ **CV Review:** Free check across 691 eligible roles\n` +
+      `2️⃣ **Onboarding (AUD 300):** Case Manager, CV makeover & free PTE classes\n` +
+      `3️⃣ **Employer Match:** Interview with approved sponsor & job offer\n` +
+      `4️⃣ **Docs & Visa:** Only 3 docs (Passport, Medical, PCC) + PTE (after offer). MARN Agent lodges visa\n` +
+      `5️⃣ **Travel & Balance (AUD 700):** Pay remaining AUD 700 only after visa grant & flight tickets in hand!\n\n` +
+      `💼 Employer covers: $330 permit + $6,000 embassy + $1,000 flight\n` +
+      `💰 Min salary: AUD $76,500/yr + super | Direct PR in 2 yrs\n\n` +
+      `Ready to book your free consultation?`
     );
   }
 
