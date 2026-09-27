@@ -398,35 +398,70 @@ export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams)
     });
 
     const now = new Date();
+    const isSuccess = Boolean(result.success && !result.failed);
 
-    // Record in email_history
-    if (leadId) {
-      await recordEmailHistory({
-        leadId,
-        leadName: candidateName,
-        stage: "info",
-        mailbox: "info@tmsvisa.com",
-        templateName: "Australia Employer Sponsored Work Visa Information Pack",
-        subject,
-        bodyPreview: "Australia Employer Sponsored Work Visa Program Guide with 2 attachments.",
-        status: result.success ? "sent" : "failed",
-        isFollowup: false,
-        followupNumber: 0,
-        isPendingFollowup: false,
-        cancelled: false,
-        sentAt: now,
-        sentBy: 0,
-        sentByName: "WhatsApp Bot (Automated)",
-        body: html,
-      });
+    // Look up leadId if missing to ensure email history is properly recorded
+    let effectiveLeadId = leadId;
+    if (!effectiveLeadId) {
+      try {
+        const leadDoc = await db.collection("leads").findOne({
+          $or: [
+            { phone: cleanPhone },
+            { phone: `+${cleanPhone}` },
+            { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+            { email: email.toLowerCase() },
+          ],
+        });
+        if (leadDoc) effectiveLeadId = leadDoc.id;
+      } catch (findErr) {
+        console.warn("[WhatsApp Info Email] Error finding lead for history record:", findErr);
+      }
     }
 
-    // Update whatsapp_sessions
+    // Record in email_history
+    if (effectiveLeadId) {
+      try {
+        await recordEmailHistory({
+          leadId: effectiveLeadId,
+          leadName: candidateName,
+          stage: "info",
+          mailbox: "info@tmsvisa.com",
+          templateName: "Australia Employer Sponsored Work Visa Information Pack",
+          subject,
+          bodyPreview: "Australia Employer Sponsored Work Visa Program Guide with 2 attachments.",
+          status: isSuccess ? "sent" : "failed",
+          isFollowup: false,
+          followupNumber: 0,
+          isPendingFollowup: false,
+          cancelled: false,
+          sentAt: now,
+          sentBy: 0,
+          sentByName: "WhatsApp Bot (Automated)",
+          body: html,
+          to: email,
+          error: result.error,
+        });
+      } catch (histErr) {
+        console.warn("[WhatsApp Info Email] Could not record email history:", histErr);
+      }
+    }
+
+    if (!isSuccess) {
+      console.error(`[WhatsApp Info Email] ✗ Delivery failed to ${email}:`, result.error);
+      return {
+        success: false,
+        error: result.error || "Failed to dispatch email via SMTP",
+        result,
+      };
+    }
+
+    // Update whatsapp_sessions ONLY on confirmed success
     await db.collection("whatsapp_sessions").updateOne(
       { phone: cleanPhone },
       {
         $set: {
           infoEmailSentAt: now,
+          email,
           updatedAt: now,
         },
       }

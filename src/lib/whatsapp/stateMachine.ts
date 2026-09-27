@@ -468,6 +468,7 @@ export async function processIncomingWhatsAppMessage(params: {
   const videoUrl = getVideo482Url();
 
   const lowerText = cleanText.toLowerCase().replace(/[^a-z0-9@. ]/g, "").trim();
+  const lowerClean = cleanText.toLowerCase();
 
   // =========================================================================
   // --- SAVE EVERY CANDIDATE MESSAGE TO conversationHistory (for AI training) ---
@@ -502,8 +503,9 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // EMAIL UPDATE: Candidate was asked to reply with their new email address
   if (session.currentStep === "AWAITING_EMAIL_UPDATE" && cleanText && !actionId) {
+    const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const candidate = emailMatch ? emailMatch[0].toLowerCase() : cleanText.trim().toLowerCase();
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const candidate = cleanText.trim().toLowerCase();
     const prevStep = session.meetingCompleted
       ? "MEETING_COMPLETED"
       : session.bookedSlot
@@ -512,6 +514,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     if (emailRegex.test(candidate)) {
       // Save to session
+      session.email = candidate;
       await updateSession(db, session.phone, {
         email: candidate,
         currentStep: prevStep as import("./types").WhatsAppStep,
@@ -523,7 +526,26 @@ export async function processIncomingWhatsAppMessage(params: {
           { $set: { email: candidate, updatedAt: new Date() } }
         );
       }
-      const confirm = `✅ Done! Your registered email has been updated to **${candidate}**.\n\nAll future official correspondence will now be sent to this address. If you have any other questions, feel free to ask! 🇦🇺`;
+
+      // Automatically dispatch info email to new address
+      let emailDispatched = false;
+      try {
+        const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
+        const sendRes = await sendWhatsAppInfoEmail({
+          phone: session.phone,
+          name: session.name,
+          email: candidate,
+          leadId: session.leadId,
+        });
+        emailDispatched = sendRes.success === true;
+      } catch (err) {
+        console.error("[WhatsApp] Error sending info email after update:", err);
+      }
+
+      const confirm = emailDispatched
+        ? `✅ Done! Your registered email has been updated to **${candidate}**.\n\nWe have immediately dispatched your official Australia Employer Sponsored Work Visa Information Pack (including the 691 Eligible Occupation List & PTE Guide) to your new email! 📩 Please check your inbox and spam folder.`
+        : `✅ Done! Your registered email has been updated to **${candidate}**.\n\nAll future official correspondence and visa documentation will be sent to this address. If you have any other questions, feel free to ask! 🇦🇺`;
+
       await sendTextMessage(session.phone, confirm);
       return { replyText: confirm, step: prevStep as import("./types").WhatsAppStep };
     } else {
@@ -607,6 +629,22 @@ export async function processIncomingWhatsAppMessage(params: {
           }
           break;
         }
+      }
+    }
+  }
+
+  // 0b. Candidate Email Address extraction (e.g. "my email is ak2805034@gmail.com", "ak2805034@gmail.com")
+  const emailInMsgMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  if (emailInMsgMatch) {
+    const foundEmail = emailInMsgMatch[0].toLowerCase();
+    if (!session.email || session.email !== foundEmail) {
+      session.email = foundEmail;
+      profileUpdates.email = foundEmail;
+      if (session.leadId) {
+        await db.collection("leads").updateOne(
+          { id: session.leadId },
+          { $set: { email: foundEmail, updatedAt: new Date() } }
+        );
       }
     }
   }
@@ -820,6 +858,99 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
+  // --- Check: Email Resend, "Send Me Email", or Email Delivery Inquiry ---
+  const isResendEmailRequest =
+    lowerClean === "resend" ||
+    lowerClean === "resend email" ||
+    lowerClean === "send me email" ||
+    lowerClean === "send email" ||
+    lowerClean === "send mail" ||
+    lowerClean === "send me the email" ||
+    lowerClean === "send me the mail" ||
+    lowerClean === "please send email" ||
+    lowerClean === "please send me email" ||
+    lowerClean === "resend mail" ||
+    lowerClean === "send again" ||
+    lowerClean === "email again" ||
+    lowerClean.includes("did not receive email") ||
+    lowerClean.includes("didn't receive email") ||
+    lowerClean.includes("did not get email") ||
+    lowerClean.includes("didn't get email") ||
+    lowerClean.includes("did not get the email") ||
+    lowerClean.includes("haven't received email") ||
+    lowerClean.includes("have not received email") ||
+    lowerClean.includes("not received email") ||
+    lowerClean.includes("haven't got email") ||
+    lowerClean.includes("havent received email") ||
+    lowerClean.includes("email nahi mila") ||
+    lowerClean.includes("email nahi aaya") ||
+    lowerClean.includes("mail nahi mila") ||
+    lowerClean.includes("mail nahi aaya") ||
+    lowerClean.includes("email bhejo") ||
+    lowerClean.includes("mail bhejo") ||
+    lowerClean.includes("send on email") ||
+    lowerClean.includes("share on email") ||
+    lowerClean.includes("forward to my email") ||
+    lowerClean.includes("send to my email");
+
+  if (isResendEmailRequest) {
+    const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const targetEmail = emailMatch ? emailMatch[0].toLowerCase() : session.email;
+
+    if (targetEmail) {
+      if (emailMatch && session.email !== targetEmail) {
+        session.email = targetEmail;
+        await updateSession(db, session.phone, { email: targetEmail });
+        if (session.leadId) {
+          await db.collection("leads").updateOne(
+            { id: session.leadId },
+            { $set: { email: targetEmail, updatedAt: new Date() } }
+          );
+        }
+      }
+
+      const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
+      const sendRes = await sendWhatsAppInfoEmail({
+        phone: session.phone,
+        name: session.name,
+        email: targetEmail,
+        leadId: session.leadId,
+      });
+
+      if (sendRes.success) {
+        await updateSession(db, session.phone, {
+          infoEmailSentAt: new Date(),
+          email: targetEmail,
+        });
+
+        const successMsg =
+          `✅ We have sent the official Australia Employer Sponsored Work Visa Information Pack to **${targetEmail}**! 📩\n\n` +
+          `📎 **Attached in your email:**\n` +
+          `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+          `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
+          `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from new corporate domains can sometimes be filtered there).\n\n` +
+          `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`;
+
+        await sendTextMessage(session.phone, successMsg);
+        return { replyText: successMsg, step: session.currentStep };
+      } else {
+        const failMsg =
+          `⚠️ We attempted to dispatch your visa information pack to **${targetEmail}**, but encountered a delivery error.\n\n` +
+          `Please verify if your email address is spelled correctly or reply with an alternate email address (e.g. *"My email is yourname@gmail.com"*). You can also write to **info@tmsvisa.com** directly for urgent assistance.`;
+
+        await sendTextMessage(session.phone, failMsg);
+        return { replyText: failMsg, step: session.currentStep };
+      }
+    } else {
+      const askEmailMsg =
+        `I would be happy to send you the official Australia Employer Sponsored Work Visa Information Pack & 691 Eligible Occupation List! 📄🇦🇺\n\n` +
+        `Please reply with your **Email Address** (e.g. name@gmail.com) so I can deliver it to your inbox immediately. 📧`;
+
+      await sendTextMessage(session.phone, askEmailMsg);
+      return { replyText: askEmailMsg, step: session.currentStep };
+    }
+  }
+
   // --- Meeting Cancellation Request Check ---
   const isCancelRequest =
     actionId === "CANCEL_MEETING" ||
@@ -960,8 +1091,8 @@ export async function processIncomingWhatsAppMessage(params: {
     );
 
   // Email format check
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const isDirectEmail = emailRegex.test(cleanText.toLowerCase());
+  const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+  const isDirectEmail = EMAIL_PATTERN.test(cleanText);
 
   // Handle Watch 482 Video button click
   if (actionId === "BTN_ASK_VIDEO") {
@@ -1198,7 +1329,8 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 4. In AWAITING_EMAIL state (or direct email shared) -> Validate Email, Send Info Email, Wait 10s -> Send Video, Schedule 10m Prompt
   if (session.currentStep === "AWAITING_EMAIL" || (isDirectEmail && session.currentStep !== "BOOKED")) {
-    const extractedEmail = cleanText.trim().toLowerCase();
+    const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const extractedEmail = emailMatch ? emailMatch[0].toLowerCase() : cleanText.trim().toLowerCase();
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     const isValidFormat = emailRegex.test(extractedEmail);
     const domain = extractedEmail.includes("@") ? extractedEmail.split("@")[1] : "";
@@ -1248,28 +1380,30 @@ export async function processIncomingWhatsAppMessage(params: {
       ...session,
       email: extractedEmail,
       currentStep: "AWAITING_CONSULTATION_DECISION" as WhatsAppStep,
-      infoEmailSentAt: new Date(),
       nextFollowupAt: getNext10AmInTimezone(session.timeZone),
       followupCount: 0,
     };
     const leadId = await syncCrmLead(db, updatedSession, "new-lead");
 
     // 1. Dispatch info email from info@tmsvisa.com
+    let emailSentSuccessfully = false;
     try {
       const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
-      await sendWhatsAppInfoEmail({
+      const emailRes = await sendWhatsAppInfoEmail({
         phone: session.phone,
         name: session.name,
         email: extractedEmail,
         leadId,
       });
+      emailSentSuccessfully = emailRes.success === true;
     } catch (emailErr) {
       console.error("[WhatsApp] Error sending info email:", emailErr);
     }
 
     // 2. Immediate WhatsApp message confirming email was sent
-    const emailSentNotice =
-      `We have sent an email about the whole process to your email address! Please check your inbox (and spam/junk folder) as well. 📩`;
+    const emailSentNotice = emailSentSuccessfully
+      ? `We have sent an email about the whole process to your email address (**${extractedEmail}**)! Please check your inbox (and spam/junk folder) as well. 📩`
+      : `We registered your email address (**${extractedEmail}**). Our team is dispatching your visa roadmap now — please check your inbox and spam folder shortly! 📩`;
     await sendTextMessage(session.phone, emailSentNotice);
 
     const now = new Date();
@@ -1277,7 +1411,7 @@ export async function processIncomingWhatsAppMessage(params: {
       email: extractedEmail,
       leadId,
       currentStep: "AWAITING_CONSULTATION_DECISION",
-      infoEmailSentAt: now,
+      ...(emailSentSuccessfully ? { infoEmailSentAt: now } : {}),
       videoSentAt: now,
       consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
       nextFollowupAt: getNext10AmInTimezone(session.timeZone),
@@ -2049,8 +2183,6 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 10. Update intent detection — BEFORE calling AI, check if candidate wants to change phone/email/name
   // NOTE: Phone numbers CANNOT be changed via chat under CRM compliance and security rules.
-  const lowerClean = cleanText.toLowerCase();
-
   const wantsPhoneChange =
     (lowerClean.includes("change") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||
     (lowerClean.includes("update") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||

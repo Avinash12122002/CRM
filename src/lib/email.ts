@@ -290,6 +290,8 @@ export interface EmailHistoryRecord {
   sentByName: string;
   invoiceId?: string;
   body?: string;
+  to?: string;
+  error?: string;
 }
 
 export async function recordEmailHistory(record: EmailHistoryRecord) {
