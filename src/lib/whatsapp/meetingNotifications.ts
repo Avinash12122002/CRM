@@ -93,15 +93,17 @@ export async function sendMeetingCancelledNotification(params: {
   try {
     const { getUpcomingWeekendDays } = await import("./slots");
     const { sendInteractiveList } = await import("./client");
+    const { detectCountryFromPhone, extractShortTimezone } = await import("./timezone");
     const weekends = getUpcomingWeekendDays(10);
-    const isIndia = cleanPhone.startsWith("91");
+    const countryInfo = detectCountryFromPhone(cleanPhone);
+    const tzShort = extractShortTimezone(countryInfo.label);
     const sections = [
       {
         title: "Select Weekend Date",
         rows: weekends.slice(0, 10).map((w) => ({
           id: `DAY_DATE_${w.date}`,
           title: w.displayLabel.slice(0, 24),
-          description: isIndia ? `${w.dayName} · 1 PM - 9 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
+          description: `${w.dayName} · 1PM-9PM ${tzShort}`.slice(0, 72),
         })),
       },
     ];

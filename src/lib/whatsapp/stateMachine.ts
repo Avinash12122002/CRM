@@ -16,6 +16,7 @@ import {
   getAvailableWeekendSlots,
   findNextAvailableWeekendDay,
   formatSlotsOverview,
+  WeekendDayOption,
 } from "./slots";
 import { generateAiResponse } from "./ai";
 import {
@@ -467,6 +468,273 @@ export async function sendTimedVideoAndProcessGuide(
   }, 10 * 60 * 1000);
 }
 
+const MONTH_MAP: Record<string, string> = {
+  jan: "01", january: "01",
+  feb: "02", february: "02",
+  mar: "03", march: "03",
+  apr: "04", april: "04",
+  may: "05",
+  jun: "06", june: "06",
+  jul: "07", july: "07",
+  aug: "08", august: "08",
+  sep: "09", sept: "09", september: "09",
+  oct: "10", october: "10",
+  nov: "11", november: "11",
+  dec: "12", december: "12",
+};
+
+/**
+ * Parses user message text to detect whether candidate mentioned a specific upcoming weekend date.
+ * Matches ISO dates, formatted dates (e.g. "27 sep", "28th september"), slash dates ("27/9"),
+ * or single day numbers if candidate is actively in the SELECTING_DAY step.
+ */
+export function matchWeekendDateFromText(
+  text: string,
+  upcomingWeekends: WeekendDayOption[],
+  isSelectingDayStep: boolean = false
+): string | null {
+  const clean = text.toLowerCase().trim();
+
+  // 1. Direct ISO match (e.g. "2026-09-27")
+  for (const w of upcomingWeekends) {
+    if (clean.includes(w.date)) return w.date;
+  }
+
+  // 2. Day number + month match (e.g. "27 sep", "27th september", "sep 27", "27/9")
+  for (const w of upcomingWeekends) {
+    const parts = w.date.split("-");
+    const month = parts[1];
+    const day = parts[2];
+    const dayNum = parseInt(day, 10).toString();
+    const monthNum = parseInt(month, 10).toString();
+
+    const shortMonths = Object.keys(MONTH_MAP).filter((k) => k.length === 3 && MONTH_MAP[k] === month);
+    const longMonths = Object.keys(MONTH_MAP).filter((k) => k.length > 3 && MONTH_MAP[k] === month);
+    const monthVariants = [...shortMonths, ...longMonths];
+
+    for (const mName of monthVariants) {
+      const rx1 = new RegExp(`\\b${dayNum}(?:st|nd|rd|th)?\\s*(?:of\\s*)?${mName}\\b`, "i");
+      const rx2 = new RegExp(`\\b${mName}\\s*${dayNum}(?:st|nd|rd|th)?\\b`, "i");
+      if (rx1.test(clean) || rx2.test(clean)) {
+        return w.date;
+      }
+    }
+
+    const rxDateSlash = new RegExp(`\\b${dayNum}[/-]0?${monthNum}\\b`);
+    if (rxDateSlash.test(clean)) {
+      return w.date;
+    }
+  }
+
+  // 3. If candidate is actively in SELECTING_DAY step and typed just the day of month (e.g. "27" or "28")
+  if (isSelectingDayStep) {
+    const dayOnlyMatch = clean.match(/\b(0?[1-9]|[12][0-9]|3[01])(?:st|nd|rd|th)?\b/);
+    if (dayOnlyMatch) {
+      const dayVal = parseInt(dayOnlyMatch[1], 10);
+      const matched = upcomingWeekends.find((w) => {
+        const d = parseInt(w.date.split("-")[2], 10);
+        return d === dayVal;
+      });
+      if (matched) return matched.date;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Dispatches the interactive "Select Date" list for upcoming weekend consultation dates.
+ * Meta list allows up to 10 rows.
+ */
+export async function sendConsultationDateSelection(params: {
+  db: Db;
+  session: WhatsAppSession;
+  introText?: string;
+  filterDay?: "Saturday" | "Sunday";
+}): Promise<{ replyText: string; step: WhatsAppStep }> {
+  const { db, session, introText, filterDay } = params;
+  const isIndia = session.countryCode === "IN";
+  const allWeekends = getUpcomingWeekendDays(10);
+  const weekends = filterDay
+    ? allWeekends.filter((w) => w.dayName === filterDay)
+    : allWeekends;
+
+  // Always show candidate's local timezone in the date selection description
+  const tzShortLabel = extractShortTimezone(session.timeZoneLabel);
+
+  const sections = [
+    {
+      title: (filterDay ? `Upcoming ${filterDay}s` : "Select Weekend Date").slice(0, 24),
+      rows: weekends.slice(0, 10).map((w) => ({
+        id: `DAY_DATE_${w.date}`,
+        title: w.displayLabel.slice(0, 24), // e.g. "Sat, 26 Sep"
+        description: `${w.dayName} · 1PM-9PM ${tzShortLabel}`.slice(0, 72),
+      })),
+    },
+  ];
+
+  const candidateDisplayName =
+    session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      ? session.name
+      : "";
+  const nameSalutation = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+
+  const isRescheduling = Boolean(session.bookedSlot);
+  let dayText = introText;
+
+  if (!dayText) {
+    if (isRescheduling) {
+      dayText =
+        `📅 *Change Consultation Date & Time*\n\n` +
+        `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
+        `Please select your new preferred weekend date from the upcoming month:`;
+    } else {
+      dayText =
+        `Hello${nameSalutation}! 👋 To book your free 1-on-1 consultation with our Senior Migration Expert, please select your preferred weekend date below:\n\n` +
+        `• **Format:** Dedicated 1-hour Google Meet session with our Senior Migration Expert.\n` +
+        `• **Agenda:** CV review, eligibility check for 691 roles, and custom visa roadmap.\n` +
+        `• **Timings:** Saturdays & Sundays between 01:00 PM – 09:00 PM ${tzShortLabel} (in your local time) in 1-hour slots.\n` +
+        `• **Cost:** 100% Free.\n\n` +
+        `Please tap **Select Date** below to choose your date:`;
+    }
+  }
+
+  await sendInteractiveList(
+    session.phone,
+    "Consultation Booking",
+    dayText,
+    "Select Date",
+    sections,
+  );
+
+  await updateSession(db, session.phone, { currentStep: "SELECTING_DAY" });
+  return { replyText: dayText, step: "SELECTING_DAY" };
+}
+
+/**
+ * Renders available 1-hour consultation slots for a chosen weekend date.
+ * If slots are open, sends the interactive "Select Slot" list.
+ * If slots are full, automatically finds and shows next weekend with open slots.
+ */
+export async function renderSlotSelectionForDate(params: {
+  db: Db;
+  session: WhatsAppSession;
+  meetingDate: string;
+}): Promise<{ replyText: string; step: WhatsAppStep }> {
+  const { db, session, meetingDate } = params;
+  const isIndia = session.countryCode === "IN";
+
+  const slots = await getAvailableWeekendSlots({
+    db,
+    meetingDate,
+    candidateTimeZone: session.timeZone,
+    candidateTimeLabel: session.timeZoneLabel,
+  });
+
+  const availableSlots = slots.filter((s) => s.available);
+
+  // If NO slots available on this date:
+  if (availableSlots.length === 0) {
+    const allWeekends = getUpcomingWeekendDays(10);
+    const selectedDayObj = allWeekends.find((w) => w.date === meetingDate);
+    const selectedLabel = selectedDayObj ? selectedDayObj.displayLabel : meetingDate;
+
+    // Find next weekend with open slots
+    const nextWeekend = await findNextAvailableWeekendDay({
+      db,
+      afterDate: meetingDate,
+      candidateTimeZone: session.timeZone,
+      candidateTimeLabel: session.timeZoneLabel,
+    });
+
+    if (nextWeekend && nextWeekend.availableSlots.length > 0) {
+      const nextDate = nextWeekend.dayOption.date;
+      const nextLabel = nextWeekend.dayOption.displayLabel;
+
+      await updateSession(db, session.phone, {
+        currentStep: "SELECTING_SLOT",
+        activeSlotsDate: nextDate,
+      });
+
+      const overviewText =
+        `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
+        `Here are all available consultation slots for the next weekend on **${nextLabel}**:\n\n` +
+        formatSlotsOverview({
+          slots: nextWeekend.availableSlots,
+          dayLabel: nextLabel,
+          candidateTimeZoneLabel: session.timeZoneLabel,
+          isIndia,
+        });
+
+      const sections = [
+        {
+          title: `Available Slots (${extractShortTimezone(session.timeZoneLabel)})`.slice(0, 24),
+          rows: nextWeekend.availableSlots.map((s, idx) => ({
+            id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+            title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
+            description: `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`.slice(0, 72),
+          })),
+        },
+      ];
+
+      await sendInteractiveList(
+        session.phone,
+        "Choose Your Slot",
+        overviewText,
+        "Select Slot",
+        sections,
+      );
+
+      return { replyText: overviewText, step: "SELECTING_SLOT" };
+    } else {
+      const fullText =
+        `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
+        `Would you like to review all upcoming dates across the month?`;
+      await sendQuickReplyButtons(session.phone, fullText, [
+        { id: "BTN_CHANGE_DAY", title: "View All 10 Dates" },
+      ]);
+      return { replyText: fullText, step: "SELECTING_DAY" };
+    }
+  }
+
+  // Slots are available for this date!
+  const allWeekends = getUpcomingWeekendDays(10);
+  const dayObj = allWeekends.find((w) => w.date === meetingDate);
+  const dayLabel = dayObj ? dayObj.displayLabel : meetingDate;
+
+  await updateSession(db, session.phone, {
+    currentStep: "SELECTING_SLOT",
+    activeSlotsDate: meetingDate,
+  });
+
+  const overviewText = formatSlotsOverview({
+    slots: availableSlots,
+    dayLabel,
+    candidateTimeZoneLabel: session.timeZoneLabel,
+    isIndia,
+  });
+
+  const sections = [
+    {
+      title: `Available Slots (${extractShortTimezone(session.timeZoneLabel)})`.slice(0, 24),
+      rows: availableSlots.map((s, idx) => ({
+        id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+        title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
+        description: `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`.slice(0, 72),
+      })),
+    },
+  ];
+
+  await sendInteractiveList(
+    session.phone,
+    "Choose Your Slot",
+    overviewText,
+    "Select Slot",
+    sections,
+  );
+
+  return { replyText: overviewText, step: "SELECTING_SLOT" };
+}
 
 /**
  * Main incoming message dispatcher and state machine
@@ -1488,16 +1756,32 @@ export async function processIncomingWhatsAppMessage(params: {
     };
   }
 
-  // 5. Candidate wants Consultation or wants to Reschedule/Change Date -> Show 10 Upcoming Weekend Dates (~whole month)
+  // 5. Candidate wants Consultation, Mentions a Day/Date, or wants to Reschedule/Change Date
   if (actionId === "BTN_SELECT_SLOT" && session.activeSlotsDate) {
     actionId = `DAY_DATE_${session.activeSlotsDate}`;
   }
+
+  const weekends = getUpcomingWeekendDays(10);
+  const matchedWeekendDate = matchWeekendDateFromText(
+    cleanText,
+    weekends,
+    session.currentStep === "SELECTING_DAY"
+  );
+
+  const WEEKDAY_REGEX = /\b(monday|tuesday|wednesday|thursday|friday|mon|tue|wed|thu|fri|weekdays?)\b/i;
+  const isWeekdayMention = WEEKDAY_REGEX.test(lowerText);
+
+  const isSaturdayMention = /\b(saturdays?|sat)\b/i.test(lowerText);
+  const isSundayMention = /\b(sundays?|sun)\b/i.test(lowerText);
+  const isWeekendMention = isSaturdayMention || isSundayMention || /\b(weekends?)\b/i.test(lowerText);
 
   const isRescheduleIntent =
     actionId === "BTN_RESCHEDULE" ||
     actionId === "BTN_RESCHEDULE_MEETING" ||
     actionId === "BTN_CHANGE_DAY" ||
     actionId === "BTN_SELECT_SLOT" ||
+    session.currentStep === "RESCHEDULING_DATE" ||
+    session.currentStep === "RESCHEDULING_SLOT" ||
     lowerText.includes("reschedule") ||
     lowerText.includes("wrong time") ||
     lowerText.includes("wrong date") ||
@@ -1506,66 +1790,136 @@ export async function processIncomingWhatsAppMessage(params: {
       (lowerText.includes("date") ||
         lowerText.includes("time") ||
         lowerText.includes("slot") ||
-        lowerText.includes("meeting"))) ||
+        lowerText.includes("meeting") ||
+        lowerText.includes("day"))) ||
     (lowerText.includes("different") &&
       (lowerText.includes("date") ||
         lowerText.includes("time") ||
-        lowerText.includes("slot")));
+        lowerText.includes("slot") ||
+        lowerText.includes("day")));
 
+  const BOOKING_KEYWORDS = [
+    "meeting", "meet", "book", "booking", "schedule", "scheduling",
+    "consult", "consultation", "appointment", "slot", "slots",
+    "call with expert", "expert call", "talk to expert", "speak with expert",
+    "video call", "google meet", "1 on 1", "1-on-1", "when can we talk",
+    "when can we meet", "choose time", "select time", "select date",
+    "available date", "available slot", "free slot", "lock slot",
+    "baat karni", "meeting karni", "call karni", "appointment chahiye",
+  ];
+  const hasBookingKeyword = BOOKING_KEYWORDS.some((kw) => {
+    if (kw.length <= 4) {
+      const rx = new RegExp(`\\b${kw}\\b`, "i");
+      return rx.test(lowerText);
+    }
+    return lowerText.includes(kw);
+  });
+
+  const candidateDisplayName =
+    session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      ? session.name
+      : "";
+  const nameSalutation = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+  const isIndia = session.countryCode === "IN";
+
+  const tzShortForMsg = extractShortTimezone(session.timeZoneLabel);
+  const weekdayExplanation =
+    `Hello${nameSalutation}! 👋 Our free 1-on-1 consultations with our Senior Migration Experts are strictly scheduled for **Saturdays and Sundays** (1 PM – 9 PM ${tzShortForMsg}, your local time) to accommodate dedicated evaluation sessions.\n\n` +
+    `• **Format:** Dedicated 1-hour Google Meet session.\n` +
+    `• **Agenda:** CV review, eligibility check across 691 occupations, and custom visa roadmap.\n` +
+    `• **Cost:** 100% Free.\n\n` +
+    `Please select your preferred upcoming weekend date from the menu below:`;
+
+  // 5a. If candidate already has an active confirmed consultation
+  if (session.bookedSlot) {
+    if (isRescheduleIntent) {
+      return sendConsultationDateSelection({ db, session });
+    }
+    if (hasBookingKeyword) {
+      const meetLink = getStaticGoogleMeetLink();
+      const bookedReminder =
+        `Hello${nameSalutation}! 👋 Your 1-on-1 consultation with our Senior Migration Expert is confirmed:\n\n` +
+        `📅 **Date:** ${session.bookedSlot.date}\n` +
+        `⏰ **Time:** ${session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel}\n` +
+        `💻 **Google Meet Link:** ${meetLink}\n\n` +
+        `Please make sure to join on time with your CV ready! 🇦🇺\n` +
+        `Tap below if you need to change your date or time:`;
+      await sendQuickReplyButtons(session.phone, bookedReminder, [
+        { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
+        { id: "BTN_ASK_VIDEO", title: "Watch Visa Video" },
+      ]);
+      return { replyText: bookedReminder, step: "BOOKED" };
+    }
+  }
+
+  // 5b. If candidate is actively in the SELECTING_DAY step and replied via text
+  if (
+    session.currentStep === "SELECTING_DAY" &&
+    !actionId.startsWith("DAY_DATE_") &&
+    !actionId.startsWith("DAY_SELECT_") &&
+    !actionId.startsWith("DAY_MORNING_") &&
+    !actionId.startsWith("DAY_EVENING_")
+  ) {
+    if (matchedWeekendDate) {
+      return renderSlotSelectionForDate({ db, session, meetingDate: matchedWeekendDate });
+    }
+    const num = parseInt(cleanText.replace(/\D/g, ""), 10);
+    if (!isNaN(num) && num >= 1 && num <= weekends.length) {
+      return renderSlotSelectionForDate({ db, session, meetingDate: weekends[num - 1].date });
+    }
+    if (isWeekdayMention) {
+      return sendConsultationDateSelection({ db, session, introText: weekdayExplanation });
+    }
+    if (isWeekendMention) {
+      return sendConsultationDateSelection({
+        db,
+        session,
+        filterDay: isSaturdayMention ? "Saturday" : isSundayMention ? "Sunday" : undefined,
+      });
+    }
+  }
+
+  // 5c. Candidate wants Consultation, mentions Day/Date/Slots, or clicked Book Consultation
   const wantsConsultation =
     actionId === "BTN_CONSULT_YES" ||
     actionId === "BTN_SELECT_SLOT" ||
     isRescheduleIntent ||
-    (session.currentStep === "AWAITING_CONSULTATION_DECISION" &&
-      ["yes", "book", "consult", "consultation", "meeting", "call"].some((w) =>
-        lowerText.includes(w)
-      )) ||
-    (session.currentStep === "VIDEO_SENT_AWAITING_INTEREST" &&
-      ["yes", "book", "consult", "consultation", "meeting", "call"].some((w) =>
-        lowerText.includes(w)
-      )) ||
-    session.currentStep === "RESCHEDULING_DATE";
+    hasBookingKeyword ||
+    isWeekdayMention ||
+    isWeekendMention ||
+    Boolean(matchedWeekendDate);
 
+  if (wantsConsultation && !session.bookedSlot) {
+    // If candidate has registered email, proceed directly to date/slot selection
+    if (session.email) {
+      if (matchedWeekendDate) {
+        return renderSlotSelectionForDate({ db, session, meetingDate: matchedWeekendDate });
+      }
+      if (isWeekdayMention) {
+        return sendConsultationDateSelection({ db, session, introText: weekdayExplanation });
+      }
+      if (isWeekendMention) {
+        return sendConsultationDateSelection({
+          db,
+          session,
+          filterDay: isSaturdayMention ? "Saturday" : isSundayMention ? "Sunday" : undefined,
+        });
+      }
+      return sendConsultationDateSelection({ db, session });
+    } else {
+      // Prompt candidate for email first so consultation invite & dossier can be sent
+      const emailPromptMsg = isWeekdayMention
+        ? `Hello${nameSalutation}! 👋 Our free 1-on-1 consultations with our Senior Migration Experts are held strictly on **Saturdays and Sundays** (1 PM – 9 PM ${tzShortForMsg}, your local time).\n\n` +
+          `To book your free session and receive your official Google Meet invitation & visa roadmap, *please reply with your Email Address:*`
+        : `Hello${nameSalutation}! 👋 To book your free 1-on-1 consultation with our Senior Migration Expert, *please reply with your Email Address* so we can register your profile and send your official meeting invitation & visa pack:`;
 
-  if (wantsConsultation) {
-    const isIndia = session.countryCode === "IN";
-    const weekends = getUpcomingWeekendDays(10);
-
-    const sections = [
-      {
-        title: "Select Weekend Date",
-        rows: weekends.map((w) => ({
-          id: `DAY_DATE_${w.date}`,
-          title: w.displayLabel.slice(0, 24), // e.g. "Sat, 26 Sep"
-          description: isIndia ? `${w.dayName} · 1 PM - 9 PM IST`.slice(0, 72) : `${w.dayName} · Local Time`.slice(0, 72),
-        })),
-      },
-    ];
-
-    const isRescheduling = Boolean(session.bookedSlot);
-    const dayText = isRescheduling
-      ? `📅 *Change Consultation Date & Time*\n\n` +
-      `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
-      `Please select your new preferred weekend date from the upcoming month:`
-      : `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n\n` +
-      (isIndia
-        ? `All slots run strictly between 01:00 PM and 09:00 PM IST in 1-hour intervals.\n\n`
-        : `All slots run in 1-hour intervals converted to your local time (**${session.timeZoneLabel}**).\n\n`) +
-      `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
-
-    await sendInteractiveList(
-      session.phone,
-      "Consultation Booking",
-      dayText,
-      "Select Date",
-      sections,
-    );
-
-    await updateSession(db, session.phone, { currentStep: "SELECTING_DAY" });
-    return { replyText: dayText, step: "SELECTING_DAY" };
+      await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL" });
+      await sendTextMessage(session.phone, emailPromptMsg);
+      return { replyText: emailPromptMsg, step: "AWAITING_EMAIL" };
+    }
   }
 
-  // 6. Candidate selected day -> Show all 16 slots at once in one view
+  // 6. Candidate selected day -> Show all slots via helper
   if (
     actionId.startsWith("DAY_DATE_") ||
     actionId.startsWith("DAY_SELECT_") ||
@@ -1584,129 +1938,7 @@ export async function processIncomingWhatsAppMessage(params: {
       meetingDate = actionId.replace("DAY_SELECT_", "");
     }
 
-    const slots = await getAvailableWeekendSlots({
-      db,
-      meetingDate,
-      candidateTimeZone: session.timeZone,
-      candidateTimeLabel: session.timeZoneLabel,
-    });
-
-    const availableSlots = slots.filter((s) => s.available);
-
-    // If NO slots available on this date:
-    if (availableSlots.length === 0) {
-      const allWeekends = getUpcomingWeekendDays(10);
-      const selectedDayObj = allWeekends.find((w) => w.date === meetingDate);
-      const selectedLabel = selectedDayObj ? selectedDayObj.displayLabel : meetingDate;
-
-      // Find next weekend with open slots
-      const nextWeekend = await findNextAvailableWeekendDay({
-        db,
-        afterDate: meetingDate,
-        candidateTimeZone: session.timeZone,
-        candidateTimeLabel: session.timeZoneLabel,
-      });
-
-      if (nextWeekend && nextWeekend.availableSlots.length > 0) {
-        const nextDate = nextWeekend.dayOption.date;
-        const nextLabel = nextWeekend.dayOption.displayLabel;
-        const isIndia = session.countryCode === "IN";
-
-        // Save active slots date
-        await updateSession(db, session.phone, {
-          currentStep: "SELECTING_SLOT",
-          activeSlotsDate: nextDate,
-        });
-
-        // 1. Send complete overview text of all available slots for next weekend in one view
-        const overviewText =
-          `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
-          `Here are all available consultation slots for the next weekend on **${nextLabel}**:\n\n` +
-          formatSlotsOverview({
-            slots: nextWeekend.availableSlots,
-            dayLabel: nextLabel,
-            candidateTimeZoneLabel: session.timeZoneLabel,
-            isIndia,
-          });
-
-        const sections = [
-          {
-            title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
-            rows: nextWeekend.availableSlots.map((s, idx) => ({
-              id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-              title: (isIndia
-                ? `${format12hTime(s.istStartTime)} - ${format12hTime(s.istEndTime)} IST`
-                : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-              description: (isIndia
-                ? `Slot #${idx + 1} (1 Hour)`
-                : `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`).slice(0, 72),
-            })),
-          },
-        ];
-        await sendInteractiveList(
-          session.phone,
-          "Choose Your Slot",
-          overviewText,
-          "Select Slot",
-          sections,
-        );
-
-        return { replyText: overviewText, step: "SELECTING_SLOT" };
-      } else {
-        const fullText =
-          `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
-          `Would you like to review all upcoming dates across the month?`;
-        await sendQuickReplyButtons(session.phone, fullText, [
-          { id: "BTN_CHANGE_DAY", title: "View All 10 Dates" },
-        ]);
-        return { replyText: fullText, step: "SELECTING_DAY" };
-      }
-    }
-
-    // Slots are available for this date!
-    const allWeekends = getUpcomingWeekendDays(10);
-    const dayObj = allWeekends.find((w) => w.date === meetingDate);
-    const dayLabel = dayObj ? dayObj.displayLabel : meetingDate;
-    const isIndia = session.countryCode === "IN";
-
-    // Save activeSlotsDate in session so reply with number works
-    await updateSession(db, session.phone, {
-      currentStep: "SELECTING_SLOT",
-      activeSlotsDate: meetingDate,
-    });
-
-    // Send complete overview text of all available 1-hour slots
-    const overviewText = formatSlotsOverview({
-      slots: availableSlots,
-      dayLabel,
-      candidateTimeZoneLabel: session.timeZoneLabel,
-      isIndia,
-    });
-
-    const sections = [
-      {
-        title: isIndia ? "Available Slots (IST)" : `Available Slots`.slice(0, 24),
-        rows: availableSlots.map((s, idx) => ({
-          id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-          title: (isIndia
-            ? `${format12hTime(s.istStartTime)} - ${format12hTime(s.istEndTime)} IST`
-            : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-          description: (isIndia
-            ? `Slot #${idx + 1} (1 Hour)`
-            : `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`).slice(0, 72),
-        })),
-      },
-    ];
-
-    await sendInteractiveList(
-      session.phone,
-      "Choose Your Slot",
-      overviewText,
-      "Select Slot",
-      sections,
-    );
-
-    return { replyText: overviewText, step: "SELECTING_SLOT" };
+    return renderSlotSelectionForDate({ db, session, meetingDate });
   }
 
   // Handle 2 select slot options (divided 8 in each):
@@ -1746,12 +1978,8 @@ export async function processIncomingWhatsAppMessage(params: {
       const part2Slots = availableSlots.slice(8, 16);
       const rows = part2Slots.map((s, idx) => ({
         id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-        title: (isIndia
-          ? `${format12hTime(s.istStartTime)} - ${format12hTime(s.istEndTime)} IST`
-          : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-        description: (isIndia
-          ? `Slot #${idx + 9} (1 Hour)`
-          : `Slot #${idx + 9} (${tzShort})`).slice(0, 72),
+        title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
+        description: `Slot #${idx + 9} (${tzShort})`.slice(0, 72),
       }));
 
       const sections = [
@@ -1778,12 +2006,8 @@ export async function processIncomingWhatsAppMessage(params: {
       const part1Slots = availableSlots.slice(0, 8);
       const rows = part1Slots.map((s, idx) => ({
         id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-        title: (isIndia
-          ? `${format12hTime(s.istStartTime)} - ${format12hTime(s.istEndTime)} IST`
-          : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-        description: (isIndia
-          ? `Slot #${idx + 1} (1 Hour)`
-          : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
+        title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
+        description: `Slot #${idx + 1} (${tzShort})`.slice(0, 72),
       }));
 
       const sections = [
@@ -1884,7 +2108,8 @@ export async function processIncomingWhatsAppMessage(params: {
         const isIndia = session.countryCode === "IN";
         const dayLabel = remainingSlots[0]?.dayLabel || meetingDate;
         const candObj = convertIstSlotToCandidateTime(meetingDate, istStart, session.timeZone);
-        const bookedLabel = isIndia ? `${istStart} IST` : `${candObj.display12h} (${session.timeZoneLabel})`;
+        // Always show candidate's local time (for Indian candidates IST IS their local time)
+        const bookedLabel = `${candObj.display12h} (${session.timeZoneLabel})`;
 
         const collisionMsg =
           `⚠️ That slot (**${bookedLabel}**) was just booked by another candidate!\n\n` +
@@ -2226,11 +2451,23 @@ export async function processIncomingWhatsAppMessage(params: {
         `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
         `*(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺`;
     } else {
+      if (session.email) {
+        return sendConsultationDateSelection({
+          db,
+          session,
+          introText:
+            `Hello ${session.name || "there"}! 👋\n\n` +
+            `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert (1 PM – 9 PM in your local time).\n\n` +
+            `🔗 **Official Google Meet Link:** ${meetUrl}\n\n` +
+            `Please tap **Select Date** below to choose your preferred weekend date:`,
+        });
+      }
+
       meetReply =
         `Hello ${session.name || "there"}! 👋\n\n` +
         `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
         `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-        `Consultations are scheduled on Saturdays and Sundays between 01:00 PM and 09:00 PM IST in 1-hour intervals. Would you like to select an available time slot in your local time?`;
+        `Consultations are scheduled on Saturdays and Sundays between 1 PM and 9 PM in your local time, in 1-hour intervals. Please reply with your **Email Address** to receive your meeting invitation & choose an available time slot!`;
     }
 
     await sendTextMessage(session.phone, meetReply);
@@ -2367,5 +2604,46 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   await sendTextMessage(session.phone, aiAnswer);
+
+  // If candidate was actively in SELECTING_DAY and asked an inquiry, provide the date list
+  if (session.currentStep === "SELECTING_DAY") {
+    return sendConsultationDateSelection({
+      db,
+      session,
+      introText: `Please tap **Select Date** below to choose your preferred consultation date:`,
+    });
+  }
+
+  // If candidate was actively in SELECTING_SLOT and asked an inquiry, provide the slot list
+  if (session.currentStep === "SELECTING_SLOT" && session.activeSlotsDate) {
+    return renderSlotSelectionForDate({
+      db,
+      session,
+      meetingDate: session.activeSlotsDate,
+    });
+  }
+
+  // If candidate asked a hybrid question (inquiry + booking/day intent) and has email registered
+  if (
+    !session.bookedSlot &&
+    session.email &&
+    (hasBookingKeyword || isWeekdayMention || isWeekendMention || Boolean(matchedWeekendDate))
+  ) {
+    if (matchedWeekendDate) {
+      return renderSlotSelectionForDate({ db, session, meetingDate: matchedWeekendDate });
+    }
+    if (isWeekdayMention) {
+      return sendConsultationDateSelection({ db, session, introText: weekdayExplanation });
+    }
+    if (isWeekendMention) {
+      return sendConsultationDateSelection({
+        db,
+        session,
+        filterDay: isSaturdayMention ? "Saturday" : isSundayMention ? "Sunday" : undefined,
+      });
+    }
+    return sendConsultationDateSelection({ db, session });
+  }
+
   return { replyText: aiAnswer, step: session.currentStep };
 }

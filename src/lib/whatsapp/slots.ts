@@ -177,7 +177,7 @@ export async function getAvailableWeekendSlots(params: {
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
-      }).format(new Date(`${meetingDate}T${istEnd}:00+05:30`))} (IST)`;
+      }).format(new Date(`${meetingDate}T${istEnd}:00+05:30`))} IST (internal)`;
 
       const candidateDisplayLabel = `${candStart.display12h} - ${candEnd.display12h} (${candidateTimeLabel})`;
 
@@ -207,37 +207,28 @@ export function formatSlotsOverview(params: {
   slots: WeekendSlot[];
   dayLabel: string;
   candidateTimeZoneLabel: string;
-  isIndia: boolean;
+  isIndia?: boolean; // kept for backward compat, no longer changes behavior
 }): string {
-  const { slots, dayLabel, candidateTimeZoneLabel, isIndia } = params;
+  const { slots, dayLabel, candidateTimeZoneLabel } = params;
 
   let text = `📅 *All Available Consultation Slots for ${dayLabel}*\n`;
 
   const tzShort = extractShortTimezone(candidateTimeZoneLabel);
 
-  // Dynamic candidate country local time range in header (e.g. 08:30 AM - 04:30 PM WAT, or 01:00 PM - 09:00 PM IST)
+  // Always show candidate's local time range in header
   if (slots.length > 0) {
-    const firstLocal = isIndia
-      ? "01:00 PM"
-      : slots[0].candidateDisplayLabel.split(" - ")[0].trim();
-    const lastPart = isIndia
-      ? "09:00 PM"
-      : slots[slots.length - 1].candidateDisplayLabel.split(" - ")[1].split(" (")[0].trim();
+    const firstLocal = slots[0].candidateDisplayLabel.split(" - ")[0].trim();
+    const lastPart = slots[slots.length - 1].candidateDisplayLabel.split(" - ")[1].split(" (")[0].trim();
     text += `(1-hour 1-on-1 sessions between ${firstLocal} - ${lastPart} ${tzShort})\n\n`;
   } else {
     text += `(1-hour 1-on-1 sessions in your local time — ${tzShort})\n\n`;
   }
 
+  // Always show slots in candidate's local timezone (India candidates see IST which is their local time)
   slots.forEach((s, idx) => {
     const num = idx + 1;
-    if (isIndia) {
-      const istStart12h = convertIstSlotToCandidateTime(s.date, s.istStartTime, "Asia/Kolkata").display12h;
-      const istEnd12h = convertIstSlotToCandidateTime(s.date, s.istEndTime, "Asia/Kolkata").display12h;
-      text += `*${num}.* ${istStart12h} - ${istEnd12h}\n`;
-    } else {
-      const candRange = s.candidateDisplayLabel.split(" (")[0].trim(); // e.g. "06:30 AM - 07:30 AM"
-      text += `*${num}.* ${candRange}\n`;
-    }
+    const candRange = s.candidateDisplayLabel.split(" (")[0].trim();
+    text += `*${num}.* ${candRange}\n`;
   });
 
   text += `\n👉 Tap *Select Slot* below or reply with your slot number (*1* to *${slots.length}*).\n`;

@@ -1,4 +1,5 @@
 import { Db } from "mongodb";
+import { detectCountryFromPhone } from "./timezone";
 
 export interface LogWhatsAppMessageParams {
   db: Db;
@@ -106,6 +107,7 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
 
     if (sender === "candidate") {
       // Increment unread count for admin review
+      const detectedCountry = detectCountryFromPhone(cleanPhone);
       await db.collection("whatsapp_sessions").updateOne(
         { phone: cleanPhone },
         {
@@ -121,16 +123,16 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
                   step: "LIVE",
                 },
               ],
-              $slice: -30, // Keep last 30 messages in session context for AI
+              $slice: -30,
             },
           } as any,
           $setOnInsert: {
             createdAt,
             name: senderName && senderName !== "Candidate" ? senderName : "Candidate",
-            countryCode: cleanPhone.startsWith("91") ? "IN" : "",
-            countryName: cleanPhone.startsWith("91") ? "India" : "",
-            timeZone: cleanPhone.startsWith("91") ? "Asia/Kolkata" : "UTC",
-            timeZoneLabel: cleanPhone.startsWith("91") ? "IST (India Standard Time)" : "Local Time",
+            countryCode: detectedCountry.countryCode,
+            countryName: detectedCountry.countryName,
+            timeZone: detectedCountry.timeZone,
+            timeZoneLabel: detectedCountry.label,
             currentStep: "WELCOME",
             followupCount: 0,
           },
@@ -139,6 +141,7 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
       );
     } else {
       // Outgoing message (bot or admin)
+      const detectedCountryOut = detectCountryFromPhone(cleanPhone);
       await db.collection("whatsapp_sessions").updateOne(
         { phone: cleanPhone },
         {
@@ -158,10 +161,10 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
           } as any,
           $setOnInsert: {
             createdAt,
-            countryCode: cleanPhone.startsWith("91") ? "IN" : "",
-            countryName: cleanPhone.startsWith("91") ? "India" : "",
-            timeZone: cleanPhone.startsWith("91") ? "Asia/Kolkata" : "UTC",
-            timeZoneLabel: cleanPhone.startsWith("91") ? "IST (India Standard Time)" : "Local Time",
+            countryCode: detectedCountryOut.countryCode,
+            countryName: detectedCountryOut.countryName,
+            timeZone: detectedCountryOut.timeZone,
+            timeZoneLabel: detectedCountryOut.label,
             currentStep: "WELCOME",
             followupCount: 0,
             unreadCount: 0,
