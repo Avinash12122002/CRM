@@ -73,9 +73,7 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
     };
 
-    // meeting/wm roles → "meeting-rescheduled" (they need to rebook with candidate)
-    // All other roles (admin, telecaller, supervisor etc.) → "call-back" (lead returns to follow-up pipeline)
-    cancelSet.status = isMeetingRole ? "meeting-rescheduled" : "call-back";
+    cancelSet.status = "meeting-reschedule";
 
     await db.collection(collectionName).updateOne(
       { id: leadId },
@@ -90,9 +88,8 @@ export async function POST(req: NextRequest) {
             timestamp: new Date(),
             details: isMeetingRole
               ? "Meeting cancelled by meeting user — status set to Meeting Reschedule"
-              : `Meeting cancelled by ${payload.role} — status set to Call Back`,
-            oldStatus: lead.status,
-            newStatus: cancelSet.status,
+              : "Meeting cancelled",
+            ...(isMeetingRole ? { oldStatus: lead.status, newStatus: "meeting-reschedule" } : {}),
           },
         },
       },
