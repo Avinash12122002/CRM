@@ -1034,7 +1034,7 @@ export default function WhatsAppChatPage() {
                   type="button"
                   onClick={() =>
                     insertQuickReply(
-                      "Here is our official explainer video on Australia Employer Sponsored Work Visa:\n🔗 https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing"
+                      "Here is our official explainer video on Australia Employer Sponsored Work Visa:\n🔗 https://tmsvisa.com/australia-work-visa-process/"
                     )
                   }
                   className="px-2 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-zinc-700 dark:text-zinc-300 shrink-0 transition"

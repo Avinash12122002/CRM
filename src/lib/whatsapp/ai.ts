@@ -582,7 +582,7 @@ function generateHumanVisaExpertReply(params: {
   const meetUrl = process.env.GOOGLE_MEET_LINK || "https://meet.google.com/qpj-ntbh-ieu";
   const videoUrl =
     process.env.VIDEO_482_URL ||
-    "https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing";
+    "https://tmsvisa.com/australia-work-visa-process/";
 
   // Build frustrated-but-contextual opener if message has anger + actual topic
   const frustratedPrefix = isFrustrated

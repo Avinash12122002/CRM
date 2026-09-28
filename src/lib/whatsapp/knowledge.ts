@@ -14,7 +14,7 @@ IDENTITY & REGISTERED OFFICES:
   * India: Delhi NCR, India | Groworld Vijatour Pvt. Ltd. (Trade Name: The Migration School) (CIN: U62099HR2024PTC122827)
 - Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Migration Expert on Saturdays & Sundays (01:00 PM – 09:00 PM in candidate's local time).
 - Official Google Meet Link: https://meet.google.com/qpj-ntbh-ieu
-- Official Explainer Video Link: https://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing
+- Official Explainer Video Link: https://tmsvisa.com/australia-work-visa-process/
 
 THE PROGRAM & GUARANTEE:
 - Pathway: Australia Employer Sponsored Work Visa (Skills in Demand Program).
@@ -158,7 +158,7 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
     ],
     answer:
       "Here is our complete Australia Employer Sponsored Work Visa explainer video! 🎥🇦🇺\n\n" +
-      "▶️ **Watch the Video:**\nhttps://drive.google.com/file/d/17-migz0VwryoP_vLU28NhF1EjNhd570e/view?usp=sharing\n\n" +
+      "▶️ **Watch the Video:**\nhttps://tmsvisa.com/australia-work-visa-process/\n\n" +
       "This comprehensive video covers:\n" +
       "• Direct employer sponsorship across 691 in-demand occupations\n" +
       "• Minimum salary threshold of AUD $76,500/year plus allowances\n" +
