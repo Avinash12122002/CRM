@@ -584,7 +584,7 @@ function generateHumanVisaExpertReply(params: {
       : "";
   const nameSalutation = candidateName ? ` ${candidateName}` : "";
 
-  const meetUrl = process.env.GOOGLE_MEET_LINK || "https://meet.google.com/qpj-ntbh-ieu";
+  const meetUrl = process.env.GOOGLE_MEET_LINK || "https://meet.google.com/hgu-yxat-nwy";
   const videoUrl =
     process.env.VIDEO_482_URL ||
     "https://tmsvisa.com/australia-work-visa-process/";

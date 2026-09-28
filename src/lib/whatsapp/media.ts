@@ -250,8 +250,8 @@ export async function handleIncomingWhatsAppMedia(params: {
 
     // 6. Send Automated Confirmation Reply back to the Candidate on WhatsApp
     const cvReceivedMsg =
-      `Thanks for sharing your CV with us! Our review team is reviewing your qualification and job availability according to your work experience.\n\n` +
-      `Our team expects to call you from an Australian number shortly. 🇦🇺📞`;
+      `Thanks for sharing your CV with us! Our review team is reviewing your qualification and work experience according to Employers Requirement.\n\n` +
+      `Once successfully reviewed , our Australian team will call you from an Australian number. 🇦🇺📞`;
 
     await sendTextMessage(cleanPhone, cvReceivedMsg);
 

@@ -25,7 +25,7 @@ export async function sendMeetingCompletedNotification(params: {
   const nameSalutation = candidateName ? `Hi ${candidateName}! ` : "";
 
   const messageText =
-    `${nameSalutation}Thanks for attending the meeting to initiate the process for Australia employer-sponsored work visa! 🇦🇺\n\n` +
+    `${nameSalutation}Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Australian Employers! 🇦🇺\n\n` +
     `Please send your CV / Resume here in PDF or Word document format. 📄`;
 
   try {

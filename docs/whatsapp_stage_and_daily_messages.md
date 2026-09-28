@@ -36,7 +36,7 @@ Hello ☺️! Welcome to The Migration School (TMS Visa) 🇦🇺.
 
 We specialize in employer-sponsored work visas for Australia.
 
-*Are you interested in the Australia Employer Sponsored Work Visa?*
+*We have received your enquiry for Australia Employer Sponsored Work Visa, to know all the details ,choose  Insterested*
 ```
 
 ---
@@ -45,7 +45,7 @@ We specialize in employer-sponsored work visas for Australia.
 * **When Sent:** Immediately upon clicking `[Yes, Interested]` or typing affirmative (*"yes"*, *"interested"*, *"sure"*).
 * **State Transition:** `WELCOME` → `AWAITING_EMAIL`.
 ```text
-Great! To Share All The Details With You, *please reply with your Email Address:*
+Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*
 ```
 
 ---
@@ -131,7 +131,7 @@ Otherwise, no further messages will be sent!
 ### 2.1 Initial Outbound Message
 * **When Sent:** Immediately upon clicking *"Yes, Interested"*.
 ```text
-Great! To Share All The Details With You, *please reply with your Email Address:*
+Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*
 ```
 
 ---
@@ -148,7 +148,7 @@ Great! To Share All The Details With You, *please reply with your Email Address:
      ```
   4. Waits 2 seconds → Sends Explainer Video link:
      ```text
-     🎥 *Australia Employer Sponsored Work Visa — Process Guide Video* 🇦🇺
+     🎥 *Australia Work Visa — Process Guide Video* 🇦🇺
 
      Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:
 
@@ -422,7 +422,7 @@ Final Reminder: Choose your consultation date today to connect 1-on-1 with our A
   1. Atomically reserves slot in `meetingSlots` collection.
   2. Updates CRM lead status to `meeting-scheduled`.
   3. Assigns lead to consultant Abhay in CRM.
-  4. Generates Google Meet link (`https://meet.google.com/qpj-ntbh-ieu`).
+  4. Generates Google Meet link (`https://meet.google.com/hgu-yxat-nwy`).
   5. Sends immediate confirmation message:
      ```text
      Dear {{CandidateName}},
@@ -433,7 +433,7 @@ Final Reminder: Choose your consultation date today to connect 1-on-1 with our A
 
      📅 *Date:* {{MeetingDate}}
      ⏰ *Time:* {{MeetingTime}}
-     💻 *Google Meet:* https://meet.google.com/qpj-ntbh-ieu
+     💻 *Google Meet:* https://meet.google.com/hgu-yxat-nwy
 
      Please make sure to *join the meeting on time*.
 
@@ -525,7 +525,7 @@ Final Reminder: Pick your consultation time slot now, or reply with another date
 🇮🇳 *India Time:* {{ISTStartTime}} IST
 
 🔗 *Google Meet Link:*
-https://meet.google.com/qpj-ntbh-ieu
+https://meet.google.com/hgu-yxat-nwy
 
 Our Australian visa specialist is ready to evaluate your Australia Employer Sponsored Work Visa file. Please tap the link to join on time! 🇦🇺
 ```
@@ -542,7 +542,7 @@ Your *Australia Employer Sponsored Work Visa* consultation has been **successful
 
 📅 *New Date:* {{NewMeetingDate}}
 ⏰ *New Time:* {{NewMeetingTime}}
-💻 *Google Meet:* https://meet.google.com/qpj-ntbh-ieu
+💻 *Google Meet:* https://meet.google.com/hgu-yxat-nwy
 
 Please make sure to *join the meeting on time*.
 
@@ -560,7 +560,7 @@ Hi {{CandidateName}}! 👋
 Your 1-on-1 consultation with our senior visa expert is confirmed for **{{MeetingDate}}** at **{{MeetingTime}}**.
 
 🔗 **Google Meet Room Link:*
-https://meet.google.com/qpj-ntbh-ieu
+https://meet.google.com/hgu-yxat-nwy
 
 *(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺
 ```
@@ -573,7 +573,7 @@ https://meet.google.com/qpj-ntbh-ieu
 * **When Sent:** Immediately when consultant marks meeting as **Completed** in CRM.
 * **State Transition:** `BOOKED` → `AWAITING_CV`.
 ```text
-Thanks for attending the meeting to initiate the process for Australia employer-sponsored work visa! 🇦🇺
+Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Australian Employers! 🇦🇺
 
 Please send your CV / Resume here in PDF or Word document format. 📄
 ```
@@ -588,9 +588,9 @@ Please send your CV / Resume here in PDF or Word document format. 📄
   3. Advances session to `MEETING_COMPLETED`.
   4. Sends literal automated reply:
 ```text
-Thanks for sharing your CV with us! Our review team is reviewing your qualification and job availability according to your work experience.
+Thanks for sharing your CV with us! Our review team is reviewing your qualification and work experience according to Employers Requirement.
 
-Our team expects to call you from an Australian number shortly. 🇦🇺📞
+Once successfully reviewed , our Australian team will call you from an Australian number. 🇦🇺📞
 ```
 
 ---
@@ -598,9 +598,9 @@ Our team expects to call you from an Australian number shortly. 🇦🇺📞
 ### 7.3 Condition: If Candidate Asks About CV Review Status
 * **When Sent:** Candidate asks *"did you check my cv"*, *"cv status"*, etc.
 ```text
-Thanks for checking in! Our review team is reviewing your qualification and job availability according to your work experience.
+Thank you for checking in! Please be patient while our review team is still assessing your qualifications and job experience based on Employers requirements.
 
-Our team expects to call you from an Australian number shortly. 🇦🇺📞
+Once the review is completed, please expect a call from an Australian number.. 🇦🇺📞
 ```
 
 ---

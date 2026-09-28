@@ -32,7 +32,7 @@ const SESSIONS_COLLECTION = "whatsapp_sessions";
 export function getStaticGoogleMeetLink(): string {
   return (
     process.env.GOOGLE_MEET_LINK ||
-    "https://meet.google.com/qpj-ntbh-ieu"
+    "https://meet.google.com/hgu-yxat-nwy"
   );
 }
 
@@ -437,7 +437,7 @@ export async function sendTimedVideoAndProcessGuide(
 
     if (isWebOrDriveLink) {
       const videoIntro =
-        `🎥 *Australia Employer Sponsored Work Visa — Process Guide Video* 🇦🇺\n\n` +
+        `🎥 *Australia Work Visa — Process Guide Video* 🇦🇺\n\n` +
         `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
         `▶️ *Watch the Video Here:*\n${videoUrl}\n\n` +
         `*(Tap the link above to watch the video anytime)*`;
@@ -1119,7 +1119,7 @@ export async function processIncomingWhatsAppMessage(params: {
     // 2. If candidate is awaiting CV submission
     if (session.currentStep === "AWAITING_CV") {
       const askCvMsg =
-        `Thanks for attending the meeting to initiate the process for Australia employer-sponsored work visa! 🇦🇺\n\n` +
+        `Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Australian Employers! 🇦🇺\n\n` +
         `Please send your CV / Resume here in PDF or Word document format. 📄`;
       await sendTextMessage(session.phone, askCvMsg);
       return { replyText: askCvMsg, step: "AWAITING_CV" };
@@ -1138,8 +1138,8 @@ export async function processIncomingWhatsAppMessage(params: {
 
       if (isCvStatusInquiry) {
         const cvUnderReviewMsg =
-          `Thanks for checking in! Our review team is reviewing your qualification and job availability according to your work experience.\n\n` +
-          `Our team expects to call you from an Australian number shortly. 🇦🇺📞`;
+          `Thank you for checking in! Please be patient while our review team is still assessing your qualifications and job experience based on Employers requirements.\n\n` +
+          `Once the review is completed, please expect a call from an Australian number.. 🇦🇺📞`;
         await sendTextMessage(session.phone, cvUnderReviewMsg);
         return { replyText: cvUnderReviewMsg, step: "MEETING_COMPLETED" };
       }
@@ -1574,7 +1574,7 @@ export async function processIncomingWhatsAppMessage(params: {
     const welcomeText =
       `Hello ☺️! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
       `We specialize in employer-sponsored work visas for Australia.\n\n` +
-      `*Are you interested in the Australia Employer Sponsored Work Visa?*`;
+      `*We have received your enquiry for Australia Employer Sponsored Work Visa, to know all the details ,choose  Insterested*`;
 
     await sendQuickReplyButtons(session.phone, welcomeText, [
       { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -1655,7 +1655,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 3. Candidate clicked YES to 482 -> Request Email
   if (isAffirmative && !isDirectEmail) {
     const emailPrompt =
-      `Great! To Share All The Details With You, *please reply with your Email Address:*`;
+      `Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*`;
 
     const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, session.phone, {
