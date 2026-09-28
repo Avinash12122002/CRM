@@ -111,7 +111,7 @@ async function sendMetaRequest(
               messageId,
             });
           }
-        } catch (logErr) {
+        } catch (_logErr) {
           // Silent error so message delivery is unaffected
         }
       })();

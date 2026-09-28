@@ -21,10 +21,11 @@ export async function sendMeetingCompletedNotification(params: {
   const cleanPhone = String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "");
   if (cleanPhone.length < 8) return;
 
-  const candidateName = lead.name && !lead.name.toLowerCase().includes("test") ? lead.name : "there";
+  const candidateName = lead.name && !lead.name.toLowerCase().includes("test") ? lead.name : "";
+  const nameSalutation = candidateName ? `Hi ${candidateName}! ` : "";
 
   const messageText =
-    `Thanks for attending the meeting to initiate the process for Australia employer-sponsored work visa! 🇦🇺\n\n` +
+    `${nameSalutation}Thanks for attending the meeting to initiate the process for Australia employer-sponsored work visa! 🇦🇺\n\n` +
     `Please send your CV / Resume here in PDF or Word document format. 📄`;
 
   try {

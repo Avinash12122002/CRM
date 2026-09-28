@@ -1,7 +1,6 @@
 import { Db } from "mongodb";
-import { sendTextMessage, sendQuickReplyButtons } from "./client";
+import { sendTextMessage } from "./client";
 import { createNotification } from "@/lib/notifications";
-import { WhatsAppSession } from "./types";
 
 /**
  * Downloads a media file (PDF document or image) from Meta WhatsApp Cloud API.

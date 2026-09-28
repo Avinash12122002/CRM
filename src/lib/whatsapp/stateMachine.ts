@@ -129,12 +129,12 @@ export async function getOrCreateSession(
     const lead = existing.leadId
       ? await db.collection("leads").findOne({ id: existing.leadId })
       : await db.collection("leads").findOne({
-          $or: [
-            { phone: cleanPhone },
-            { phone: `+${cleanPhone}` },
-            { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
-          ],
-        });
+        $or: [
+          { phone: cleanPhone },
+          { phone: `+${cleanPhone}` },
+          { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+        ],
+      });
 
     if (lead) {
       if (!existing.leadId) existing.leadId = lead.id;
@@ -528,8 +528,8 @@ export async function processIncomingWhatsAppMessage(params: {
     const prevStep = session.meetingCompleted
       ? "MEETING_COMPLETED"
       : session.bookedSlot
-      ? "BOOKED"
-      : (session.currentStep as string).replace("AWAITING_EMAIL_UPDATE", "AWAITING_CONSULTATION_DECISION") as import("./types").WhatsAppStep;
+        ? "BOOKED"
+        : (session.currentStep as string).replace("AWAITING_EMAIL_UPDATE", "AWAITING_CONSULTATION_DECISION") as import("./types").WhatsAppStep;
 
     if (emailRegex.test(candidate)) {
       // Save to session
@@ -579,8 +579,8 @@ export async function processIncomingWhatsAppMessage(params: {
     const prevStep = session.meetingCompleted
       ? "MEETING_COMPLETED"
       : session.bookedSlot
-      ? "BOOKED"
-      : ("AWAITING_CONSULTATION_DECISION" as import("./types").WhatsAppStep);
+        ? "BOOKED"
+        : ("AWAITING_CONSULTATION_DECISION" as import("./types").WhatsAppStep);
 
     // Accept any 2-50 character name (letters, spaces, hyphens, apostrophes)
     const nameRegex = /^[A-Za-z\s'\-]{2,50}$/;
@@ -974,18 +974,18 @@ export async function processIncomingWhatsAppMessage(params: {
 
         const successMsg = isAsking691List
           ? `✅ I have immediately dispatched the complete **691 Eligible Occupation List (PDF)** & **Australia Work Visa Information Pack** to **${targetEmail}**! 📩\n\n` +
-            `📎 **Attached in your email:**\n` +
-            `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
-            `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
-            `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** right now.\n\n` +
-            `💡 *Quick Check:* Listing all 691 occupations here is too long for WhatsApp, but you can reply with your **Job Title** and **Years of Experience** right here for a free instant eligibility check! 🇦🇺\n\n` +
-            `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`
+          `📎 **Attached in your email:**\n` +
+          `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+          `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
+          `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** right now.\n\n` +
+          `💡 *Quick Check:* Listing all 691 occupations here is too long for WhatsApp, but you can reply with your **Job Title** and **Years of Experience** right here for a free instant eligibility check! 🇦🇺\n\n` +
+          `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`
           : `✅ We have immediately sent the official **Australia Employer Sponsored Work Visa Information Pack** to **${targetEmail}**! 📩\n\n` +
-            `📎 **Attached in your email:**\n` +
-            `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
-            `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
-            `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from new corporate domains can sometimes be filtered there).\n\n` +
-            `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`;
+          `📎 **Attached in your email:**\n` +
+          `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+          `• 📘 **PTE Academic Score & Assessment Guide (PDF)**\n\n` +
+          `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from new corporate domains can sometimes be filtered there).\n\n` +
+          `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`;
 
         await sendTextMessage(session.phone, successMsg);
         return { replyText: successMsg, step: session.currentStep };
@@ -1312,8 +1312,8 @@ export async function processIncomingWhatsAppMessage(params: {
     const nextFollowup = getNext10AmInTimezone(session.timeZone);
     const targetStep: WhatsAppStep =
       actionId === "BTN_CONSULT_NO" ||
-      session.currentStep === "AWAITING_CONSULTATION_DECISION" ||
-      session.currentStep === "VIDEO_SENT_AWAITING_INTEREST"
+        session.currentStep === "AWAITING_CONSULTATION_DECISION" ||
+        session.currentStep === "VIDEO_SENT_AWAITING_INTEREST"
         ? "AWAITING_CONSULTATION_DECISION"
         : session.currentStep === "SELECTING_DAY" ||
           session.currentStep === "SELECTING_SLOT" ||
@@ -1321,8 +1321,8 @@ export async function processIncomingWhatsAppMessage(params: {
           session.currentStep === "AWAITING_CV" ||
           session.currentStep === "RESCHEDULING_DATE" ||
           session.currentStep === "RESCHEDULING_SLOT"
-        ? session.currentStep
-        : "WELCOME";
+          ? session.currentStep
+          : "WELCOME";
 
     await updateSession(db, session.phone, {
       currentStep: targetStep,
