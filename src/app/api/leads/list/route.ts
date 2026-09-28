@@ -351,7 +351,11 @@ export async function GET(req: NextRequest) {
 
     // Apply status filter
     if (status) {
-      filter.status = status;
+      if (status === "meeting-reschedule") {
+        filter.status = { $in: ["meeting-reschedule", "meeting-rescheduled"] };
+      } else {
+        filter.status = status;
+      }
     } else if (
       payload.role === "telecaller" ||
       payload.role === "employee" ||

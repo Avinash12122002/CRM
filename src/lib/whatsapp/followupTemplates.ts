@@ -244,7 +244,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 1,
       message:
         `You selected your consultation date! ⏰\n\n` +
-        `Please pick your convenient time slot (between 01:00 PM and 09:00 PM IST) to lock in your meeting:`,
+        `Please pick your convenient time slot to lock in your meeting:`,
       buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
     },
     {
@@ -350,7 +350,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 4,
       message:
-        `Weekend slots are open: Reschedule your 1-on-1 meeting (Saturdays & Sundays, 01:00 PM – 09:00 PM IST) to reconnect with our advisor:`,
+        `Weekend slots are open: Reschedule your 1-on-1 meeting (Saturdays & Sundays) to reconnect with our advisor:`,
       buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {

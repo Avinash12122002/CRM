@@ -50,30 +50,21 @@ export function getVideo482Url(): string {
 function buildSlotRows(
   availableSlots: WeekendSlot[],
   meetingDate: string,
-  isIndia: boolean,
   timeZoneLabel: string,
 ) {
   const tzShort = extractShortTimezone(timeZoneLabel);
   if (availableSlots.length <= 10) {
     return availableSlots.map((s, idx) => ({
       id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-      title: (isIndia
-        ? `${s.istStartTime} - ${s.istEndTime} IST`
-        : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-      description: (isIndia
-        ? `Slot #${idx + 1} (IST)`
-        : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
+      title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
+      description: `Slot #${idx + 1} (${tzShort})`.slice(0, 72),
     }));
   }
 
   const rows = availableSlots.slice(0, 9).map((s, idx) => ({
     id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
-    title: (isIndia
-      ? `${s.istStartTime} - ${s.istEndTime} IST`
-      : `${s.candidateDisplayLabel.split(" (")[0]}`).slice(0, 24),
-    description: (isIndia
-      ? `Slot #${idx + 1} (IST)`
-      : `Slot #${idx + 1} (${tzShort})`).slice(0, 72),
+    title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
+    description: `Slot #${idx + 1} (${tzShort})`.slice(0, 72),
   }));
 
   rows.push({
@@ -176,12 +167,25 @@ export async function getOrCreateSession(
         ],
       });
       if (activeSlot) {
+        const slotTz = existing.timeZone || country.timeZone;
+        const candSlotStart = activeSlot.candidateLocalTime
+          ? { candidateTime: activeSlot.candidateLocalTime, display12h: format12hTime(activeSlot.candidateLocalTime) }
+          : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.startTime, slotTz);
+        const candSlotEnd = activeSlot.candidateLocalEndTime
+          ? { candidateTime: activeSlot.candidateLocalEndTime, display12h: format12hTime(activeSlot.candidateLocalEndTime) }
+          : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.endTime, slotTz);
+        const slotTzShort = extractShortTimezone(existing.timeZoneLabel || country.label);
+        const isIndia = (existing.countryCode || country.countryCode) === "IN";
+        const candLabel = isIndia
+          ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`
+          : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+
         existing.bookedSlot = {
           date: activeSlot.meetingDate,
-          candidateTime: activeSlot.candidateLocalTime || activeSlot.startTime,
-          candidateTimeLabel: `${activeSlot.candidateLocalTime || activeSlot.startTime} (${existing.timeZoneLabel || country.label})`,
+          candidateTime: candSlotStart.candidateTime,
+          candidateTimeLabel: activeSlot.candidateDisplayLabel || candLabel,
           istTime: activeSlot.startTime,
-          istTimeLabel: `${activeSlot.startTime} - ${activeSlot.endTime} (IST)`,
+          istTimeLabel: `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`,
           meetingUserId: activeSlot.meetingUserId,
           meetingUserName: activeSlot.meetingUserName,
         };
@@ -225,12 +229,24 @@ export async function getOrCreateSession(
   if (activeSlot) {
     initialStep = "BOOKED";
     initialMeetingStatus = "booked";
+    const candSlotStart = activeSlot.candidateLocalTime
+      ? { candidateTime: activeSlot.candidateLocalTime, display12h: format12hTime(activeSlot.candidateLocalTime) }
+      : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.startTime, country.timeZone);
+    const candSlotEnd = activeSlot.candidateLocalEndTime
+      ? { candidateTime: activeSlot.candidateLocalEndTime, display12h: format12hTime(activeSlot.candidateLocalEndTime) }
+      : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.endTime, country.timeZone);
+    const slotTzShort = extractShortTimezone(country.label);
+    const isIndia = country.countryCode === "IN";
+    const candLabel = isIndia
+      ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`
+      : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+
     initialBookedSlot = {
       date: activeSlot.meetingDate,
-      candidateTime: activeSlot.candidateLocalTime || activeSlot.startTime,
-      candidateTimeLabel: `${activeSlot.candidateLocalTime || activeSlot.startTime} (${country.label})`,
+      candidateTime: candSlotStart.candidateTime,
+      candidateTimeLabel: activeSlot.candidateDisplayLabel || candLabel,
       istTime: activeSlot.startTime,
-      istTimeLabel: `${activeSlot.startTime} - ${activeSlot.endTime} (IST)`,
+      istTimeLabel: `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`,
       meetingUserId: activeSlot.meetingUserId,
       meetingUserName: activeSlot.meetingUserName,
     };

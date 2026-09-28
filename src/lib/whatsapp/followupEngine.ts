@@ -227,11 +227,17 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         const ist12h = format12hTime(slot.startTime);
         const candTime12h = slot.candidateLocalTime ? format12hTime(slot.candidateLocalTime) : ist12h;
 
+        const isIndia =
+          slot.candidateTimezone === "IST" ||
+          String(slot.phone).replace(/\D/g, "").startsWith("91");
+        const timeLine = isIndia
+          ? `⏰ *Time:* ${ist12h} IST\n\n`
+          : `⏰ *Time:* ${candTime12h} (${slot.candidateTimezone || "Local"})\n\n`;
+
         const reminderMsg =
           `⏰ *Reminder: Your Australian Visa Consultation is in 1 Hour!*\n\n` +
           `📅 *Date:* ${slot.meetingDate}\n` +
-          `⏰ *Time:* ${candTime12h} (${slot.candidateTimezone || "Local"})\n` +
-          `🇮🇳 *India Time:* ${ist12h} IST\n\n` +
+          timeLine +
           `🔗 *Google Meet Link:*\n${meetLink}\n\n` +
           `Our Australian visa specialist is ready to evaluate your Australia Employer Sponsored Work Visa file. Please tap the link to join on time! 🇦🇺`;
 

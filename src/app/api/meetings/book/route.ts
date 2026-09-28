@@ -117,6 +117,29 @@ export async function POST(req: NextRequest) {
 
     const cleanPhone = lead.phone ? String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "") : "";
 
+    // Detect candidate timezone and calculate localized timing
+    const {
+      format12hTime,
+      detectCountryFromPhone,
+      convertIstSlotToCandidateTime,
+      extractShortTimezone,
+    } = await import("@/lib/whatsapp/timezone");
+
+    const countryInfo = cleanPhone ? detectCountryFromPhone(cleanPhone) : null;
+    const tzShort = countryInfo ? extractShortTimezone(countryInfo.label) : "IST";
+    const candStart = countryInfo
+      ? convertIstSlotToCandidateTime(meetingDate, startTime, countryInfo.timeZone)
+      : null;
+    const candEnd = countryInfo
+      ? convertIstSlotToCandidateTime(meetingDate, endTime, countryInfo.timeZone)
+      : null;
+
+    const ist12hRange = `${format12hTime(startTime)} - ${format12hTime(endTime)} IST`;
+    const timeDisplay =
+      countryInfo && countryInfo.countryCode !== "IN" && candStart && candEnd
+        ? `${candStart.display12h} - ${candEnd.display12h} (${tzShort})`
+        : ist12hRange;
+
     const slot = {
       id: slotId,
 
@@ -133,6 +156,11 @@ export async function POST(req: NextRequest) {
       startTime,
       endTime,
 
+      candidateLocalTime: candStart?.candidateTime || startTime,
+      candidateLocalEndTime: candEnd?.candidateTime || endTime,
+      candidateTimezone: tzShort,
+      candidateDisplayLabel: timeDisplay,
+
       phone: cleanPhone,
       candidatePhone: cleanPhone,
 
@@ -148,7 +176,6 @@ export async function POST(req: NextRequest) {
     if (cleanPhone && cleanPhone.length >= 8) {
       try {
         const { sendTextMessage } = await import("@/lib/whatsapp/client");
-        const { format12hTime } = await import("@/lib/whatsapp/timezone");
         const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp/stateMachine");
         const meetLink = getStaticGoogleMeetLink();
         const dateObj = new Date(`${meetingDate}T12:00:00+05:30`);
@@ -157,14 +184,13 @@ export async function POST(req: NextRequest) {
           month: "long",
           year: "numeric",
         }).format(dateObj);
-        const time12h = `${format12hTime(startTime)} - ${format12hTime(endTime)} IST`;
 
         const confirmMsg =
           `Dear ${lead.name || "Candidate"},\n\n` +
           `Thank you for showing your interest in the *Australia Employer Sponsored Work Visa*.\n\n` +
           `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
           `📅 *Date:* ${formattedDate}\n` +
-          `⏰ *Time:* ${time12h}\n` +
+          `⏰ *Time:* ${timeDisplay}\n` +
           `💻 *Google Meet:* ${meetLink}\n\n` +
           `Please make sure to *join the meeting on time*.\n\n` +
           `*Best regards,*\n` +
@@ -180,10 +206,10 @@ export async function POST(req: NextRequest) {
               meetingStatus: "booked",
               bookedSlot: {
                 date: meetingDate,
-                candidateTime: startTime,
-                candidateTimeLabel: time12h,
+                candidateTime: candStart?.candidateTime || startTime,
+                candidateTimeLabel: timeDisplay,
                 istTime: startTime,
-                istTimeLabel: time12h,
+                istTimeLabel: ist12hRange,
                 meetingUserId,
                 meetingUserName: meetingUser.name,
               },

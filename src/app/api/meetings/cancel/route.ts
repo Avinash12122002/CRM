@@ -58,9 +58,6 @@ export async function POST(req: NextRequest) {
       },
     );
 
-    // Only meeting/WM users trigger the auto-status change to Meeting Reschedule
-    const isMeetingRole = payload.role === "meeting" || payload.role === "wm";
-
     const cancelSet: Record<string, unknown> = {
       meetingDetails: lead.meetingDetails
         ? {
@@ -71,9 +68,8 @@ export async function POST(req: NextRequest) {
       meetingStatus: "cancelled",
       meetingCancelledAt: new Date(),
       updatedAt: new Date(),
+      status: "meeting-reschedule",
     };
-
-    cancelSet.status = "meeting-reschedule";
 
     await db.collection(collectionName).updateOne(
       { id: leadId },
@@ -86,24 +82,10 @@ export async function POST(req: NextRequest) {
             performedByName: payload.name,
             performedByRole: payload.role,
             timestamp: new Date(),
-            details: isMeetingRole
-              ? "Meeting cancelled by meeting user — status set to Meeting Reschedule"
-              : "Meeting cancelled",
-            ...(isMeetingRole ? { oldStatus: lead.status, newStatus: "meeting-reschedule" } : {}),
+            details: "Meeting cancelled — status set to Meeting Reschedule",
+            oldStatus: lead.status,
+            newStatus: "meeting-reschedule",
           },
-        },
-      },
-    );
-
-    await db.collection("meetingSlots").updateMany(
-      {
-        $or: [{ leadId: lead.id }, { leadId: String(lead.id) }],
-        status: "scheduled",
-      },
-      {
-        $set: {
-          status: "cancelled",
-          updatedAt: new Date(),
         },
       },
     );
