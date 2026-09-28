@@ -1215,7 +1215,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await sendQuickReplyButtons(session.phone, cancelledGreetingMsg, [
       { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
-      { id: "BTN_ASK_VIDEO", title: "Watch Work Visa Video" },
+      { id: "BTN_ASK_VIDEO", title: "Watch Visa Video" },
     ]);
     return { replyText: cancelledGreetingMsg, step: "AWAITING_REENGAGEMENT" };
   }
@@ -1235,7 +1235,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await sendQuickReplyButtons(session.phone, welcomeBackMsg, [
       { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-      { id: "BTN_ASK_VIDEO", title: "Watch Work Visa Video" },
+      { id: "BTN_ASK_VIDEO", title: "Watch Visa Video" },
     ]);
     return { replyText: welcomeBackMsg, step: "VIDEO_SENT_AWAITING_INTEREST" };
   }
