@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       bucket.openUploadStream(
         file.name,
         {
+          contentType: file.type || "application/octet-stream",
           metadata: {
             uploadedBy:
               payload.id,

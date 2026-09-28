@@ -622,6 +622,15 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
               </div>
               <div className="flex items-center gap-2">
                 <a
+                  href={previewFile.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-medium transition"
+                  title="Open in new tab"
+                >
+                  <ExternalLink className="w-3 h-3" /> Tab
+                </a>
+                <a
                   href={previewFile.downloadUrl || previewFile.url || "#"}
                   download={String(previewFile.fileName || "document")}
                   onClick={() => markAsViewed(previewFile)}
