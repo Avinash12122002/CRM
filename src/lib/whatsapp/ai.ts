@@ -1,6 +1,7 @@
 import { WhatsAppSession } from "./types";
 import { TMS_VISA_KNOWLEDGE, FAQ_FALLBACKS } from "./knowledge";
 import { findEligibleOccupation } from "./occupations";
+import { getCandidateMessageInsights, CandidateMessageInsight } from "./messageIntelligence";
 
 /**
  * Removes any accidental staff names (Sumit, Abhay, etc.) to guarantee strict institutional anonymity.
@@ -201,6 +202,9 @@ ${recentHistory.map((h, i) => `  [${i + 1}] ${h.role === "candidate" ? "CANDIDAT
 `;
   }
 
+  // Dynamically analyze candidate message intent, tone, sentiment, and inject learned knowledge directives
+  const insights = getCandidateMessageInsights({ message: rawMsg, session });
+
   const SYSTEM_PROMPT = `
 You are Aria, Senior Registered Migration Counselor at The Migration School (TMS Visa).
 You speak like a knowledgeable, warm, empathetic, and authoritative human visa expert.
@@ -208,6 +212,8 @@ You speak like a knowledgeable, warm, empathetic, and authoritative human visa e
 ${TMS_VISA_KNOWLEDGE}
 
 ${contextBlock}
+
+${insights.learnedDirectives}
 
 RESPONSE DIRECTIVES:
 1. STRICT ANONYMITY — ZERO PERSONAL STAFF NAMES:
@@ -427,7 +433,7 @@ RESPONSE DIRECTIVES:
 
   // 4. Infallible Local Australian Visa Expert Cognitive Engine
   // Analyzes user message intent, situation, and queries dynamically like a human consultant.
-  return generateHumanVisaExpertReply({ message: rawMsg, session, matchedOcc });
+  return generateHumanVisaExpertReply({ message: rawMsg, session, matchedOcc, insights });
 }
 
 /**
@@ -438,8 +444,9 @@ function generateHumanVisaExpertReply(params: {
   message: string;
   session: WhatsAppSession;
   matchedOcc?: { role: string; category: string } | null;
+  insights?: CandidateMessageInsight;
 }): string {
-  const { message, session, matchedOcc } = params;
+  const { message, session, matchedOcc, insights } = params;
 
   // --- STEP 1: Deep Intent Classifier ---
   // Strips down the message to core tokens to understand WHAT the candidate means,
@@ -656,6 +663,22 @@ function generateHumanVisaExpertReply(params: {
       `If your plans change, feel free to message us anytime.\n\n` +
       `Wishing you all the very best!`
     );
+  }
+
+  // 0FF. Dynamically Learned Intelligence Response (High-Friction Candidate Doubts)
+  // Uses psychologically calibrated empathy hooks, transparent figures, and stress-relieving facts
+  if (insights && insights.curatedReply) {
+    if (
+      insights.primaryIntent === "scam_legitimacy_doubt" ||
+      insights.primaryIntent === "upfront_fee_concern" ||
+      insights.primaryIntent === "english_pte_fear" ||
+      insights.primaryIntent === "job_sponsorship_guarantee" ||
+      insights.primaryIntent === "family_spousal_rights" ||
+      insights.primaryIntent === "salary_financial_benefits" ||
+      insights.primaryIntent === "consultation_booking_hesitation"
+    ) {
+      return sanitizeStaffNames(`${frustratedPrefix}${insights.curatedReply}`);
+    }
   }
 
   // 0G. Cost / Fees question (even if expressed with frustration)

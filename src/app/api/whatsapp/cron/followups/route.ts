@@ -25,6 +25,10 @@ export async function GET(req: NextRequest) {
     const { db } = await connectToDatabase();
     const results = await runWhatsAppFollowupEngine(db);
 
+    // Continuous learning: auto-refresh learned candidate knowledge model if stale (> 2 hours)
+    const { autoTrainIfStale } = await import("@/lib/whatsapp/messageIntelligence");
+    await autoTrainIfStale(db);
+
     return NextResponse.json({
       success: true,
       processed: results.length,

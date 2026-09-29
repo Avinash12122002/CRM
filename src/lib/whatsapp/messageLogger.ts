@@ -139,6 +139,22 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
         },
         { upsert: true }
       );
+
+      // Automatically learn from this candidate message and incrementally train intelligence
+      import("./messageIntelligence")
+        .then(({ recordCandidateMessageLearning }) => {
+          recordCandidateMessageLearning({
+            db,
+            phone: cleanPhone,
+            text,
+            senderName: messageDoc.senderName,
+          }).catch((learnErr) =>
+            console.warn("[MessageLogger] Candidate learning hook error:", learnErr)
+          );
+        })
+        .catch((importErr) =>
+          console.warn("[MessageLogger] Failed to import messageIntelligence:", importErr)
+        );
     } else {
       // Outgoing message (bot or admin)
       const detectedCountryOut = detectCountryFromPhone(cleanPhone);
