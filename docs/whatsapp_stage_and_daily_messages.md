@@ -553,7 +553,8 @@ Please make sure to *join the meeting on time*.
 ---
 
 ### 6.3 Condition: If Candidate Requests Meeting Link via Chat
-* **When Sent:** Immediately when candidate asks *"meeting link"*, *"how to join"*, etc.
+* **When Sent:** When candidate asks *"meeting link"*, *"how to join"*, etc.
+* **If Meeting IS Booked (YES):** Sends the confirmed session details with Google Meet link:
 ```text
 Hi {{CandidateName}}! 👋
 
@@ -564,6 +565,7 @@ https://meet.google.com/hgu-yxat-nwy
 
 *(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺
 ```
+* **If Meeting is NOT Booked (UNBOOKED GUARD):** Withholds the Google Meet link, explains that the link is issued upon booking, and prompts them to select a weekend date and time slot first.
 
 ---
 

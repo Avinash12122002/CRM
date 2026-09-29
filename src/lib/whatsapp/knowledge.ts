@@ -13,7 +13,7 @@ IDENTITY & REGISTERED OFFICES:
   * Australia: 154 Peisley Street, Orange, NSW 2800, Australia | Migration Pty Ltd. (ABN: 75 148 213 076)
   * India: Delhi NCR, India | Groworld Vijatour Pvt. Ltd. (Trade Name: The Migration School) (CIN: U62099HR2024PTC122827)
 - Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Migration Expert on Saturdays & Sundays (01:00 PM – 09:00 PM in candidate's local time).
-- Official Google Meet Link: https://meet.google.com/hgu-yxat-nwy
+- Meeting Link Rule: The Google Meet invitation link is only issued to candidates after their consultation slot is officially booked. Never send the meeting link to a candidate who has not booked a meeting.
 - Official Explainer Video Link: https://tmsvisa.com/australia-work-visa-process/
 
 THE PROGRAM & GUARANTEE:
@@ -133,9 +133,9 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
     keywords: ["meeting link", "meet link", "google meet", "room link", "where to join", "how to join", "join meeting", "consultation link", "give me the link", "send the link", "send link", "send me the link", "what is the link", "give link"],
     answer:
       "Our 1-on-1 consultations are held live on Google Meet with our Senior Migration Expert! 🇦🇺\n\n" +
-      "🔗 **Official Google Meet Link:**\nhttps://meet.google.com/hgu-yxat-nwy\n\n" +
+      "The official Google Meet room link is issued automatically once your consultation date and time slot are booked.\n\n" +
       "During this session, we evaluate your CV against the official 691 Australian occupation list, review employer sponsorship opportunities, explain the complete 4-5 month roadmap, and answer all your questions.\n\n" +
-      "*(Please join at your scheduled weekend consultation time with your updated CV ready!)*",
+      "Please book your consultation slot first to receive your official meeting invitation link!",
   },
   {
     keywords: [

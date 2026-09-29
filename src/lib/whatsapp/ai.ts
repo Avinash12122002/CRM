@@ -884,19 +884,27 @@ function generateHumanVisaExpertReply(params: {
     lower.includes("share the link") ||
     (lower.includes("link") && (lower.includes("meeting") || lower.includes("consultation") || lower.includes("call") || lower.includes("send") || lower.includes("give") || lower.includes("share")))
   ) {
-    if (session.bookedSlot) {
+    const isBooked = Boolean(
+      session.bookedSlot ||
+      session.currentStep === "BOOKED" ||
+      session.meetingStatus === "booked" ||
+      session.meetingStatus === "rescheduled"
+    );
+    if (isBooked) {
+      const timeStr = session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel || "";
+      const dateStr = session.bookedSlot?.date ? `for **${session.bookedSlot.date}**${timeStr ? ` at **${timeStr}**` : ""}` : "for your scheduled time";
       return (
         `Hi${nameSalutation}! 👋\n\n` +
-        `Your 1-on-1 consultation with our senior migration expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `Your 1-on-1 consultation with our senior migration expert is confirmed ${dateStr}.\n\n` +
         `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
         `*(Tap the link above at your scheduled time to join. Please have your CV ready!)* 🇦🇺`
       );
     }
     return (
       `Hello${nameSalutation}! 👋\n\n` +
-      `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
-      `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-      `Consultations run on weekends in 1-hour sessions. Would you like to select a slot in your local time?`
+      `Our 1-on-1 consultations with our senior visa expert are held live on Google Meet.\n\n` +
+      `The official Google Meet room link is issued once your consultation slot is officially booked.\n\n` +
+      `Would you like to select an available weekend date and time slot to book your session?`
     );
   }
 

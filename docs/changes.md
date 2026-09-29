@@ -354,13 +354,15 @@ Please make sure to *join the meeting on time*.
 *TMS Visa*
 ________________________________________
 6.3 Condition: If Candidate Requests Meeting Link via Chat
-•	When Sent: Immediately when candidate asks "meeting link", "how to join", etc.
+•	When Sent: When candidate asks "meeting link", "how to join", etc.
+•	If Meeting IS Booked (YES):
 text
 Hi {{CandidateName}}! 👋
 Your 1-on-1 consultation with our senior visa expert is confirmed for **{{MeetingDate}}** at **{{MeetingTime}}**.
 🔗 **Google Meet Room Link:*
 https://meet.google.com/hgu-yxat-nwy
 *(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺
+•	If Meeting is NOT Booked: Withholds the meeting link and prompts candidate to select a consultation date & slot first.
 ________________________________________
 Step 7: Post-Meeting & CV Intake (MEETING_COMPLETED / AWAITING_CV)
 7.1 Initial Outbound Message

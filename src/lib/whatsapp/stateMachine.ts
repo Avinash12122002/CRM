@@ -2458,36 +2458,45 @@ export async function processIncomingWhatsAppMessage(params: {
       return { replyText: alreadyDoneMsg, step: "MEETING_COMPLETED" };
     }
 
-    const meetUrl = getStaticGoogleMeetLink();
-    let meetReply: string;
-    if (session.bookedSlot) {
-      meetReply =
+    const isBooked = Boolean(
+      session.bookedSlot ||
+      session.currentStep === "BOOKED" ||
+      session.meetingStatus === "booked" ||
+      session.meetingStatus === "rescheduled"
+    );
+
+    if (isBooked && session.bookedSlot) {
+      const meetUrl = getStaticGoogleMeetLink();
+      const meetReply =
         `Hi ${session.name || "there"}! 👋\n\n` +
-        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**.\n\n` +
+        `Your 1-on-1 consultation with our senior visa expert is confirmed for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel}**.\n\n` +
         `🔗 **Google Meet Room Link:**\n${meetUrl}\n\n` +
         `*(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺`;
-    } else {
-      if (session.email) {
-        return sendConsultationDateSelection({
-          db,
-          session,
-          introText:
-            `Hello ${session.name || "there"}! 👋\n\n` +
-            `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert (1 PM – 9 PM in your local time).\n\n` +
-            `🔗 **Official Google Meet Link:** ${meetUrl}\n\n` +
-            `Please tap **Select Date** below to choose your preferred weekend date:`,
-        });
-      }
-
-      meetReply =
-        `Hello ${session.name || "there"}! 👋\n\n` +
-        `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert.\n\n` +
-        `🔗 **Official Google Meet Link:**\n${meetUrl}\n\n` +
-        `Consultations are scheduled on Saturdays and Sundays between 1 PM and 9 PM in your local time, in 1-hour intervals. Please reply with your **Email Address** to receive your meeting invitation & choose an available time slot!`;
+      await sendTextMessage(session.phone, meetReply);
+      return { replyText: meetReply, step: "BOOKED" };
     }
 
-    await sendTextMessage(session.phone, meetReply);
-    return { replyText: meetReply, step: session.currentStep };
+    // Candidate has NOT booked a meeting yet -> DO NOT send the meeting link.
+    if (session.email) {
+      return sendConsultationDateSelection({
+        db,
+        session,
+        introText:
+          `Hello ${session.name || "there"}! 👋\n\n` +
+          `Our 1-on-1 consultations with our senior visa expert are held live on Google Meet (1 PM – 9 PM in your local time).\n\n` +
+          `The official Google Meet room link is issued once your consultation slot is booked.\n\n` +
+          `Please tap **Select Date** below to choose your preferred weekend date:`,
+      });
+    }
+
+    const notBookedReply =
+      `Hello ${session.name || "there"}! 👋\n\n` +
+      `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert (Saturdays & Sundays, 1 PM – 9 PM in your local time).\n\n` +
+      `The official Google Meet room link is provided once your consultation slot is officially booked.\n\n` +
+      `Please reply with your **Email Address** first so we can send your visa information pack and help you choose an available time slot! 🇦🇺`;
+
+    await sendTextMessage(session.phone, notBookedReply);
+    return { replyText: notBookedReply, step: session.currentStep };
   }
 
   // 10. Update intent detection — BEFORE calling AI, check if candidate wants to change phone/email/name
