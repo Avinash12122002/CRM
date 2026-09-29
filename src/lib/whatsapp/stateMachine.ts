@@ -135,7 +135,7 @@ export async function getOrCreateSession(
         existing.name = lead.name;
         await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: lead.name } });
       }
-      if (lead.country) {
+      if (lead.country && (!existing.countryName || existing.countryName === "International")) {
         const matchCountry = findCountryByNameOrCode(lead.country);
         if (matchCountry) {
           existing.countryCode = matchCountry.countryCode;
@@ -339,17 +339,29 @@ async function syncCrmLead(
   const existingLead = await db.collection("leads").findOne(phoneQuery);
 
   if (existingLead) {
+    const updatedLeadFields: Record<string, unknown> = {
+      email: session.email || existingLead.email,
+      country: session.countryName || existingLead.country,
+      interestedCountry: "Australia",
+      jobApplied: session.occupation || existingLead.jobApplied || "Australia Employer Sponsored Work Visa",
+      leadSource: existingLead.leadSource || "WhatsApp Ad Automation",
+      updatedAt: now,
+    };
+    if (session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")) {
+      updatedLeadFields.name = session.name;
+    }
+    if (session.yearsExperience) {
+      updatedLeadFields.experience = session.yearsExperience;
+    }
+    if (session.occupation) {
+      updatedLeadFields.occupation = session.occupation;
+    }
+
     await db.collection("leads").updateOne(
       { id: existingLead.id },
       {
-        $set: {
-          email: session.email || existingLead.email,
-          country: session.countryName,
-          interestedCountry: "Australia",
-          jobApplied: "Australia Employer Sponsored Work Visa",
-          leadSource: "WhatsApp Ad Automation",
-          updatedAt: now,
-        },
+        $set: updatedLeadFields,
+        ...(session.occupation ? { $addToSet: { occupations: session.occupation } as any } : {}),
       },
     );
     return existingLead.id;
@@ -824,13 +836,18 @@ export async function processIncomingWhatsAppMessage(params: {
         email: candidate,
         currentStep: prevStep as import("./types").WhatsAppStep,
       });
-      // Save to CRM lead
-      if (session.leadId) {
-        await db.collection("leads").updateOne(
-          { id: session.leadId },
-          { $set: { email: candidate, updatedAt: new Date() } }
-        );
-      }
+      // Save to CRM lead across all phone variations
+      const cleanPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+      const phoneQueries = [
+        ...(session.leadId ? [{ id: session.leadId }] : []),
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+      ];
+      await db.collection("leads").updateMany(
+        { $or: phoneQueries },
+        { $set: { email: candidate, updatedAt: new Date() } }
+      );
 
       // Automatically dispatch info email to new address
       let emailDispatched = false;
@@ -875,17 +892,23 @@ export async function processIncomingWhatsAppMessage(params: {
 
     if (nameRegex.test(candidate) && wordCount >= 1 && wordCount <= 5) {
       // Save to session
+      session.name = candidate;
       await updateSession(db, session.phone, {
         name: candidate,
         currentStep: prevStep,
       });
-      // Save to CRM lead
-      if (session.leadId) {
-        await db.collection("leads").updateOne(
-          { id: session.leadId },
-          { $set: { name: candidate, updatedAt: new Date() } }
-        );
-      }
+      // Save to CRM lead across all matching phone variations
+      const cleanPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+      const phoneQueries = [
+        ...(session.leadId ? [{ id: session.leadId }] : []),
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+      ];
+      await db.collection("leads").updateMany(
+        { $or: phoneQueries },
+        { $set: { name: candidate, updatedAt: new Date() } }
+      );
       const confirm = `✅ Got it! Your registered name has been updated to **${candidate}**.\n\nIf anything else needs updating, just let me know! 😊🇦🇺`;
       await sendTextMessage(session.phone, confirm);
       return { replyText: confirm, step: prevStep };
@@ -902,40 +925,42 @@ export async function processIncomingWhatsAppMessage(params: {
   const profileUpdates: Record<string, unknown> = {};
 
 
-  // 0. Candidate Name extraction (e.g. "My name is John Doe", "I am Rohit Sharma", "Name: Sunil")
-  if (!session.name || session.name === "Candidate" || session.name.toLowerCase().includes("test")) {
-    const namePatterns = [
-      /^(?:my\s+name\s+is|i\s+am|i'm|im|this\s+is)\s+([A-Za-z]{2,25}(?:\s+[A-Za-z]{2,25}){1,3})/i,
-      /^name\s*[:=\-]\s*([A-Za-z]{2,25}(?:\s+[A-Za-z]{2,25}){0,3})/i,
-      /^([A-Za-z]{2,25}\s+[A-Za-z]{2,25})\s+(?:here|speaking)\b/i,
-    ];
-    for (const pat of namePatterns) {
-      const match = cleanText.match(pat);
-      if (match && match[1]) {
-        const potentialName = match[1].trim();
-        const lower = potentialName.toLowerCase();
-        if (
-          !lower.includes("interested") &&
-          !lower.includes("looking") &&
-          !lower.includes("applying") &&
-          !lower.includes("australia") &&
-          !lower.includes("eligible") &&
-          !lower.includes("mechanical") &&
-          !lower.includes("engineer") &&
-          !lower.includes("not")
-        ) {
-          session.name = potentialName;
-          profileUpdates.name = potentialName;
-          if (session.leadId) {
-            await db.collection("leads").updateOne(
-              { id: session.leadId },
-              { $set: { name: potentialName, updatedAt: new Date() } }
-            );
-          }
-          break;
-        }
+  // 0. Candidate Name extraction & explicit updates (e.g. "My name is John Doe", "Change my name to John Doe", "I am Rohit Sharma", "Name: Sunil")
+  const explicitNamePatterns = [
+    /^(?:(?:please\s+)?(?:change|update|correct|set)\s+(?:my\s+)?name\s+to|please\s+call\s+me|call\s+me)\s+([A-Za-z]{2,25}(?:\s+[A-Za-z]{2,25}){0,3})/i,
+    /^(?:my\s+name\s+is|i\s+am|i'm|im|this\s+is)\s+([A-Za-z]{2,25}(?:\s+[A-Za-z]{2,25}){1,3})/i,
+    /^name\s*[:=\-]\s*([A-Za-z]{2,25}(?:\s+[A-Za-z]{2,25}){0,3})/i,
+    /^([A-Za-z]{2,25}\s+[A-Za-z]{2,25})\s+(?:here|speaking)\b/i,
+  ];
+
+  let detectedName: string | undefined;
+  for (const pat of explicitNamePatterns) {
+    const match = cleanText.match(pat);
+    if (match && match[1]) {
+      const potentialName = match[1].trim();
+      const lower = potentialName.toLowerCase();
+      if (
+        !lower.includes("interested") &&
+        !lower.includes("looking") &&
+        !lower.includes("applying") &&
+        !lower.includes("australia") &&
+        !lower.includes("eligible") &&
+        !lower.includes("mechanical") &&
+        !lower.includes("engineer") &&
+        !lower.includes("not")
+      ) {
+        detectedName = potentialName;
+        break;
       }
     }
+  }
+
+  if (
+    detectedName &&
+    (detectedName !== session.name || !session.name || session.name === "Candidate" || session.name.toLowerCase().includes("test"))
+  ) {
+    session.name = detectedName;
+    profileUpdates.name = detectedName;
   }
 
   // 0b. Candidate Email Address extraction (e.g. "my email is ak2805034@gmail.com", "ak2805034@gmail.com")
@@ -945,12 +970,6 @@ export async function processIncomingWhatsAppMessage(params: {
     if (!session.email || session.email !== foundEmail) {
       session.email = foundEmail;
       profileUpdates.email = foundEmail;
-      if (session.leadId) {
-        await db.collection("leads").updateOne(
-          { id: session.leadId },
-          { $set: { email: foundEmail, updatedAt: new Date() } }
-        );
-      }
     }
   }
 
@@ -961,15 +980,6 @@ export async function processIncomingWhatsAppMessage(params: {
     session.occupationSector = occMatch.category;
     profileUpdates.occupation = occMatch.role;
     profileUpdates.occupationSector = occMatch.category;
-    if (session.leadId) {
-      await db.collection("leads").updateOne(
-        { id: session.leadId },
-        {
-          $addToSet: { occupations: occMatch.role } as any,
-          $set: { jobApplied: occMatch.role, updatedAt: new Date() },
-        }
-      );
-    }
   }
 
   // 2. Years of Experience (e.g. "5 years experience", "8+ yrs")
@@ -979,11 +989,28 @@ export async function processIncomingWhatsAppMessage(params: {
     const expStr = `${expMatch[1]} years`;
     session.yearsExperience = expStr;
     profileUpdates.yearsExperience = expStr;
-    if (session.leadId) {
-      await db.collection("leads").updateOne(
-        { id: session.leadId },
-        { $set: { experience: expStr, updatedAt: new Date() } }
-      );
+  }
+
+  // 2b. Candidate Country / Location update (e.g. "I am in UAE", "living in Dubai", "from Kenya", "country is Qatar")
+  const countryPatterns = [
+    /(?:(?:i\s+am\s+|currently\s+)?(?:living\s+in|based\s+in|located\s+in|staying\s+in)|country\s+is|change\s+country\s+to)\s+([A-Za-z\s]{3,30})/i,
+    /^(?:in|from)\s+([A-Za-z\s]{3,25})$/i,
+  ];
+  for (const cPat of countryPatterns) {
+    const cMatch = cleanText.match(cPat);
+    if (cMatch && cMatch[1]) {
+      const detectedCountry = findCountryByNameOrCode(cMatch[1].trim());
+      if (detectedCountry && detectedCountry.countryName !== session.countryName) {
+        session.countryCode = detectedCountry.countryCode;
+        session.countryName = detectedCountry.countryName;
+        session.timeZone = detectedCountry.timeZone;
+        session.timeZoneLabel = detectedCountry.label;
+        profileUpdates.countryCode = detectedCountry.countryCode;
+        profileUpdates.countryName = detectedCountry.countryName;
+        profileUpdates.timeZone = detectedCountry.timeZone;
+        profileUpdates.timeZoneLabel = detectedCountry.label;
+        break;
+      }
     }
   }
 
@@ -999,7 +1026,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 4. Highest Qualification
   const qualRegex = /\b(master'?s?|bachelor'?s?|b\.?tech|m\.?tech|degree|diploma|phd|mba|bsc|msc|bca|mca|b\.?e\.?|m\.?e\.?|b\.?sc|m\.?sc)\b/i;
   const qualMatch = cleanText.match(qualRegex);
-  if (qualMatch && !session.highestQualification) {
+  if (qualMatch) {
     session.highestQualification = qualMatch[0].toUpperCase();
     profileUpdates.highestQualification = qualMatch[0].toUpperCase();
   }
@@ -1007,7 +1034,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 5. Age / Age Range (e.g. "I am 28 years old", "age 32", "28 yrs old")
   const ageRegex = /\b(?:i\s*am\s*|age\s*|aged?\s*|i'm\s*)?(\d{2})\s*(?:years?\s*old|yrs?\s*old|yo\b)/i;
   const ageMatch = cleanText.match(ageRegex);
-  if (ageMatch && !session.ageRange) {
+  if (ageMatch) {
     session.ageRange = ageMatch[1];
     profileUpdates.ageRange = ageMatch[1];
   }
@@ -1015,7 +1042,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 6. Marital Status
   const maritalRegex = /\b(married|single|divorced|widowed|unmarried|engaged)\b/i;
   const maritalMatch = cleanText.match(maritalRegex);
-  if (maritalMatch && !session.maritalStatus) {
+  if (maritalMatch) {
     session.maritalStatus = maritalMatch[1].charAt(0).toUpperCase() + maritalMatch[1].slice(1).toLowerCase();
     profileUpdates.maritalStatus = session.maritalStatus;
   }
@@ -1023,7 +1050,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 7. Family / Dependents (e.g. "wife and 2 kids", "1 child", "my family of 4")
   const familyRegex = /\b(?:(?:wife|husband|spouse|partner)\s*(?:and\s*)?)?(\d+)?\s*(?:child(?:ren)?|kids?|son|daughter|dependents?)\b/i;
   const familyMatch = cleanText.match(familyRegex);
-  if (familyMatch && !session.familySize) {
+  if (familyMatch) {
     session.familySize = familyMatch[0].trim();
     profileUpdates.familySize = session.familySize;
   }
@@ -1031,7 +1058,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 8. Passport Status
   const passportRegex = /\b(i\s*have\s*(?:a\s*)?passport|passport\s*ready|valid\s*passport|no\s*passport|don'?t\s*have\s*passport|passport\s*not\s*ready)\b/i;
   const passportMatch = cleanText.match(passportRegex);
-  if (passportMatch && session.hasPassport === undefined) {
+  if (passportMatch) {
     const hasIt = !/no|don'?t|not ready/.test(passportMatch[0].toLowerCase());
     session.hasPassport = hasIt;
     profileUpdates.hasPassport = hasIt;
@@ -1040,7 +1067,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 9. Current Job Title (e.g. "I work as a Software Engineer", "I am a Nurse")
   const jobTitleRegex = /\b(?:i\s*(?:am\s*(?:a\s*|an\s*)?|work\s*as\s*(?:a\s*|an\s*)?|am\s*working\s*as\s*(?:a\s*|an\s*)?))([A-Z][a-z]+(?:\s[A-Z][a-z]+){0,3})/;
   const jobTitleMatch = cleanText.match(jobTitleRegex);
-  if (jobTitleMatch && !session.currentJobTitle && jobTitleMatch[1].length > 3) {
+  if (jobTitleMatch && jobTitleMatch[1].length > 3) {
     session.currentJobTitle = jobTitleMatch[1].trim();
     profileUpdates.currentJobTitle = session.currentJobTitle;
   }
@@ -1048,7 +1075,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 10. Current Employer (e.g. "I work at Infosys", "working in TCS", "employed with Apollo")
   const employerRegex = /\b(?:work(?:ing)?\s*(?:at|in|with|for)|employed\s*(?:at|with|by)|company\s*(?:is|name)?)\s*([A-Z][A-Za-z\s&.]{2,30})/;
   const employerMatch = cleanText.match(employerRegex);
-  if (employerMatch && !session.currentEmployer) {
+  if (employerMatch) {
     session.currentEmployer = employerMatch[1].trim();
     profileUpdates.currentEmployer = session.currentEmployer;
   }
@@ -1056,7 +1083,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 11. Current Salary (e.g. "8 LPA", "INR 60000", "salary is 1.2 LPA")
   const salaryRegex = /\b(?:(?:INR|₹|Rs\.?)\s*)?(\d+(?:\.\d+)?)\s*(?:lpa|lakh|lac|l\.?p\.?a|per\s*annum|per\s*month|pm|k\s*pm)/i;
   const salaryMatch = cleanText.match(salaryRegex);
-  if (salaryMatch && !session.currentSalary) {
+  if (salaryMatch) {
     session.currentSalary = salaryMatch[0].trim();
     profileUpdates.currentSalary = session.currentSalary;
   }
@@ -1064,7 +1091,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 12. Goals / Intent (e.g. "I want PR", "looking for better salary", "want to settle in Australia")
   const goalRegex = /\b((?:want|looking)\s*(?:to|for)\s*(?:PR|permanent\s*residency|settle|better\s*salary|immigrate|migrate|work\s*abroad|move\s*to\s*australia))\b/i;
   const goalMatch = cleanText.match(goalRegex);
-  if (goalMatch && !session.candidateGoals) {
+  if (goalMatch) {
     session.candidateGoals = goalMatch[0].trim();
     profileUpdates.candidateGoals = session.candidateGoals;
   }
@@ -1078,6 +1105,34 @@ export async function processIncomingWhatsAppMessage(params: {
   // Persist all extracted profile fields in one DB write (if any were extracted)
   if (Object.keys(profileUpdates).length > 0) {
     await updateSession(db, session.phone, profileUpdates as Partial<WhatsAppSession>);
+
+    // Synchronize matching CRM leads so CRM and WhatsApp always stay 100% in sync
+    const cleanLeadPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+    const leadUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (profileUpdates.name) leadUpdates.name = profileUpdates.name;
+    if (profileUpdates.email) leadUpdates.email = profileUpdates.email;
+    if (profileUpdates.yearsExperience) leadUpdates.experience = profileUpdates.yearsExperience;
+    if (profileUpdates.occupation) {
+      leadUpdates.jobApplied = profileUpdates.occupation;
+      leadUpdates.occupation = profileUpdates.occupation;
+    }
+    if (profileUpdates.countryName) leadUpdates.country = profileUpdates.countryName;
+
+    if (Object.keys(leadUpdates).length > 1) {
+      const phoneQueries = [
+        ...(session.leadId ? [{ id: session.leadId }] : []),
+        { phone: cleanLeadPhone },
+        { phone: `+${cleanLeadPhone}` },
+        { phone: { $regex: `${cleanLeadPhone.slice(-10)}$` } },
+      ];
+      await db.collection("leads").updateMany(
+        { $or: phoneQueries },
+        {
+          $set: leadUpdates,
+          ...(profileUpdates.occupation ? { $addToSet: { occupations: profileUpdates.occupation } as any } : {}),
+        }
+      );
+    }
   }
 
   // --- Guard: If Consultation Meeting is Already Completed ---

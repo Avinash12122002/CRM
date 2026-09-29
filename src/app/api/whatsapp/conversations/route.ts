@@ -442,7 +442,10 @@ export async function PATCH(req: NextRequest) {
     );
 
     // 2. Also update matching lead in CRM if exists
-    if (trimmedName) {
+    const leadUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    if (trimmedName) leadUpdates.name = trimmedName;
+    if (trimmedEmail) leadUpdates.email = trimmedEmail;
+    if (Object.keys(leadUpdates).length > 1) {
       await db.collection("leads").updateMany(
         {
           $or: [
@@ -451,7 +454,7 @@ export async function PATCH(req: NextRequest) {
             { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
           ],
         },
-        { $set: { name: trimmedName, updatedAt: new Date() } }
+        { $set: leadUpdates }
       );
     }
 

@@ -103,31 +103,45 @@ export async function POST(req: NextRequest) {
             const dbConn = await connectToDatabase();
             db = dbConn.db;
 
-            // If profile name is generic "Candidate", check if candidate exists in CRM Leads
-            if (!effectiveSenderName || effectiveSenderName === "Candidate") {
-              const lead = await db.collection("leads").findOne({
-                $or: [
-                  { phone },
-                  { phone: `+${phone}` },
-                  { phone: { $regex: `${phone.slice(-10)}$` } },
-                ],
-              });
-              if (lead?.name) {
-                effectiveSenderName = lead.name;
-              } else {
-                const s = await db.collection("whatsapp_sessions").findOne({ phone });
-                if (s?.name && s.name !== "Candidate") {
-                  effectiveSenderName = s.name;
-                }
-              }
-            }
-
-            // If we have an actual candidate name, ensure session has it
-            if (effectiveSenderName && effectiveSenderName !== "Candidate") {
-              await db.collection("whatsapp_sessions").updateOne(
+            // Check if existing session or CRM lead already has candidate's verified name
+            const existingSession = await db.collection("whatsapp_sessions").findOne({ phone });
+            const existingLead = await db.collection("leads").findOne({
+              $or: [
                 { phone },
+                { phone: `+${phone}` },
+                { phone: { $regex: `${phone.slice(-10)}$` } },
+              ],
+            });
+
+            // Priority: Session verified name > CRM Lead verified name > Meta contact profile name > "Candidate"
+            if (
+              existingSession?.name &&
+              existingSession.name !== "Candidate" &&
+              !existingSession.name.toLowerCase().includes("test")
+            ) {
+              effectiveSenderName = existingSession.name;
+            } else if (
+              existingLead?.name &&
+              existingLead.name !== "Candidate" &&
+              !existingLead.name.toLowerCase().includes("test")
+            ) {
+              effectiveSenderName = existingLead.name;
+              await db.collection("whatsapp_sessions").updateOne(
+                { phone, $or: [{ name: { $exists: false } }, { name: "Candidate" }, { name: "" }] },
+                { $set: { name: existingLead.name } }
+              );
+            } else if (
+              effectiveSenderName &&
+              effectiveSenderName !== "Candidate" &&
+              !effectiveSenderName.toLowerCase().includes("test")
+            ) {
+              // Only set initial name if session doesn't have one
+              await db.collection("whatsapp_sessions").updateOne(
+                { phone, $or: [{ name: { $exists: false } }, { name: "Candidate" }, { name: "" }] },
                 { $set: { name: effectiveSenderName } }
               );
+            } else {
+              effectiveSenderName = "Candidate";
             }
 
             await db.collection("whatsapp_incoming_logs").insertOne({

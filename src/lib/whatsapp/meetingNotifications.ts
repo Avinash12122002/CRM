@@ -93,25 +93,18 @@ export async function sendMeetingCancelledNotification(params: {
   try {
     const { getUpcomingWeekendDays } = await import("./slots");
     const { sendInteractiveList } = await import("./client");
-    const { detectCountryFromPhone, extractShortTimezone, convertIstSlotToCandidateTime } = await import("./timezone");
+    const { detectCountryFromPhone, getCandidateConsultationWindow } = await import("./timezone");
     const weekends = getUpcomingWeekendDays(10);
     const countryInfo = detectCountryFromPhone(cleanPhone);
-    const tzShort = extractShortTimezone(countryInfo.label);
-    const isIndia = countryInfo.countryCode === "IN";
+    const candWindow = getCandidateConsultationWindow(countryInfo.timeZone, countryInfo.label);
     const sections = [
       {
         title: "Select Weekend Date",
         rows: weekends.slice(0, 10).map((w) => {
-          let timeWindow = "1PM-9PM IST";
-          if (!isIndia) {
-            const startCand = convertIstSlotToCandidateTime(w.date, "13:00", countryInfo.timeZone);
-            const endCand = convertIstSlotToCandidateTime(w.date, "21:00", countryInfo.timeZone);
-            timeWindow = `${startCand.display12h}-${endCand.display12h} ${tzShort}`;
-          }
           return {
             id: `DAY_DATE_${w.date}`,
             title: w.displayLabel.slice(0, 24),
-            description: `${w.dayName} · ${timeWindow}`.slice(0, 72),
+            description: `${w.dayName} · ${candWindow.displayWindow}`.slice(0, 72),
           };
         }),
       },

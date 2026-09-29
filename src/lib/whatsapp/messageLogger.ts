@@ -101,10 +101,6 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
       updatedAt: createdAt,
     };
 
-    if (sender === "candidate" && senderName && senderName !== "Candidate" && !senderName.toLowerCase().includes("test")) {
-      updateQuery.name = senderName;
-    }
-
     if (sender === "candidate") {
       // Increment unread count for admin review
       const detectedCountry = detectCountryFromPhone(cleanPhone);
@@ -128,7 +124,7 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
           } as any,
           $setOnInsert: {
             createdAt,
-            name: senderName && senderName !== "Candidate" ? senderName : "Candidate",
+            name: senderName && senderName !== "Candidate" && !senderName.toLowerCase().includes("test") ? senderName : "Candidate",
             countryCode: detectedCountry.countryCode,
             countryName: detectedCountry.countryName,
             timeZone: detectedCountry.timeZone,
@@ -139,6 +135,22 @@ export async function logWhatsAppMessage(params: LogWhatsAppMessageParams): Prom
         },
         { upsert: true }
       );
+
+      // If the session exists but has NO name or generic "Candidate", set initial name without overwriting custom names
+      if (senderName && senderName !== "Candidate" && !senderName.toLowerCase().includes("test")) {
+        await db.collection("whatsapp_sessions").updateOne(
+          {
+            phone: cleanPhone,
+            $or: [
+              { name: { $exists: false } },
+              { name: "Candidate" },
+              { name: "" },
+              { name: /test/i },
+            ],
+          },
+          { $set: { name: senderName } }
+        );
+      }
 
       // Automatically learn from this candidate message and incrementally train intelligence
       import("./messageIntelligence")

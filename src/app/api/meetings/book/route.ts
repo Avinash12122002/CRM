@@ -198,6 +198,20 @@ export async function POST(req: NextRequest) {
 
         await sendTextMessage(cleanPhone, confirmMsg);
 
+        try {
+          const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+          await logWhatsAppMessage({
+            db,
+            phone: cleanPhone,
+            sender: "bot",
+            senderName: "TMS Visa",
+            text: confirmMsg,
+            createdAt: now,
+          });
+        } catch (logErr) {
+          console.warn("Could not log meeting booking WhatsApp message:", logErr);
+        }
+
         await db.collection("whatsapp_sessions").updateOne(
           { phone: cleanPhone },
           {

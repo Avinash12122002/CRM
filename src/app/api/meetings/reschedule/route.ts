@@ -188,6 +188,20 @@ export async function POST(req: NextRequest) {
 
         await sendTextMessage(cleanPhone, reschedMsg);
 
+        try {
+          const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+          await logWhatsAppMessage({
+            db,
+            phone: cleanPhone,
+            sender: "bot",
+            senderName: "TMS Visa",
+            text: reschedMsg,
+            createdAt: now,
+          });
+        } catch (logErr) {
+          console.warn("Could not log meeting reschedule WhatsApp message:", logErr);
+        }
+
         await db.collection("whatsapp_sessions").updateOne(
           { phone: cleanPhone },
           {
