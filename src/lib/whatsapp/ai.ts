@@ -2,6 +2,7 @@ import { WhatsAppSession } from "./types";
 import { TMS_VISA_KNOWLEDGE, FAQ_FALLBACKS } from "./knowledge";
 import { findEligibleOccupation } from "./occupations";
 import { getCandidateMessageInsights, CandidateMessageInsight } from "./messageIntelligence";
+import { getCandidateConsultationWindow } from "./timezone";
 
 /**
  * Removes any accidental staff names (Sumit, Abhay, etc.) to guarantee strict institutional anonymity.
@@ -16,6 +17,57 @@ function sanitizeStaffNames(text: string): string {
       return "our Senior Migration Specialist";
     })
     .replace(/\b(Mr\.?\s*Sumit|Mr\.?\s*Abhay)\b/gi, "our Senior Migration Specialist");
+}
+
+/**
+ * Strict Meeting Link Guard:
+ * If the candidate has NOT booked a consultation, guarantees that any leaked meet.google.com link
+ * or phrases offering room access are completely stripped out before sending.
+ */
+function sanitizeMeetingLink(text: string, session: WhatsAppSession): string {
+  if (!text) return text;
+  const isBooked = session.meetingStatus === "booked" || Boolean(session.bookedSlot);
+  if (isBooked) return text;
+
+  // Remove lines like "• Join the meeting via https://meet.google.com/hgu-yxat-nwy when you're ready."
+  let cleaned = text
+    .replace(/[•\-\*]?\s*(?:Join the meeting via|Join via|Meeting link:|Google Meet link:)?\s*https?:\/\/meet\.google\.com\/[^\s\)]+(?:\s*(?:when you(?:'re|re) ready|when ready))?\.?/gi, "")
+    .replace(/https?:\/\/meet\.google\.com\/[a-z0-9\-]+/gi, "")
+    .replace(/[•\-\*]?\s*Join the meeting via[^\n\.]+\.?/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return cleaned;
+}
+
+/**
+ * Strict Non-IST Timezone Sanitizer:
+ * If the candidate is NOT in India, removes any accidental mention of "IST" and ensures
+ * candidate local timing is strictly used.
+ */
+function sanitizeTimezoneForCandidate(text: string, session: WhatsAppSession): string {
+  if (!text) return text;
+  const isIndia = session.countryCode === "IN" || session.timeZone === "Asia/Kolkata";
+  if (isIndia) return text;
+
+  const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
+
+  return text
+    .replace(/(?:1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*IST(?:\s*\([^)]*local time[^)]*\))?/gi, candWindow.displayWindow)
+    .replace(/(?:1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*\([^)]*local time[^)]*\)/gi, candWindow.displayWindow)
+    .replace(/\b1\s*[-–]\s*9\s*PM\s*IST\b/gi, candWindow.displayWindow)
+    .replace(/\bIST\b/g, candWindow.tzShort);
+}
+
+/**
+ * Master post-processor applied to every outgoing AI and local expert message.
+ */
+function sanitizeFinalResponse(text: string, session: WhatsAppSession): string {
+  if (!text) return text;
+  let sanitized = sanitizeStaffNames(text);
+  sanitized = sanitizeMeetingLink(sanitized, session);
+  sanitized = sanitizeTimezoneForCandidate(sanitized, session);
+  return sanitized;
 }
 
 /**
@@ -202,6 +254,15 @@ ${recentHistory.map((h, i) => `  [${i + 1}] ${h.role === "candidate" ? "CANDIDAT
 `;
   }
 
+  const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
+  contextBlock += `
+CANDIDATE LOCAL TIMEZONE & CONSULTATION HOURS:
+- Candidate Country: ${session.countryName}
+- Candidate Local Timezone: ${session.timeZoneLabel} (${candWindow.tzShort})
+- Candidate Weekend Consultation Hours: strictly ${candWindow.displayWindow} (Saturdays & Sundays)
+- CRITICAL TIMEZONE INSTRUCTION: ALWAYS AND ONLY quote the candidate's exact local timing: "${candWindow.displayWindow}". Under NO circumstances mention "IST" to candidates outside India!
+`;
+
   // Dynamically analyze candidate message intent, tone, sentiment, and inject learned knowledge directives
   const insights = getCandidateMessageInsights({ message: rawMsg, session });
 
@@ -291,9 +352,11 @@ RESPONSE DIRECTIVES:
 - Remind candidate to check both their Inbox and Spam/Junk folder.
 - If candidate wants to update or change their email address, tell them: "Reply with 'My email is yourname@example.com' and our system will immediately update your profile and email the visa documents to your new address."
 
-11. CONSULTATION DURATION & INTERACTIVE BOOKING PROTOCOL:
+11. CONSULTATION DURATION, CANDIDATE LOCAL TIMEZONE & INTERACTIVE BOOKING PROTOCOL:
 - Consultations with our Senior Migration Expert are strictly 1-HOUR Google Meet sessions (NEVER 2 hours!).
-- Consultations are scheduled strictly on Saturdays and Sundays between 01:00 PM and 09:00 PM IST (converted to candidate's local time).
+- Consultations are scheduled strictly on Saturdays and Sundays between ${candWindow.displayWindow} in candidate's local time.
+- ABSOLUTE TIMEZONE MANDATE: Candidate is located in ${session.countryName}. NEVER mention "IST" or "1-9 PM" unless the candidate is located in India! Always and only refer to their consultation timings as "${candWindow.displayWindow}".
+- ABSOLUTE MEETING LINK PRIVACY: NEVER send or offer any Google Meet link (such as meet.google.com/...) unless the candidate has already booked their slot (meetingStatus: "booked"). Unbooked candidates MUST select a slot first from the menu.
 - When a candidate asks to book, schedule, or discusses consultation timing, tell them they can choose their preferred weekend date and 1-hour slot directly from our interactive WhatsApp menu. NEVER ask the candidate to reply with a date or time in plain text!
 `;
 
@@ -337,7 +400,7 @@ RESPONSE DIRECTIVES:
               const data = await res.json();
               const replyText = data.choices?.[0]?.message?.content;
               if (replyText && replyText.trim().length > 10) {
-                return sanitizeStaffNames(replyText.trim());
+                return sanitizeFinalResponse(replyText.trim(), session);
               }
             }
           } catch {
@@ -381,7 +444,7 @@ RESPONSE DIRECTIVES:
               const data = await res.json();
               const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
               if (replyText && replyText.trim().length > 10) {
-                return sanitizeStaffNames(replyText.trim());
+                return sanitizeFinalResponse(replyText.trim(), session);
               }
             }
         } catch {
@@ -419,7 +482,7 @@ RESPONSE DIRECTIVES:
             const data = await res.json();
             const replyText = data.choices?.[0]?.message?.content;
             if (replyText && replyText.trim().length > 10) {
-              return sanitizeStaffNames(replyText.trim());
+              return sanitizeFinalResponse(replyText.trim(), session);
             }
           }
         } catch {
@@ -433,7 +496,7 @@ RESPONSE DIRECTIVES:
 
   // 4. Infallible Local Australian Visa Expert Cognitive Engine
   // Analyzes user message intent, situation, and queries dynamically like a human consultant.
-  return generateHumanVisaExpertReply({ message: rawMsg, session, matchedOcc, insights });
+  return sanitizeFinalResponse(generateHumanVisaExpertReply({ message: rawMsg, session, matchedOcc, insights }), session);
 }
 
 /**

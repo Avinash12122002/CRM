@@ -349,6 +349,47 @@ export function extractShortTimezone(label: string): string {
 }
 
 /**
+ * Calculates the candidate's exact local consultation window for the weekend slots
+ * (which run 01:00 PM to 09:00 PM IST).
+ * For India: "01:00 PM – 09:00 PM IST"
+ * For UAE (GST): "11:30 AM – 07:30 PM GST"
+ * For Nigeria (WAT): "08:30 AM – 04:30 PM WAT"
+ * For Kenya (EAT): "10:30 AM – 06:30 PM EAT"
+ */
+export function getCandidateConsultationWindow(
+  timeZone: string,
+  timeZoneLabel: string
+): {
+  start12h: string;
+  end12h: string;
+  tzShort: string;
+  displayWindow: string;
+} {
+  const tzShort = extractShortTimezone(timeZoneLabel);
+  const isIndia = timeZone === "Asia/Kolkata" || timeZoneLabel.includes("IST");
+  if (isIndia) {
+    return {
+      start12h: "01:00 PM",
+      end12h: "09:00 PM",
+      tzShort: "IST",
+      displayWindow: "01:00 PM – 09:00 PM IST",
+    };
+  }
+
+  // Use a fixed reference date to convert 13:00 and 21:00 IST to candidate local time
+  const refDate = "2026-10-03";
+  const startCand = convertIstSlotToCandidateTime(refDate, "13:00", timeZone);
+  const endCand = convertIstSlotToCandidateTime(refDate, "21:00", timeZone);
+
+  return {
+    start12h: startCand.display12h,
+    end12h: endCand.display12h,
+    tzShort,
+    displayWindow: `${startCand.display12h} – ${endCand.display12h} ${tzShort}`,
+  };
+}
+
+/**
  * Common aliases for countries
  */
 const COUNTRY_ALIASES: Record<string, string> = {

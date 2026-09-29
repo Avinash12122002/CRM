@@ -1,6 +1,7 @@
 import { Db } from "mongodb";
 import { WhatsAppSession } from "./types";
 import { getStaticGoogleMeetLink } from "./stateMachine";
+import { getCandidateConsultationWindow } from "./timezone";
 
 /**
  * Supported Candidate Intent Categories
@@ -293,6 +294,7 @@ export function analyzeCandidateMessage(params: {
       : "there";
   const occupation = session.occupation || "your profession";
   const experience = session.yearsExperience ? `${session.yearsExperience} of experience` : "your experience";
+  const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
 
   // 6. Dynamic Empathy Hook & Reassurance Synthesis
   let empathyHook = "";
@@ -436,7 +438,7 @@ export function analyzeCandidateMessage(params: {
     case "consultation_booking_hesitation":
       empathyHook = `Our weekend consultation is a 100% free, 1-on-1 strategic session on Google Meet with our Senior Migration Expert.`;
       reassurancePoints = [
-        "1-hour private session held Saturdays and Sundays between 01:00 PM and 09:00 PM in your local time.",
+        `1-hour private session held Saturdays and Sundays between ${candWindow.displayWindow} in your local time.`,
         "We review your CV across 691 eligible roles, match employer opportunities, and outline your timeline.",
         meetingLinkAllowed
           ? `Your meeting is confirmed! Access link: ${getStaticGoogleMeetLink()}`
@@ -535,6 +537,7 @@ ${reassurancePoints.map((pt) => `  * ${pt}`).join("\n")}
   * If candidate spoke Hinglish, blend natural conversational warmth.
 
 - STRICT SAFETY & POLICY ENFORCEMENT:
+  * TIMEZONE RULE: Candidate is located in ${session.countryName} (${candWindow.tzShort}). Always and only state consultation hours as: ${candWindow.displayWindow}. NEVER mention 'IST' or '1-9 PM' unless the candidate is located in India!
   * MEETING LINK PRIVACY: ${
     meetingLinkAllowed
       ? "Candidate HAS a confirmed booked slot. You may confirm their meeting time and provide the Google Meet link."

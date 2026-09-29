@@ -12,7 +12,7 @@ IDENTITY & REGISTERED OFFICES:
 - Registered Entities:
   * Australia: 154 Peisley Street, Orange, NSW 2800, Australia | Migration Pty Ltd. (ABN: 75 148 213 076)
   * India: Delhi NCR, India | Groworld Vijatour Pvt. Ltd. (Trade Name: The Migration School) (CIN: U62099HR2024PTC122827)
-- Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Migration Expert on Saturdays & Sundays (01:00 PM – 09:00 PM in candidate's local time).
+- Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Migration Expert on Saturdays & Sundays scheduled strictly in candidate's local country timezone. Never quote IST to international candidates outside India.
 - Meeting Link Rule: The Google Meet invitation link is only issued to candidates after their consultation slot is officially booked. Never send the meeting link to a candidate who has not booked a meeting.
 - Official Explainer Video Link: https://tmsvisa.com/australia-work-visa-process/
 

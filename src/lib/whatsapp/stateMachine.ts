@@ -9,6 +9,7 @@ import {
   findCountryByNameOrCode,
   format12hTime,
   getNext10AmInTimezone,
+  getCandidateConsultationWindow,
 } from "./timezone";
 import { findEligibleOccupation } from "./occupations";
 import {
@@ -605,11 +606,12 @@ export async function sendConsultationDateSelection(params: {
         `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
         `Please select your new preferred weekend date from the upcoming month:`;
     } else {
+      const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
       dayText =
         `Hello${nameSalutation}! 👋 To book your free 1-on-1 consultation with our Senior Migration Expert, please select your preferred weekend date below:\n\n` +
         `• **Format:** Dedicated 1-hour Google Meet session with our Senior Migration Expert.\n` +
         `• **Agenda:** CV review, eligibility check for 691 roles, and custom visa roadmap.\n` +
-        `• **Timings:** Saturdays & Sundays between 01:00 PM – 09:00 PM ${tzShortLabel} (in your local time) in 1-hour slots.\n` +
+        `• **Timings:** Saturdays & Sundays between **${candWindow.displayWindow}** (in 1-hour slots).\n` +
         `• **Cost:** 100% Free.\n\n` +
         `Please tap **Select Date** below to choose your date:`;
     }
@@ -1838,9 +1840,9 @@ export async function processIncomingWhatsAppMessage(params: {
   const nameSalutation = candidateDisplayName ? ` ${candidateDisplayName}` : "";
   const isIndia = session.countryCode === "IN";
 
-  const tzShortForMsg = extractShortTimezone(session.timeZoneLabel);
+  const candWindowMsg = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
   const weekdayExplanation =
-    `Hello${nameSalutation}! 👋 Our free 1-on-1 consultations with our Senior Migration Experts are strictly scheduled for **Saturdays and Sundays** (1 PM – 9 PM ${tzShortForMsg}, your local time) to accommodate dedicated evaluation sessions.\n\n` +
+    `Hello${nameSalutation}! 👋 Our free 1-on-1 consultations with our Senior Migration Experts are strictly scheduled for **Saturdays and Sundays** between **${candWindowMsg.displayWindow}** to accommodate dedicated evaluation sessions.\n\n` +
     `• **Format:** Dedicated 1-hour Google Meet session.\n` +
     `• **Agenda:** CV review, eligibility check across 691 occupations, and custom visa roadmap.\n` +
     `• **Cost:** 100% Free.\n\n` +
@@ -1925,7 +1927,7 @@ export async function processIncomingWhatsAppMessage(params: {
     } else {
       // Prompt candidate for email first so consultation invite & dossier can be sent
       const emailPromptMsg = isWeekdayMention
-        ? `Hello${nameSalutation}! 👋 Our free 1-on-1 consultations with our Senior Migration Experts are held strictly on **Saturdays and Sundays** (1 PM – 9 PM ${tzShortForMsg}, your local time).\n\n` +
+        ? `Hello${nameSalutation}! 👋 Our free 1-on-1 consultations with our Senior Migration Experts are held strictly on **Saturdays and Sundays** between **${candWindowMsg.displayWindow}**.\n\n` +
           `To book your free session and receive your official Google Meet invitation & visa roadmap, *please reply with your Email Address:*`
         : `Hello${nameSalutation}! 👋 To book your free 1-on-1 consultation with our Senior Migration Expert, *please reply with your Email Address* so we can register your profile and send your official meeting invitation & visa pack:`;
 
@@ -2477,13 +2479,14 @@ export async function processIncomingWhatsAppMessage(params: {
     }
 
     // Candidate has NOT booked a meeting yet -> DO NOT send the meeting link.
+    const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
     if (session.email) {
       return sendConsultationDateSelection({
         db,
         session,
         introText:
           `Hello ${session.name || "there"}! 👋\n\n` +
-          `Our 1-on-1 consultations with our senior visa expert are held live on Google Meet (1 PM – 9 PM in your local time).\n\n` +
+          `Our 1-on-1 consultations with our senior visa expert are held live on Google Meet (Saturdays & Sundays between **${candWindow.displayWindow}**).\n\n` +
           `The official Google Meet room link is issued once your consultation slot is booked.\n\n` +
           `Please tap **Select Date** below to choose your preferred weekend date:`,
       });
@@ -2491,7 +2494,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
     const notBookedReply =
       `Hello ${session.name || "there"}! 👋\n\n` +
-      `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert (Saturdays & Sundays, 1 PM – 9 PM in your local time).\n\n` +
+      `Our 1-on-1 consultations are held live on Google Meet with our senior visa expert (Saturdays & Sundays between **${candWindow.displayWindow}**).\n\n` +
       `The official Google Meet room link is provided once your consultation slot is officially booked.\n\n` +
       `Please reply with your **Email Address** first so we can send your visa information pack and help you choose an available time slot! 🇦🇺`;
 
