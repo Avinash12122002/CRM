@@ -187,7 +187,7 @@ export default function WhatsAppIrelandChatPage() {
         if (res.ok) {
           const data = await res.json();
           const cleanMsgs = (data.messages || []).map((m: any) => ({
-            id: m.messageId || m._id,
+            id: m.id || m.messageId || m._id || `msg_${m.sender}_${new Date(m.createdAt || Date.now()).getTime()}`,
             sender: m.sender || "candidate",
             senderName: m.senderName,
             text: m.text || "",
@@ -197,8 +197,25 @@ export default function WhatsAppIrelandChatPage() {
             buttons: m.buttons,
             createdAt: m.createdAt,
           }));
-
-          setMessages(cleanMsgs);
+          setMessages((prev) => {
+            const pendingOptimistic = prev.filter(
+              (m) =>
+                m.id.startsWith("temp_") &&
+                !cleanMsgs.some(
+                  (inc: any) =>
+                    inc.text?.trim() === m.text.trim() &&
+                    Math.abs(new Date(inc.createdAt || 0).getTime() - new Date(m.createdAt || 0).getTime()) < 30000
+                )
+            );
+            const next = [...cleanMsgs, ...pendingOptimistic];
+            if (
+              prev.length === next.length &&
+              prev.every((m, idx) => m.id === next[idx]?.id && m.text === next[idx]?.text)
+            ) {
+              return prev;
+            }
+            return next;
+          });
           setSession(data.session || null);
           setLead(data.lead || null);
 

@@ -10,12 +10,15 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const expectedToken =
-    process.env.WHATSAPP_IRELAND_VERIFY_TOKEN ||
-    process.env.WHATSAPP_VERIFY_TOKEN ||
-    "tms_ireland_webhook_secret_2026";
+  const validTokens = [
+    process.env.WHATSAPP_IRELAND_VERIFY_TOKEN,
+    process.env.WHATSAPP_VERIFY_TOKEN,
+    "tms_ireland_webhook_secret_2026",
+    "tms_visa_webhook_secret_2026",
+    "TMS_WHATSAPP_TOKEN_2026",
+  ].filter(Boolean);
 
-  if (mode === "subscribe" && token === expectedToken) {
+  if (mode === "subscribe" && token && validTokens.includes(token)) {
     console.log("[WhatsApp Ireland Webhook] Handshake verified successfully!");
     return new NextResponse(challenge, {
       status: 200,

@@ -16,9 +16,12 @@ export async function GET(req: NextRequest) {
     const token = matches ? matches[2] : null;
 
     const cronSecret = req.headers.get("x-cron-secret");
-    const isCron = cronSecret && cronSecret === process.env.CRON_SECRET;
+    const isCron = Boolean(cronSecret && cronSecret === process.env.CRON_SECRET);
 
-    if (!isCron && token) {
+    if (!isCron) {
+      if (!token) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       const payload = verifyToken(token);
       if (!payload || payload.role !== "admin") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -49,9 +52,12 @@ export async function POST(req: NextRequest) {
     const token = matches ? matches[2] : null;
 
     const cronSecret = req.headers.get("x-cron-secret");
-    const isCron = cronSecret && cronSecret === process.env.CRON_SECRET;
+    const isCron = Boolean(cronSecret && cronSecret === process.env.CRON_SECRET);
 
-    if (!isCron && token) {
+    if (!isCron) {
+      if (!token) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       const payload = verifyToken(token);
       if (!payload || payload.role !== "admin") {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

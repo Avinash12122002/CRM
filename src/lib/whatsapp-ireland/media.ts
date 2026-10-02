@@ -87,8 +87,7 @@ function sanitizeFilename(originalName?: string, mimeType?: string, fallbackPref
 
 /**
  * Handles incoming document (PDF) or image sent by an Ireland candidate over WhatsApp.
- * Creates folder `cv/ireland/<candidate_phone_number>/` and stores the file there.
- * Also stores in `public/cv/ireland/<candidate_phone_number>/` so it can be previewed/downloaded in CRM.
+ * Stores files permanently in MongoDB GridFS (no local disk writes — Vercel compatible).
  */
 export async function handleIncomingWhatsAppIrelandMedia(params: {
   db: Db;
@@ -101,72 +100,52 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
     mime_type?: string;
     caption?: string;
   };
-}): Promise<{ filePath: string; filename: string } | null> {
+}): Promise<{ filePath?: string; filename?: string } | null> {
   const { db, phone, senderName, mediaType, mediaObj } = params;
   const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
+  const now = new Date();
+
+  console.log(`[WhatsApp Ireland Media] Received ${mediaType} from +${cleanPhone} (${senderName}):`, mediaObj);
 
   try {
+    // 1. Download file buffer from Meta
     const media = await downloadWhatsAppIrelandMedia(mediaObj.id);
     if (!media) {
       console.warn(`[WhatsApp Ireland Media] Could not download media for +${cleanPhone}`);
       return null;
     }
 
-    const fs = await import("fs/promises");
-    const path = await import("path");
-
-    // 1. Create target directories: cv/ireland/<phone> and public/cv/ireland/<phone>
-    const cvDir = path.join(process.cwd(), "cv", "ireland", cleanPhone);
-    const publicCvDir = path.join(process.cwd(), "public", "cv", "ireland", cleanPhone);
-
-    await fs.mkdir(cvDir, { recursive: true });
-    await fs.mkdir(publicCvDir, { recursive: true });
-
     const safeFilename = sanitizeFilename(
       mediaObj.filename,
       media.mimeType,
-      mediaType === "document" ? "CV" : "IMG"
+      mediaType === "document" ? "cv_ireland_document" : "ireland_image"
     );
 
-    const cvFilePath = path.join(cvDir, safeFilename);
-    const publicFilePath = path.join(publicCvDir, safeFilename);
+    // 2. Upload directly to MongoDB GridFS (no local disk writes — Vercel compatible)
+    const { getGridFSBucket } = await import("@/lib/gridfs");
+    const bucket = await getGridFSBucket();
+    const uploadStream = bucket.openUploadStream(safeFilename, {
+      contentType: media.mimeType,
+      metadata: {
+        candidatePhone: cleanPhone,
+        country: "Ireland",
+        senderName,
+        source: "whatsapp_ireland",
+        mediaType,
+        receivedAt: now,
+      },
+    });
 
-    await fs.writeFile(cvFilePath, media.buffer);
-    await fs.writeFile(publicFilePath, media.buffer);
-
-    const relativePublicUrl = `/cv/ireland/${cleanPhone}/${safeFilename}`;
-    const now = new Date();
-
-    // 2. Upload to MongoDB GridFS for persistent multi-environment storage
-    let gridFsFileId: string | undefined;
-    try {
-      const { getGridFSBucket } = await import("@/lib/gridfs");
-      const bucket = await getGridFSBucket();
-      const uploadStream = bucket.openUploadStream(safeFilename, {
-        contentType: media.mimeType,
-        metadata: {
-          candidatePhone: cleanPhone,
-          country: "Ireland",
-          senderName,
-          source: "whatsapp_ireland",
-          mediaType,
-          receivedAt: now,
-        },
+    await new Promise<void>((resolve, reject) => {
+      uploadStream.end(media.buffer, (err) => {
+        if (err) reject(err);
+        else resolve();
       });
+    });
 
-      await new Promise<void>((resolve, reject) => {
-        uploadStream.end(media.buffer, (err) => {
-          if (err) reject(err);
-          else resolve();
-        });
-      });
-
-      gridFsFileId = uploadStream.id.toString();
-    } catch (gErr) {
-      console.warn("[WhatsApp Ireland Media] GridFS upload fallback warning:", gErr);
-    }
-
-    const finalFileUrl = gridFsFileId ? `/api/chat/files/${gridFsFileId}` : relativePublicUrl;
+    const gridFsFileId = uploadStream.id.toString();
+    const finalFileUrl = `/api/chat/files/${gridFsFileId}`;
+    console.log(`[WhatsApp Ireland Media] Saved to GridFS: ${gridFsFileId} (${finalFileUrl})`);
 
     const fileRecord = {
       filename: safeFilename,
@@ -175,6 +154,7 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
       size: media.buffer.length,
       gridFsFileId,
       publicUrl: finalFileUrl,
+      caption: mediaObj.caption || null,
       receivedAt: now,
     };
 
@@ -270,16 +250,25 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
 
     await sendTextMessage(cleanPhone, ackMessage);
 
-    // 5. Create in-app notification for Admin
-    const adminUser = await db.collection("users").findOne({ role: "admin" });
-    if (adminUser) {
-      await createNotification({
-        userId: adminUser.id,
-        title: "New Ireland CV Received (WhatsApp) 🇮🇪",
-        message: `${senderName || "Candidate"} (+${cleanPhone}) uploaded their CV via Ireland WhatsApp.`,
-        type: "lead",
-        link: `/dashboard/whatsapp-ireland?phone=${cleanPhone}`,
-      });
+    // 5. Create in-app notification for all Admins (and assigned lead user)
+    try {
+      const adminUsers = await db.collection("users").find({ role: "admin" }).toArray();
+      const notifyUsers = new Set<number>(adminUsers.map((u) => u.id));
+      if (lead?.assignedTo) {
+        notifyUsers.add(lead.assignedTo);
+      }
+
+      for (const userId of notifyUsers) {
+        await createNotification({
+          userId,
+          title: `📄 New Ireland CV Received (WhatsApp) 🇮🇪`,
+          message: `${senderName || lead?.name || cleanPhone} sent ${safeFilename} via Ireland WhatsApp.`,
+          type: "whatsapp_cv_upload",
+          link: lead ? `/dashboard/leads/${lead.id}` : `/dashboard/whatsapp-ireland?phone=${cleanPhone}`,
+        });
+      }
+    } catch (notifErr) {
+      console.warn("[WhatsApp Ireland Media] Failed to create in-app notification:", notifErr);
     }
 
     return { filePath: finalFileUrl, filename: safeFilename };

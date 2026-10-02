@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
       req.headers.get("x-cron-secret") ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
       req.nextUrl.searchParams.get("secret");
-    if (provided && provided !== cronSecret) {
+    if (!provided || provided !== cronSecret) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }

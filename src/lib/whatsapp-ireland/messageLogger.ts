@@ -91,7 +91,6 @@ export async function logWhatsAppIrelandMessage(params: LogWhatsAppIrelandMessag
 
     // 2. Update conversation session summary
     const updateQuery: Record<string, unknown> = {
-      phone: cleanPhone,
       lastMessage: text.trim(),
       lastMessageAt: createdAt,
       lastSender: sender,

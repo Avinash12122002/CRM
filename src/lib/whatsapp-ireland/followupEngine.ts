@@ -258,11 +258,12 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
       .toArray()) as unknown as WhatsAppSession[];
 
     for (const session of bookedSessions) {
-      if (!session.bookedSlot?.istTime) continue;
-      const slotHour = parseInt(session.bookedSlot.istTime.split(":")[0], 10);
+      if (!session.bookedSlot?.istTime || !session.bookedSlot?.date) continue;
+      const slotTimeIST = new Date(`${session.bookedSlot.date}T${session.bookedSlot.istTime}:00+05:30`);
+      const diffMinutes = (slotTimeIST.getTime() - now.getTime()) / (1000 * 60);
 
-      // Check if slot starts exactly 1 hour from now
-      if (slotHour === currentHourIST + 1) {
+      // Check if slot starts within 1 hour (between 0 and 65 minutes away)
+      if (diffMinutes > 0 && diffMinutes <= 65) {
         const reminderSentKey = `reminder_sent_${todayIST}_${session.bookedSlot.istTime}`;
         if ((session as any)[reminderSentKey]) continue;
 

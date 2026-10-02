@@ -1283,6 +1283,24 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await updateSession(db, cleanPhone, { leadId });
 
+    // In-App Notification for Admins in CRM
+    try {
+      const { createNotification } = await import("@/lib/notifications");
+      const adminUsers = await db.collection("users").find({ role: "admin" }).toArray();
+      const candName = session.name || "Ireland WhatsApp Candidate";
+      for (const admin of adminUsers) {
+        await createNotification({
+          userId: admin.id,
+          title: "New Ireland WhatsApp Consultation Booked 🇮🇪",
+          message: `1-on-1 Ireland Work Visa consultation booked with ${candName} on ${meetingDate} at ${candidateTimeLabel}.`,
+          type: "meeting_scheduled",
+          link: `/dashboard/leads/${leadId}`,
+        });
+      }
+    } catch (notifErr) {
+      console.warn("[WhatsApp Ireland] Failed to notify admins of meeting:", notifErr);
+    }
+
     // Send confirmation message to candidate with Google Meet link
     const confirmMessage =
       `🎉 **Your Ireland Consultation is Confirmed!**\n\n` +
