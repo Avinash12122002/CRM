@@ -171,46 +171,22 @@ Best Regards,
 </p>
 
 <div style="margin-top:16px;">
-{{FOOTER_SIGNATURE}}
+<img src="cid:info-email-footer" alt="TMS – The Migration School" style="max-width:100%;height:auto;display:block;border:0;" />
 </div>
 
 </div>`;
 
 /**
- * Loads the footer PNG from disk and returns it as a base64 data URI string,
- * so it can be embedded directly in the HTML body as a true inline signature
- * (no CID attachment — no paperclip/attachment indicator shown to recipients).
- */
-function getFooterSignatureHtml(): string {
-  const footerPaths = [
-    path.join(process.cwd(), "public", "attachments", "info email footer.png"),
-    path.join(process.cwd(), "public", "attachment", "info email footer.png"),
-  ];
-  for (const footerPath of footerPaths) {
-    if (fs.existsSync(footerPath)) {
-      try {
-        const b64 = fs.readFileSync(footerPath).toString("base64");
-        return `<img src="data:image/png;base64,${b64}" alt="TMS – The Migration School" style="max-width:100%;height:auto;display:block;border:0;" />`;
-      } catch (fErr) {
-        console.warn("[WhatsApp Info Email] Could not read info email footer image:", fErr);
-      }
-    }
-  }
-  // Fallback: plain text signature if image not found
-  return `<p style="color:#555;font-size:13px;margin:0;">TMS – The Migration School | <a href="https://tmsvisa.com" style="color:#0d6efd;">tmsvisa.com</a></p>`;
-}
-
-/**
  * Loads the official email attachments:
- * - Australia Eligible Occupation List PDF (the only downloadable attachment).
- * The footer is NOT an attachment — it is embedded inline via base64 data URI.
+ * - Australia Eligible Occupation List PDF (downloadable)
+ * - Footer image as CID inline attachment (renders as email signature, not a visible attachment)
  */
 export async function getOfficialInfoAttachments(): Promise<
-  { filename: string; content: Buffer; contentType: string }[]
+  { filename: string; content: Buffer; contentType: string; cid?: string }[]
 > {
-  const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
+  const attachments: { filename: string; content: Buffer; contentType: string; cid?: string }[] = [];
 
-  // Occupation List PDF — only downloadable attachment
+  // 1. Occupation List PDF — downloadable attachment
   const occPaths = [
     path.join(process.cwd(), "public", "attachments", "Australia_Eligible_Occupation_List_691.pdf"),
     path.join(process.cwd(), "public", "attachment", "Australia_Eligible_Occupation_List_691.pdf"),
@@ -231,7 +207,7 @@ export async function getOfficialInfoAttachments(): Promise<
   }
 
   // Fallback to MongoDB GridFS if local file not found
-  if (attachments.length === 0) {
+  if (attachments.filter(a => !a.cid).length === 0) {
     try {
       const { connectToDatabase } = await import("@/lib/mongodb");
       const { getGridFSBucket } = await import("@/lib/gridfs");
@@ -253,6 +229,29 @@ export async function getOfficialInfoAttachments(): Promise<
       }
     } catch (gridFsErr) {
       console.warn("[WhatsApp Info Email] GridFS occupation list fallback error:", gridFsErr);
+    }
+  }
+
+  // 2. Footer image — CID inline attachment
+  // CID embeds the image directly into the email body (like a signature).
+  // It does NOT appear as a downloadable attachment to recipients.
+  const footerPaths = [
+    path.join(process.cwd(), "public", "attachments", "info email footer.png"),
+    path.join(process.cwd(), "public", "attachment", "info email footer.png"),
+  ];
+  for (const footerPath of footerPaths) {
+    if (fs.existsSync(footerPath)) {
+      try {
+        attachments.push({
+          filename: "info-email-footer.png",
+          content: fs.readFileSync(footerPath),
+          contentType: "image/png",
+          cid: "info-email-footer",
+        });
+        break;
+      } catch (fErr) {
+        console.warn("[WhatsApp Info Email] Could not read info email footer image:", fErr);
+      }
     }
   }
 
@@ -285,11 +284,7 @@ export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams)
     html = html.replace(/\{\{Email\}\}/g, email);
     html = html.replace(/\{\{Phone\}\}/g, `+${cleanPhone}`);
 
-    // Embed footer as a base64 data URI inline in the HTML (acts as email signature, no attachment)
-    const footerHtml = getFooterSignatureHtml();
-    html = html.replace("{{FOOTER_SIGNATURE}}", footerHtml);
-
-    // Load official attachments (Occupation List PDF only — footer is inline, not an attachment)
+    // Load official attachments (Occupation List PDF + CID inline footer image)
     const attachments = await getOfficialInfoAttachments();
 
     // Send from info@tmsvisa.com

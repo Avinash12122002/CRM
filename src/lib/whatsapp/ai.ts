@@ -724,7 +724,10 @@ function generateHumanVisaExpertReply(params: {
 
   // --- STEP 3: Core variables (must be before frustratedPrefix) ---
   const candidateName =
-    session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+    session.name &&
+    session.name !== "Candidate" &&
+    !session.name.toLowerCase().includes("test") &&
+    !session.name.includes("@") // never use email address as a name
       ? session.name
       : "";
   const nameSalutation = candidateName ? ` ${candidateName}` : "";
