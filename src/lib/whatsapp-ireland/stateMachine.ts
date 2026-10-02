@@ -748,6 +748,88 @@ export async function processIncomingWhatsAppMessage(params: {
       }
     }
 
+    // Email Resend, "Send Me Email", Brochure, PDF, or "Did Not Receive" Email
+    const isAskingIrelandEmail =
+      lowerText.includes("send me email") ||
+      lowerText.includes("send email") ||
+      lowerText.includes("send me mail") ||
+      lowerText.includes("send mail") ||
+      lowerText.includes("resend") ||
+      lowerText.includes("email me") ||
+      lowerText.includes("mail me") ||
+      lowerText.includes("email send") ||
+      lowerText.includes("mail send") ||
+      lowerText.includes("email bhejo") ||
+      lowerText.includes("mail bhejo") ||
+      lowerText.includes("send on email") ||
+      lowerText.includes("did not receive") ||
+      lowerText.includes("didn't receive") ||
+      lowerText.includes("did not recieved") ||
+      lowerText.includes("didn't recieved") ||
+      lowerText.includes("not received") ||
+      lowerText.includes("not recieved") ||
+      lowerText.includes("not receive") ||
+      lowerText.includes("haven't received") ||
+      lowerText.includes("have not received") ||
+      lowerText.includes("havent received") ||
+      lowerText.includes("no mail") ||
+      lowerText.includes("no email") ||
+      lowerText.includes("mail nahi") ||
+      lowerText.includes("email nahi") ||
+      lowerText.includes("brochure") ||
+      lowerText.includes("information pack") ||
+      lowerText.includes("info pack") ||
+      lowerText.includes("occupation list") ||
+      lowerText.includes("critical skills list") ||
+      (lowerText.includes("pdf") && (lowerText.includes("send") || lowerText.includes("give") || lowerText.includes("share") || lowerText.includes("email") || lowerText.includes("mail"))) ||
+      /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(rawText.trim());
+
+    if (isAskingIrelandEmail) {
+      const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+      const targetEmail = emailMatch ? emailMatch[0].toLowerCase() : (session.email || existingCrmLead?.email);
+
+      if (targetEmail) {
+        if (emailMatch && session.email !== targetEmail) {
+          session.email = targetEmail;
+          await updateSession(db, cleanPhone, { email: targetEmail });
+          if (existingCrmLead) {
+            await db.collection("leads").updateOne(
+              { id: existingCrmLead.id },
+              { $set: { email: targetEmail, updatedAt: new Date() } }
+            );
+          }
+        }
+
+        const sendRes = await sendWhatsAppIrelandInfoEmail({
+          phone: cleanPhone,
+          name: session.name || existingCrmLead?.name || "Applicant",
+          email: targetEmail,
+          leadId: existingCrmLead?.id,
+        });
+
+        if (sendRes.success) {
+          const successMsg =
+            `✅ We have immediately sent the official **Ireland Work Visa Information Pack** to **${targetEmail}**! 📩🇮🇪\n\n` +
+            `It includes:\n` +
+            `• 2-stage milestone fees (€300 to start / €700 only after visa approval)\n` +
+            `• 3-Way eligibility check (Critical Skills CSOL & General GEP)\n` +
+            `• Irish employer sponsorship process & Occupation Lists\n` +
+            `• FREE Interview Preparation & English communication coaching\n` +
+            `• Stamp 4 PR roadmap & CSEP benefits\n\n` +
+            `📬 *Please check both your Inbox and Spam/Junk folder.*\n\n` +
+            `Need it sent to another email address? Just reply with your email! 📧`;
+          await sendTextMessage(cleanPhone, successMsg);
+          return;
+        }
+      } else {
+        const askEmailMsg =
+          `I would be delighted to send you the official Ireland Work Visa Information Pack! 📄🇮🇪\n\n` +
+          `Please reply with your **Email Address** (e.g. name@gmail.com) so I can dispatch it to your inbox immediately. 📧`;
+        await sendTextMessage(cleanPhone, askEmailMsg);
+        return;
+      }
+    }
+
     // For ANY other inquiry or message from an active Ireland CRM candidate:
     // Pass directly to Context-Aware AI with Directive 0 (strictly forbidding asking for email or consultation booking)
     let aiAnswer = await generateAiResponse({
