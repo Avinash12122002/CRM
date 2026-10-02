@@ -33,7 +33,7 @@ export async function PATCH(
       return NextResponse.json({ message: "Bill not found" }, { status: 404 });
     }
 
-    if (payload.role !== "admin" && existing.createdBy?.id !== payload.id) {
+    if (payload.role !== "admin" && String(existing.createdBy?.id) !== String(payload.id)) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 

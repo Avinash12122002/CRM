@@ -45,6 +45,9 @@ export async function DELETE(
     await db.collection("lead_workflows").deleteMany(leadIdFilter);
     await db.collection("email_history").deleteMany(leadIdFilter);
     await db.collection("invoices").deleteMany(leadIdFilter);
+    await db.collection("billinginvoices").deleteMany(leadIdFilter);
+    await db.collection("messages").deleteMany(leadIdFilter);
+    await db.collection("leadChats").deleteMany(leadIdFilter);
     await db.collection("notifications").deleteMany(leadIdFilter);
     await db.collection("case_marketing_employers").deleteMany(leadIdFilter);
     await db.collection("case_marketing_sources").deleteMany(leadIdFilter);

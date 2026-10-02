@@ -93,8 +93,16 @@ export async function POST(req: NextRequest) {
     // Sync WhatsApp sessions if lead phone exists
     const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
     if (cleanLeadPhone.length >= 8) {
+      const last10 = cleanLeadPhone.slice(-10);
+      const waPhoneFilter = {
+        $or: [
+          { phone: cleanLeadPhone },
+          { phone: `+${cleanLeadPhone}` },
+          ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+        ],
+      };
       await db.collection("whatsapp_sessions").updateOne(
-        { phone: cleanLeadPhone },
+        waPhoneFilter,
         {
           $set: {
             meetingStatus: "canceled",
@@ -105,7 +113,7 @@ export async function POST(req: NextRequest) {
         }
       );
       await db.collection("whatsapp_ireland_sessions").updateOne(
-        { phone: cleanLeadPhone },
+        waPhoneFilter,
         {
           $set: {
             meetingStatus: "canceled",

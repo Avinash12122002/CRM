@@ -368,8 +368,16 @@ export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams)
     }
 
     // Update whatsapp_sessions ONLY on confirmed success
+    const last10 = cleanPhone.slice(-10);
+    const waPhoneFilter = {
+      $or: [
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+      ],
+    };
     await db.collection("whatsapp_sessions").updateOne(
-      { phone: cleanPhone },
+      waPhoneFilter,
       {
         $set: {
           infoEmailSentAt: now,

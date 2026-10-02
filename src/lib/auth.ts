@@ -38,10 +38,19 @@ export async function getNextId(db: Db, name: string) {
     { upsert: true, returnDocument: "after" }
   );
 
-  const doc = result && "value" in result ? (result.value as { seq?: number } | null) : result;
-  if (!doc || doc.seq === undefined) {
-    throw new Error("Failed to generate ID");
+  const doc = (result && typeof result === "object" && "value" in result && result.value)
+    ? (result.value as { seq?: number })
+    : (result as { seq?: number } | null);
+
+  if (doc && typeof doc.seq === "number") {
+    return doc.seq;
   }
 
-  return doc.seq;
+  // Resilient fallback in case driver returned without document
+  const fallback = await db.collection<{ _id: string; seq: number }>("counters").findOne({ _id: name });
+  if (fallback && typeof fallback.seq === "number") {
+    return fallback.seq;
+  }
+
+  throw new Error(`Failed to generate ID for ${name}`);
 }

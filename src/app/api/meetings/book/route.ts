@@ -47,9 +47,18 @@ export async function POST(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    const lead = await db.collection("leads").findOne({
-      id: leadId,
-    });
+    const numLeadId = Number(leadId);
+    const leadIdFilter = isNaN(numLeadId) ? { id: leadId } : { $or: [{ id: numLeadId }, { id: String(leadId) }] };
+
+    let collectionName = "leads";
+    let lead = await db.collection("leads").findOne(leadIdFilter);
+
+    if (!lead) {
+      lead = await db.collection("triloknath_leads").findOne(leadIdFilter);
+      if (lead) {
+        collectionName = "triloknath_leads";
+      }
+    }
 
     if (!lead) {
       return NextResponse.json(
@@ -62,8 +71,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const numMeetingUserId = Number(meetingUserId);
+    const meetingUserMatchIds = [meetingUserId, String(meetingUserId), numMeetingUserId].filter(
+      (x) => x !== undefined && x !== null && !isNaN(Number(x))
+    );
+
     const meetingUser = await db.collection("users").findOne({
-      id: meetingUserId,
+      id: { $in: meetingUserMatchIds },
       role: { $in: ["meeting", "wm"] },
     });
 
@@ -79,12 +93,12 @@ export async function POST(req: NextRequest) {
     }
 
     const existingSlot = await db.collection("meetingSlots").findOne({
-  meetingUserId,
-  meetingDate,
-  startTime,
-  status: "scheduled",
-  leadId: { $ne: leadId },
-});
+      meetingUserId: { $in: meetingUserMatchIds },
+      meetingDate,
+      startTime,
+      status: "scheduled",
+      leadId: { $nin: [lead.id, String(lead.id)] },
+    });
 
     if (existingSlot) {
       return NextResponse.json(
@@ -220,8 +234,17 @@ export async function POST(req: NextRequest) {
             console.warn("Could not log Ireland meeting booking WhatsApp message:", logErr);
           }
 
+          const last10 = cleanPhone.slice(-10);
+          const waPhoneFilter = {
+            $or: [
+              { phone: cleanPhone },
+              { phone: `+${cleanPhone}` },
+              ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+            ],
+          };
+
           await db.collection("whatsapp_ireland_sessions").updateOne(
-            { phone: cleanPhone },
+            waPhoneFilter,
             {
               $set: {
                 currentStep: "BOOKED",
@@ -273,8 +296,17 @@ export async function POST(req: NextRequest) {
             console.warn("Could not log meeting booking WhatsApp message:", logErr);
           }
 
+          const last10 = cleanPhone.slice(-10);
+          const waPhoneFilter = {
+            $or: [
+              { phone: cleanPhone },
+              { phone: `+${cleanPhone}` },
+              ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+            ],
+          };
+
           await db.collection("whatsapp_sessions").updateOne(
-            { phone: cleanPhone },
+            waPhoneFilter,
             {
               $set: {
                 currentStep: "BOOKED",
@@ -300,9 +332,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-   await db.collection("leads").updateOne(
+   await db.collection(collectionName).updateOne(
   {
-    id: leadId,
+    id: lead.id,
   },
   {
     $set: {

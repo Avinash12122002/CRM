@@ -44,15 +44,14 @@ export async function POST(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
+    const numLeadId = Number(leadId);
+    const leadIdFilter = isNaN(numLeadId) ? { id: leadId } : { $or: [{ id: numLeadId }, { id: String(leadId) }] };
+
     let collectionName = "leads";
-    let lead = await db.collection("leads").findOne({
-      id: leadId,
-    });
+    let lead = await db.collection("leads").findOne(leadIdFilter);
 
     if (!lead) {
-      lead = await db.collection("triloknath_leads").findOne({
-        id: leadId,
-      });
+      lead = await db.collection("triloknath_leads").findOne(leadIdFilter);
       if (lead) {
         collectionName = "triloknath_leads";
       }
@@ -62,12 +61,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
-    if (payload.role !== "admin" && lead.assignedTo !== payload.id) {
+    const isOwner = String(lead.assignedTo) === String(payload.id);
+    const isMeetingUser = String(lead.meetingDetails?.meetingUserId) === String(payload.id);
+    const isBooker = String(lead.meetingDetails?.bookedBy) === String(payload.id);
+    const isVisible = Array.isArray(lead.visibleTo) && lead.visibleTo.some((v: unknown) => String(v) === String(payload.id));
+
+    if (payload.role !== "admin" && !isOwner && !isMeetingUser && !isBooker && !isVisible) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }
 
+    const numMeetingUserId = Number(meetingUserId);
+    const meetingUserMatchIds = [meetingUserId, String(meetingUserId), numMeetingUserId].filter(
+      (x) => x !== undefined && x !== null && !isNaN(Number(x))
+    );
+
     const meetingUser = await db.collection("users").findOne({
-      id: meetingUserId,
+      id: { $in: meetingUserMatchIds },
       role: { $in: ["meeting", "wm"] },
     });
 
@@ -79,11 +88,11 @@ export async function POST(req: NextRequest) {
     }
 
     const slotExists = await db.collection("meetingSlots").findOne({
-      meetingUserId,
+      meetingUserId: { $in: meetingUserMatchIds },
       meetingDate,
       startTime,
       status: "scheduled",
-      leadId: { $ne: leadId },
+      leadId: { $nin: [lead.id, String(lead.id)] },
     });
 
     if (slotExists) {
@@ -108,7 +117,7 @@ export async function POST(req: NextRequest) {
     const now = new Date();
 
     await db.collection("meetingSlots").deleteMany({
-      leadId,
+      $or: [{ leadId: lead.id }, { leadId: String(lead.id) }],
     });
 
     const cleanPhone = lead.phone ? String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "") : "";
@@ -210,8 +219,17 @@ export async function POST(req: NextRequest) {
             console.warn("Could not log Ireland meeting reschedule WhatsApp message:", logErr);
           }
 
+          const last10 = cleanPhone.slice(-10);
+          const waPhoneFilter = {
+            $or: [
+              { phone: cleanPhone },
+              { phone: `+${cleanPhone}` },
+              ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+            ],
+          };
+
           await db.collection("whatsapp_ireland_sessions").updateOne(
-            { phone: cleanPhone },
+            waPhoneFilter,
             {
               $set: {
                 currentStep: "BOOKED",
@@ -262,8 +280,17 @@ export async function POST(req: NextRequest) {
             console.warn("Could not log meeting reschedule WhatsApp message:", logErr);
           }
 
+          const last10 = cleanPhone.slice(-10);
+          const waPhoneFilter = {
+            $or: [
+              { phone: cleanPhone },
+              { phone: `+${cleanPhone}` },
+              ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+            ],
+          };
+
           await db.collection("whatsapp_sessions").updateOne(
-            { phone: cleanPhone },
+            waPhoneFilter,
             {
               $set: {
                 currentStep: "BOOKED",
@@ -292,7 +319,7 @@ export async function POST(req: NextRequest) {
     const oldMeeting = lead.meetingDetails || null;
 
     await db.collection(collectionName).updateOne(
-      { id: leadId },
+      { id: lead.id },
       {
         $set: {
           status: "meeting-scheduled",

@@ -180,8 +180,17 @@ export async function POST(req: NextRequest) {
     // Sync WhatsApp sessions if lead phone exists
     const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
     if (cleanLeadPhone.length >= 8) {
-      const waSession = await db.collection("whatsapp_sessions").findOne({ phone: cleanLeadPhone });
-      const waIrelandSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanLeadPhone });
+      const last10 = cleanLeadPhone.slice(-10);
+      const waPhoneFilter = {
+        $or: [
+          { phone: cleanLeadPhone },
+          { phone: `+${cleanLeadPhone}` },
+          ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+        ],
+      };
+
+      const waSession = await db.collection("whatsapp_sessions").findOne(waPhoneFilter);
+      const waIrelandSession = await db.collection("whatsapp_ireland_sessions").findOne(waPhoneFilter);
 
       const hasSharedCv = Boolean(
         lead.hasCv ||
@@ -200,7 +209,7 @@ export async function POST(req: NextRequest) {
       if (waSession) {
         const candidateTz = (waSession.timeZone as string) || "Asia/Kolkata";
         await db.collection("whatsapp_sessions").updateOne(
-          { phone: cleanLeadPhone },
+          { _id: waSession._id },
           {
             $set: {
               crmStatus: "follow-up",
@@ -219,7 +228,7 @@ export async function POST(req: NextRequest) {
       if (waIrelandSession) {
         const candidateTz = (waIrelandSession.timeZone as string) || "Asia/Kolkata";
         await db.collection("whatsapp_ireland_sessions").updateOne(
-          { phone: cleanLeadPhone },
+          { _id: waIrelandSession._id },
           {
             $set: {
               crmStatus: "follow-up",

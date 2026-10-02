@@ -42,9 +42,12 @@ export async function GET(req: NextRequest) {
     // Map to aggregate candidate folders by normalized phone number
     const foldersMap = new Map<string, CandidateFolder>();
 
+    const isSafeName = (n?: string) =>
+      Boolean(n && n.trim() !== "at" && n.trim() !== "Candidate" && n.trim().length > 2 && !n.toLowerCase().includes("test"));
+
     const getOrCreateFolder = (phone: string, name: string = "Candidate", leadId?: number | null) => {
       const cleanPhone = String(phone || "").replace(/[^\d]/g, "").replace(/^00/, "") || "Unknown";
-      const cleanName = typeof name === "string" && name.trim() ? name.trim() : "Candidate";
+      const cleanName = isSafeName(name) ? name.trim() : "Candidate";
       if (!foldersMap.has(cleanPhone)) {
         foldersMap.set(cleanPhone, {
           phone: cleanPhone,
@@ -56,7 +59,7 @@ export async function GET(req: NextRequest) {
       }
       const existing = foldersMap.get(cleanPhone)!;
       if (leadId && !existing.leadId) existing.leadId = leadId;
-      if (cleanName && cleanName !== "Candidate" && existing.candidateName === "Candidate") {
+      if (isSafeName(cleanName) && (!isSafeName(existing.candidateName) || existing.candidateName === "Candidate")) {
         existing.candidateName = cleanName;
       }
       return existing;

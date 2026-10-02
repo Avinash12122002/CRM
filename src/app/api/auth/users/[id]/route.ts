@@ -47,19 +47,30 @@ export async function DELETE(
     // Delete the user
     await db.collection("users").deleteOne({ id: userId });
 
-    // Optional: Unassign all leads that were assigned to this user
-    await db
-  .collection("leads")
-  .updateMany(
-    { assignedTo: userId },
-    {
-      $set: {
-        assignedTo: null,
-        assignedToName: null,
-        assignedToRole: null,
-      },
-    }
-  );
+    // Unassign leads that were assigned to this user across all collections
+    const userFilter = { $or: [{ assignedTo: userId }, { assignedTo: String(userId) }] };
+    await Promise.all([
+      db.collection("leads").updateMany(userFilter, {
+        $set: {
+          assignedTo: null,
+          assignedToName: null,
+          assignedToRole: null,
+        },
+      }),
+      db.collection("triloknath_leads").updateMany(userFilter, {
+        $set: {
+          assignedTo: null,
+          assignedToName: null,
+          assignedToRole: null,
+        },
+      }),
+      db.collection("bdleads").updateMany(userFilter, {
+        $set: {
+          assignedTo: null,
+          assignedToName: null,
+        },
+      }),
+    ]);
     return NextResponse.json({ message: "User deleted successfully" });
   } catch (err) {
     console.error(err);

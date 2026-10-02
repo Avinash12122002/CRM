@@ -39,22 +39,31 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Record<string, any> = {};
 
+    const uidMatches = [payload.id, Number(payload.id), String(payload.id)].filter(
+      (x) => x !== undefined && x !== null && !isNaN(Number(x))
+    );
+
     if (payload.role === BD_ROLE) {
       // Business Development: their assigned pipeline by default, or their
       // own submissions when viewing Data Entry history (view=created).
       if (view === "created") {
-        filter.createdBy = payload.id;
+        filter.createdBy = { $in: uidMatches };
         if (date) filter.workingDate = date;
       } else {
-        filter.assignedTo = payload.id;
+        filter.assignedTo = { $in: uidMatches };
       }
     } else if (DATA_ENTRY_ROLES.includes(payload.role)) {
       // Sales / Meeting team: read-only view of their own submissions
-      filter.createdBy = payload.id;
+      filter.createdBy = { $in: uidMatches };
       if (date) filter.workingDate = date;
     } else if (payload.role === "admin") {
       // Admin: everything, with optional filters
-      if (assignedTo) filter.assignedTo = parseInt(assignedTo);
+      if (assignedTo) {
+        const assignedMatches = [parseInt(assignedTo), assignedTo, String(assignedTo)].filter(
+          (x) => !isNaN(Number(x))
+        );
+        filter.assignedTo = { $in: assignedMatches };
+      }
     } else {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
     }

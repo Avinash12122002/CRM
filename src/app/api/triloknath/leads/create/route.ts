@@ -95,9 +95,16 @@ export async function POST(req: NextRequest) {
 
     // Normalize phone number
     const cleanPhone = String(phone).trim();
+    const digitsOnly = cleanPhone.replace(/[^\d]/g, "").replace(/^00/, "");
 
-    // Check if phone already exists in triloknath_leads
-    const existingLead = await collection.findOne({ phone: cleanPhone });
+    // Check if phone already exists in triloknath_leads across formatted variations
+    const existingLead = await collection.findOne({
+      $or: [
+        { phone: cleanPhone },
+        ...(digitsOnly ? [{ phone: digitsOnly }, { phone: `+${digitsOnly}` }] : []),
+        ...(digitsOnly.length >= 10 ? [{ phone: { $regex: `${digitsOnly.slice(-10)}$` } }] : []),
+      ],
+    });
 
     if (existingLead) {
       return NextResponse.json(

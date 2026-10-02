@@ -28,8 +28,8 @@ export async function GET(
     // admin can view anything.
     const canView =
       payload.role === "admin" ||
-      (payload.role === BD_ROLE && lead.assignedTo === payload.id) ||
-      lead.createdBy === payload.id;
+      (payload.role === BD_ROLE && String(lead.assignedTo) === String(payload.id)) ||
+      String(lead.createdBy) === String(payload.id);
 
     if (!canView) {
       return NextResponse.json({ message: "Forbidden" }, { status: 403 });
@@ -51,7 +51,7 @@ export async function GET(
       lead.status === "active" &&
       !lead.locked &&
       (payload.role === "admin" ||
-        (payload.role === BD_ROLE && lead.assignedTo === payload.id));
+        (payload.role === BD_ROLE && String(lead.assignedTo) === String(payload.id)));
 
     return NextResponse.json({ lead, history, notes, canEdit });
   } catch (err) {
@@ -109,6 +109,7 @@ export async function DELETE(
     await db.collection(BD_COLLECTIONS.leads).deleteOne({ id: leadId });
     await db.collection(BD_COLLECTIONS.pipelineHistory).deleteMany({ leadId });
     await db.collection(BD_COLLECTIONS.notes).deleteMany({ leadId });
+    await db.collection(BD_COLLECTIONS.activityLogs).deleteMany({ leadId });
 
     return NextResponse.json({ message: "Lead deleted" });
   } catch (err) {

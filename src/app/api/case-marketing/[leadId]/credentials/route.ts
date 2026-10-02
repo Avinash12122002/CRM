@@ -30,7 +30,7 @@ export async function PATCH(
 
     const now = new Date();
 
-    await db.collection("leads").updateOne(
+    await db.collection(auth.collectionName || "leads").updateOne(
       { id: leadId },
       {
         $set: {

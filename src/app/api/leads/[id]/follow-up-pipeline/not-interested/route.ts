@@ -97,6 +97,35 @@ export async function POST(
       }
     );
 
+    // Sync to WhatsApp sessions (both Australia and Ireland) to immediately halt automated consultation follow-ups
+    if (lead.phone) {
+      const cleanLeadPhone = String(lead.phone).replace(/\D/g, "");
+      const last10 = cleanLeadPhone.slice(-10);
+      const waPhoneFilter = {
+        $or: [
+          { phone: cleanLeadPhone },
+          { phone: `+${cleanLeadPhone}` },
+          ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+        ],
+      };
+      await Promise.all([
+        db.collection("whatsapp_sessions").updateOne(waPhoneFilter, {
+          $set: {
+            crmStatus: "not-interested",
+            nextFollowupAt: null,
+            updatedAt: now,
+          },
+        }).catch((e: unknown) => console.error("[Sync WA Australia on not-interested error]", e)),
+        db.collection("whatsapp_ireland_sessions").updateOne(waPhoneFilter, {
+          $set: {
+            crmStatus: "not-interested",
+            nextFollowupAt: null,
+            updatedAt: now,
+          },
+        }).catch((e: unknown) => console.error("[Sync WA Ireland on not-interested error]", e)),
+      ]);
+    }
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,

@@ -38,14 +38,18 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
+    const uid = payload.id;
+    const uidStr = String(uid);
+    const uidNum = isNaN(Number(uid)) ? null : Number(uid);
+    const matchUserIds = Array.from(new Set([uid, uidStr, uidNum].filter((x) => x != null)));
+
     const filter =
       payload.role === "admin"
         ? {
             meetingDetails: { $ne: null },
           }
         : {
-            "meetingDetails.meetingUserId":
-              payload.id,
+            "meetingDetails.meetingUserId": { $in: matchUserIds },
           };
 
     const meetings = await db

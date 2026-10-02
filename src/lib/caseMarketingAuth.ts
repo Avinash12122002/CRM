@@ -27,13 +27,17 @@ export async function getAuthorizedCandidateLead(
     return { error: "Forbidden", status: 403 as const, lead: null };
   }
 
+  let collectionName: "leads" | "triloknath_leads" = "leads";
   let lead = await db.collection("leads").findOne({ $or: [{ id: leadId }, { id: String(leadId) }] });
   if (!lead) {
     lead = await db.collection("triloknath_leads").findOne({ $or: [{ id: leadId }, { id: String(leadId) }] });
+    if (lead) {
+      collectionName = "triloknath_leads";
+    }
   }
 
   if (!lead) {
-    return { error: "Candidate lead not found", status: 404 as const, lead: null };
+    return { error: "Candidate lead not found", status: 404 as const, lead: null, collectionName };
   }
 
   if (
@@ -42,8 +46,8 @@ export async function getAuthorizedCandidateLead(
     String(lead.caseManagerId) !== String(payload.id) &&
     !lead.visibleTo?.some((v: unknown) => String(v) === String(payload.id))
   ) {
-    return { error: "Forbidden", status: 403 as const, lead: null };
+    return { error: "Forbidden", status: 403 as const, lead: null, collectionName };
   }
 
-  return { error: null, status: 200 as const, lead };
+  return { error: null, status: 200 as const, lead, collectionName };
 }

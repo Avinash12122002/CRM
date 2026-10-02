@@ -46,7 +46,7 @@ export async function PATCH(
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
-    const isOwnerBD = payload.role === BD_ROLE && lead.assignedTo === payload.id;
+    const isOwnerBD = payload.role === BD_ROLE && String(lead.assignedTo) === String(payload.id);
     const isAdmin = payload.role === "admin";
 
     if (!isOwnerBD && !isAdmin) {

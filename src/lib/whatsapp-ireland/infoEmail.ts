@@ -227,8 +227,16 @@ export async function sendWhatsAppIrelandInfoEmail(
     }
 
     const { db } = await connectToDatabase();
+    const last10 = cleanPhone.slice(-10);
+    const waPhoneFilter = {
+      $or: [
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+      ],
+    };
     await db.collection("whatsapp_ireland_sessions").updateOne(
-      { phone: cleanPhone },
+      waPhoneFilter,
       {
         $set: {
           email,
