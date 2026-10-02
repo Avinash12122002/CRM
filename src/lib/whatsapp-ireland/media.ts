@@ -191,13 +191,25 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
     );
 
     // 4. Update or link CRM Lead if exists
-    const lead = await db.collection("leads").findOne({
-      $or: [
-        { phone: cleanPhone },
-        { phone: `+${cleanPhone}` },
-        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
-      ],
-    });
+    const last10 = cleanPhone.slice(-10);
+    const phoneQueries: any[] = [
+      { phone: cleanPhone },
+      { phone: `+${cleanPhone}` },
+    ];
+    if (cleanPhone.length >= 8 && !isNaN(Number(cleanPhone))) {
+      phoneQueries.push({ phone: Number(cleanPhone) });
+    }
+    if (last10.length === 10) {
+      phoneQueries.push(
+        { phone: last10 },
+        { phone: `+91${last10}` },
+        { phone: { $regex: `${last10}$` } }
+      );
+      if (!isNaN(Number(last10))) {
+        phoneQueries.push({ phone: Number(last10) });
+      }
+    }
+    const lead = await db.collection("leads").findOne({ $or: phoneQueries });
 
     if (lead) {
       await db.collection("leads").updateOne(
@@ -224,10 +236,20 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
 
     // 4. Send acknowledgement to candidate
     const candidateDisplayName = senderName && senderName !== "Candidate" ? ` ${senderName}` : "";
+    const isExistingCrmLead =
+      lead?.status &&
+      ["meeting-scheduled", "follow-up", "sales", "payment-pending", "document-pending", "call-back"].includes(
+        lead.status.toLowerCase().trim()
+      );
+
+    const consultationClause = isExistingCrmLead
+      ? `If you have any questions, feel free to ask our Ireland advisory team here anytime!`
+      : `If you have any questions or want to schedule your 1-on-1 consultation, feel free to ask here anytime!`;
+
     const ackMessage =
       `Thank you${candidateDisplayName}! 📄 We have received your CV / Document.\n\n` +
       `Our Ireland Review & Recruitment Team will assess your qualifications against the Ireland Critical Skills (CSEP) and General Employment (GEP) lists (minimum 2 years of relevant experience required). 🇮🇪\n\n` +
-      `If you have any questions or want to schedule your 1-on-1 consultation, feel free to ask here anytime!`;
+      consultationClause;
 
     await sendTextMessage(cleanPhone, ackMessage);
 

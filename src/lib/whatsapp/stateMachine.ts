@@ -1589,6 +1589,26 @@ export async function processIncomingWhatsAppMessage(params: {
       await sendTextMessage(session.phone, alreadyDoneGreeting);
       return { replyText: alreadyDoneGreeting, step: "MEETING_COMPLETED" };
     }
+
+    // 6. For ANY other inquiry or conversational message from an existing CRM candidate:
+    // Answer directly using Context-Aware AI with Directive 0 (strictly forbidding asking for email or consultation booking)
+    let aiAnswer = "";
+    try {
+      aiAnswer = await generateAiResponse({
+        message: cleanText,
+        session,
+      });
+    } catch (err) {
+      console.error("[WhatsApp AI] generateAiResponse threw error for existing candidate:", err);
+    }
+
+    const finalAnswer =
+      aiAnswer && aiAnswer.trim()
+        ? aiAnswer
+        : `Hello ${candidateDisplayName}! 👋\n\nThank you for reaching out to The Migration School (TMS Visa) 🇦🇺.\n\nOur counseling desk has your details on file. How can our team assist you with your Australia Employer Sponsored Work Visa today? Feel free to ask any question regarding requirements, occupations, or your application status!`;
+
+    await sendTextMessage(session.phone, finalAnswer);
+    return { replyText: finalAnswer, step: session.currentStep };
   }
 
   // --- Check: Email Resend, "Send Me Email", 691 List, Brochure, PDF, or Email Delivery Inquiry ---

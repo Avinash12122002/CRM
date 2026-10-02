@@ -180,13 +180,25 @@ export async function handleIncomingWhatsAppMedia(params: {
     );
 
     // 4. Update CRM Lead if matched
-    const lead = await db.collection("leads").findOne({
-      $or: [
-        { phone: cleanPhone },
-        { phone: `+${cleanPhone}` },
-        { phone: { $regex: cleanPhone.slice(-10) } },
-      ],
-    });
+    const last10 = cleanPhone.slice(-10);
+    const phoneQueries: any[] = [
+      { phone: cleanPhone },
+      { phone: `+${cleanPhone}` },
+    ];
+    if (cleanPhone.length >= 8 && !isNaN(Number(cleanPhone))) {
+      phoneQueries.push({ phone: Number(cleanPhone) });
+    }
+    if (last10.length === 10) {
+      phoneQueries.push(
+        { phone: last10 },
+        { phone: `+91${last10}` },
+        { phone: { $regex: `${last10}$` } }
+      );
+      if (!isNaN(Number(last10))) {
+        phoneQueries.push({ phone: Number(last10) });
+      }
+    }
+    const lead = await db.collection("leads").findOne({ $or: phoneQueries });
 
     if (lead) {
       await db.collection("leads").updateOne(

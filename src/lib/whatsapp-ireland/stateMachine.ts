@@ -667,6 +667,103 @@ export async function processIncomingWhatsAppMessage(params: {
         return;
       }
     }
+
+    // Greeting handling for existing CRM candidate in Ireland
+    const normalizedGreeting = lowerText.replace(/[^a-z]/g, "");
+    const isGreeting =
+      ["hi", "hello", "hey", "hell", "helo", "hlw", "heya", "start", "restart", "menu", "namaste", "hlo", "hii", "goodmorning", "goodevening", "goodafternoon"].includes(normalizedGreeting) ||
+      lowerText.startsWith("hi ") ||
+      lowerText.startsWith("hello ") ||
+      lowerText.startsWith("hey ");
+
+    if (isGreeting) {
+      let stageDetail = "Your Ireland consultation has already been completed and your file is in progress.";
+      if (session.crmStatus === "sales") {
+        stageDetail = "Your file is active with your dedicated Case Manager for Irish employer marketing.";
+      } else if (session.crmStatus === "document-pending") {
+        stageDetail = "Your consultation is complete and your file is currently in document collection & verification.";
+      } else if (session.crmStatus === "payment-pending") {
+        stageDetail = "Your consultation is complete and your onboarding fee is currently pending.";
+      } else if (session.crmStatus === "follow-up") {
+        stageDetail = "Your consultation has been completed and our senior advisory team is following up on your application.";
+      } else if (session.crmStatus === "call-back") {
+        stageDetail = "Our Ireland counseling team already has a callback scheduled for you.";
+      } else if (session.crmStatus === "meeting-scheduled") {
+        stageDetail = "Your Ireland 1-on-1 consultation session is already scheduled in our system.";
+      }
+
+      const alreadyDoneGreeting =
+        `${salutation}\n\n` +
+        `Welcome back to The Migration School (TMS Visa) 🇮🇪.\n\n` +
+        `${stageDetail} How can our team assist you today? Feel free to ask any question!`;
+
+      await sendTextMessage(cleanPhone, alreadyDoneGreeting);
+      return;
+    }
+
+    // Document checklist inquiry (e.g. "what documents", "what can I send", "send more")
+    const isAskingDocsOrWhatToSend =
+      lowerText.includes("send more") ||
+      lowerText.includes("what more") ||
+      lowerText.includes("what can i send") ||
+      lowerText.includes("what else can i send") ||
+      lowerText.includes("what documents") ||
+      lowerText.includes("which documents") ||
+      lowerText.includes("documents needed") ||
+      lowerText.includes("what to send");
+
+    if (isAskingDocsOrWhatToSend) {
+      const docsHelpMsg =
+        `${salutation}\n\n` +
+        `Here are the essential documents you can share with our Ireland review team:\n\n` +
+        `1️⃣ **Updated CV / Resume** (Word or PDF format)\n` +
+        `2️⃣ **Valid Passport Copy** (Photo & address pages)\n` +
+        `3️⃣ **Work Experience Proof** (Minimum 2 years of relevant experience via reference letters, relieving letters, or payslips)\n` +
+        `4️⃣ **Educational Certificates** (Degree or Diploma transcripts)\n` +
+        `5️⃣ **English Scorecard** (PTE/IELTS) if already taken (otherwise our free weekly coaching begins upon enrollment!)\n\n` +
+        `You can upload any of these files right here in WhatsApp, and our team will review them! 🇮🇪`;
+
+      await sendTextMessage(cleanPhone, docsHelpMsg);
+      return;
+    }
+
+    // CV review status check
+    if (session.cvReceivedAt) {
+      const isCvStatusInquiry =
+        lowerText.includes("cv status") ||
+        lowerText.includes("resume status") ||
+        lowerText.includes("checked my cv") ||
+        lowerText.includes("check my cv") ||
+        lowerText.includes("reviewed my cv") ||
+        lowerText.includes("review my cv") ||
+        lowerText.includes("did you see my cv");
+
+      if (isCvStatusInquiry) {
+        const cvUnderReviewMsg =
+          `${salutation}\n\n` +
+          `Thank you for checking in! Our Ireland review team is currently assessing your qualifications and work experience against the Ireland Critical Skills (CSEP) and General Employment (GEP) lists.\n\n` +
+          `Once the review is completed, our team will reach out with the evaluation. 🇮🇪📞`;
+        await sendTextMessage(cleanPhone, cvUnderReviewMsg);
+        return;
+      }
+    }
+
+    // For ANY other inquiry or message from an active Ireland CRM candidate:
+    // Pass directly to Context-Aware AI with Directive 0 (strictly forbidding asking for email or consultation booking)
+    let aiAnswer = await generateAiResponse({
+      message: rawText,
+      session,
+    });
+
+    if (!aiAnswer || !aiAnswer.trim()) {
+      aiAnswer =
+        `${salutation}\n\n` +
+        `Thank you for messaging The Migration School (TMS Visa) 🇮🇪.\n\n` +
+        `Our Ireland advisory team has your details on file. How can we assist you with your Ireland Employer Sponsored Work Visa today? Feel free to ask any question about your profile, eligibility, or application!`;
+    }
+
+    await sendTextMessage(cleanPhone, aiAnswer);
+    return;
   }
 
   // 1. Interactive Button Handling
