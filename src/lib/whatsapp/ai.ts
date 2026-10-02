@@ -267,14 +267,14 @@ CALLBACK SCHEDULED:
     contextBlock += `
 CONSULTATION OUTCOME (FOLLOW-UP):
 - Status: Consultation Successfully Completed
-- Completed On: ${session.meetingCompletedAt ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
+- Completed On: ${session.meetingCompletedAt && !isNaN(new Date(session.meetingCompletedAt).getTime()) ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
 - CRITICAL INSTRUCTION: The 1-on-1 consultation has ALREADY been completed! Under NO circumstances offer, prompt, or mention booking or rescheduling a meeting. Candidate is in post-consultation follow-up. Answer whatever specific question they asked directly. Do NOT repeat robotic onboarding or CV requests if they ask a question.
 `;
   } else if (session.meetingStatus === "canceled") {
     contextBlock += `
 CONSULTATION CANCELLATION DETAILS:
 - Status: Canceled
-- Canceled At: ${session.meetingCanceledAt ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
+- Canceled At: ${session.meetingCanceledAt && !isNaN(new Date(session.meetingCanceledAt).getTime()) ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
 - Reason: ${session.meetingCancellationReason || "Requested by candidate"}
 - CRITICAL INSTRUCTION: Candidate's meeting was cancelled. Remind candidate that their consultation was cancelled and encourage them to reschedule for an upcoming weekend in their local time.
 `;

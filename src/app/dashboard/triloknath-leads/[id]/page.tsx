@@ -85,6 +85,38 @@ interface Lead {
   isReadOnly?: boolean;
 }
 
+const toDateInputValue = (val?: any): string => {
+  if (!val) return "";
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+  }
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
+
+const formatDisplayDate = (val?: string | null) => {
+  if (!val) return null;
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    return d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return String(val);
+  }
+};
+
 export default function TriloknathLeadDetailPage() {
   const params = useParams();
   const leadId = params.id as string;
@@ -344,17 +376,13 @@ export default function TriloknathLeadDetailPage() {
         const targetLead = data.lead || data;
         setLead(targetLead);
         setSelectedStatus(targetLead.status || "");
-        const dueDateValue = targetLead.dueDate
-          ? new Date(targetLead.dueDate).toISOString().split("T")[0]
-          : "";
+        const dueDateValue = toDateInputValue(targetLead.dueDate);
         setEditForm({
           name: targetLead.name || "",
           phone: targetLead.phone || "",
           email: targetLead.email || "",
           dueDate: dueDateValue,
-          callbackDate: targetLead.callbackDate
-            ? new Date(targetLead.callbackDate).toISOString().split("T")[0]
-            : "",
+          callbackDate: toDateInputValue(targetLead.callbackDate),
           state: targetLead.state || "",
           city: targetLead.city || "",
           country: targetLead.country || "",
@@ -590,17 +618,13 @@ export default function TriloknathLeadDetailPage() {
   const handleCancelEdit = () => {
     setIsEditing(false);
     if (lead) {
-      const dueDateValue = lead.dueDate
-        ? new Date(lead.dueDate).toISOString().split("T")[0]
-        : "";
+      const dueDateValue = toDateInputValue(lead.dueDate);
       setEditForm({
         name: lead.name || "",
         phone: lead.phone || "",
         email: lead.email || "",
         dueDate: dueDateValue,
-        callbackDate: lead.callbackDate
-          ? new Date(lead.callbackDate).toISOString().split("T")[0]
-          : "",
+        callbackDate: toDateInputValue(lead.callbackDate),
         state: lead.state || "",
         city: lead.city || "",
         country: lead.country || "",
@@ -1038,14 +1062,22 @@ export default function TriloknathLeadDetailPage() {
     }
   };
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "—";
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return String(dateString);
+      return d.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return String(dateString);
+    }
+  };
 
   if (!user) {
     return (
@@ -1338,19 +1370,11 @@ export default function TriloknathLeadDetailPage() {
                     },
                     {
                       label: "Due Date",
-                      value: lead.dueDate
-                        ? new Date(lead.dueDate).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : null,
+                      value: formatDisplayDate(lead.dueDate),
                     },
                     {
                       label: "Callback Date",
-                      value: lead.callbackDate
-                        ? new Date(lead.callbackDate).toLocaleDateString()
-                        : null,
+                      value: formatDisplayDate(lead.callbackDate),
                     },
                     {
                       label: "Assigned To",

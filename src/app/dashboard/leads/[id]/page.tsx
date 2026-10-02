@@ -89,6 +89,38 @@ interface Lead {
   saleCompletedAt?: string;
 }
 
+const toDateInputValue = (val?: any): string => {
+  if (!val) return "";
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+  }
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  } catch {
+    return "";
+  }
+};
+
+const formatDisplayDate = (val?: string | null) => {
+  if (!val) return null;
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val);
+    return d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return String(val);
+  }
+};
+
 export default function LeadDetailPage() {
   const params = useParams();
   const leadId = params.id as string;
@@ -353,17 +385,13 @@ export default function LeadDetailPage() {
         const data = await res.json();
         setLead(data.lead);
         setSelectedStatus(data.lead.status || "");
-        const dueDateValue = data.lead.dueDate
-          ? new Date(data.lead.dueDate).toISOString().split("T")[0]
-          : "";
+        const dueDateValue = toDateInputValue(data.lead.dueDate);
         setEditForm({
           name: data.lead.name || "",
           phone: data.lead.phone || "",
           email: data.lead.email || "",
           dueDate: dueDateValue,
-          callbackDate: data.lead.callbackDate
-            ? new Date(data.lead.callbackDate).toISOString().split("T")[0]
-            : "",
+          callbackDate: toDateInputValue(data.lead.callbackDate),
           state: data.lead.state || "",
           city: data.lead.city || "",
           country: data.lead.country || "",
@@ -611,17 +639,13 @@ export default function LeadDetailPage() {
   const handleCancelEdit = () => {
     setIsEditing(false);
     if (lead) {
-      const dueDateValue = lead.dueDate
-        ? new Date(lead.dueDate).toISOString().split("T")[0]
-        : "";
+      const dueDateValue = toDateInputValue(lead.dueDate);
       setEditForm({
         name: lead.name || "",
         phone: lead.phone || "",
         email: lead.email || "",
         dueDate: dueDateValue,
-        callbackDate: lead.callbackDate
-          ? new Date(lead.callbackDate).toISOString().split("T")[0]
-          : "",
+        callbackDate: toDateInputValue(lead.callbackDate),
         state: lead.state || "",
         city: lead.city || "",
         country: lead.country || "",
@@ -1070,14 +1094,22 @@ export default function LeadDetailPage() {
     }
   };
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "—";
+    try {
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return String(dateString);
+      return d.toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return String(dateString);
+    }
+  };
 
   // ── Loading / auth guards ──────────────────────────────────────────────────
   if (!user) {
@@ -1458,19 +1490,11 @@ export default function LeadDetailPage() {
                     },
                     {
                       label: "Due Date",
-                      value: lead.dueDate
-                        ? new Date(lead.dueDate).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : null,
+                      value: formatDisplayDate(lead.dueDate),
                     },
                     {
                       label: "Callback Date",
-                      value: lead.callbackDate
-                        ? new Date(lead.callbackDate).toLocaleDateString()
-                        : null,
+                      value: formatDisplayDate(lead.callbackDate),
                     },
                     {
                       label: "Assigned To",

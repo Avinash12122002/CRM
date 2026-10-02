@@ -121,7 +121,7 @@ export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
-  attachments?: { filename: string; content: Buffer; contentType: string; cid?: string }[];
+  attachments?: { filename: string; content: Buffer; contentType: string; cid?: string; contentDisposition?: "attachment" | "inline" }[];
 }
 
 export async function sendEmail(options: SendEmailOptions) {
