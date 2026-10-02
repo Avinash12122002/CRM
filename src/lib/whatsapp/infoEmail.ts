@@ -170,13 +170,112 @@ Our review team will give you a call once they will review your CV for next step
 Best Regards,
 </p>
 
-<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:13px;color:#555;line-height:1.6;">
-  <strong style="color:#222;">TMS – The Migration School</strong><br/>
-  Australia Work Visa Consultancy<br/>
-  <a href="https://tmsvisa.com" style="color:#0d6efd;text-decoration:none;" target="_blank">www.tmsvisa.com</a>
-  &nbsp;|&nbsp;
-  <a href="mailto:info@tmsvisa.com" style="color:#0d6efd;text-decoration:none;">info@tmsvisa.com</a>
-</div>
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- TMS VISA BRANDED EMAIL SIGNATURE — pure HTML, zero attachments -->
+<!-- ═══════════════════════════════════════════════════════════════ -->
+<table cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:680px;margin-top:24px;border-top:2px solid #e5e7eb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <tr>
+    <td style="padding-top:18px;">
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr valign="top">
+
+          <!-- LEFT: TMS VISA Logo Block -->
+          <td style="width:200px;padding-right:20px;padding-bottom:12px;">
+            <!-- Logo: TMS text mark styled to match branding -->
+            <table cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td>
+                  <div style="display:inline-block;background:#0d2a52;padding:6px 12px 4px 10px;border-radius:4px 4px 0 0;">
+                    <span style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:2px;line-height:1;">TMS</span>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div style="background:#f0a500;padding:3px 12px 3px 10px;border-radius:0 0 4px 0;display:inline-block;">
+                    <span style="font-size:9px;font-weight:700;color:#0d2a52;letter-spacing:2.5px;text-transform:uppercase;">VISA</span>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding-top:3px;">
+                  <span style="font-size:9px;font-weight:600;color:#0d2a52;letter-spacing:1px;text-transform:uppercase;">THE MIGRATION SCHOOL</span>
+                </td>
+              </tr>
+            </table>
+            <!-- Tagline -->
+            <p style="margin:14px 0 0 0;font-size:10px;font-style:italic;color:#0d2a52;line-height:1.4;">
+              <em>Your Global Journey<br/>Our Mission</em>
+            </p>
+          </td>
+
+          <!-- DIVIDER -->
+          <td style="width:1px;background:#dde3ec;padding:0;">&nbsp;</td>
+
+          <!-- RIGHT: Contact Details -->
+          <td style="padding-left:20px;padding-bottom:12px;">
+
+            <!-- Name + Title -->
+            <p style="margin:0 0 2px 0;font-size:16px;font-weight:700;color:#0d2a52;line-height:1.2;">Visa Consulting Team</p>
+            <p style="margin:0 0 10px 0;font-size:12px;font-weight:600;color:#444;">TMS &ndash; The Migration School</p>
+
+            <!-- Contact links row -->
+            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:10px;">
+              <tr>
+                <td style="padding-right:16px;">
+                  <a href="mailto:info@tmsvisa.com" style="font-size:12px;color:#0d2a52;text-decoration:none;">
+                    &#9993;&nbsp;<span style="text-decoration:underline;">info@tmsvisa.com</span>
+                  </a>
+                </td>
+                <td>
+                  <a href="https://tmsvisa.com" target="_blank" style="font-size:12px;color:#0d2a52;text-decoration:none;">
+                    &#127760;&nbsp;<span style="text-decoration:underline;">www.tmsvisa.com</span>
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Australia Address -->
+            <table cellpadding="0" cellspacing="0" border="0" style="margin-bottom:7px;">
+              <tr valign="top">
+                <td style="padding-right:6px;font-size:14px;">&#127462;&#127482;</td>
+                <td>
+                  <span style="font-size:11px;font-weight:700;color:#0d2a52;">154 Paisley Street, Orange, NSW 2800, Australia</span><br/>
+                  <span style="font-size:10px;color:#666;">Migration Pty Ltd. ABN: 75 148 213 076</span>
+                </td>
+              </tr>
+            </table>
+
+            <!-- India Address -->
+            <table cellpadding="0" cellspacing="0" border="0">
+              <tr valign="top">
+                <td style="padding-right:6px;font-size:14px;">&#127470;&#127475;</td>
+                <td>
+                  <span style="font-size:11px;font-weight:700;color:#0d2a52;">Delhi NCR, India</span><br/>
+                  <span style="font-size:10px;color:#666;">Groworld Vijtour Pvt. Ltd. (Trade name: The Migration School)</span><br/>
+                  <span style="font-size:10px;color:#666;">CIN: U63098HR2024PTC122827</span>
+                </td>
+              </tr>
+            </table>
+
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- BOTTOM COLOR BAR: gold + navy (matches the screenshot bar) -->
+  <tr>
+    <td style="padding-top:14px;">
+      <table cellpadding="0" cellspacing="0" border="0" style="width:100%;">
+        <tr>
+          <td style="background:#f0a500;height:5px;width:30%;font-size:0;">&nbsp;</td>
+          <td style="background:#0d2a52;height:5px;width:70%;font-size:0;">&nbsp;</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
 
 </div>`;
 
