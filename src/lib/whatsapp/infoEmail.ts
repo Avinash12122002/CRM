@@ -11,350 +11,246 @@ export interface SendWhatsAppInfoEmailParams {
   leadId?: number;
 }
 
-export const DEFAULT_INFO_EMAIL_SUBJECT = "Australia Employer Sponsored Work Visa Program | TMS Visa";
+export const DEFAULT_INFO_EMAIL_SUBJECT = "Process-Australia Work Visa";
 
-export const DEFAULT_INFO_EMAIL_HTML = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.8;color:#333;max-width:800px;margin:0 auto;">
+export const DEFAULT_INFO_EMAIL_HTML = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222;max-width:760px;margin:0 auto;padding:12px 16px;">
 
-<p>Dear {{CandidateName}},</p>
+<p style="margin:0 0 16px 0;">Dear {{CandidateName}},</p>
 
-<p>
-Greetings from <strong>TMS – The Migration School!</strong>
+<p style="margin:0 0 16px 0;">
+<strong>Greetings from TMS – The Migration School!</strong>
 </p>
 
-<p>
-Thank you for your interest in the <strong>Australia Employer Sponsored Work Visa Program (Skills in Demand).</strong>
+<p style="margin:0 0 16px 0;">
+Thank you for your interest in the <strong>Australia Subclass 482 Skills in Demand Work Visa Program</strong>.
 </p>
 
-<p>
-The Australia Employer Sponsored Work Visa allows skilled professionals to live and work in Australia with an approved Australian employer. This pathway provides an excellent opportunity for qualified candidates to build their careers in Australia and, depending on future Australian Government policies and your eligibility, may also provide a pathway towards Permanent Residency.
+<p style="margin:0 0 20px 0;">
+The Subclass 482 visa is an <strong>employer-sponsored work visa</strong> that allows skilled professionals to live and work in Australia with an approved employer. Depending on your eligibility and future Australian Government policies, it may also provide a pathway towards Permanent Residency.
 </p>
 
-<p>
-To help you understand the program, we have attached the following documents with this email:
+<p style="margin:24px 0 12px 0;">
+<u><strong>Understand the Complete Process</strong></u>
 </p>
 
-<ul>
-<li><strong>Australia Eligible Occupation List (691 Occupations)</strong></li>
-<li><strong>PTE Eligibility & Assessment Guide</strong></li>
+<p style="margin:0 0 14px 0;">
+Please watch our complete process video to understand the recruitment, employer selection, sponsorship and visa process:
+</p>
+
+<p style="margin:0 0 10px 0;">
+<a href="https://tmsvisa.com/australia-work-visa-process/" style="color:#0d6efd;font-weight:bold;text-decoration:underline;font-size:15px;" target="_blank">WATCH THE COMPLETE AUSTRALIA WORK VISA PROCESS</a>
+</p>
+
+<p style="margin:0 0 20px 0;">
+<a href="https://tmsvisa.com/australia-work-visa-process/" style="color:#0d6efd;text-decoration:underline;" target="_blank">https://tmsvisa.com/australia-work-visa-process/</a>
+</p>
+
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+
+<p style="margin:0 0 12px 0;">
+<u><strong>Check Your Occupation</strong></u>
+</p>
+
+<p style="margin:0 0 12px 0;">
+We have attached the <strong>Australia Eligible Occupation List (691 Occupations)</strong> covering industries such as:
+</p>
+
+<p style="margin:0 0 14px 0;">
+<strong>IT | Engineering | Healthcare | Education | Hospitality | Construction & Trades | Agriculture | Finance | Transport & Logistics</strong>
+</p>
+
+<p style="margin:0 0 20px 0;">
+Please check whether your occupation is included.
+</p>
+
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+
+<p style="margin:0 0 16px 0;">
+<u><strong>Our Process</strong></u>
+</p>
+
+<p style="margin:0 0 16px 0;">
+<strong>1. Submit Your CV</strong><br>
+Send us your latest CV so that our team can conduct a personalised assessment based on your occupation and relevant job vacancies.
+</p>
+
+<p style="margin:0 0 8px 0;">
+<strong>2. Initial Professional Fee – AUD 300</strong><br>
+If your profile is suitable, we issue an invoice for <strong>AUD 300</strong>, covering:
+</p>
+
+<ul style="margin:0 0 16px 0;padding-left:24px;line-height:1.7;">
+<li style="margin-bottom:4px;">Australian-standard CV preparation & optimisation</li>
+<li style="margin-bottom:4px;">Free Weekend PTE & interview preparation sessions</li>
+<li style="margin-bottom:4px;">Complete documentation process after receiving a job offer, including work permit and visa application submission</li>
 </ul>
 
-<p>
-The occupation list contains the occupations currently eligible under the Australia employer-sponsored work visa program across various industries, including:
+<p style="margin:0 0 16px 0;">
+<strong>3. Employer Marketing & Interviews</strong><br>
+Our Australian recruitment team presents your profile to suitable employers and arranges interviews.
 </p>
 
-<ul>
-<li>Information Technology</li>
-<li>Engineering</li>
-<li>Healthcare & Medical</li>
-<li>Education</li>
-<li>Hospitality</li>
-<li>Construction & Trades</li>
-<li>Agriculture</li>
-<li>Business & Finance</li>
-<li>Transport & Logistics</li>
-<li>And many more.</li>
-</ul>
-
-<p>
-Please check whether your occupation appears in the attached occupation list.
+<p style="margin:0 0 16px 0;">
+<strong>4. Employer Selection & Sponsorship</strong><br>
+Once selected, the employer proceeds with the required sponsorship and nomination process.
 </p>
 
-<hr style="margin:30px 0;">
-
-<h2 style="color:#0b5ed7;">Our Complete Process</h2>
-
-<h3>Step 1 – Send Us Your CV</h3>
-
-<p>
-Email us your latest CV/Resume.
+<p style="margin:0 0 16px 0;">
+<strong>5. Visa Application</strong><br>
+After nomination approval, our office assists with your Subclass 482 visa application. Applicable <strong>Government Visa Application Charges</strong> are payable separately to the Department of Home Affairs and would be the <strong>employer's responsibility</strong>.
 </p>
 
-<p>
-Our recruitment team will review your profile to determine whether your occupation and experience are suitable for the Australian employer-sponsored visa program.
+<p style="margin:0 0 20px 0;">
+<strong>6. Visa Grant</strong><br>
+After your visa is granted, the remaining <strong>AUD 700</strong> professional service fee is payable.
 </p>
 
-<h3>Step 2 – Initial Professional Service Fee</h3>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
 
-<p>
-Once your profile is found suitable, we will issue an invoice for an initial professional service fee of <strong>AUD 300</strong>.
+<p style="margin:0 0 12px 0;">
+<u><strong>Expected Salary</strong></u>
 </p>
 
-<p>This includes:</p>
-
-<ul>
-<li>Preparation of a professional Australian-standard CV.</li>
-<li>Resume optimisation according to Australian employer expectations.</li>
-<li>Detailed profile assessment.</li>
-<li>Minor customisation of your CV according to the requirements of different employers throughout the recruitment process.</li>
-<li>Weekend PTE preparation sessions.</li>
-<li>Interview preparation sessions.</li>
-</ul>
-
-<h3>Step 3 – Employer Marketing</h3>
-
-<p>
-After your professional CV is prepared, our Australian recruitment team begins conducting interviews with our existing employer partners while simultaneously marketing your profile to additional suitable Australian employers.
+<p style="margin:0 0 20px 0;">
+The current minimum annual salary threshold stated for the program is <strong>AUD 76,500</strong>, with the actual salary depending on your occupation, experience, qualifications, employer and location.
 </p>
 
-<p>
-We continue presenting your profile and arranging interviews until you receive a genuine employment offer.
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
+
+<p style="margin:0 0 12px 0;">
+<u><strong>Professional Service Charges</strong></u>
 </p>
 
-<h3>Step 4 – Interview Process</h3>
-
-<p>
-We schedule interviews with employers relevant to your occupation and experience.
-</p>
-
-<p>
-If required, our team will also guide you with interview preparation to maximise your chances of selection.
-</p>
-
-<h3>Step 5 – Employer Sponsorship & Nomination</h3>
-
-<p>
-Once you are selected by an employer:
-</p>
-
-<ul>
-<li>The employer prepares and lodges your sponsorship application.</li>
-<li>The employer prepares and lodges your nomination application.</li>
-<li>Our Australian team coordinates the complete employer nomination process.</li>
-<li>Once the employer nomination is approved, we proceed with your visa application.</li>
-</ul>
-
-<h3>Step 6 – Visa Application</h3>
-
-<p>
-Our India office prepares and lodges your Australia Employer Sponsored Work Visa application.
-</p>
-
-<p>
-Your sponsoring Australian employer covers the government sponsorship, nomination, and embassy fees (approx. $6,000+). You do not pay these government embassy/nomination charges.
-</p>
-
-<h3>Step 7 – Visa Approval</h3>
-
-<p>
-Once your Australia Employer Sponsored Work Visa is granted:
-</p>
-
-<ul>
-<li>You pay the remaining <strong>AUD 700</strong> towards our professional service charges.</li>
-<li>The employer then proceeds with your travel arrangements and issues your flight ticket, subject to the employer's employment agreement and company policy.</li>
-</ul>
-
-<hr style="margin:30px 0;">
-
-<h2 style="color:#0b5ed7;">Expected Salary in Australia</h2>
-
-<p>
-Under current Australian Government requirements for the Australia Employer Sponsored Work Visa, sponsoring employers are generally required to pay employees at least the applicable minimum salary threshold.
-</p>
-
-<p style="font-size:18px;font-weight:bold;color:#198754;">
-AUD 76,500 Per Year (Minimum Salary Threshold)
-</p>
-
-<p>
-Successful candidates under this program can generally expect a salary of AUD 76,500 per annum or higher depending upon:
-</p>
-
-<ul>
-<li>Your occupation</li>
-<li>Your qualifications</li>
-<li>Your relevant work experience</li>
-<li>The employer's salary structure</li>
-<li>The location of employment within Australia</li>
-</ul>
-
-<p>
-The exact salary package, including allowances, overtime, bonuses, accommodation and other employment benefits (if applicable), will be discussed directly with the employer during your interview or after your successful selection.
-</p>
-
-<hr style="margin:30px 0;">
-
-<h2 style="color:#0b5ed7;">Professional Service Charges</h2>
-
-<table style="width:100%;border-collapse:collapse;font-size:14px;">
-<tr style="background:#0b5ed7;color:white;">
-<th style="padding:10px;border:1px solid #ddd;text-align:left;">Stage</th>
-<th style="padding:10px;border:1px solid #ddd;">Amount</th>
-</tr>
-
+<table style="width:100%;max-width:380px;border-collapse:collapse;margin:12px 0 20px 0;font-size:15px;line-height:1.6;">
+<thead>
 <tr>
-<td style="padding:10px;border:1px solid #ddd;">Initial Professional Service Fee</td>
-<td style="padding:10px;border:1px solid #ddd;">AUD 300</td>
+<th style="text-align:left;padding:6px 0;font-weight:bold;color:#111;width:60%;">Stage</th>
+<th style="text-align:left;padding:6px 0;font-weight:bold;color:#111;width:40%;">Amount</th>
 </tr>
-
+</thead>
+<tbody>
 <tr>
-<td style="padding:10px;border:1px solid #ddd;">After Visa Grant</td>
-<td style="padding:10px;border:1px solid #ddd;">AUD 700</td>
+<td style="padding:6px 0;color:#222;">Initial Fee</td>
+<td style="padding:6px 0;font-weight:bold;color:#111;">AUD 300</td>
 </tr>
-
-<tr style="font-weight:bold;background:#f5f5f5;">
-<td style="padding:10px;border:1px solid #ddd;">Total Professional Service Charges</td>
-<td style="padding:10px;border:1px solid #ddd;">AUD 1,000 Only</td>
+<tr>
+<td style="padding:6px 0;color:#222;">After Visa Grant</td>
+<td style="padding:6px 0;font-weight:bold;color:#111;">AUD 700</td>
 </tr>
-
+<tr>
+<td style="padding:8px 0;font-weight:bold;color:#111;">Total</td>
+<td style="padding:8px 0;font-weight:bold;color:#111;">AUD 1,000</td>
+</tr>
+</tbody>
 </table>
 
-<hr style="margin:30px 0;">
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;">
 
-<h2 style="color:#0b5ed7;">Next Step</h2>
-
-<p>
-If your occupation appears in the attached occupation list and you meet the English language requirements—or if you are willing to take the required English language test after receiving an employment offer—simply reply to this email with your latest CV.
+<p style="margin:0 0 12px 0;">
+<strong>Next Step</strong>
 </p>
 
-<p>
-Our team will assess your profile and guide you through the next steps towards securing an employer-sponsored opportunity in Australia.
+<p style="margin:0 0 10px 0;">
+<strong>Kindly reply to this email with your latest CV.</strong>
 </p>
 
-<p>
-We look forward to assisting you in building a successful career in Australia.
+<p style="margin:0 0 16px 0;">
+Our review team will give you a call once they will review your CV for next steps.
 </p>
 
-<br>
-
-<p>
-Warm Regards,
+<p style="margin:0 0 10px 0;">
+<strong>Please watch the complete process video again:</strong>
 </p>
 
-<p>
-<strong>Visa Consulting Team</strong><br>
-<strong>TMS – The Migration School</strong>
+<p style="margin:0 0 24px 0;">
+<a href="https://tmsvisa.com/australia-work-visa-process/" style="color:#0d6efd;font-weight:bold;text-decoration:underline;font-size:15px;" target="_blank">WATCH VIDEO – AUSTRALIA WORK VISA PROCESS</a>
 </p>
 
-<hr>
-
-<p style="font-size:13px;color:#666;line-height:1.6;">
-📧 <strong>info@tmsvisa.com</strong><br>
-🌐 <a href="https://www.tmsvisa.com" style="color:#0b5ed7;text-decoration:none;">www.tmsvisa.com</a><br><br>
-
-🇦🇺 <strong>Australia Office</strong><br>
-154 Peisley Street,<br>
-Orange NSW 2800, Australia<br>
-Migration Pty Ltd.<br>
-ABN: 75 148 213 076<br><br>
-
-🇮🇳 <strong>India Office</strong><br>
-Delhi NCR, India<br>
-Groworld Vijatour Pvt. Ltd.<br>
-(Trade Name: The Migration School)<br>
-CIN: U62099HR2024PTC122827
+<p style="margin:0 0 16px 0;">
+Best Regards,
 </p>
+
+<div style="margin-top:16px;">
+<img src="cid:info-email-footer" alt="TMS – The Migration School" style="max-width:100%;height:auto;display:block;border:0;" />
+</div>
 
 </div>`;
 
 /**
- * Loads the 2 official attachments for the Australia 482 Information Pack:
- * 1. Australia Eligible Occupation List (691 Occupations)
- * 2. PTE Eligibility & Assessment Guide
+ * Loads the official attachment:
+ * - Australia Eligible Occupation List (691 Occupations) PDF
+ * Plus the inline footer image embedded via CID.
+ * (No PTE photo or guide attached, per user instructions).
  */
 export async function getOfficialInfoAttachments(): Promise<
-  { filename: string; content: Buffer; contentType: string }[]
+  { filename: string; content: Buffer; contentType: string; cid?: string }[]
 > {
-  const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
+  const attachments: { filename: string; content: Buffer; contentType: string; cid?: string }[] = [];
 
-  // 1. Occupation List (PDF)
-  const occLocalPath = path.join(
-    process.cwd(),
-    "public",
-    "attachments",
-    "Australia_Eligible_Occupation_List_691.pdf"
-  );
-  if (fs.existsSync(occLocalPath)) {
-    try {
-      attachments.push({
-        filename: "Australia Eligible Occupation List (691 Occupations).pdf",
-        content: fs.readFileSync(occLocalPath),
-        contentType: "application/pdf",
-      });
-    } catch (e) {
-      console.warn("[WhatsApp Info Email] Could not read local occupation list:", e);
+  // 1. Occupation List (PDF) - only downloadable attachment
+  const occPaths = [
+    path.join(process.cwd(), "public", "attachments", "Australia_Eligible_Occupation_List_691.pdf"),
+    path.join(process.cwd(), "public", "attachment", "Australia_Eligible_Occupation_List_691.pdf"),
+  ];
+  for (const occPath of occPaths) {
+    if (fs.existsSync(occPath)) {
+      try {
+        attachments.push({
+          filename: "Australia Eligible Occupation List (691 Occupations).pdf",
+          content: fs.readFileSync(occPath),
+          contentType: "application/pdf",
+        });
+        break;
+      } catch (e) {
+        console.warn("[WhatsApp Info Email] Could not read local occupation list:", e);
+      }
     }
   }
 
-  // 2. PTE Eligibility & Assessment Guide (PDF preferred, PNG fallback)
-  const ptePdfLocalPath = path.join(
-    process.cwd(),
-    "public",
-    "attachments",
-    "PTE_Eligibility_Assessment_Guide.pdf"
-  );
-  const ptePngLocalPath = path.join(
-    process.cwd(),
-    "public",
-    "attachments",
-    "PTE_Eligibility_Assessment_Guide.png"
-  );
-
-  if (fs.existsSync(ptePdfLocalPath)) {
-    try {
-      attachments.push({
-        filename: "PTE Eligibility & Assessment Guide.pdf",
-        content: fs.readFileSync(ptePdfLocalPath),
-        contentType: "application/pdf",
-      });
-    } catch (e) {
-      console.warn("[WhatsApp Info Email] Could not read local PTE PDF:", e);
-    }
-  } else if (fs.existsSync(ptePngLocalPath)) {
-    try {
-      attachments.push({
-        filename: "PTE Eligibility & Assessment Guide.png",
-        content: fs.readFileSync(ptePngLocalPath),
-        contentType: "image/png",
-      });
-    } catch (e) {
-      console.warn("[WhatsApp Info Email] Could not read local PTE PNG:", e);
-    }
-  }
-
-  // If local files were not present, fallback to MongoDB GridFS download
-  if (attachments.length < 2) {
+  // Fallback to MongoDB GridFS for Occupation List if file wasn't found locally
+  if (attachments.length === 0) {
     try {
       const { connectToDatabase } = await import("@/lib/mongodb");
       const { getGridFSBucket } = await import("@/lib/gridfs");
       const { db } = await connectToDatabase();
       const bucket = await getGridFSBucket();
 
-      if (!attachments.some((a) => a.filename.includes("Occupation"))) {
-        const occFile = await db.collection("chatFiles.files").findOne({
-          filename: { $regex: /Australia_Work_Occupations|Occupation/i },
+      const occFile = await db.collection("chatFiles.files").findOne({
+        filename: { $regex: /Australia_Work_Occupations|Occupation/i },
+      });
+      if (occFile) {
+        const stream = bucket.openDownloadStream(occFile._id as ObjectId);
+        const chunks: Buffer[] = [];
+        for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+        attachments.push({
+          filename: "Australia Eligible Occupation List (691 Occupations).pdf",
+          content: Buffer.concat(chunks),
+          contentType: "application/pdf",
         });
-        if (occFile) {
-          const stream = bucket.openDownloadStream(occFile._id as ObjectId);
-          const chunks: Buffer[] = [];
-          for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-          attachments.push({
-            filename: "Australia Eligible Occupation List (691 Occupations).pdf",
-            content: Buffer.concat(chunks),
-            contentType: "application/pdf",
-          });
-        }
-      }
-
-      if (!attachments.some((a) => a.filename.includes("PTE"))) {
-        const pteFile = await db.collection("chatFiles.files").findOne({
-          filename: { $regex: /EPT|PTE/i },
-        });
-        if (pteFile) {
-          const stream = bucket.openDownloadStream(pteFile._id as ObjectId);
-          const chunks: Buffer[] = [];
-          for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-          const mime = (pteFile.contentType as string) || (pteFile.filename.endsWith(".pdf") ? "application/pdf" : "image/png");
-          const ext = mime.includes("pdf") ? "pdf" : "png";
-          attachments.push({
-            filename: `PTE Eligibility & Assessment Guide.${ext}`,
-            content: Buffer.concat(chunks),
-            contentType: mime,
-          });
-        }
       }
     } catch (gridFsErr) {
-      console.warn("[WhatsApp Info Email] GridFS attachment fallback error:", gridFsErr);
+      console.warn("[WhatsApp Info Email] GridFS occupation list fallback error:", gridFsErr);
+    }
+  }
+
+  // 2. Footer Image (inline CID attachment for email footer)
+  const footerPaths = [
+    path.join(process.cwd(), "public", "attachments", "info email footer.png"),
+    path.join(process.cwd(), "public", "attachment", "info email footer.png"),
+  ];
+  for (const footerPath of footerPaths) {
+    if (fs.existsSync(footerPath)) {
+      try {
+        attachments.push({
+          filename: "info-email-footer.png",
+          content: fs.readFileSync(footerPath),
+          contentType: "image/png",
+          cid: "info-email-footer",
+        });
+        break;
+      } catch (fErr) {
+        console.warn("[WhatsApp Info Email] Could not read info email footer image:", fErr);
+      }
     }
   }
 
@@ -367,7 +263,10 @@ export async function getOfficialInfoAttachments(): Promise<
 export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams) {
   const { phone, name, email, leadId } = params;
   const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
-  const candidateName = name && !name.toLowerCase().includes("test") ? name : "Candidate";
+  const candidateName =
+    name && !name.toLowerCase().includes("test") && name.toLowerCase() !== "candidate"
+      ? name
+      : "Applicant";
 
   try {
     const { db } = await connectToDatabase();
@@ -384,13 +283,13 @@ export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams)
     html = html.replace(/\{\{Email\}\}/g, email);
     html = html.replace(/\{\{Phone\}\}/g, `+${cleanPhone}`);
 
-    // Load both official attachments
+    // Load official attachments (Occupation List PDF + inline CID footer image)
     const attachments = await getOfficialInfoAttachments();
 
     // Send from info@tmsvisa.com
     const result = await sendEmail({
       from: "info@tmsvisa.com",
-      fromName: "The Migration School (TMS Visa)",
+      fromName: "TMS",
       to: email,
       subject,
       html,
@@ -425,9 +324,9 @@ export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams)
         leadName: candidateName,
         stage: "info",
         mailbox: "info@tmsvisa.com",
-        templateName: "Australia Employer Sponsored Work Visa Information Pack",
+        templateName: "Process-Australia Work Visa",
         subject,
-        bodyPreview: "Australia Employer Sponsored Work Visa Program Guide with 2 attachments.",
+        bodyPreview: "Process-Australia Work Visa - Program details and eligible occupation list.",
         status: isSuccess ? "sent" : "failed",
         isFollowup: false,
         followupNumber: 0,
