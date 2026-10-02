@@ -260,6 +260,43 @@ async function handleAssign(req: NextRequest) {
       }
     );
 
+    // Sync WhatsApp sessions if lead phone exists
+    try {
+      const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
+      if (cleanLeadPhone.length >= 8) {
+        const isMeetingBooked = assignedUser?.role === "meeting" || assignedUser?.role === "wm";
+        const sessionUpdate: Record<string, unknown> = {
+          crmAssignedTo: assignedTo || null,
+          crmAssignedToName: assignedUser?.name || null,
+          updatedAt: now,
+        };
+
+        if (isMeetingBooked && assignedUser) {
+          sessionUpdate.crmStatus = "meeting-scheduled";
+          sessionUpdate.meetingStatus = "scheduled";
+          sessionUpdate.currentStep = "BOOKED";
+          sessionUpdate.nextFollowupAt = undefined;
+          sessionUpdate.bookedSlot = {
+            date: meetingDate,
+            istTime: startTime,
+            meetingUserId: assignedUser.id,
+            meetingUserName: assignedUser.name,
+          };
+        }
+
+        await db.collection("whatsapp_sessions").updateOne(
+          { phone: cleanLeadPhone },
+          { $set: sessionUpdate }
+        );
+        await db.collection("whatsapp_ireland_sessions").updateOne(
+          { phone: cleanLeadPhone },
+          { $set: sessionUpdate }
+        );
+      }
+    } catch (sessionErr) {
+      console.warn("Could not sync WhatsApp session on triloknath lead assign:", sessionErr);
+    }
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,

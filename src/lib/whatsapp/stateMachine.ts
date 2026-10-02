@@ -1412,13 +1412,29 @@ export async function processIncomingWhatsAppMessage(params: {
       return { replyText: alreadyDoneMsg, step: session.currentStep };
     }
 
-    // 2. If candidate is awaiting CV submission
+    // 2. If candidate is awaiting CV submission and sending an acknowledgment or CV-related message
     if (session.currentStep === "AWAITING_CV") {
-      const askCvMsg =
-        `Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Australian Employers! 🇦🇺\n\n` +
-        `Please send your CV / Resume here in PDF or Word document format. 📄`;
-      await sendTextMessage(session.phone, askCvMsg);
-      return { replyText: askCvMsg, step: "AWAITING_CV" };
+      const isCvRelatedOrAck =
+        lowerClean === "ok" ||
+        lowerClean === "okay" ||
+        lowerClean === "sure" ||
+        lowerClean === "done" ||
+        lowerClean === "yes" ||
+        lowerClean === "will do" ||
+        lowerClean.includes("sending") ||
+        lowerClean.includes("will send") ||
+        lowerClean.includes("send cv") ||
+        lowerClean.includes("upload cv") ||
+        lowerClean.includes("how to send") ||
+        lowerClean.includes("where to send");
+
+      if (isCvRelatedOrAck) {
+        const askCvMsg =
+          `Thank you ${candidateDisplayName}! 📄 Please send your updated CV / Resume directly here in PDF or Word document format.\n\n` +
+          `Our review team will evaluate your profile against Australian Employer requirements and contact you! 🇦🇺`;
+        await sendTextMessage(session.phone, askCvMsg);
+        return { replyText: askCvMsg, step: "AWAITING_CV" };
+      }
     }
 
     // 3. If CV was already received and candidate explicitly asks about review status

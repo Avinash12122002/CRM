@@ -258,6 +258,40 @@ export async function POST(req: NextRequest) {
 
     await db.collection("leads").insertOne(lead);
 
+    // Sync existing WhatsApp session if any
+    try {
+      const cleanPhoneDigits = cleanPhone.replace(/[^\d]/g, "").replace(/^00/, "");
+      if (cleanPhoneDigits.length >= 8) {
+        const isPipelineActive = [
+          "meeting-scheduled",
+          "sales",
+          "payment-pending",
+          "document-pending",
+          "call-back",
+        ].includes(String(lead.status));
+
+        const sessionUpdate: Record<string, unknown> = {
+          leadId: id,
+          crmStatus: lead.status,
+          updatedAt: now,
+        };
+        if (isPipelineActive) {
+          sessionUpdate.nextFollowupAt = undefined;
+        }
+
+        await db.collection("whatsapp_sessions").updateOne(
+          { phone: cleanPhoneDigits },
+          { $set: sessionUpdate }
+        );
+        await db.collection("whatsapp_ireland_sessions").updateOne(
+          { phone: cleanPhoneDigits },
+          { $set: sessionUpdate }
+        );
+      }
+    } catch (sessionErr) {
+      console.warn("Could not sync WhatsApp session on lead create:", sessionErr);
+    }
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,
