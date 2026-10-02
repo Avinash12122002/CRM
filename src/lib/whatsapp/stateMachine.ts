@@ -78,6 +78,26 @@ function buildSlotRows(
 }
 
 /**
+ * Returns a clean, displayable candidate name.
+ * Filters out placeholder strings like "Candidate", "at", names <= 2 chars, test strings, and emails.
+ */
+export function getSafeCandidateDisplayName(name?: string): string {
+  if (!name) return "";
+  const trimmed = name.trim();
+  const lower = trimmed.toLowerCase();
+  if (
+    lower === "candidate" ||
+    lower === "at" ||
+    trimmed.length <= 2 ||
+    lower.includes("test") ||
+    lower.includes("@")
+  ) {
+    return "";
+  }
+  return trimmed;
+}
+
+/**
  * Load or initialize candidate session from MongoDB
  */
 export async function getOrCreateSession(
@@ -94,21 +114,21 @@ export async function getOrCreateSession(
     .findOne({ phone: cleanPhone })) as unknown as WhatsAppSession | null;
 
   if (existing) {
-    // If current name is missing, generic "Candidate", or test placeholder, try to resolve real name
-    if (!existing.name || existing.name === "Candidate" || existing.name.toLowerCase().includes("test")) {
+    // If current name is missing, generic "Candidate", "at", or test placeholder, try to resolve real name
+    if (!existing.name || existing.name === "Candidate" || existing.name === "at" || existing.name.trim().length <= 2 || existing.name.toLowerCase().includes("test")) {
       const realCandidateName =
-        candidateName && candidateName !== "Candidate" && !candidateName.toLowerCase().includes("test")
-          ? candidateName
+        candidateName && candidateName !== "Candidate" && candidateName !== "at" && candidateName.trim().length > 2 && !candidateName.toLowerCase().includes("test")
+          ? candidateName.trim()
           : undefined;
 
       let foundName = realCandidateName;
       if (!foundName) {
         const lastLog = await db.collection("whatsapp_incoming_logs").findOne({
           phone: cleanPhone,
-          senderName: { $exists: true, $nin: ["Candidate", "candidate", ""] },
+          senderName: { $exists: true, $nin: ["Candidate", "candidate", "at", ""] },
         });
-        if (lastLog?.senderName) {
-          foundName = lastLog.senderName;
+        if (lastLog?.senderName && lastLog.senderName !== "at" && lastLog.senderName.trim().length > 2) {
+          foundName = lastLog.senderName.trim();
         }
       }
 
@@ -131,7 +151,7 @@ export async function getOrCreateSession(
 
     if (lead) {
       if (!existing.leadId) existing.leadId = lead.id;
-      if (lead.name && (!existing.name || existing.name === "Candidate" || existing.name.toLowerCase().includes("test"))) {
+      if (lead.name && (!existing.name || existing.name === "Candidate" || existing.name === "at" || existing.name.trim().length <= 2 || existing.name.toLowerCase().includes("test"))) {
         existing.name = lead.name;
         await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: lead.name } });
       }
@@ -1324,6 +1344,156 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
+  // =========================================================================
+  // --- PRIORITY CANDIDATE PROFILE UPDATES / REQUESTS ---
+  // Must execute BEFORE isCrmCandidate and conversational AI so that:
+  // 1) Phone numbers are strictly frozen (CANNOT be changed via chat).
+  // 2) Name and Email updates are 100% permitted and welcomed.
+  // =========================================================================
+
+  // 1. Phone number change request — CANNOT be changed via chat (frozen for compliance)
+  const digitsOnly = cleanText.replace(/\D/g, "");
+  const wantsPhoneChange =
+    (lowerClean.includes("change") && (lowerClean.includes("phone") || lowerClean.includes("number") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||
+    (lowerClean.includes("update") && (lowerClean.includes("phone") || lowerClean.includes("number") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||
+    lowerClean === "change number" ||
+    lowerClean === "change phone" ||
+    lowerClean === "change my number" ||
+    lowerClean === "change phone number" ||
+    lowerClean === "update number" ||
+    lowerClean.includes("different number") ||
+    lowerClean.includes("new number");
+
+  const isBarePhoneNumber =
+    digitsOnly.length >= 8 &&
+    digitsOnly.length <= 15 &&
+    /^\+?[\d\s\-()]+$/.test(cleanText.trim()) &&
+    session.currentStep !== "SELECTING_SLOT" &&
+    (session.currentStep as string) !== "AWAITING_EMAIL" &&
+    session.currentStep !== "AWAITING_EMAIL_UPDATE" &&
+    session.currentStep !== "AWAITING_NAME_UPDATE";
+
+  if (wantsPhoneChange || isBarePhoneNumber) {
+    const safeName = getSafeCandidateDisplayName(session.name);
+    const salutation = safeName ? `Hello ${safeName}! 👋\n\n` : `Hello! 👋\n\n`;
+    const phoneNoChangeMsg =
+      `${salutation}` +
+      `Under our verification and compliance protocol, **your registered phone number cannot be changed** through this chat. 🔒\n\n` +
+      `Your candidate dossier, consultation booking, and official CRM records are permanently linked to your verified WhatsApp account (+${session.phone}).\n\n` +
+      `If you have switched to a new phone number:\n` +
+      `• Please initiate a new message directly from your **new WhatsApp number** to connect your profile, OR\n` +
+      `• Contact our administrative desk at **info@tmsvisa.com** for assistance.\n\n` +
+      `💡 You can freely update your **Full Name** or **Email Address** anytime right here! How else may I assist you today? 🇦🇺`;
+
+    await sendTextMessage(session.phone, phoneNoChangeMsg);
+    return { replyText: phoneNoChangeMsg, step: session.currentStep };
+  }
+
+  // 2. Name Change Request (100% permitted in chat)
+  const wantsNameChange =
+    (lowerClean.includes("change") && (lowerClean.includes("name") || lowerClean.includes("naam"))) ||
+    (lowerClean.includes("update") && lowerClean.includes("name")) ||
+    (lowerClean.includes("correct") && lowerClean.includes("name")) ||
+    (lowerClean.includes("edit") && lowerClean.includes("name")) ||
+    lowerClean === "i want to change my name" ||
+    lowerClean === "can i change my name" ||
+    lowerClean === "change name" ||
+    lowerClean === "name change" ||
+    lowerClean.includes("my name is not") ||
+    lowerClean.includes("my name is wrong") ||
+    (lowerClean.includes("wrong") && lowerClean.includes("name"));
+
+  // 2a. If candidate explicitly provided their name (or requested to change to a specific name)
+  if (detectedName && (wantsNameChange || cleanText.toLowerCase().startsWith("my name is") || cleanText.toLowerCase().startsWith("change name to") || cleanText.toLowerCase().startsWith("update name to") || cleanText.toLowerCase().startsWith("name:"))) {
+    const safeName = detectedName;
+    const confirmNameMsg =
+      `✅ Thank you! I have updated your name to **${safeName}** in your official CRM profile. 📝\n\n` +
+      `How else can our team assist you with your Australia Employer Sponsored Work Visa today? 🇦🇺`;
+    await sendTextMessage(session.phone, confirmNameMsg);
+    return { replyText: confirmNameMsg, step: session.currentStep };
+  }
+
+  // 2b. Candidate wants to change name but hasn't provided the new name yet
+  if (wantsNameChange && !detectedName) {
+    await updateSession(db, session.phone, { currentStep: "AWAITING_NAME_UPDATE" });
+    const nameChangePrompt =
+      `Certainly! You can update your name anytime right here in this chat. ✍️\n\n` +
+      `Please reply with your **correct Full Name** (for example: *"My name is Rajesh Sharma"* or *"Name: Priya Patel"*), and I will update your official CRM profile immediately!`;
+    await sendTextMessage(session.phone, nameChangePrompt);
+    return { replyText: nameChangePrompt, step: "AWAITING_NAME_UPDATE" };
+  }
+
+  // 3. Email Change Request (100% permitted in chat)
+  const wantsEmailChange =
+    (lowerClean.includes("change") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
+    (lowerClean.includes("update") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
+    (lowerClean.includes("correct") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
+    (lowerClean.includes("edit") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
+    lowerClean === "i want to change my email" ||
+    lowerClean === "can i change my email" ||
+    lowerClean === "change email" ||
+    lowerClean === "email change" ||
+    lowerClean.includes("my email is not") ||
+    lowerClean.includes("my email is wrong") ||
+    (lowerClean.includes("wrong") && lowerClean.includes("email")) ||
+    (lowerClean.includes("new") && lowerClean.includes("email"));
+
+  // 3a. If candidate explicitly provided an email during an email change request or email inquiry
+  const directEmailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  if (directEmailMatch && (wantsEmailChange || cleanText.toLowerCase().includes("email") || cleanText.toLowerCase().includes("mail") || session.currentStep === "AWAITING_EMAIL_UPDATE")) {
+    const newEmail = directEmailMatch[0].toLowerCase();
+    session.email = newEmail;
+    await updateSession(db, session.phone, { email: newEmail });
+    // Update CRM lead
+    const cleanLeadPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+    await db.collection("leads").updateMany(
+      {
+        $or: [
+          ...(session.leadId ? [{ id: session.leadId }] : []),
+          { phone: cleanLeadPhone },
+          { phone: `+${cleanLeadPhone}` },
+          { phone: { $regex: `${cleanLeadPhone.slice(-10)}$` } },
+        ],
+      },
+      { $set: { email: newEmail, updatedAt: new Date() } }
+    );
+
+    // Automatically dispatch info email with PDF to new address
+    let emailDispatched = false;
+    try {
+      const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
+      const sendRes = await sendWhatsAppInfoEmail({
+        phone: session.phone,
+        name: getSafeCandidateDisplayName(session.name) || "Candidate",
+        email: newEmail,
+        leadId: session.leadId,
+      });
+      emailDispatched = sendRes.success === true;
+    } catch (err) {
+      console.error("[WhatsApp] Error sending info email after update:", err);
+    }
+
+    const confirmEmailMsg = emailDispatched
+      ? `✅ Thank you! I have updated your registered email address to **${newEmail}** in your official CRM profile and immediately dispatched your **Australia Work Visa Information Pack** & **691 Eligible Occupation List (PDF)** to your inbox! 📩\n\n` +
+        `📬 Please check both your **Inbox** and **Spam/Junk folder**.\n\n` +
+        `Let us know if you need anything else! 🇦🇺`
+      : `✅ Thank you! I have updated your registered email address to **${newEmail}** in your official CRM profile. 📝\n\n` +
+        `All official visa documentation will be sent to this address. Let us know if you need anything else! 🇦🇺`;
+
+    await sendTextMessage(session.phone, confirmEmailMsg);
+    return { replyText: confirmEmailMsg, step: session.currentStep };
+  }
+
+  // 3b. Candidate wants to change email but hasn't provided the new email address yet
+  if (wantsEmailChange && !directEmailMatch) {
+    await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL_UPDATE" });
+    const emailChangePrompt =
+      `Certainly! You can update your email address anytime right here. 📧\n\n` +
+      `Please reply with your **new Email Address** (for example: *"My email is yourname@gmail.com"*), and I will update your official CRM profile and dispatch your visa information pack immediately!`;
+    await sendTextMessage(session.phone, emailChangePrompt);
+    return { replyText: emailChangePrompt, step: "AWAITING_EMAIL_UPDATE" };
+  }
+
   // --- Master Guard: Active CRM Candidates ---
   // (meeting-scheduled, follow-up, sales, payment-pending, document-pending, call-back)
   // All intake steps (email collection, video guides, booking prompts, slot selection)
@@ -1346,10 +1516,7 @@ export async function processIncomingWhatsAppMessage(params: {
     session.currentStep === "MEETING_COMPLETED";
 
   if (isCrmCandidate) {
-    const candidateDisplayName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
-        ? session.name
-        : "there";
+    const candidateDisplayName = getSafeCandidateDisplayName(session.name) || "there";
 
     // 1. If candidate attempts to book, reschedule, or select slots
     const triesToBookAgain =
@@ -3156,77 +3323,7 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: notBookedReply, step: session.currentStep };
   }
 
-  // 10. Update intent detection — BEFORE calling AI, check if candidate wants to change phone/email/name
-  // NOTE: Phone numbers CANNOT be changed via chat under CRM compliance and security rules.
-  const wantsPhoneChange =
-    (lowerClean.includes("change") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||
-    (lowerClean.includes("update") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile") || lowerClean.includes("contact") || lowerClean.includes("whatsapp"))) ||
-    (lowerClean.includes("new") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile"))) ||
-    (lowerClean.includes("different") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile"))) ||
-    (lowerClean.includes("wrong") && (lowerClean.includes("number") || lowerClean.includes("phone") || lowerClean.includes("mobile")));
-
-  // Standalone phone number sent by candidate (8-15 digits) while not in slot selection or email state
-  const digitsOnly = cleanText.replace(/\D/g, "");
-  const isBarePhoneNumber =
-    digitsOnly.length >= 8 &&
-    digitsOnly.length <= 15 &&
-    /^\+?[\d\s\-()]+$/.test(cleanText.trim()) &&
-    session.currentStep !== "SELECTING_SLOT" &&
-    (session.currentStep as string) !== "AWAITING_EMAIL" &&
-    session.currentStep !== "AWAITING_EMAIL_UPDATE" &&
-    session.currentStep !== "AWAITING_NAME_UPDATE";
-
-  if (wantsPhoneChange || isBarePhoneNumber) {
-    const candidateDisplayName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
-        ? session.name
-        : "there";
-
-    const phoneNoChangeMsg =
-      `Hello ${candidateDisplayName}! 👋\n\n` +
-      `Under our security and verification protocol, **your registered phone number cannot be changed** through this chat. 🔒\n\n` +
-      `Your candidate dossier, consultation booking, and official CRM records are permanently linked to your verified WhatsApp account (+${session.phone}).\n\n` +
-      `If you have switched to a new phone number:\n` +
-      `• Please initiate a new message directly from your **new WhatsApp number** to start or connect your profile, OR\n` +
-      `• Contact our administrative desk at **info@tmsvisa.com** for manual identity verification.\n\n` +
-      `You can still update other details such as your Name, Email, CV, or Consultation Slot right here. Please let me know how else I can assist you! 🇦🇺`;
-
-    await sendTextMessage(session.phone, phoneNoChangeMsg);
-    return { replyText: phoneNoChangeMsg, step: session.currentStep };
-  }
-
-  const wantsEmailChange =
-    (lowerClean.includes("change") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
-    (lowerClean.includes("update") && (lowerClean.includes("email") || lowerClean.includes("mail"))) ||
-    (lowerClean.includes("wrong") && lowerClean.includes("email")) ||
-    (lowerClean.includes("new") && lowerClean.includes("email")) ||
-    (lowerClean.includes("correct") && lowerClean.includes("email"));
-
-  const wantsNameChange =
-    (lowerClean.includes("change") && (lowerClean.includes("name") || lowerClean.includes("naam"))) ||
-    (lowerClean.includes("update") && lowerClean.includes("name")) ||
-    (lowerClean.includes("wrong") && lowerClean.includes("name")) ||
-    (lowerClean.includes("correct") && lowerClean.includes("name"));
-
-  if (wantsEmailChange) {
-    await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL_UPDATE" });
-    const emailChangePrompt =
-      `Of course! To update your registered email address, please reply with your new, correct email address right here.\n\n` +
-      `📧 **Please reply with: Your New Email Address**`;
-    await sendTextMessage(session.phone, emailChangePrompt);
-    return { replyText: emailChangePrompt, step: "AWAITING_EMAIL_UPDATE" };
-  }
-
-  if (wantsNameChange) {
-    await updateSession(db, session.phone, { currentStep: "AWAITING_NAME_UPDATE" });
-    const nameChangePrompt =
-      `Absolutely! Please reply with your **correct full name** and we will update your profile record immediately.\n\n` +
-      `📝 **Please reply with: Your Correct Full Name**`;
-    await sendTextMessage(session.phone, nameChangePrompt);
-    return { replyText: nameChangePrompt, step: "AWAITING_NAME_UPDATE" };
-  }
-
-  // 11. Free-form conversational message -> Consult Context-Aware AI
+  // 10. Free-form conversational message -> Consult Context-Aware AI
   let aiAnswer = "";
   try {
     aiAnswer = await generateAiResponse({

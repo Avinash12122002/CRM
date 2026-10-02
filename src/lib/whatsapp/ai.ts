@@ -67,6 +67,11 @@ function sanitizeFinalResponse(text: string, session: WhatsAppSession): string {
   let sanitized = sanitizeStaffNames(text);
   sanitized = sanitizeMeetingLink(sanitized, session);
   sanitized = sanitizeTimezoneForCandidate(sanitized, session);
+  // Remove accidental "Dear at,", "letting us know, at.", "Hello at!", "Hi at,"
+  sanitized = sanitized.replace(/([,\s])\s*at([.,!?])/gi, "$2");
+  sanitized = sanitized.replace(/\b(Dear|Hi|Hello|welcome|know,)\s+at\b/gi, (m, prefix) => {
+    return prefix.toLowerCase().includes("know") ? "know" : prefix;
+  });
   return sanitized;
 }
 
@@ -129,7 +134,7 @@ export async function generateAiResponse(params: {
 
   if (isPhoneNumberChangeRequest) {
     const candidateName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      session.name && session.name !== "Candidate" && session.name !== "at" && !session.name.toLowerCase().includes("test")
         ? session.name
         : "there";
 
@@ -137,6 +142,47 @@ export async function generateAiResponse(params: {
       `Hi ${candidateName}! 🔒 Your registered phone number **cannot be changed** through this chat.\n\n` +
       `All records are permanently linked to +${session.phone}. If you've switched numbers, message us from your **new WhatsApp number**, or email **info@tmsvisa.com** for verification.\n\n` +
       `Your Name, Email, CV, or Consultation Slot can still be updated here anytime! 🇦🇺`
+    );
+  }
+
+  // 1c. Name Change Request (100% Supported)
+  const isNameChangeRequest =
+    (lowerMsg.includes("change") && lowerMsg.includes("name")) ||
+    (lowerMsg.includes("update") && lowerMsg.includes("name")) ||
+    (lowerMsg.includes("correct") && lowerMsg.includes("name")) ||
+    (lowerMsg.includes("wrong") && lowerMsg.includes("name")) ||
+    (lowerMsg.includes("edit") && lowerMsg.includes("name")) ||
+    lowerMsg === "i want to change my name" ||
+    lowerMsg === "change name" ||
+    lowerMsg === "name change" ||
+    lowerMsg.includes("my name is not") ||
+    lowerMsg.includes("my name is wrong");
+
+  if (isNameChangeRequest) {
+    return (
+      `Certainly! You can update your name anytime right here in this chat. ✍️\n\n` +
+      `Please reply with your **Full Name** (for example: *"My name is John Doe"* or *"Name: Rahul Sharma"*), and I will update your official CRM record immediately!`
+    );
+  }
+
+  // 1d. Email Change Request (100% Supported)
+  const isEmailChangeRequest =
+    (lowerMsg.includes("change") && lowerMsg.includes("email")) ||
+    (lowerMsg.includes("update") && lowerMsg.includes("email")) ||
+    (lowerMsg.includes("correct") && lowerMsg.includes("email")) ||
+    (lowerMsg.includes("wrong") && lowerMsg.includes("email")) ||
+    (lowerMsg.includes("different") && lowerMsg.includes("email")) ||
+    (lowerMsg.includes("edit") && lowerMsg.includes("email")) ||
+    lowerMsg === "i want to change my email" ||
+    lowerMsg === "change email" ||
+    lowerMsg === "email change" ||
+    lowerMsg.includes("my email is not") ||
+    lowerMsg.includes("my email is wrong");
+
+  if (isEmailChangeRequest) {
+    return (
+      `Certainly! You can update your email address anytime right here. 📧\n\n` +
+      `Please reply with your **new email address** (for example: *"My email is yourname@gmail.com"*), and I will update your record and re-send your official visa information pack immediately!`
     );
   }
 
@@ -393,12 +439,11 @@ ${
 - Understand intent even if candidate speaks in slang, short replies ("k", "tell", "plz", "how"), or emotional expressions.
 - Always provide an empathetic, human, and informative Australian visa expert answer.
 
-8. STRICT SECURITY POLICY — PHONE NUMBER CANNOT BE CHANGED IN CHAT:
-- NEVER tell the candidate that their phone number has been updated or changed.
-- NEVER ask the candidate to reply with a new phone number.
-- NEVER accept or pretend to accept a new phone number.
-- Under strict compliance and CRM security, phone numbers cannot be changed through WhatsApp chat because all candidate records, verified files, and consultation bookings are permanently tied to their current active WhatsApp number (+${session.phone}).
-- If candidate asks to change or update their number, firmly explain that registered phone numbers cannot be changed via chat for security reasons. They should message directly from their new WhatsApp number or email info@tmsvisa.com.
+8. CANDIDATE PROFILE UPDATES (NAME & EMAIL 100% ALLOWED — PHONE NUMBER STRICTLY FROZEN):
+- PHONE NUMBER IS STRICTLY FROZEN: Phone numbers CANNOT be changed via chat because all candidate records and consultation bookings are permanently tied to their active WhatsApp number (+${session.phone}). If they ask to change their phone number, firmly explain they must message from their new WhatsApp number.
+- CANDIDATE CAN FREELY CHANGE THEIR NAME: If candidate asks to change or update their name, NEVER refuse! NEVER claim that personal details or names cannot be changed! Warmly invite them: "Please reply with your Full Name (e.g. 'My name is John Doe') and I will update your official CRM profile immediately."
+- CANDIDATE CAN FREELY CHANGE THEIR EMAIL: If candidate asks to change or update their email, NEVER refuse! Warmly invite them: "Please reply with your new Email Address (e.g. 'My email is yourname@gmail.com') and I will update your record and resend your visa documents immediately."
+- NEVER claim that name or email cannot be changed for security reasons! Name and email updates are 100% permitted and supported in this chat.
 
 9. THINK LIKE GOOGLE & BE SMART — ANALYZE THE EXACT QUESTION (NEVER REPEAT CANNED TEMPLATES):
 - Carefully analyze what the candidate asked or said (whether in English, Hindi, or Hinglish like "Visa ka kya rha", "kya hua", "mera visa kab aayega", "fees kitni hai", "Sir", "Job milegi?").
