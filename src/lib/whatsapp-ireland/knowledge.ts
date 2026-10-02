@@ -12,7 +12,7 @@ IDENTITY & REGISTERED OFFICES:
 - Website: www.tmsvisa.com
 - Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Ireland Migration Expert on Saturdays & Sundays scheduled strictly in candidate's local country timezone.
 - Meeting Link Rule: The Google Meet invitation link is only issued to candidates after their consultation slot is officially booked. Never send the meeting link to a candidate who has not booked a meeting.
-- Official Explainer Video Link: https://tmsvisa.com/wp-content/uploads/2026/09/Ireland-process-video.mp4
+- Official Explainer Video Link: https://tmsvisa.com/ireland-work-visa-process
 
 THE IRELAND PROGRAM & GUARANTEE:
 - Pathway: Ireland Employer Sponsored Work Visa — Critical Skills Employment Permit (CSEP) & General Employment Permit (GEP).

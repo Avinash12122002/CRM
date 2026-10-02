@@ -961,7 +961,7 @@ export default function WhatsAppIrelandChatPage() {
                   type="button"
                   onClick={() =>
                     insertQuickReply(
-                      "Here is our official explainer video on the Ireland Employer Sponsored Work Visa:\n🔗 https://tmsvisa.com/wp-content/uploads/2026/09/Ireland-process-video.mp4"
+                      "Here is our official explainer video on the Ireland Employer Sponsored Work Visa:\n🔗 https://tmsvisa.com/ireland-work-visa-process"
                     )
                   }
                   className="px-2 py-0.5 rounded bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 text-zinc-700 dark:text-zinc-300 shrink-0 transition"

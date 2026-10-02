@@ -41,7 +41,7 @@ export function getStaticGoogleMeetLink(): string {
 export function getVideoIrelandUrl(): string {
   return (
     process.env.VIDEO_IRELAND_URL ||
-    "https://tmsvisa.com/wp-content/uploads/2026/09/Ireland-process-video.mp4"
+    "https://tmsvisa.com/ireland-work-visa-process"
   );
 }
 

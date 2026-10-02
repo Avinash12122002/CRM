@@ -56,16 +56,13 @@ export async function POST(req: NextRequest) {
         const incomingDisplayPhone = String(value?.metadata?.display_phone_number || "").replace(/[^\d]/g, "");
 
         const irelandPhoneId = process.env.WHATSAPP_IRELAND_PHONE_NUMBER_ID || "1366657749867122";
-        const isIreland =
+        const australiaPhoneId = process.env.WHATSAPP_PHONE_NUMBER_ID || "";
+
+        // Base check from Meta phone metadata
+        const isIrelandBase =
           (Boolean(irelandPhoneId) && incomingPhoneId === irelandPhoneId) ||
           incomingDisplayPhone.endsWith("8685081010");
-
-        if (isIreland) hasIreland = true;
-        else hasAustralia = true;
-
-        const sessionsCollection = isIreland ? "whatsapp_ireland_sessions" : "whatsapp_sessions";
-        const incomingLogsCollection = isIreland ? "whatsapp_ireland_incoming_logs" : "whatsapp_incoming_logs";
-        const messagesCollection = isIreland ? "whatsapp_ireland_messages" : "whatsapp_messages";
+        const isAustraliaBase = Boolean(australiaPhoneId && incomingPhoneId === australiaPhoneId);
 
         for (const message of messages) {
           if (!message || !message.from) continue;
@@ -118,7 +115,20 @@ export async function POST(req: NextRequest) {
             type = "text";
           }
 
-          console.log(`[WhatsApp Webhook ${isIreland ? "🇮🇪 Ireland" : "🇦🇺 Australia"}] Incoming from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
+          // Resolve country destination:
+          // 1. Meta phone_number_id check
+          // 2. Button ID context (e.g. BTN_IRELAND_YES, BTN_482_YES)
+          // 3. Database session or CRM lead check
+          let isIreland = isIrelandBase;
+          if (!isIreland && !isAustraliaBase) {
+            if (selectedId && (selectedId.includes("IRELAND") || selectedId.includes("IRISH"))) {
+              isIreland = true;
+            }
+          }
+
+          let sessionsCollection = isIreland ? "whatsapp_ireland_sessions" : "whatsapp_sessions";
+          let incomingLogsCollection = isIreland ? "whatsapp_ireland_incoming_logs" : "whatsapp_incoming_logs";
+          let messagesCollection = isIreland ? "whatsapp_ireland_messages" : "whatsapp_messages";
 
           // 1. Log message to DB for auditing and debugging
           let db;
@@ -127,6 +137,23 @@ export async function POST(req: NextRequest) {
             const { connectToDatabase } = await import("@/lib/mongodb");
             const dbConn = await connectToDatabase();
             db = dbConn.db;
+
+            // If destination is still uncertain, inspect candidate's active sessions and CRM lead
+            if (!isIrelandBase && !isAustraliaBase) {
+              const existingIeSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone });
+              const existingAuSession = await db.collection("whatsapp_sessions").findOne({ phone });
+              if (existingIeSession && !existingAuSession) {
+                isIreland = true;
+                sessionsCollection = "whatsapp_ireland_sessions";
+                incomingLogsCollection = "whatsapp_ireland_incoming_logs";
+                messagesCollection = "whatsapp_ireland_messages";
+              }
+            }
+
+            if (isIreland) hasIreland = true;
+            else hasAustralia = true;
+
+            console.log(`[WhatsApp Webhook ${isIreland ? "🇮🇪 Ireland" : "🇦🇺 Australia"}] Incoming from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
 
             // Check if existing session or CRM lead already has candidate's verified name
             const last10 = phone.slice(-10);
