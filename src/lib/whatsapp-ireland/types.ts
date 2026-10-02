@@ -66,11 +66,21 @@ export interface WhatsAppSession {
 
   // Candidate Qualifications & Profiling
   occupation?: string;
+  occupations?: string[];
   occupationSector?: string;
   yearsExperience?: string | number;
   highestQualification?: string;
   englishTestStatus?: string;
   candidateNotes?: string[];
+
+  // CRM Dossier & Pipeline Integration
+  crmStatus?: string;             // e.g. "meeting-scheduled", "follow-up", "sales", "payment-pending", "document-pending", "call-back"
+  crmAssignedTo?: number;
+  crmAssignedToName?: string;
+  crmNotes?: string[];
+  crmCallbackDate?: string;
+  crmMeetingDetails?: any;
+  documentPending?: boolean;
 
   // Extended Candidate Profile (auto-extracted from conversation)
   currentJobTitle?: string;       // e.g. "Software Engineer", "Nurse", "Chef"

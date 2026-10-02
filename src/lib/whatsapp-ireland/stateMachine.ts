@@ -119,10 +119,63 @@ export async function getOrCreateSession(
           { $set: { name: lead.name, updatedAt: now } }
         );
       }
+
+      existing.crmStatus = lead.status;
       existing.meetingCompleted = lead.meetingStatus === "completed" || lead.status === "follow-up";
-      existing.paymentPending = lead.status === "payment-pending" || lead.status === "document-pending";
+      existing.paymentPending = lead.status === "payment-pending";
+      existing.documentPending = lead.status === "document-pending";
+      if (lead.meetingStatus) existing.meetingStatus = lead.meetingStatus;
+      if (lead.status === "meeting-scheduled" && !existing.meetingStatus) existing.meetingStatus = "booked";
+
+      // Extract occupations
+      const leadOccs: string[] = [];
+      if (Array.isArray(lead.occupations) && lead.occupations.length > 0) {
+        leadOccs.push(...lead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
+      } else if (typeof lead.occupations === "string" && (lead.occupations as string).trim()) {
+        leadOccs.push((lead.occupations as string).trim());
+      }
+      if (lead.jobApplied && !leadOccs.includes(lead.jobApplied)) {
+        leadOccs.push(lead.jobApplied);
+      }
+      if (lead.occupation && !leadOccs.includes(lead.occupation)) {
+        leadOccs.push(lead.occupation);
+      }
+      if (leadOccs.length > 0) {
+        existing.occupations = leadOccs;
+        if (!existing.occupation) existing.occupation = leadOccs[0];
+      }
+
+      if (lead.experience && !existing.yearsExperience) existing.yearsExperience = lead.experience;
       if (lead.email && !existing.email) existing.email = lead.email;
       if (lead.meetingCompletedAt) existing.meetingCompletedAt = lead.meetingCompletedAt;
+      if (lead.meetingCancelledAt) existing.meetingCanceledAt = lead.meetingCancelledAt;
+      if (lead.meetingDetails) existing.crmMeetingDetails = lead.meetingDetails;
+      if (lead.callbackDate) existing.crmCallbackDate = lead.callbackDate;
+      if (lead.assignedTo) existing.crmAssignedTo = lead.assignedTo;
+      if (lead.assignedToName) existing.crmAssignedToName = lead.assignedToName;
+      if (Array.isArray(lead.notes) && lead.notes.length > 0) {
+        existing.crmNotes = lead.notes.map((n: any) => (typeof n === "string" ? n : n.note || "")).filter(Boolean);
+      }
+
+      // CRITICAL: Stop 7-day follow-ups for candidates already in active CRM stages!
+      const EXCLUDED_CRM_STATUSES = [
+        "meeting-scheduled",
+        "follow-up",
+        "sales",
+        "payment-pending",
+        "document-pending",
+        "call-back",
+      ];
+      if (lead.status && EXCLUDED_CRM_STATUSES.includes(lead.status.toLowerCase().trim())) {
+        existing.nextFollowupAt = undefined;
+        await db.collection(SESSIONS_COLLECTION).updateOne(
+          { phone: cleanPhone },
+          {
+            $unset: { nextFollowupAt: "" },
+            $set: { crmStatus: lead.status, updatedAt: now },
+          }
+        );
+      }
     }
 
     return existing;
@@ -144,6 +197,25 @@ export async function getOrCreateSession(
       ? candidateName
       : "Candidate";
 
+  const leadOccsNew: string[] = [];
+  if (Array.isArray(existingLead?.occupations) && existingLead.occupations.length > 0) {
+    leadOccsNew.push(...existingLead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
+  } else if (typeof existingLead?.occupations === "string" && (existingLead.occupations as string).trim()) {
+    leadOccsNew.push((existingLead.occupations as string).trim());
+  }
+  if (existingLead?.jobApplied && !leadOccsNew.includes(existingLead.jobApplied)) {
+    leadOccsNew.push(existingLead.jobApplied);
+  }
+  if (existingLead?.occupation && !leadOccsNew.includes(existingLead.occupation)) {
+    leadOccsNew.push(existingLead.occupation);
+  }
+
+  const isExcludedNewLead =
+    existingLead?.status &&
+    ["meeting-scheduled", "follow-up", "sales", "payment-pending", "document-pending", "call-back"].includes(
+      existingLead.status.toLowerCase().trim()
+    );
+
   const newSession: WhatsAppSession = {
     phone: cleanPhone,
     name: resolvedName,
@@ -156,6 +228,21 @@ export async function getOrCreateSession(
     currentStep: "WELCOME",
     leadId: existingLead?.id,
     followupCount: 0,
+    nextFollowupAt: isExcludedNewLead ? undefined : undefined,
+    crmStatus: existingLead?.status,
+    crmAssignedTo: existingLead?.assignedTo,
+    crmAssignedToName: existingLead?.assignedToName,
+    crmCallbackDate: existingLead?.callbackDate,
+    crmMeetingDetails: existingLead?.meetingDetails,
+    crmNotes: Array.isArray(existingLead?.notes)
+      ? existingLead.notes.map((n: any) => (typeof n === "string" ? n : n.note || "")).filter(Boolean)
+      : undefined,
+    occupations: leadOccsNew.length > 0 ? leadOccsNew : undefined,
+    occupation: leadOccsNew[0] || existingLead?.occupation,
+    yearsExperience: existingLead?.experience,
+    meetingCompleted: existingLead?.meetingStatus === "completed" || existingLead?.status === "follow-up",
+    paymentPending: existingLead?.status === "payment-pending",
+    documentPending: existingLead?.status === "document-pending",
     lastInteractionAt: now,
     createdAt: now,
     updatedAt: now,
@@ -269,6 +356,23 @@ export async function sendConsultationBookingPrompt(phone: string): Promise<void
   const { db } = await connectToDatabase();
   const session = await getOrCreateSession(db, cleanPhone);
 
+  const ACTIVE_CRM_STATUSES = [
+    "meeting-scheduled",
+    "follow-up",
+    "sales",
+    "payment-pending",
+    "document-pending",
+    "call-back",
+  ];
+  if (
+    (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
+    session.meetingCompleted ||
+    session.bookedSlot
+  ) {
+    // Already an active CRM lead — do not prompt to book!
+    return;
+  }
+
   const weekends = getUpcomingWeekendDays(10);
   const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
 
@@ -352,6 +456,74 @@ export async function processIncomingWhatsAppMessage(params: {
         `Our team will shortly call you to assist with your Ireland work visa enquiry. 🇮🇪\n\n` +
         `If you have any urgent questions in the meantime, please feel free to message us here!`;
       await sendTextMessage(cleanPhone, duplicateMsg);
+      return;
+    }
+  }
+
+  // --- Master Guard: Active CRM Candidates ---
+  // If candidate is already in active CRM stages, do NOT run new lead intake flows (asking email, booking consultation)
+  const ACTIVE_CRM_STATUSES = [
+    "meeting-scheduled",
+    "follow-up",
+    "sales",
+    "payment-pending",
+    "document-pending",
+    "call-back",
+  ];
+  const isCrmCandidate =
+    (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
+    session.meetingCompleted === true ||
+    session.currentStep === "MEETING_COMPLETED";
+
+  if (isCrmCandidate) {
+    const salutation = session.name && session.name !== "Candidate" ? `Hi ${session.name}! 👋` : "Hi! 👋";
+
+    // If candidate clicks intake or booking buttons
+    if (
+      cleanActionId === "BTN_IRELAND_YES" ||
+      cleanActionId === "BTN_CONSULT_YES" ||
+      cleanActionId === "BTN_BOOK_MEETING" ||
+      lowerText === "book" ||
+      lowerText.includes("book consultation") ||
+      lowerText.includes("book meeting")
+    ) {
+      let statusMsg = "";
+      if (session.crmStatus === "meeting-scheduled") {
+        const slotText = session.bookedSlot
+          ? `scheduled for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**`
+          : "already confirmed with our Senior Ireland Visa Expert";
+        statusMsg =
+          `${salutation}\n\n` +
+          `Your Ireland 1-on-1 consultation session is ${slotText}! 📅🇮🇪\n\n` +
+          `Our expert will discuss your eligibility across Critical Skills (CSEP) and General Permits (GEP). If you have any questions before then, feel free to ask right here!`;
+      } else if (session.crmStatus === "sales") {
+        statusMsg =
+          `${salutation}\n\n` +
+          `You are an enrolled client with TMS Visa! Your file is active with your dedicated Case Manager for Irish employer marketing. 💼🇮🇪\n\n` +
+          `Feel free to message us right here if you have any questions!`;
+      } else if (session.crmStatus === "payment-pending") {
+        statusMsg =
+          `${salutation}\n\n` +
+          `Your Ireland consultation has been completed, and your onboarding is pending. 📄\n\n` +
+          `If you have any questions about your agreement or payment, reply right here! 🇮🇪`;
+      } else if (session.crmStatus === "document-pending") {
+        statusMsg =
+          `${salutation}\n\n` +
+          `Your consultation is complete, and your file is in document verification. 📂\n\n` +
+          `You can upload your documents (CV, passport, reference letters, educational certs) right here on WhatsApp!`;
+      } else if (session.crmStatus === "call-back") {
+        statusMsg =
+          `${salutation}\n\n` +
+          `Our Ireland counseling team already has a callback scheduled for you. 📞\n\n` +
+          `Feel free to ask any question right here in chat! 🇮🇪`;
+      } else {
+        statusMsg =
+          `${salutation}\n\n` +
+          `Your Ireland consultation has already been completed! ✅\n\n` +
+          `Our advisory team is following up on your application. How can we assist you today? 🇮🇪`;
+      }
+
+      await sendTextMessage(cleanPhone, statusMsg);
       return;
     }
   }

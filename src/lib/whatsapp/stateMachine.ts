@@ -118,7 +118,7 @@ export async function getOrCreateSession(
       }
     }
 
-    // Sync live CRM data (like meeting completion, payment status, occupation, experience, country) if lead exists
+    // Sync live CRM data (meeting completion, payment, documents, occupations, experience, callback, notes) if lead exists
     const lead = existing.leadId
       ? await db.collection("leads").findOne({ id: existing.leadId })
       : await db.collection("leads").findOne({
@@ -144,17 +144,67 @@ export async function getOrCreateSession(
           existing.timeZoneLabel = matchCountry.label;
         }
       }
+
+      // Sync CRM status and stages
+      existing.crmStatus = lead.status;
       existing.meetingCompleted = lead.meetingStatus === "completed" || lead.status === "follow-up";
-      existing.paymentPending = lead.status === "payment-pending" || lead.status === "document-pending";
+      existing.paymentPending = lead.status === "payment-pending";
+      existing.documentPending = lead.status === "document-pending";
       if (lead.meetingStatus) existing.meetingStatus = lead.meetingStatus;
+      if (lead.status === "meeting-scheduled" && !existing.meetingStatus) existing.meetingStatus = "booked";
       if (lead.interestedCountry) existing.interestedCountry = lead.interestedCountry;
-      if (lead.occupations && lead.occupations.length > 0 && !existing.occupation) {
-        existing.occupation = lead.occupations[0];
+
+      // Extract all possible occupations from CRM lead
+      const leadOccs: string[] = [];
+      if (Array.isArray(lead.occupations) && lead.occupations.length > 0) {
+        leadOccs.push(...lead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
+      } else if (typeof lead.occupations === "string" && (lead.occupations as string).trim()) {
+        leadOccs.push((lead.occupations as string).trim());
       }
+      if (lead.jobApplied && !leadOccs.includes(lead.jobApplied)) {
+        leadOccs.push(lead.jobApplied);
+      }
+      if (lead.occupation && !leadOccs.includes(lead.occupation)) {
+        leadOccs.push(lead.occupation);
+      }
+      if (leadOccs.length > 0) {
+        existing.occupations = leadOccs;
+        if (!existing.occupation) {
+          existing.occupation = leadOccs[0];
+        }
+      }
+
       if (lead.experience && !existing.yearsExperience) existing.yearsExperience = lead.experience;
       if (lead.email && !existing.email) existing.email = lead.email;
       if (lead.meetingCompletedAt) existing.meetingCompletedAt = lead.meetingCompletedAt;
       if (lead.meetingCancelledAt) existing.meetingCanceledAt = lead.meetingCancelledAt;
+      if (lead.meetingDetails) existing.crmMeetingDetails = lead.meetingDetails;
+      if (lead.callbackDate) existing.crmCallbackDate = lead.callbackDate;
+      if (lead.assignedTo) existing.crmAssignedTo = lead.assignedTo;
+      if (lead.assignedToName) existing.crmAssignedToName = lead.assignedToName;
+      if (Array.isArray(lead.notes) && lead.notes.length > 0) {
+        existing.crmNotes = lead.notes.map((n: any) => (typeof n === "string" ? n : n.note || "")).filter(Boolean);
+      }
+
+      // CRITICAL: Stop 7-day follow-ups for candidates already in active CRM stages!
+      const EXCLUDED_CRM_STATUSES = [
+        "meeting-scheduled",
+        "follow-up",
+        "sales",
+        "payment-pending",
+        "document-pending",
+        "call-back",
+      ];
+      if (lead.status && EXCLUDED_CRM_STATUSES.includes(lead.status.toLowerCase().trim())) {
+        existing.nextFollowupAt = undefined;
+        await db.collection(SESSIONS_COLLECTION).updateOne(
+          { phone: cleanPhone },
+          {
+            $unset: { nextFollowupAt: "" },
+            $set: { crmStatus: lead.status, updatedAt: now },
+          }
+        );
+      }
     }
 
     if (!existing.bookedSlot) {
@@ -253,6 +303,25 @@ export async function getOrCreateSession(
     };
   }
 
+  const leadOccsNew: string[] = [];
+  if (Array.isArray(existingLead?.occupations) && existingLead.occupations.length > 0) {
+    leadOccsNew.push(...existingLead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
+  } else if (typeof existingLead?.occupations === "string" && (existingLead.occupations as string).trim()) {
+    leadOccsNew.push((existingLead.occupations as string).trim());
+  }
+  if (existingLead?.jobApplied && !leadOccsNew.includes(existingLead.jobApplied)) {
+    leadOccsNew.push(existingLead.jobApplied);
+  }
+  if (existingLead?.occupation && !leadOccsNew.includes(existingLead.occupation)) {
+    leadOccsNew.push(existingLead.occupation);
+  }
+
+  const isExcludedNewLead =
+    existingLead?.status &&
+    ["meeting-scheduled", "follow-up", "sales", "payment-pending", "document-pending", "call-back"].includes(
+      existingLead.status.toLowerCase().trim()
+    );
+
   const newSession: WhatsAppSession = {
     phone: cleanPhone,
     name: candidateName && !candidateName.toLowerCase().includes("test") ? candidateName : existingLead?.name || "Candidate",
@@ -266,12 +335,23 @@ export async function getOrCreateSession(
     currentStep: initialStep,
     bookedSlot: initialBookedSlot,
     followupCount: 0,
+    nextFollowupAt: isExcludedNewLead ? undefined : undefined,
     meetingStatus: initialMeetingStatus,
     meetingHistory: [],
-    occupation: existingLead?.occupations?.[0] || existingLead?.occupation,
+    crmStatus: existingLead?.status,
+    crmAssignedTo: existingLead?.assignedTo,
+    crmAssignedToName: existingLead?.assignedToName,
+    crmCallbackDate: existingLead?.callbackDate,
+    crmMeetingDetails: existingLead?.meetingDetails,
+    crmNotes: Array.isArray(existingLead?.notes)
+      ? existingLead.notes.map((n: any) => (typeof n === "string" ? n : n.note || "")).filter(Boolean)
+      : undefined,
+    occupations: leadOccsNew.length > 0 ? leadOccsNew : undefined,
+    occupation: leadOccsNew[0] || existingLead?.occupation,
     yearsExperience: existingLead?.experience,
     meetingCompleted: existingLead?.meetingStatus === "completed" || existingLead?.status === "follow-up",
-    paymentPending: existingLead?.status === "payment-pending" || existingLead?.status === "document-pending",
+    paymentPending: existingLead?.status === "payment-pending",
+    documentPending: existingLead?.status === "document-pending",
     lastInteractionAt: now,
     createdAt: now,
     updatedAt: now,
@@ -419,6 +499,39 @@ async function syncCrmLead(
  * Sends consultation booking prompt with quick reply buttons
  */
 export async function sendConsultationBookingPrompt(phone: string) {
+  const cleanDigits = phone.replace(/[^\d]/g, "").replace(/^00/, "");
+  try {
+    const { connectToDatabase } = await import("@/lib/mongodb");
+    const { db } = await connectToDatabase();
+    const session = await db.collection("whatsapp_sessions").findOne({ phone: cleanDigits });
+    const lead = session?.leadId
+      ? await db.collection("leads").findOne({ id: session.leadId })
+      : await db.collection("leads").findOne({
+          $or: [
+            { phone: cleanDigits },
+            { phone: `+${cleanDigits}` },
+            { phone: { $regex: `${cleanDigits.slice(-10)}$` } },
+          ],
+        });
+
+    const ACTIVE_CRM_STATUSES = [
+      "meeting-scheduled",
+      "follow-up",
+      "sales",
+      "payment-pending",
+      "document-pending",
+      "call-back",
+    ];
+
+    const effectiveStatus = (lead?.status || session?.crmStatus || "").toLowerCase().trim();
+    if (ACTIVE_CRM_STATUSES.includes(effectiveStatus) || session?.meetingCompleted || session?.bookedSlot) {
+      // Candidate is already an active CRM candidate — do not prompt to book!
+      return;
+    }
+  } catch (err) {
+    console.warn("[sendConsultationBookingPrompt] check failed:", err);
+  }
+
   const consultationPrompt =
     `*Ready to take the next step towards Australia? 🇦🇺*\n\n` +
     `Book a 1-on-1 consultation meeting with our Australian Visa Expert to check your job eligibility and visa pathway.`;
@@ -1170,42 +1283,90 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
-  // --- Guard: If Consultation Meeting is Already Completed ---
-  // No options or buttons to book a meeting are allowed once completed.
-  const isMeetingDone =
+  // --- Master Guard: Active CRM Candidates ---
+  // (meeting-scheduled, follow-up, sales, payment-pending, document-pending, call-back)
+  // All intake steps (email collection, video guides, booking prompts, slot selection)
+  // have ALREADY been done by the team! Do NOT ask them for emails or to book meetings.
+  const ACTIVE_CRM_STATUSES = [
+    "meeting-scheduled",
+    "follow-up",
+    "sales",
+    "payment-pending",
+    "document-pending",
+    "call-back",
+  ];
+
+  const isCrmCandidate =
+    (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
     session.meetingCompleted === true ||
     session.meetingStatus === "completed" ||
     session.currentStep === "MEETING_COMPLETED";
 
-  if (isMeetingDone) {
+  if (isCrmCandidate) {
     const candidateDisplayName =
       session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
         ? session.name
         : "there";
 
-    // 1. If candidate attempts to book, reschedule, or select slots after completing consultation
+    // 1. If candidate attempts to book, reschedule, or select slots
     const triesToBookAgain =
       actionId === "BTN_CONSULT_YES" ||
       actionId === "BTN_RESCHEDULE" ||
       actionId === "BTN_RESCHEDULE_MEETING" ||
+      actionId === "BTN_YES_AUSTRALIA" ||
+      actionId === "BTN_EMAIL_CONFIRM" ||
       actionId.startsWith("DAY_DATE_") ||
       actionId.startsWith("DAY_SELECT_") ||
       actionId.startsWith("SLOT_") ||
       actionId.startsWith("BTN_SLOTS_") ||
-      lowerText.includes("book") ||
-      lowerText.includes("schedule") ||
-      lowerText.includes("reschedule") ||
+      lowerText === "book" ||
+      lowerText === "book meeting" ||
+      lowerText === "book consultation" ||
+      lowerText === "schedule" ||
+      lowerText === "reschedule" ||
       (lowerText.includes("meeting") && (lowerText.includes("link") || lowerText.includes("when") || lowerText.includes("time") || lowerText.includes("room")));
 
     if (triesToBookAgain) {
-      const alreadyDoneMsg =
-        `Hello ${candidateDisplayName}! 👋\n\n` +
-        `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-        `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation and agreement.\n\n` +
-        `If you have any questions about your Australia Employer Sponsored Work Visa file or payment, feel free to reply right here! 🇦🇺`;
+      let alreadyDoneMsg = "";
+      if (session.crmStatus === "meeting-scheduled") {
+        const slotText = session.bookedSlot
+          ? `scheduled for **${session.bookedSlot.date}** at **${session.bookedSlot.candidateTimeLabel}**`
+          : "already confirmed in our system";
+        alreadyDoneMsg =
+          `Hello ${candidateDisplayName}! 👋\n\n` +
+          `Your 1-on-1 consultation session with our senior visa expert is ${slotText}! 📅\n\n` +
+          `Our expert will discuss your eligibility across the 691 occupations and your custom roadmap. If you have any questions before then, feel free to reply right here! 🇦🇺`;
+      } else if (session.crmStatus === "sales") {
+        alreadyDoneMsg =
+          `Hello ${candidateDisplayName}! 👋\n\n` +
+          `You are an enrolled candidate with TMS Visa! Your file is currently active with your dedicated Case Manager for employer marketing. 💼🇦🇺\n\n` +
+          `Feel free to ask any question about your file, employer matching, or milestones right here!`;
+      } else if (session.crmStatus === "payment-pending") {
+        alreadyDoneMsg =
+          `Hello ${candidateDisplayName}! 👋\n\n` +
+          `Your consultation session has already been completed, and your file is in onboarding. 📄\n\n` +
+          `If you have any questions about your agreement or payment, feel free to reply right here! 🇦🇺`;
+      } else if (session.crmStatus === "document-pending") {
+        alreadyDoneMsg =
+          `Hello ${candidateDisplayName}! 👋\n\n` +
+          `Your consultation has been completed, and our team is currently collecting your onboarding documentation. 📂\n\n` +
+          `You can upload any required documents right here on WhatsApp!`;
+      } else if (session.crmStatus === "call-back") {
+        const cbDate = session.crmCallbackDate ? ` for ${session.crmCallbackDate}` : "";
+        alreadyDoneMsg =
+          `Hello ${candidateDisplayName}! 👋\n\n` +
+          `Our counseling team already has a callback scheduled${cbDate} for you. 📞\n\n` +
+          `If you have any questions in the meantime, feel free to reply right here! 🇦🇺`;
+      } else {
+        alreadyDoneMsg =
+          `Hello ${candidateDisplayName}! 👋\n\n` +
+          `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+          `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation.\n\n` +
+          `If you have any questions about your Australia Employer Sponsored Work Visa, feel free to reply right here! 🇦🇺`;
+      }
 
       await sendTextMessage(session.phone, alreadyDoneMsg);
-      return { replyText: alreadyDoneMsg, step: "MEETING_COMPLETED" };
+      return { replyText: alreadyDoneMsg, step: session.currentStep };
     }
 
     // 2. If candidate is awaiting CV submission
@@ -1237,16 +1398,55 @@ export async function processIncomingWhatsAppMessage(params: {
       }
     }
 
-    // 4. If candidate sends a greeting ("hi", "hello", etc.) or restart
-    if (
+    // 4. If candidate asks what more they can send or which documents to provide
+    const isAskingDocsOrWhatToSend =
+      lowerText.includes("send more") ||
+      lowerText.includes("what more") ||
+      lowerText.includes("what can i send") ||
+      lowerText.includes("what else can i send") ||
+      lowerText.includes("what documents") ||
+      lowerText.includes("which documents") ||
+      lowerText.includes("documents needed") ||
+      lowerText.includes("what to send");
+
+    if (isAskingDocsOrWhatToSend) {
+      const docsHelpMsg =
+        `Hello ${candidateDisplayName}! 🇦🇺📄 Here are the essential documents you can share with our review team:\n\n` +
+        `1️⃣ **Updated CV / Resume** (Word or PDF format)\n` +
+        `2️⃣ **Valid Passport Copy** (Photo & address pages)\n` +
+        `3️⃣ **Work Experience Proof** (Relieving letters, reference letters, or recent payslips)\n` +
+        `4️⃣ **Educational Certificates** (Degree or Diploma transcripts)\n` +
+        `5️⃣ **English Scorecard** (PTE/IELTS) if already taken (otherwise our free weekly PTE classes begin right away!)\n\n` +
+        `You can upload any of these files right here in WhatsApp, and our team will review them!`;
+
+      await sendTextMessage(session.phone, docsHelpMsg);
+      return { replyText: docsHelpMsg, step: session.currentStep };
+    }
+
+    // 5. If candidate sends a greeting ("hi", "hello", "he'll", etc.) or restart
+    const normalizedGreeting = lowerText.replace(/[^a-z]/g, "");
+    const isGreeting =
       actionId === "RESTART_FLOW" ||
-      ["hi", "hello", "hey", "start", "restart", "menu", "namaste", "hlo", "hii", "good morning", "good evening", "good afternoon"].includes(lowerText) ||
+      ["hi", "hello", "hey", "hell", "helo", "hlw", "heya", "start", "restart", "menu", "namaste", "hlo", "hii", "goodmorning", "goodevening", "goodafternoon"].includes(normalizedGreeting) ||
       lowerText.startsWith("hi ") ||
-      lowerText.startsWith("hello ")
-    ) {
+      lowerText.startsWith("hello ") ||
+      lowerText.startsWith("hey ");
+
+    if (isGreeting) {
+      let stageDetail = "Your consultation has already been completed and your file is in progress.";
+      if (session.crmStatus === "sales") {
+        stageDetail = "Your file is active with your dedicated Case Manager for CV marketing and employer matching.";
+      } else if (session.crmStatus === "document-pending") {
+        stageDetail = "Your consultation is complete and your file is currently in document collection & verification.";
+      } else if (session.crmStatus === "payment-pending") {
+        stageDetail = "Your consultation is complete and your onboarding fee is currently pending.";
+      } else if (session.crmStatus === "follow-up") {
+        stageDetail = "Your consultation has been completed and our senior advisory team is following up on your application.";
+      }
+
       const alreadyDoneGreeting =
         `Hello ${candidateDisplayName}! Welcome back to The Migration School (TMS Visa) 🇦🇺.\n\n` +
-        `Your consultation has already been completed and your file is in progress. How can our team assist you today? Feel free to ask any question!`;
+        `${stageDetail} How can our team assist you today? Feel free to ask any question!`;
 
       await sendTextMessage(session.phone, alreadyDoneGreeting);
       return { replyText: alreadyDoneGreeting, step: "MEETING_COMPLETED" };
@@ -2541,6 +2741,15 @@ export async function processIncomingWhatsAppMessage(params: {
         lowerText.includes("call")));
 
   if (isAskingMeetLink) {
+    const isMeetingDone =
+      session.meetingCompleted === true ||
+      session.meetingStatus === "completed" ||
+      session.currentStep === "MEETING_COMPLETED" ||
+      session.crmStatus === "follow-up" ||
+      session.crmStatus === "sales" ||
+      session.crmStatus === "payment-pending" ||
+      session.crmStatus === "document-pending";
+
     if (isMeetingDone) {
       const alreadyDoneMsg =
         `Hello ${session.name || "there"}! 👋\n\n` +
@@ -2566,6 +2775,14 @@ export async function processIncomingWhatsAppMessage(params: {
         `*(Tap the link above at your scheduled time to join the call. Please have your CV ready!)* 🇦🇺`;
       await sendTextMessage(session.phone, meetReply);
       return { replyText: meetReply, step: "BOOKED" };
+    }
+
+    if (isCrmCandidate) {
+      const crmDeskMsg =
+        `Hello ${session.name || "there"}! 👋\n\n` +
+        `Our senior consultation desk is managing your file (Status: ${session.crmStatus || "Active"}). Our team will connect with you directly. Feel free to ask any questions right here! 🇦🇺`;
+      await sendTextMessage(session.phone, crmDeskMsg);
+      return { replyText: crmDeskMsg, step: session.currentStep };
     }
 
     // Candidate has NOT booked a meeting yet -> DO NOT send the meeting link.

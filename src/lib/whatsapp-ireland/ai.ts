@@ -143,14 +143,24 @@ IDENTITY:
 - Email Address: ${session.email || "Not shared yet"}
 - Country of Residence: ${session.countryName} (${session.timeZoneLabel})
 
-VISA INTEREST:
-- Destination of Interest: Ireland 🇮🇪
-- Target Visa Pathway: Ireland Employer Sponsored Work Visa — Critical Skills Employment Permit (CSEP) & General Employment Permit (GEP)
+CRM LIFECYCLE & PIPELINE STAGE:
+- CRM Pipeline Status: ${session.crmStatus || (session.meetingCompleted ? "follow-up" : "new-lead")}
+- Assigned Counselor / Case Manager: ${session.crmAssignedToName || "TMS Ireland Migration Desk"}
 - Current Funnel Step: ${session.currentStep}
 - Meeting Lifecycle Status: ${session.meetingStatus || (session.bookedSlot ? "booked" : "none")}
+- Payment Status: ${session.paymentPending ? "Pending (€300 Initial Milestone)" : "Settled / In Progress"}
+- Document Status: ${session.documentPending ? "Pending Document Collection" : "In Review"}
+- Scheduled Callback: ${session.crmCallbackDate || "None"}
+- CRM Team Notes: ${session.crmNotes && session.crmNotes.length > 0 ? session.crmNotes.slice(-3).join(" | ") : "None"}
 - Info Email Sent: ${session.infoEmailSentAt ? "Yes ✅" : "No"}
 - CV Received: ${session.cvReceivedAt ? `Yes ✅ (${new Date(session.cvReceivedAt).toLocaleDateString()})` : "Not received yet"}
 - CV File: ${session.cvFileName || "None"}
+
+VISA INTEREST:
+- Destination of Interest: Ireland 🇮🇪
+- Target Visa Pathway: Ireland Employer Sponsored Work Visa — Critical Skills Employment Permit (CSEP) & General Employment Permit (GEP)
+- Known Occupation: ${session.occupation || (session.occupations && session.occupations.length > 0 ? session.occupations.join(", ") : "Not specified yet")}
+- Work Experience: ${session.yearsExperience || "Not specified yet"}
 
 FINANCIAL OVERVIEW FOR IRELAND (ACCURATE):
 - Irish Employer Pays (100% covered by employer):
@@ -214,15 +224,95 @@ INQUIRED OCCUPATION MATCH:
 `;
   }
 
-  if (session.bookedSlot) {
+  const ACTIVE_CRM_STATUSES = [
+    "meeting-scheduled",
+    "follow-up",
+    "sales",
+    "payment-pending",
+    "document-pending",
+    "call-back",
+  ];
+  const isCrmCandidate =
+    (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
+    session.meetingCompleted === true ||
+    session.meetingStatus === "completed";
+
+  if (session.crmStatus === "meeting-scheduled" || session.bookedSlot) {
     contextBlock += `
 ACTIVE CONFIRMED CONSULTATION:
-- Date: ${session.bookedSlot.date}
-- Candidate Local Time: ${session.bookedSlot.candidateTimeLabel}
+- Date: ${session.bookedSlot?.date || "Scheduled in CRM"}
+- Candidate Local Time: ${session.bookedSlot?.candidateTimeLabel || "Scheduled time"}
 - Consultant: TMS Visa Senior Ireland Migration Expert
-- Status: ${session.meetingStatus || "booked"}
-- TIMEZONE RULE: Always state candidate's local time as ${session.bookedSlot.candidateTimeLabel}. Do NOT mention IST to international candidates.
+- Status: Confirmed Booked
+- CRITICAL INSTRUCTION: The candidate ALREADY has their consultation scheduled! Congratulate them on taking the first step. Under NO circumstances ask them to book or send CV right now.
 `;
+  } else if (session.crmStatus === "sales") {
+    contextBlock += `
+ENROLLED CLIENT (SALES / CASE MANAGER ASSIGNED):
+- Status: Officially Enrolled Candidate in Ireland Employer Sponsored Program
+- Dedicated Case Manager: Active
+- CRITICAL INSTRUCTION: Treat candidate as an enrolled client. Assist them warmly with any questions about their CV marketing to Irish employers, interview preparation, or document verification.
+`;
+  } else if (session.crmStatus === "payment-pending") {
+    contextBlock += `
+PAYMENT PENDING (€300 INITIAL MILESTONE FEE):
+- Status: Consultation Complete, €300 Initial Milestone Fee Pending
+- CRITICAL INSTRUCTION: Candidate has completed consultation and has pending enrollment fee. Answer questions about invoice, payment options, what is included (dedicated Case Manager, European CV revamp, free weekly English communication coaching), and the 100% money-back guarantee.
+`;
+  } else if (session.crmStatus === "document-pending") {
+    contextBlock += `
+DOCUMENT COLLECTION STAGE:
+- Status: Enrolled, Pending Document Verification
+- Required Candidate Documents (Only 4): 1. Passport Copy, 2. Education Certificates, 3. Reference Letters (minimum 2 years experience), 4. Medical Fitness Certificate.
+- CRITICAL INSTRUCTION: Answer document submission questions clearly. Emphasize that candidate only needs to provide these 4 simple documents, and TMS handles all company/employer filings.
+`;
+  } else if (session.crmStatus === "call-back") {
+    contextBlock += `
+SCHEDULED CALLBACK:
+- Status: Callback requested (${session.crmCallbackDate || "Scheduled soon"})
+- CRITICAL INSTRUCTION: Acknowledge that our senior consultation desk has a scheduled callback with them. Answer any quick questions they have politely.
+`;
+  } else if (session.crmStatus === "follow-up" || session.meetingCompleted) {
+    contextBlock += `
+CONSULTATION COMPLETED (POST-MEETING FOLLOW-UP):
+- Status: 1-on-1 Consultation Already Completed
+- CRITICAL INSTRUCTION: The 1-on-1 consultation has ALREADY been completed! Under NO circumstances offer, prompt, or mention booking or rescheduling a meeting. Candidate is in post-consultation follow-up. Answer whatever specific question they asked directly. Do NOT repeat robotic onboarding or CV requests.
+`;
+  }
+
+  // Inject last 6 messages from conversation history for full context without token bloat
+  if (session.conversationHistory && session.conversationHistory.length > 0) {
+    const recentHistory = session.conversationHistory.slice(-6);
+    contextBlock += `
+RECENT CONVERSATION HISTORY (Last ${recentHistory.length} messages):
+${recentHistory.map((h, i) => `  [${i + 1}] ${h.role === "candidate" ? "CANDIDATE" : "TMS BOT"}: "${h.message.slice(0, 140)}"`).join("\n")}
+`;
+  }
+
+  const nameSalutation = session.name && session.name !== "Candidate" ? ` ${session.name}` : "";
+
+  // Check if candidate asks what documents to send
+  const isAskingWhatToSend =
+    lowerMsg.includes("send more") ||
+    lowerMsg.includes("what more") ||
+    lowerMsg.includes("what can i send") ||
+    lowerMsg.includes("what else can i send") ||
+    lowerMsg.includes("what documents") ||
+    lowerMsg.includes("which documents") ||
+    lowerMsg.includes("doc list") ||
+    lowerMsg.includes("documents needed") ||
+    lowerMsg.includes("what to send");
+
+  if (isAskingWhatToSend) {
+    return sanitizeFinalResponse(
+      `Hi${nameSalutation}! For your Ireland Employer Sponsored Work Visa, you only need to provide 4 simple documents: 🇮🇪📄\n\n` +
+      `1️⃣ **Updated CV / Resume** (Word or PDF)\n` +
+      `2️⃣ **Valid Passport Copy** (Front & back photo pages)\n` +
+      `3️⃣ **Work Reference Letters** (Proving 2+ years of relevant experience)\n` +
+      `4️⃣ **Educational Certificates** (Degree or Diploma certificate)\n\n` +
+      `💡 *Note:* No English test (PTE/IELTS) is required for Ireland! You can upload your documents right here on WhatsApp.`,
+      session
+    );
   }
 
   // Check FAQ Fallbacks first
@@ -241,6 +331,18 @@ ACTIVE CONFIRMED CONSULTATION:
 You are communicating directly with candidates on WhatsApp about moving to Ireland on an Employer Sponsored Work Visa (Critical Skills Employment Permit / General Employment Permit).
 
 STRICT OPERATIONAL RULES:
+0. MANDATE FOR ACTIVE CRM CANDIDATES (${session.crmStatus || "NEW"}):
+${
+  isCrmCandidate
+    ? `- CRITICAL MANDATE: This candidate is an EXISTING CRM CANDIDATE with status "${session.crmStatus || "Active In CRM"}".
+- All initial intake steps (asking for email, sending info brochures, scheduling/holding consultations) HAVE ALREADY BEEN FULLY COMPLETED by our human team!
+- UNDER NO CIRCUMSTANCES ask candidate for their email address. We already have it in CRM!
+- UNDER NO CIRCUMSTANCES ask or prompt them to book a consultation meeting or schedule a call.
+- UNDER NO CIRCUMSTANCES ask "Would you like to schedule a consultation" or suggest booking open weekend slots.
+- UNDER NO CIRCUMSTANCES ask "What is your occupation and years of experience" as if they are a new stranger.
+- Directly answer whatever question or message they sent, tailored to their current CRM file status (Assigned Counselor: ${session.crmAssignedToName || "Senior Ireland Counselor"}).`
+    : `- If the candidate has not booked a consultation yet, guide them to review eligibility and choose a weekend slot.`
+}
 1. ALWAYS stay in character as Aria. Never refer to yourself as an AI or language model.
 2. DESTINATION: Always talk about Ireland (Dublin, Cork, Galway, Limerick). Currency is Euros (€).
 3. FEES: Total €1,000. Milestone 1 is €300 upon agreement (covers CV makeover, Case Manager, FREE English communication coaching, FREE Interview Prep & booking interviews). Milestone 2 is €700 ONLY after visa approval and flight tickets are in hand! Irish Employer covers: €1,000 work permit (DETE) + €60 visa processing fee + all government costs + flight tickets.
@@ -256,8 +358,14 @@ STRICT OPERATIONAL RULES:
 13. OCCUPATION ELIGIBILITY (3-WAY RULE — CRITICAL):
    - If occupation is on CSOL (Critical Skills list) → CSEP permit. Timeline 3-4 months. Stamp 4 PR after 2 years. Celebrate with the candidate! 🎉
    - If occupation is NOT on CSOL but NOT on IOL → GEP (General Employment Permit). Timeline 4-5 months. Also eligible!
-   - If occupation is on IOL (Ineligible list) → Cannot get a work permit. Inform professionally and suggest booking a consultation to explore exceptions.
+   - If occupation is on IOL (Ineligible list) → Cannot get a work permit. Inform professionally and suggest alternative paths.
    - MINIMUM EXPERIENCE: Candidate must have at least 2 years of experience in their occupation. Always mention this requirement when discussing eligibility.
+14. STRICT ANTI-REPETITION MANDATE & CONVERSATION AWARENESS:
+   - Review candidate's query and recent messages!
+   - If the bot already described the file status or requested CV, DO NOT REPEAT that message!
+   - If candidate asks "what can I send more", "what else can I send", or asks what documents are needed:
+     Tell them clearly: Candidate provides ONLY 4 simple documents: Updated CV, Passport copy, Work reference letters, Educational certificates.
+   - Never get stuck repeating the same template loop. Always answer the candidate's exact question directly!
 
 ${contextBlock}
 
@@ -304,7 +412,9 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
         `• **Requirement:** Minimum 2 years of relevant experience in your field\n` +
         `• **Employer covers:** €1,000 work permit fee + €60 visa fee + flight tickets! ✈️\n` +
         `• **Candidate fee:** €300 to start (CV makeover, Case Manager, FREE English coaching & Interview Prep), €700 only after visa & flights in hand\n\n` +
-        `Would you like to schedule a free 1-on-1 consultation with our Senior Ireland Migration Expert this weekend?`,
+        (isCrmCandidate
+          ? `Our team is actively managing your file (Status: ${session.crmStatus || "In Progress"}). Please let us know if you have any questions or documents to update!`
+          : `Would you like to schedule a free 1-on-1 consultation with our Senior Ireland Migration Expert this weekend?`),
         session
       );
     }
@@ -316,7 +426,9 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
         `• **Requirement:** Minimum 2 years of relevant work experience\n` +
         `• **Employer covers:** Work permit fees, visa processing, and flight tickets! ✈️\n` +
         `• **TMS Support:** European CV makeover, Case Manager, FREE English communication coaching & employer matching\n\n` +
-        `Would you like to book a free 1-on-1 consultation with our Ireland specialist to assess your profile?`,
+        (isCrmCandidate
+          ? `Our team is actively managing your file (Status: ${session.crmStatus || "In Progress"}). Please let us know if you have any questions or documents to update!`
+          : `Would you like to book a free 1-on-1 consultation with our Ireland specialist to assess your profile?`),
         session
       );
     }
@@ -325,7 +437,9 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
       return sanitizeFinalResponse(
         `Thank you for reaching out! 🇮🇪 The title **"${occEligibility.role}"** is currently on Ireland's Ineligible Occupations List (IOL), meaning employment permits cannot be issued directly under this exact title.\n\n` +
         `However, many candidates qualify under related eligible occupations or specific exemptions depending on their exact duties, degree, and background.\n\n` +
-        `We recommend booking a free 1-on-1 session with our Senior Ireland Migration Expert to evaluate alternative eligible titles and review your CV. Would you like to view open weekend slots?`,
+        (isCrmCandidate
+          ? `Your assigned counselor is reviewing related eligible classifications for your background. Please feel free to message any questions or additional details here anytime!`
+          : `We recommend booking a free 1-on-1 session with our Senior Ireland Migration Expert to evaluate alternative eligible titles and review your CV. Would you like to view open weekend slots?`),
         session
       );
     }
@@ -338,7 +452,9 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
       `• Minimum 2 years of relevant experience required.\n` +
       `• Initial milestone is just €300 upon agreement (covers CV makeover, Case Manager, FREE English coaching & Interview Prep).\n` +
       `• Fast-track to Stamp 4 PR after 2 years. 100% Money-Back Guarantee.\n\n` +
-      `Would you like to schedule a free 1-on-1 consultation with our Ireland expert this weekend?`,
+      (isCrmCandidate
+        ? `Our team is tracking your file (Status: ${session.crmStatus || "In Progress"}). Please let us know if you have any questions or documents to share!`
+        : `Would you like to schedule a free 1-on-1 consultation with our Ireland expert this weekend?`),
       session
     );
   }
@@ -350,7 +466,9 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
     `• €300 includes: European CV makeover, Case Manager, FREE English coaching & FREE Interview Preparation.\n` +
     `• Candidate provides only 4 docs: Passport, Education docs, Reference letters, Medical cert (minimum 2 years experience required).\n` +
     `• Fast-track Stamp 4 Permanent Residency after 2 years. 100% Money-Back Guarantee.\n\n` +
-    `Reply with your CV or ask any question to get started!`,
+    (isCrmCandidate
+      ? `Our team is actively managing your file (Status: ${session.crmStatus || "In Progress"}). Please feel free to ask any questions or share any updates right here!`
+      : `Reply with your CV or ask any question to get started!`),
     session
   );
 }

@@ -187,7 +187,8 @@ VISA INTEREST:
 - Candidate Goals: ${session.candidateGoals || "Not specified"}
 
 PROFESSIONAL BACKGROUND:
-- Known Occupation: ${session.occupation || "Not specified yet"}${session.occupationSector ? ` (Sector: ${session.occupationSector})` : ""}
+- Known Occupation: ${session.occupation || (session.occupations && session.occupations.length > 0 ? session.occupations.join(", ") : "Not specified yet")}${session.occupationSector ? ` (Sector: ${session.occupationSector})` : ""}
+- All Identified Occupations: ${session.occupations && session.occupations.length > 0 ? session.occupations.join(", ") : session.occupation || "None"}
 - Current Job Title: ${session.currentJobTitle || "Not specified"}
 - Current Employer: ${session.currentEmployer || "Not specified"}
 - Work Experience: ${session.yearsExperience || "Not specified yet"}
@@ -197,9 +198,15 @@ PROFESSIONAL BACKGROUND:
 - English Language Status: ${session.englishTestStatus || "Preparing with TMS / Pending"}
 - Passport Status: ${session.hasPassport === true ? "Has valid passport ✅" : session.hasPassport === false ? "No passport ❌" : "Not specified"}
 
-FUNNEL STATUS:
+CRM LIFECYCLE & PIPELINE STAGE:
+- CRM Pipeline Status: ${session.crmStatus || (session.meetingCompleted ? "follow-up" : "new-lead")}
+- Assigned Counselor / Case Manager: ${session.crmAssignedToName || "TMS Senior Migration Desk"}
 - Current Funnel Step: ${session.currentStep}
 - Meeting Lifecycle Status: ${session.meetingStatus || (session.bookedSlot ? "booked" : "none")}
+- Payment Status: ${session.paymentPending ? "Pending (Awaiting AUD 300 Initial Service Fee)" : "Settled / In Progress"}
+- Document Status: ${session.documentPending ? "Pending Document Collection" : "In Review"}
+- Scheduled Callback: ${session.crmCallbackDate || "None"}
+- CRM Team Notes: ${session.crmNotes && session.crmNotes.length > 0 ? session.crmNotes.slice(-3).join(" | ") : "None"}
 - Info Email Sent: ${session.infoEmailSentAt ? "Yes ✅" : "No"}
 - CV Received: ${session.cvReceivedAt ? `Yes ✅ (${new Date(session.cvReceivedAt).toLocaleDateString()})` : "Not received yet"}
 - CV File: ${session.cvFileName || "None"}
@@ -215,15 +222,53 @@ INQUIRED OCCUPATION MATCH:
 `;
   }
 
-  if (session.bookedSlot) {
+  // Stage-Specific Instructions based on Candidate's exact CRM Stage
+  if (session.crmStatus === "meeting-scheduled" || session.bookedSlot) {
     contextBlock += `
 ACTIVE CONFIRMED CONSULTATION:
-- Date: ${session.bookedSlot.date}
-- Candidate Local Time: ${session.bookedSlot.candidateTimeLabel}
+- Date: ${session.bookedSlot?.date || "Scheduled in CRM"}
+- Candidate Local Time: ${session.bookedSlot?.candidateTimeLabel || "Scheduled time"}
 - Consultant: TMS Visa Senior Migration Expert
-- Status: ${session.meetingStatus || "booked"}
-- Rescheduled Count: ${session.meetingRescheduledCount || 0} times
-- TIMEZONE RULE: Always state the candidate's time as ${session.bookedSlot.candidateTimeLabel}. Do NOT mention IST to international candidates.
+- Status: Confirmed Booked
+- CRITICAL INSTRUCTION: The candidate ALREADY has their consultation scheduled! Congratulate them on taking the first step. Answer any preparation questions they have (topics covered: CV evaluation across 691 occupations, employer matching process, 4-5 month timeline). Under NO circumstances ask them to book or send CV right now.
+`;
+  } else if (session.crmStatus === "sales") {
+    contextBlock += `
+ENROLLED CLIENT (SALES / CASE MANAGER ASSIGNED):
+- Status: Officially Enrolled Candidate in Australia Employer Sponsored Program
+- Dedicated Case Manager: Active
+- CRITICAL INSTRUCTION: Treat candidate as an enrolled client. Assist them warmly with any questions about their CV marketing to Australian employers, interview preparation, document verification, or free PTE classes.
+`;
+  } else if (session.crmStatus === "payment-pending") {
+    contextBlock += `
+PAYMENT PENDING (AUD 300 INITIAL MILESTONE FEE):
+- Status: Consultation Complete, AUD 300 Onboarding Fee Pending
+- CRITICAL INSTRUCTION: Candidate has completed consultation and has pending onboarding fee. Answer questions about invoice, payment options, what is included (dedicated Case Manager, Australian CV revamp, free weekly PTE coaching), and the 100% money-back guarantee terms.
+`;
+  } else if (session.crmStatus === "document-pending") {
+    contextBlock += `
+DOCUMENT COLLECTION STAGE:
+- Status: Onboarding in Progress — Awaiting Candidate Documents
+- CRITICAL INSTRUCTION: Candidate is submitting documents. If candidate asks what more they can send or what documents are needed ("what can I send more", "documents needed"):
+  Explain clearly that they can share:
+  1) Latest CV / Resume (PDF or Word)
+  2) Valid Passport (photo & address pages)
+  3) Experience Letters / Reference Letters / Relieving letters / recent payslips
+  4) Educational Degree / Diploma certificates
+  5) English scorecard (PTE/IELTS) if already taken (otherwise free PTE coaching is provided from day 1).
+`;
+  } else if (session.crmStatus === "call-back") {
+    contextBlock += `
+CALLBACK SCHEDULED:
+- Status: Telephonic Callback Scheduled${session.crmCallbackDate ? ` for ${session.crmCallbackDate}` : ""}
+- CRITICAL INSTRUCTION: Candidate is expecting a phone call from our counseling team. Answer their immediate chat questions politely and confirm an advisor will call them.
+`;
+  } else if (session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up") {
+    contextBlock += `
+CONSULTATION OUTCOME (FOLLOW-UP):
+- Status: Consultation Successfully Completed
+- Completed On: ${session.meetingCompletedAt ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
+- CRITICAL INSTRUCTION: The 1-on-1 consultation has ALREADY been completed! Under NO circumstances offer, prompt, or mention booking or rescheduling a meeting. Candidate is in post-consultation follow-up. Answer whatever specific question they asked directly. Do NOT repeat robotic onboarding or CV requests if they ask a question.
 `;
   } else if (session.meetingStatus === "canceled") {
     contextBlock += `
@@ -232,16 +277,6 @@ CONSULTATION CANCELLATION DETAILS:
 - Canceled At: ${session.meetingCanceledAt ? new Date(session.meetingCanceledAt).toISOString().split('T')[0] : "Recently"}
 - Reason: ${session.meetingCancellationReason || "Requested by candidate"}
 - CRITICAL INSTRUCTION: Candidate's meeting was cancelled. Remind candidate that their consultation was cancelled and encourage them to reschedule for an upcoming weekend in their local time.
-`;
-  }
-
-  if (session.meetingCompleted || session.meetingStatus === "completed") {
-    contextBlock += `
-CONSULTATION OUTCOME:
-- Status: Consultation Successfully Completed
-- Completed On: ${session.meetingCompletedAt ? new Date(session.meetingCompletedAt).toISOString().split('T')[0] : "Recently"}
-- CRITICAL INSTRUCTION: The 1-on-1 consultation has ALREADY been completed! Under NO circumstances offer, prompt, or mention booking or rescheduling a meeting. Inform candidate that their file is in onboarding/documentation review.
-- Enrollment Payment Status: ${session.paymentPending ? "Pending (Awaiting AUD 300 Initial Service Fee)" : "Settled / In Progress"}
 `;
   }
 
@@ -266,6 +301,20 @@ CANDIDATE LOCAL TIMEZONE & CONSULTATION HOURS:
   // Dynamically analyze candidate message intent, tone, sentiment, and inject learned knowledge directives
   const insights = getCandidateMessageInsights({ message: rawMsg, session });
 
+  // Check if candidate is already in active CRM stages
+  const ACTIVE_CRM_STATUSES = [
+    "meeting-scheduled",
+    "follow-up",
+    "sales",
+    "payment-pending",
+    "document-pending",
+    "call-back",
+  ];
+  const isCrmCandidate =
+    (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
+    session.meetingCompleted === true ||
+    session.meetingStatus === "completed";
+
   const SYSTEM_PROMPT = `
 You are Aria, Senior Registered Migration Counselor at The Migration School (TMS Visa).
 You speak like a knowledgeable, warm, empathetic, and authoritative human visa expert.
@@ -277,6 +326,19 @@ ${contextBlock}
 ${insights.learnedDirectives}
 
 RESPONSE DIRECTIVES:
+0. MANDATE FOR ACTIVE CRM CANDIDATES (${session.crmStatus || "NEW"}):
+${
+  isCrmCandidate
+    ? `- CRITICAL MANDATE: This candidate is an EXISTING CRM CANDIDATE with status "${session.crmStatus || "Active In CRM"}".
+- All intake steps (asking for email, sending info brochures, scheduling/holding consultations) HAVE ALREADY BEEN FULLY COMPLETED by our human team!
+- UNDER NO CIRCUMSTANCES ask candidate for their email address.
+- UNDER NO CIRCUMSTANCES ask or prompt them to book a consultation meeting or schedule a call.
+- UNDER NO CIRCUMSTANCES ask "Want to book a free weekend consultation" or "Would you like to book a consultation".
+- UNDER NO CIRCUMSTANCES ask "What is your occupation and years of experience" as if they are a new stranger.
+- Directly answer whatever question or message they sent, tailored to their current CRM file status.`
+    : `- If the candidate has not booked a consultation yet, guide them to review eligibility and choose a weekend slot from the menu.`
+}
+
 1. STRICT ANONYMITY — ZERO PERSONAL STAFF NAMES:
 - NEVER tell the candidate any individual employee or person names (NEVER say "Sumit", "Abhay", or any person's name).
 - If the candidate explicitly asks for personal names or asks about Sumit, Abhay, or staff names, explain that under institutional data protection and compliance protocol, personal employee names are not shared.
@@ -358,6 +420,19 @@ RESPONSE DIRECTIVES:
 - ABSOLUTE TIMEZONE MANDATE: Candidate is located in ${session.countryName}. NEVER mention "IST" or "1-9 PM" unless the candidate is located in India! Always and only refer to their consultation timings as "${candWindow.displayWindow}".
 - ABSOLUTE MEETING LINK PRIVACY: NEVER send or offer any Google Meet link (such as meet.google.com/...) unless the candidate has already booked their slot (meetingStatus: "booked"). Unbooked candidates MUST select a slot first from the menu.
 - When a candidate asks to book, schedule, or discusses consultation timing, tell them they can choose their preferred weekend date and 1-hour slot directly from our interactive WhatsApp menu. NEVER ask the candidate to reply with a date or time in plain text!
+
+12. STRICT ANTI-REPETITION MANDATE & CONVERSATION AWARENESS:
+- Review RECENT CONVERSATION HISTORY before answering!
+- If the bot's last message already stated "Your consultation is complete, and your file is currently in onboarding" or asked for CV, DO NOT REPEAT THAT SAME PARAGRAPH OR TEMPLATE!
+- If candidate says "Now want can I send more", "what can I send", "what else can I send", or asks about documents:
+  Answer their question directly and list the exact documents:
+  * Updated CV / Resume (Word or PDF format)
+  * Valid Passport copy (front & back photo pages)
+  * Educational degree / diploma certificates
+  * Work experience letters or recent payslips (2+ years)
+  * English scorecard (PTE/IELTS) if already taken (otherwise free weekly PTE coaching starts from day 1).
+- If candidate sends a short greeting like "He'll", "hello", "hi", acknowledge it warmly and ask how you can specifically help them today without repeating long canned speeches.
+- Never get stuck repeating the same message loop. Always advance the conversation helpfully!
 `;
 
   // 3. Attempt Remote LLM Inference (Groq, Gemini, OpenAI) with 6s timeout
@@ -1492,6 +1567,14 @@ function generateHumanVisaExpertReply(params: {
     );
   }
 
+  const isCrmLead =
+    (session.crmStatus &&
+      ["meeting-scheduled", "follow-up", "sales", "payment-pending", "document-pending", "call-back"].includes(
+        session.crmStatus.toLowerCase().trim()
+      )) ||
+    session.meetingCompleted === true ||
+    session.meetingStatus === "completed";
+
   // 22F. What is TMS / About Company
   if (
     lower.includes("what is tms") ||
@@ -1508,7 +1591,9 @@ function generateHumanVisaExpertReply(params: {
       `• All visas lodged by licensed **MARN Migration Agents**\n` +
       `• Zero rejection track record\n` +
       `• AUD 300 to start; AUD 700 only after visa + flight in hand\n\n` +
-      `Free Google Meet consultation this weekend?`
+      (isCrmLead
+        ? `Feel free to ask any questions about our credentials or your Australian migration file right here!`
+        : `Free Google Meet consultation this weekend?`)
     );
   }
 
@@ -1527,6 +1612,12 @@ function generateHumanVisaExpertReply(params: {
     lower === "go ahead" ||
     lower === "how to proceed"
   ) {
+    if (isCrmLead) {
+      return (
+        `Great${nameSalutation}! Your file is currently active with our migration team (${session.crmStatus || "in progress"}). 🇦🇺\n\n` +
+        `How can our counseling desk assist you today? Feel free to ask any question about your file, employer matching, or documents!`
+      );
+    }
     return (
       `Great${nameSalutation}! Here's how to proceed: 🇦🇺🚀\n\n` +
       `1️⃣ Share your **occupation & years of experience** — I'll check your ANZSCO code\n` +
@@ -1543,7 +1634,9 @@ function generateHumanVisaExpertReply(params: {
       `• Min salary: **AUD $76,500/year** + super\n` +
       `• Employer covers $6,000 embassy + $330 permit + flight\n` +
       `• Direct PR (Subclass 186) after 2 years\n\n` +
-      `Want to book a free weekend consultation to review your CV?`
+      (isCrmLead
+        ? `Our team is reviewing your profile. Feel free to ask any questions about your file right here!`
+        : `Want to book a free weekend consultation to review your CV?`)
     );
   }
 
@@ -1554,11 +1647,35 @@ function generateHumanVisaExpertReply(params: {
     }
   }
 
-  // 24. If consultation is completed and candidate asks about next steps
-  if (session.meetingCompleted || session.meetingStatus === "completed") {
+  // 23b. If candidate asks what more they can send or which documents to provide
+  const isAskingWhatToSend =
+    lower.includes("send more") ||
+    lower.includes("what more") ||
+    lower.includes("what can i send") ||
+    lower.includes("what else can i send") ||
+    lower.includes("what documents") ||
+    lower.includes("which documents") ||
+    lower.includes("doc list") ||
+    lower.includes("documents needed") ||
+    lower.includes("what to send");
+
+  if (isAskingWhatToSend) {
     return (
-      `Hi${nameSalutation}! 🇦🇺 Your profile is in onboarding review — our team is matching your CV to active employer vacancies (AUD $76,500+ salaries).\n\n` +
-      `Questions on documentation, agreement terms, or PTE prep? Just ask!`
+      `Hi${nameSalutation}! Here are the essential documents you can share with our review team: 🇦🇺📄\n\n` +
+      `1️⃣ **Updated CV / Resume** (Word or PDF format)\n` +
+      `2️⃣ **Valid Passport Copy** (Photo & address pages)\n` +
+      `3️⃣ **Work Experience Proof** (Relieving letters, reference letters, or recent payslips)\n` +
+      `4️⃣ **Educational Certificates** (Degree or Diploma transcripts)\n` +
+      `5️⃣ **English Scorecard** (PTE/IELTS) if already taken (otherwise our free weekly PTE classes begin right away!)\n\n` +
+      `You can upload any of these files right here in WhatsApp!`
+    );
+  }
+
+  // 24. If consultation is completed and candidate asks about next steps
+  if (session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up") {
+    return (
+      `Hi${nameSalutation}! 🇦🇺 Your profile is in active follow-up with our consultation team.\n\n` +
+      `Feel free to share any questions on documentation, employer matching, or your 4–5 month roadmap — our team is here to assist!`
     );
   }
 
@@ -1570,6 +1687,13 @@ function generateHumanVisaExpertReply(params: {
   }
 
   // 26. General human visa expert answer for open-ended or out-of-context questions
+  if (isCrmLead) {
+    return (
+      `Hi${nameSalutation}! 👋 Your profile is currently active in our CRM (${session.crmStatus || "in progress"}). 🇦🇺\n\n` +
+      `How can our team assist you with your Australia migration file today? Feel free to ask any question!`
+    );
+  }
+
   return (
     `Hi${nameSalutation}! 👋 I'm **Aria** from **TMS Visa** 🇦🇺 — specializing in Australia Employer Sponsored Work Visas (691 occupations, min AUD $76,500/year).\n\n` +
     `• Employer covers: $6,000 embassy + $330 permit + flight\n` +

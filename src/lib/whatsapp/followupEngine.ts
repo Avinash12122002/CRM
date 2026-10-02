@@ -12,6 +12,15 @@ export interface FollowupRunResult {
   details?: Record<string, unknown>;
 }
 
+export const EXCLUDED_CRM_FOLLOWUP_STATUSES = [
+  "meeting-scheduled",
+  "follow-up",
+  "sales",
+  "payment-pending",
+  "document-pending",
+  "call-back",
+];
+
 /**
  * Core WhatsApp Automated Engine:
  * 1. Executes due 10-Minute Consultation Prompts (clearing consultationPromptDueAt).
@@ -100,6 +109,30 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
       .toArray()) as unknown as WhatsAppSession[];
 
     for (const session of activeFollowupSessions) {
+      // 1. Strict CRM Status Check: Do NOT send 7-day automated follow-ups to candidates already in CRM pipeline:
+      // (meeting-scheduled, follow-up, sales, payment-pending, document-pending, call-back)
+      const cleanPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+      const lead = session.leadId
+        ? await db.collection("leads").findOne({ id: session.leadId })
+        : await db.collection("leads").findOne({
+            $or: [
+              { phone: cleanPhone },
+              { phone: `+${cleanPhone}` },
+              { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+            ],
+          });
+
+      const effectiveCrmStatus = (lead?.status || session.crmStatus || "").toLowerCase().trim();
+      if (lead && EXCLUDED_CRM_FOLLOWUP_STATUSES.includes(effectiveCrmStatus)) {
+        // Candidate is actively in CRM pipeline - cancel 7-day automated WhatsApp follow-ups
+        await updateSession(db, session.phone, {
+          nextFollowupAt: undefined,
+          crmStatus: lead.status,
+          updatedAt: now,
+        });
+        continue;
+      }
+
       // If candidate already has an active booked slot and is NOT in AWAITING_CV, skip reminders
       if (session.bookedSlot && session.currentStep !== "AWAITING_CV") {
         continue;
