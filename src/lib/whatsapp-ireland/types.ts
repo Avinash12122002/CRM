@@ -81,6 +81,8 @@ export interface WhatsAppSession {
   crmCallbackDate?: string;
   crmMeetingDetails?: any;
   documentPending?: boolean;
+  existingLeadNotified?: boolean; // Set to true after "we already have your details" message sent
+  notifiedExistingLeadAt?: Date;
 
   // Extended Candidate Profile (auto-extracted from conversation)
   currentJobTitle?: string;       // e.g. "Software Engineer", "Nurse", "Chef"

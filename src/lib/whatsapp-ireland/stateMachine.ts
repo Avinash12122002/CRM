@@ -426,35 +426,66 @@ export async function processIncomingWhatsAppMessage(params: {
   const lowerText = rawText.toLowerCase();
 
   // =========================================================================
-  // --- EXISTING LEAD DUPLICATE CHECK ---
-  // If this phone number already exists as a CRM lead with a meaningful status,
-  // send a "we already have your details" message and skip the bot flow.
-  // Only triggers on first-ever message (new session just created < 60s ago).
+  // --- EXISTING LEAD DUPLICATE CHECK (IRELAND) ---
+  // When an incoming message arrives, first check if this number / lead exists in the database.
+  // If the candidate's phone number exists in CRM `leads`:
+  // 1. If not yet notified, send: "We already have your details in our system. Our team will shortly call you..."
+  // 2. Treat as an existing candidate (never ask for email, never prompt to book meeting).
+  // If they DO NOT exist in the database, proceed with the existing process for new leads.
   // =========================================================================
-  const isNewIrelandSession =
-    session.createdAt &&
-    new Date().getTime() - new Date(session.createdAt).getTime() < 60_000;
+  const last10 = cleanPhone.slice(-10);
+  const phoneQueries: any[] = [
+    { phone: cleanPhone },
+    { phone: `+${cleanPhone}` },
+    { phone: Number(cleanPhone) },
+  ];
+  if (last10.length === 10) {
+    phoneQueries.push(
+      { phone: last10 },
+      { phone: `+91${last10}` },
+      { phone: Number(last10) },
+      { phone: { $regex: `${last10}$` } }
+    );
+  }
+  if (session.leadId) {
+    phoneQueries.push({ id: session.leadId });
+  }
 
-  if (isNewIrelandSession && session.leadId) {
-    const existingCrmLead = await db.collection("leads").findOne({ id: session.leadId });
-    const advancedStatuses = [
-      "meeting-scheduled",
-      "follow-up",
-      "sales",
-      "payment-pending",
-      "document-pending",
-      "call-back",
-    ];
-    if (existingCrmLead && advancedStatuses.includes(existingCrmLead.status)) {
-      const salutation =
-        session.name && session.name !== "Candidate"
-          ? `Hi ${session.name}! 👋`
-          : "Hi there! 👋";
+  const existingCrmLead = await db.collection("leads").findOne({ $or: phoneQueries });
+
+  if (existingCrmLead) {
+    // Keep session leadId and crmStatus in sync
+    if (!session.leadId || session.crmStatus !== existingCrmLead.status) {
+      session.leadId = existingCrmLead.id;
+      session.crmStatus = existingCrmLead.status;
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanPhone },
+        { $set: { leadId: existingCrmLead.id, crmStatus: existingCrmLead.status, updatedAt: new Date() } }
+      );
+    }
+
+    // If not yet notified that they already exist in CRM, notify them immediately
+    if (!session.existingLeadNotified) {
+      const candidateDisplayName =
+        session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+          ? session.name
+          : existingCrmLead.name && existingCrmLead.name !== "Candidate" && !existingCrmLead.name.toLowerCase().includes("test")
+            ? existingCrmLead.name
+            : "there";
+
       const duplicateMsg =
-        `${salutation}\n\n` +
+        `Hi ${candidateDisplayName}! 👋\n\n` +
         `We already have your details in our system. 📋\n\n` +
         `Our team will shortly call you to assist with your Ireland work visa enquiry. 🇮🇪\n\n` +
-        `If you have any urgent questions in the meantime, please feel free to message us here!`;
+        `If you have any urgent questions or updates in the meantime, please feel free to message us right here!`;
+
+      await updateSession(db, cleanPhone, {
+        existingLeadNotified: true,
+        notifiedExistingLeadAt: new Date(),
+        crmStatus: existingCrmLead.status,
+        leadId: existingCrmLead.id,
+      });
+
       await sendTextMessage(cleanPhone, duplicateMsg);
       return;
     }
@@ -471,8 +502,11 @@ export async function processIncomingWhatsAppMessage(params: {
     "call-back",
   ];
   const isCrmCandidate =
+    Boolean(existingCrmLead) ||
+    Boolean(session.existingLeadNotified) ||
     (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
     session.meetingCompleted === true ||
+    session.meetingStatus === "completed" ||
     session.currentStep === "MEETING_COMPLETED";
 
   if (isCrmCandidate) {
