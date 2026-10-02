@@ -118,7 +118,19 @@ export async function getAvailableWeekendSlots(params: {
     .project({ _id: 0, startTime: 1 })
     .toArray();
 
-  const bookedTimes = new Set(bookedSlots.map((s) => s.startTime));
+  const bookedWhatsAppSessions = await db
+    .collection("whatsapp_sessions")
+    .find({
+      "bookedSlot.date": meetingDate,
+      meetingStatus: { $in: ["booked", "rescheduled"] },
+    })
+    .project({ _id: 0, "bookedSlot.istTime": 1 })
+    .toArray();
+
+  const bookedTimes = new Set([
+    ...bookedSlots.map((s) => s.startTime),
+    ...bookedWhatsAppSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean),
+  ]);
 
   // Current time in IST to filter out past slots if booking for today
   const now = new Date();

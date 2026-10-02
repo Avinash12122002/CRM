@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       phone,
       name,
       email,
-      leadId,
+      leadId: leadId ? Number(leadId) : undefined,
     });
 
     if (!result.success) {

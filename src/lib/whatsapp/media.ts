@@ -244,7 +244,14 @@ export async function handleIncomingWhatsAppMedia(params: {
     }
 
     // Update session in whatsapp_sessions
-    const existingSession = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
+    const waPhoneFilter = {
+      $or: [
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+      ],
+    };
+    const existingSession = await db.collection("whatsapp_sessions").findOne(waPhoneFilter);
     const updateFields: Record<string, unknown> = {
       hasUploadedCv: true,
       cvReceivedAt: now,
@@ -258,7 +265,7 @@ export async function handleIncomingWhatsAppMedia(params: {
     }
 
     await db.collection("whatsapp_sessions").updateOne(
-      { phone: cleanPhone },
+      waPhoneFilter,
       { $set: updateFields }
     );
 

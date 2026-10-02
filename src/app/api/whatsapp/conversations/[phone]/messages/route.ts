@@ -311,16 +311,39 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { message } = body;
+    const { text, message, name } = body;
 
-    if (!message || typeof message !== "string" || !message.trim()) {
+    const { db } = await connectToDatabase();
+    const now = new Date();
+
+    if (name && typeof name === "string" && name.trim()) {
+      const trimmedName = name.trim();
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: cleanPhone },
+        { $set: { name: trimmedName, updatedAt: now } }
+      );
+      await db.collection("leads").updateOne(
+        {
+          $or: [
+            { phone: cleanPhone },
+            { phone: `+${cleanPhone}` },
+            { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+          ],
+        },
+        { $set: { name: trimmedName, updatedAt: now } }
+      );
+      if (!text && !message) {
+        return NextResponse.json({ success: true, name: trimmedName });
+      }
+    }
+
+    const msgToSend = (text || message || "").trim();
+    if (!msgToSend) {
       return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
     }
 
-    const trimmedMsg = message.trim();
-
     // 1. Dispatch WhatsApp message via official Meta Cloud API client (with skipLog: true so client.ts doesn't duplicate-log as bot)
-    const sendResult = await sendTextMessage(cleanPhone, trimmedMsg, { skipLog: true });
+    const sendResult = await sendTextMessage(cleanPhone, msgToSend, { skipLog: true });
 
     if (!sendResult.success) {
       return NextResponse.json(
@@ -329,16 +352,13 @@ export async function POST(
       );
     }
 
-    const { db } = await connectToDatabase();
-    const now = new Date();
-
     // 2. Log message as sender: "admin"
     await logWhatsAppMessage({
       db,
       phone: cleanPhone,
       sender: "admin",
       senderName: payload.name || "Admin",
-      text: trimmedMsg,
+      text: msgToSend,
       messageId: sendResult.messageId,
       createdAt: now,
     });
@@ -347,7 +367,7 @@ export async function POST(
     await db.collection("whatsapp_outgoing_logs").insertOne({
       phone: cleanPhone,
       recipientName: "Candidate",
-      message: trimmedMsg,
+      message: msgToSend,
       sentByName: payload.name || "Admin",
       sentById: payload.id,
       sentByRole: payload.role,
@@ -374,7 +394,7 @@ export async function POST(
               action: "whatsapp_message_sent",
               performedByName: payload.name || "Admin",
               timestamp: now,
-              details: `Admin replied on WhatsApp (+${cleanPhone}): "${trimmedMsg.slice(0, 100)}${trimmedMsg.length > 100 ? "..." : ""}"`,
+              details: `Admin replied on WhatsApp (+${cleanPhone}): "${msgToSend.slice(0, 100)}${msgToSend.length > 100 ? "..." : ""}"`,
             } as any,
           },
           $set: { updatedAt: now },
@@ -388,7 +408,7 @@ export async function POST(
         id: sendResult.messageId || `msg_${Date.now()}`,
         sender: "admin",
         senderName: payload.name || "Admin",
-        text: trimmedMsg,
+        text: msgToSend,
         msgType: "text",
         createdAt: now,
       },

@@ -166,22 +166,32 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
       console.warn("[WhatsApp Ireland Media] GridFS upload fallback warning:", gErr);
     }
 
+    const finalFileUrl = gridFsFileId ? `/api/chat/files/${gridFsFileId}` : relativePublicUrl;
+
     const fileRecord = {
       filename: safeFilename,
       mediaType,
       mimeType: media.mimeType,
       size: media.buffer.length,
       gridFsFileId,
-      publicUrl: relativePublicUrl,
+      publicUrl: finalFileUrl,
       receivedAt: now,
     };
 
     // 3. Update session in whatsapp_ireland_sessions
-    const existingSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanPhone });
+    const last10 = cleanPhone.slice(-10);
+    const waPhoneFilter = {
+      $or: [
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+      ],
+    };
+    const existingSession = await db.collection("whatsapp_ireland_sessions").findOne(waPhoneFilter);
     const updateFields: Record<string, unknown> = {
       hasUploadedCv: true,
       cvReceivedAt: now,
-      cvFileUrl: relativePublicUrl,
+      cvFileUrl: finalFileUrl,
       cvFileName: safeFilename,
       nextFollowupAt: null,
       updatedAt: now,
@@ -191,7 +201,7 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
     }
 
     await db.collection("whatsapp_ireland_sessions").updateOne(
-      { phone: cleanPhone },
+      waPhoneFilter,
       {
         $push: { cvFiles: fileRecord as any },
         $set: updateFields,
@@ -199,7 +209,6 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
     );
 
     // 4. Update or link CRM Lead if exists
-    const last10 = cleanPhone.slice(-10);
     const phoneQueries: any[] = [
       { phone: cleanPhone },
       { phone: `+${cleanPhone}` },
@@ -233,7 +242,7 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
             } as any,
           },
           $set: {
-            salesDocument: relativePublicUrl,
+            salesDocument: finalFileUrl,
             cvFileName: safeFilename,
             interestedCountry: "Ireland",
             updatedAt: now,

@@ -65,8 +65,17 @@ export async function POST(req: NextRequest) {
     });
 
     // 3. Update WhatsApp session if exists
+    const last10 = cleanPhone.slice(-10);
+    const waPhoneFilter = {
+      $or: [
+        { phone: cleanPhone },
+        { phone: `+${cleanPhone}` },
+        ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+      ],
+    };
+
     await db.collection("whatsapp_ireland_sessions").updateOne(
-      { phone: cleanPhone },
+      waPhoneFilter,
       {
         $set: {
           lastOutboundMessage: trimmedMsg,
@@ -77,7 +86,6 @@ export async function POST(req: NextRequest) {
     );
 
     // 4. Update CRM lead history if lead matches candidate phone
-    const last10 = cleanPhone.slice(-10);
     const leadPhoneQueries: any[] = [
       { phone: cleanPhone },
       { phone: `+${cleanPhone}` },
