@@ -13,7 +13,7 @@ export interface SendWhatsAppInfoEmailParams {
 
 export const DEFAULT_INFO_EMAIL_SUBJECT = "Process-Australia Work Visa";
 
-export const DEFAULT_INFO_EMAIL_HTML = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222;max-width:760px;margin:0 auto;padding:12px 0;">
+export const DEFAULT_INFO_EMAIL_HTML = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.65;color:#222;max-width:760px;margin:0;padding:0;">
 
 <p style="margin:0 0 16px 0;">Dear {{CandidateName}},</p>
 
@@ -170,23 +170,27 @@ Our review team will give you a call once they will review your CV for next step
 Best Regards,
 </p>
 
-<div style="margin-top:16px;">
-<img src="cid:info-email-footer" alt="TMS – The Migration School" style="max-width:100%;height:auto;display:block;border:0;" />
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e5e7eb;font-size:13px;color:#555;line-height:1.6;">
+  <strong style="color:#222;">TMS – The Migration School</strong><br/>
+  Australia Work Visa Consultancy<br/>
+  <a href="https://tmsvisa.com" style="color:#0d6efd;text-decoration:none;" target="_blank">www.tmsvisa.com</a>
+  &nbsp;|&nbsp;
+  <a href="mailto:info@tmsvisa.com" style="color:#0d6efd;text-decoration:none;">info@tmsvisa.com</a>
 </div>
 
 </div>`;
 
 /**
- * Loads the official email attachments:
- * - Australia Eligible Occupation List PDF (downloadable)
- * - Footer image as CID inline attachment (renders as email signature, not a visible attachment)
+ * Loads the official email attachments.
+ * Only the Australia Eligible Occupation List PDF is attached.
+ * The footer is a pure HTML text signature — no image, no CID, no attachment.
  */
 export async function getOfficialInfoAttachments(): Promise<
-  { filename: string; content: Buffer; contentType: string; cid?: string }[]
+  { filename: string; content: Buffer; contentType: string }[]
 > {
-  const attachments: { filename: string; content: Buffer; contentType: string; cid?: string }[] = [];
+  const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
 
-  // 1. Occupation List PDF — downloadable attachment
+  // Occupation List PDF — the only attachment
   const occPaths = [
     path.join(process.cwd(), "public", "attachments", "Australia_Eligible_Occupation_List_691.pdf"),
     path.join(process.cwd(), "public", "attachment", "Australia_Eligible_Occupation_List_691.pdf"),
@@ -207,7 +211,7 @@ export async function getOfficialInfoAttachments(): Promise<
   }
 
   // Fallback to MongoDB GridFS if local file not found
-  if (attachments.filter(a => !a.cid).length === 0) {
+  if (attachments.length === 0) {
     try {
       const { connectToDatabase } = await import("@/lib/mongodb");
       const { getGridFSBucket } = await import("@/lib/gridfs");
@@ -232,29 +236,6 @@ export async function getOfficialInfoAttachments(): Promise<
     }
   }
 
-  // 2. Footer image — CID inline attachment
-  // CID embeds the image directly into the email body (like a signature).
-  // It does NOT appear as a downloadable attachment to recipients.
-  const footerPaths = [
-    path.join(process.cwd(), "public", "attachments", "info email footer.png"),
-    path.join(process.cwd(), "public", "attachment", "info email footer.png"),
-  ];
-  for (const footerPath of footerPaths) {
-    if (fs.existsSync(footerPath)) {
-      try {
-        attachments.push({
-          filename: "info-email-footer.png",
-          content: fs.readFileSync(footerPath),
-          contentType: "image/png",
-          cid: "info-email-footer",
-        });
-        break;
-      } catch (fErr) {
-        console.warn("[WhatsApp Info Email] Could not read info email footer image:", fErr);
-      }
-    }
-  }
-
   return attachments;
 }
 
@@ -264,10 +245,16 @@ export async function getOfficialInfoAttachments(): Promise<
 export async function sendWhatsAppInfoEmail(params: SendWhatsAppInfoEmailParams) {
   const { phone, name, email, leadId } = params;
   const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
-  const candidateName =
-    name && !name.toLowerCase().includes("test") && name.toLowerCase() !== "candidate"
-      ? name
-      : "Applicant";
+  // Sanitize candidate name: reject emails, single chars, all-digits, or known placeholders
+  const isValidName = (n?: string) =>
+    !!n &&
+    n.length > 1 &&
+    !n.includes("@") &&
+    !/^\d+$/.test(n) &&
+    n.toLowerCase() !== "candidate" &&
+    n.toLowerCase() !== "applicant" &&
+    !n.toLowerCase().includes("test");
+  const candidateName = isValidName(name) ? name! : "Applicant";
 
   try {
     const { db } = await connectToDatabase();
