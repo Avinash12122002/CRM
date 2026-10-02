@@ -211,6 +211,17 @@ export default function WhatsAppChatPage() {
     }
   }, []);
 
+  // Support deep-linking to specific candidate phone from URL query param (?phone=...)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("phone");
+      if (p) {
+        const clean = p.replace(/[^\d]/g, "").replace(/^00/, "");
+        if (clean) setSelectedPhone(clean);
+      }
+    }
+  }, []);
+
   // 2. Fetch Conversations List
   const fetchConversations = useCallback(async (quiet = false) => {
     if (!quiet) setLoadingList(true);
@@ -222,9 +233,16 @@ export default function WhatsAppChatPage() {
         const list: ConversationItem[] = data.conversations || [];
         setConversations(list);
 
-        // Auto select first conversation if none selected
-        if (!selectedPhone && list.length > 0) {
-          setSelectedPhone(list[0].phone);
+        if (list.length > 0) {
+          setSelectedPhone((prev) => {
+            if (prev) return prev;
+            const urlPhone =
+              typeof window !== "undefined"
+                ? new URLSearchParams(window.location.search).get("phone")
+                : null;
+            const clean = urlPhone?.replace(/[^\d]/g, "").replace(/^00/, "");
+            return clean || list[0].phone;
+          });
         }
       }
     } catch (err) {
@@ -232,7 +250,7 @@ export default function WhatsAppChatPage() {
     } finally {
       if (!quiet) setLoadingList(false);
     }
-  }, [searchQuery, filter, selectedPhone]);
+  }, [searchQuery, filter]);
 
   // Initial load and on search/filter changes
   useEffect(() => {

@@ -28,6 +28,16 @@ Thank you for your interest in the <strong>Ireland Employer Sponsored Work Visa 
 The Ireland Work Permit program allows skilled professionals from around the world to secure direct employment with approved Irish employers. This pathway provides an exceptional opportunity to build an international career in Europe and transition to <strong>Permanent Residency (Stamp 4)</strong> after 2 years.
 </p>
 
+<div style="background:#ecfdf5; border-left:4px solid #059669; padding:15px; margin:20px 0; border-radius:4px;">
+<p style="margin:0; font-weight:bold; font-size:16px; color:#059669;">🎥 Official Explainer Video:</p>
+<p style="margin:5px 0 0 0; color:#333;">
+<a href="https://tmsvisa.com/ireland-work-visa-process" style="color:#059669;font-weight:bold;text-decoration:underline;font-size:15px;" target="_blank">WATCH THE COMPLETE IRELAND WORK VISA PROCESS</a>
+</p>
+<p style="margin:5px 0 0 0; font-size:13px; color:#666;">
+Link: <a href="https://tmsvisa.com/ireland-work-visa-process" style="color:#059669;text-decoration:underline;" target="_blank">https://tmsvisa.com/ireland-work-visa-process</a>
+</p>
+</div>
+
 <hr style="margin:25px 0; border: 0; border-top: 1px solid #e2e8f0;">
 
 <h2 style="color:#059669;">Our Complete Step-by-Step Process (3-5 Months Total)</h2>

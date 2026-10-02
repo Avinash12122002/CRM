@@ -1470,12 +1470,23 @@ export async function processIncomingWhatsAppMessage(params: {
     lowerText === "interested"
   ) {
     const videoUrl = getVideoIrelandUrl();
-    await sendVideoMessage(
-      cleanPhone,
-      videoUrl,
-      `Here is our quick 2-minute explainer video on how the **Ireland Employer Sponsored Work Visa** works! 🎬🇮🇪\n\n` +
-      `Watch how approved Irish employers sponsor candidates, cover €1,000 permit fees, and pave the way to Stamp 4 PR.`
-    );
+    const isDirectVideoFile = Boolean(videoUrl && videoUrl.match(/\.(mp4|mov|3gp|mkv)($|\?)/i));
+
+    if (isDirectVideoFile) {
+      await sendVideoMessage(
+        cleanPhone,
+        videoUrl,
+        `Here is our quick 2-minute explainer video on how the **Ireland Employer Sponsored Work Visa** works! 🎬🇮🇪\n\n` +
+        `Watch how approved Irish employers sponsor candidates, cover €1,000 permit fees, and pave the way to Stamp 4 PR.`
+      );
+    } else {
+      const videoIntro =
+        `🎥 *Ireland Work Visa — Process Guide Video* 🇮🇪\n\n` +
+        `Here is our video explaining how approved Irish employers sponsor candidates, cover €1,000 permit fees, and pave the way to Stamp 4 PR:\n\n` +
+        `▶️ *Watch the Video Here:*\n${videoUrl}\n\n` +
+        `*(Tap the link above to watch the video anytime)*`;
+      await sendTextMessage(cleanPhone, videoIntro);
+    }
 
     await delay(1200);
 

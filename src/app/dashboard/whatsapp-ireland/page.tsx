@@ -145,6 +145,17 @@ export default function WhatsAppIrelandChatPage() {
     checkAuth();
   }, [router]);
 
+  // Support deep-linking to specific candidate phone from URL query param (?phone=...)
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const p = new URLSearchParams(window.location.search).get("phone");
+      if (p) {
+        const clean = p.replace(/[^\d]/g, "").replace(/^00/, "");
+        if (clean) setSelectedPhone(clean);
+      }
+    }
+  }, []);
+
   // Load conversations list
   const loadConversations = useCallback(
     async (isBackground = false) => {
@@ -158,8 +169,16 @@ export default function WhatsAppIrelandChatPage() {
           const data = await res.json();
           setConversations(data.conversations || []);
 
-          if (!selectedPhone && data.conversations?.length > 0 && !isBackground) {
-            setSelectedPhone(data.conversations[0].phone);
+          if (data.conversations?.length > 0 && !isBackground) {
+            setSelectedPhone((prev) => {
+              if (prev) return prev;
+              const urlParam =
+                typeof window !== "undefined"
+                  ? new URLSearchParams(window.location.search).get("phone")
+                  : null;
+              const cleanUrlPhone = urlParam?.replace(/[^\d]/g, "").replace(/^00/, "");
+              return cleanUrlPhone || data.conversations[0].phone;
+            });
           }
         }
       } catch (err) {
@@ -168,7 +187,7 @@ export default function WhatsAppIrelandChatPage() {
         if (!isBackground) setLoadingList(false);
       }
     },
-    [searchQuery, filter, selectedPhone]
+    [searchQuery, filter]
   );
 
   useEffect(() => {
