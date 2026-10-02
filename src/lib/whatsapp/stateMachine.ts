@@ -1466,6 +1466,101 @@ export async function processIncomingWhatsAppMessage(params: {
       return { replyText: docsHelpMsg, step: session.currentStep };
     }
 
+    // 4b. Voice Note / Audio handling
+    if (cleanText === "[Voice Note / Audio]") {
+      const voiceReply =
+        `Hello ${candidateDisplayName}! 🎙️\n\n` +
+        `Thank you for your voice note! Our counseling desk has received it and our team will listen to it shortly.\n\n` +
+        `If you have any urgent details, preferred callback timing, or documents (CV/passport) to share, please feel free to send them right here! 🇦🇺`;
+      await sendTextMessage(session.phone, voiceReply);
+      return { replyText: voiceReply, step: session.currentStep };
+    }
+
+    // 4c. Callback timing preference (e.g. "Call me after 5 PM", "I am at work", "Call tomorrow", "WhatsApp only")
+    const isCallbackPreference =
+      (lowerClean.includes("call me") ||
+        lowerClean.includes("call at") ||
+        lowerClean.includes("call after") ||
+        lowerClean.includes("call tomorrow") ||
+        lowerClean.includes("dont call") ||
+        lowerClean.includes("don't call") ||
+        lowerClean.includes("busy now") ||
+        lowerClean.includes("at work") ||
+        lowerClean.includes("message only") ||
+        lowerClean.includes("chat only") ||
+        lowerClean.includes("whatsapp only")) &&
+      !lowerClean.includes("video") &&
+      !lowerClean.includes("link");
+
+    if (isCallbackPreference) {
+      const noteText = `WhatsApp candidate callback preference: "${cleanText.slice(0, 150)}"`;
+      if (session.leadId) {
+        await db.collection("leads").updateOne(
+          { id: session.leadId },
+          {
+            $push: { notes: { note: noteText, createdAt: new Date(), createdBy: "WhatsApp Bot" } as any },
+            $set: { callbackDate: cleanText.slice(0, 80), updatedAt: new Date() },
+          }
+        );
+      }
+      await updateSession(db, session.phone, {
+        crmCallbackDate: cleanText.slice(0, 80),
+        candidateNotes: [...(session.candidateNotes || []), noteText],
+      });
+
+      const callbackAck =
+        `Thank you for letting us know, ${candidateDisplayName}! 📝\n\n` +
+        `I have updated our counseling desk with your preference: *"${cleanText.slice(0, 100)}"*. Our team will respect your timing and reach out accordingly.\n\n` +
+        `You can also continue chatting with me here anytime if you have any questions! 🇦🇺`;
+
+      await sendTextMessage(session.phone, callbackAck);
+      return { replyText: callbackAck, step: session.currentStep };
+    }
+
+    // 4d. Meeting schedule inquiry (e.g. "When is my meeting?", "What time is my call?", "When will team call?")
+    const isAskingMeetingSchedule =
+      (lowerClean.includes("when is my meeting") ||
+        lowerClean.includes("what time is my meeting") ||
+        lowerClean.includes("meeting timing") ||
+        lowerClean.includes("meeting time") ||
+        lowerClean.includes("meeting date") ||
+        lowerClean.includes("when is my call") ||
+        lowerClean.includes("when will you call") ||
+        lowerClean.includes("when will team call") ||
+        lowerClean.includes("what time will you call")) &&
+      !lowerClean.includes("book") &&
+      !lowerClean.includes("reschedule");
+
+    if (isAskingMeetingSchedule) {
+      if (session.bookedSlot) {
+        const meetTimeMsg =
+          `Hi ${candidateDisplayName}! 📅 Your 1-on-1 consultation session is scheduled for:\n\n` +
+          `🗓️ **Date:** ${session.bookedSlot.date}\n` +
+          `⏰ **Your Time:** ${session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel}\n` +
+          `👨‍💼 **Expert:** Senior Visa Migration Counselor\n` +
+          `🔗 **Meet Room Link:** ${getStaticGoogleMeetLink()}\n\n` +
+          `Please have your CV ready for the discussion. See you then! 🇦🇺`;
+        await sendTextMessage(session.phone, meetTimeMsg);
+        return { replyText: meetTimeMsg, step: session.currentStep };
+      } else if (session.crmMeetingDetails?.meetingDate) {
+        const m = session.crmMeetingDetails;
+        const meetTimeMsg =
+          `Hi ${candidateDisplayName}! 📅 According to our records, your consultation is scheduled for:\n\n` +
+          `🗓️ **Date:** ${m.meetingDate}\n` +
+          `⏰ **Time:** ${m.candidateTime || `${m.startTime || ""} - ${m.endTime || ""}`}\n` +
+          `🔗 **Link:** ${m.meetingLink || getStaticGoogleMeetLink()}\n\n` +
+          `Our senior migration expert will connect with you then! 🇦🇺`;
+        await sendTextMessage(session.phone, meetTimeMsg);
+        return { replyText: meetTimeMsg, step: session.currentStep };
+      } else {
+        const callingSoonMsg =
+          `Hi ${candidateDisplayName}! 👋 Our counseling team typically calls during office hours (10:00 AM – 7:00 PM) in your timezone (${session.timeZoneLabel}).\n\n` +
+          `If you have a preferred time to connect, simply reply with your convenient timing (e.g. "Call me after 5 PM") and we will arrange it! 🇦🇺`;
+        await sendTextMessage(session.phone, callingSoonMsg);
+        return { replyText: callingSoonMsg, step: session.currentStep };
+      }
+    }
+
     // 5. If candidate sends a greeting ("hi", "hello", "he'll", etc.) or restart
     const normalizedGreeting = lowerText.replace(/[^a-z]/g, "");
     const isGreeting =

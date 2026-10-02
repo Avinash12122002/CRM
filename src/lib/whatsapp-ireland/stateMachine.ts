@@ -569,6 +569,104 @@ export async function processIncomingWhatsAppMessage(params: {
       await sendTextMessage(cleanPhone, statusMsg);
       return;
     }
+
+    // Voice Note / Audio handling
+    if (rawText === "[Voice Note / Audio]") {
+      const voiceReply =
+        `${salutation}\n\n` +
+        `Thank you for your voice note! 🎙️ Our Ireland counseling desk has received it and our team will listen to it shortly.\n\n` +
+        `If you have any urgent details, preferred callback timing, or documents (CV/passport) to share, please feel free to send them right here! 🇮🇪`;
+      await sendTextMessage(cleanPhone, voiceReply);
+      return;
+    }
+
+    // Callback timing preference (e.g. "Call me after 5 PM", "I am at work", "Call tomorrow", "WhatsApp only")
+    const isCallbackPreference =
+      (lowerText.includes("call me") ||
+        lowerText.includes("call at") ||
+        lowerText.includes("call after") ||
+        lowerText.includes("call tomorrow") ||
+        lowerText.includes("dont call") ||
+        lowerText.includes("don't call") ||
+        lowerText.includes("busy now") ||
+        lowerText.includes("at work") ||
+        lowerText.includes("message only") ||
+        lowerText.includes("chat only") ||
+        lowerText.includes("whatsapp only")) &&
+      !lowerText.includes("video") &&
+      !lowerText.includes("link");
+
+    if (isCallbackPreference) {
+      const noteText = `WhatsApp Ireland candidate callback preference: "${rawText.slice(0, 150)}"`;
+      if (session.leadId) {
+        await db.collection("leads").updateOne(
+          { id: session.leadId },
+          {
+            $push: { notes: { note: noteText, createdAt: new Date(), createdBy: "WhatsApp Ireland Bot" } as any },
+            $set: { callbackDate: rawText.slice(0, 80), updatedAt: new Date() },
+          }
+        );
+      }
+      await updateSession(db, cleanPhone, {
+        crmCallbackDate: rawText.slice(0, 80),
+        candidateNotes: [...(session.candidateNotes || []), noteText],
+      });
+
+      const callbackAck =
+        `${salutation}\n\n` +
+        `Thank you for letting us know! 📝 Our Ireland counseling desk has noted your preference: *"${rawText.slice(0, 100)}"*. Our team will respect your timing and reach out accordingly.\n\n` +
+        `You can continue chatting with me here anytime if you have any questions! 🇮🇪`;
+
+      await sendTextMessage(cleanPhone, callbackAck);
+      return;
+    }
+
+    // Meeting schedule inquiry (e.g. "When is my meeting?", "What time is my call?", "When will team call?")
+    const isAskingMeetingSchedule =
+      (lowerText.includes("when is my meeting") ||
+        lowerText.includes("what time is my meeting") ||
+        lowerText.includes("meeting timing") ||
+        lowerText.includes("meeting time") ||
+        lowerText.includes("meeting date") ||
+        lowerText.includes("when is my call") ||
+        lowerText.includes("when will you call") ||
+        lowerText.includes("when will team call") ||
+        lowerText.includes("what time will you call")) &&
+      !lowerText.includes("book") &&
+      !lowerText.includes("reschedule");
+
+    if (isAskingMeetingSchedule) {
+      if (session.bookedSlot) {
+        const meetTimeMsg =
+          `${salutation}\n\n` +
+          `📅 Your 1-on-1 Ireland consultation is scheduled for:\n\n` +
+          `🗓️ **Date:** ${session.bookedSlot.date}\n` +
+          `⏰ **Your Time:** ${session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel}\n` +
+          `👨‍💼 **Expert:** Senior Ireland Migration Counselor\n` +
+          `🔗 **Meet Link:** ${getStaticGoogleMeetLink()}\n\n` +
+          `Please have your CV ready. See you then! 🇮🇪`;
+        await sendTextMessage(cleanPhone, meetTimeMsg);
+        return;
+      } else if (session.crmMeetingDetails?.meetingDate) {
+        const m = session.crmMeetingDetails;
+        const meetTimeMsg =
+          `${salutation}\n\n` +
+          `📅 Your Ireland consultation is confirmed for:\n\n` +
+          `🗓️ **Date:** ${m.meetingDate}\n` +
+          `⏰ **Time:** ${m.candidateTime || `${m.startTime || ""} - ${m.endTime || ""}`}\n` +
+          `🔗 **Link:** ${m.meetingLink || getStaticGoogleMeetLink()}\n\n` +
+          `Our senior Ireland migration expert will connect with you then! 🇮🇪`;
+        await sendTextMessage(cleanPhone, meetTimeMsg);
+        return;
+      } else {
+        const callingSoonMsg =
+          `${salutation}\n\n` +
+          `Our Ireland counseling team typically calls during office hours (10:00 AM – 7:00 PM) in your timezone (${session.timeZoneLabel}).\n\n` +
+          `If you have a preferred time to connect, simply reply with your convenient timing (e.g. "Call me after 5 PM") and we will arrange it! 🇮🇪`;
+        await sendTextMessage(cleanPhone, callingSoonMsg);
+        return;
+      }
+    }
   }
 
   // 1. Interactive Button Handling
