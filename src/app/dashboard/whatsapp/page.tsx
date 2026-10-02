@@ -478,7 +478,18 @@ export default function WhatsAppChatPage() {
     if (!isoString) return "";
     try {
       const d = new Date(isoString);
-      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (d.toDateString() === today.toDateString()) {
+        return `Today, ${timeStr}`;
+      }
+      if (d.toDateString() === yesterday.toDateString()) {
+        return `Yesterday, ${timeStr}`;
+      }
+      const dateStr = d.toLocaleDateString([], { day: "numeric", month: "short" });
+      return `${dateStr}, ${timeStr}`;
     } catch {
       return "";
     }

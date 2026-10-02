@@ -433,11 +433,18 @@ export default function WhatsAppIrelandChatPage() {
   const formatMessageTime = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
-      return new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        minute: "numeric",
-        hour12: true,
-      }).format(d);
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      const timeStr = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (d.toDateString() === today.toDateString()) {
+        return `Today, ${timeStr}`;
+      }
+      if (d.toDateString() === yesterday.toDateString()) {
+        return `Yesterday, ${timeStr}`;
+      }
+      const dateStrFormatted = d.toLocaleDateString([], { day: "numeric", month: "short" });
+      return `${dateStrFormatted}, ${timeStr}`;
     } catch {
       return "";
     }

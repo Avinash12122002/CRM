@@ -913,15 +913,19 @@ export async function processIncomingWhatsAppMessage(params: {
   const phoneQueries: any[] = [
     { phone: cleanPhone },
     { phone: `+${cleanPhone}` },
-    { phone: Number(cleanPhone) },
   ];
+  if (cleanPhone.length >= 8 && !isNaN(Number(cleanPhone))) {
+    phoneQueries.push({ phone: Number(cleanPhone) });
+  }
   if (last10.length === 10) {
     phoneQueries.push(
       { phone: last10 },
       { phone: `+91${last10}` },
-      { phone: Number(last10) },
       { phone: { $regex: `${last10}$` } }
     );
+    if (!isNaN(Number(last10))) {
+      phoneQueries.push({ phone: Number(last10) });
+    }
   }
   if (session.leadId) {
     phoneQueries.push({ id: session.leadId });
@@ -954,6 +958,11 @@ export async function processIncomingWhatsAppMessage(params: {
         `We already have your details in our system. 📋\n\n` +
         `Our team will shortly call you to assist with your Australia work visa enquiry. 🇦🇺\n\n` +
         `If you have any urgent questions or updates in the meantime, please feel free to message us right here!`;
+
+      session.existingLeadNotified = true;
+      session.notifiedExistingLeadAt = new Date();
+      session.crmStatus = existingLead.status;
+      session.leadId = existingLead.id;
 
       await updateSession(db, session.phone, {
         existingLeadNotified: true,
