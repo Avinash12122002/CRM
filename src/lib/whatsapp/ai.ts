@@ -1568,12 +1568,16 @@ function generateHumanVisaExpertReply(params: {
   }
 
   const isCrmLead =
+    Boolean(session.existingLeadNotified) ||
+    Boolean(session.leadId) ||
+    Boolean(session.bookedSlot) ||
     (session.crmStatus &&
       ["meeting-scheduled", "follow-up", "sales", "payment-pending", "document-pending", "call-back"].includes(
         session.crmStatus.toLowerCase().trim()
       )) ||
     session.meetingCompleted === true ||
-    session.meetingStatus === "completed";
+    session.meetingStatus === "completed" ||
+    session.currentStep === "MEETING_COMPLETED";
 
   // 22F. What is TMS / About Company
   if (

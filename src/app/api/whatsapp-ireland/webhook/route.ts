@@ -105,14 +105,26 @@ export async function POST(req: NextRequest) {
             const dbConn = await connectToDatabase();
             db = dbConn.db;
 
+            const last10 = phone.slice(-10);
+            const leadPhoneQueries: any[] = [
+              { phone },
+              { phone: `+${phone}` },
+            ];
+            if (phone.length >= 8 && !isNaN(Number(phone))) {
+              leadPhoneQueries.push({ phone: Number(phone) });
+            }
+            if (last10.length === 10) {
+              leadPhoneQueries.push(
+                { phone: last10 },
+                { phone: `+91${last10}` },
+                { phone: { $regex: `${last10}$` } }
+              );
+              if (!isNaN(Number(last10))) {
+                leadPhoneQueries.push({ phone: Number(last10) });
+              }
+            }
             const existingSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone });
-            const existingLead = await db.collection("leads").findOne({
-              $or: [
-                { phone },
-                { phone: `+${phone}` },
-                { phone: { $regex: `${phone.slice(-10)}$` } },
-              ],
-            });
+            const existingLead = await db.collection("leads").findOne({ $or: leadPhoneQueries });
 
             if (
               existingSession?.name &&

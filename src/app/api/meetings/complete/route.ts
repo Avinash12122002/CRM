@@ -177,6 +177,39 @@ export async function POST(req: NextRequest) {
       },
     );
 
+    // Sync WhatsApp sessions if lead phone exists
+    const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
+    if (cleanLeadPhone.length >= 8) {
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        {
+          $set: {
+            crmStatus: "follow-up",
+            meetingCompleted: true,
+            meetingCompletedAt: now,
+            meetingStatus: "completed",
+            currentStep: "MEETING_COMPLETED",
+            nextFollowupAt: undefined,
+            updatedAt: now,
+          },
+        }
+      );
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        {
+          $set: {
+            crmStatus: "follow-up",
+            meetingCompleted: true,
+            meetingCompletedAt: now,
+            meetingStatus: "completed",
+            currentStep: "MEETING_COMPLETED",
+            nextFollowupAt: undefined,
+            updatedAt: now,
+          },
+        }
+      );
+    }
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,

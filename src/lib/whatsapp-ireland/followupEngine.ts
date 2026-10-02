@@ -108,22 +108,35 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
         // 1. Strict CRM Status Check: Do NOT send 7-day automated follow-ups to candidates already in CRM pipeline:
         // (meeting-scheduled, follow-up, sales, payment-pending, document-pending, call-back)
         const cleanPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+        const last10 = cleanPhone.slice(-10);
+        const leadPhoneQueries: any[] = [
+          { phone: cleanPhone },
+          { phone: `+${cleanPhone}` },
+        ];
+        if (cleanPhone.length >= 8 && !isNaN(Number(cleanPhone))) {
+          leadPhoneQueries.push({ phone: Number(cleanPhone) });
+        }
+        if (last10.length === 10) {
+          leadPhoneQueries.push(
+            { phone: last10 },
+            { phone: `+91${last10}` },
+            { phone: { $regex: `${last10}$` } }
+          );
+          if (!isNaN(Number(last10))) {
+            leadPhoneQueries.push({ phone: Number(last10) });
+          }
+        }
+
         const lead = session.leadId
           ? await db.collection("leads").findOne({ id: session.leadId })
-          : await db.collection("leads").findOne({
-              $or: [
-                { phone: cleanPhone },
-                { phone: `+${cleanPhone}` },
-                { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
-              ],
-            });
+          : await db.collection("leads").findOne({ $or: leadPhoneQueries });
 
         const effectiveCrmStatus = (lead?.status || session.crmStatus || "").toLowerCase().trim();
-        if (lead && EXCLUDED_CRM_FOLLOWUP_STATUSES.includes(effectiveCrmStatus)) {
+        if (effectiveCrmStatus && EXCLUDED_CRM_FOLLOWUP_STATUSES.includes(effectiveCrmStatus)) {
           // Candidate is actively in CRM pipeline - cancel 7-day automated WhatsApp follow-ups
           await updateSession(db, session.phone, {
             nextFollowupAt: undefined,
-            crmStatus: lead.status,
+            crmStatus: lead?.status || session.crmStatus,
             updatedAt: now,
           });
           continue;

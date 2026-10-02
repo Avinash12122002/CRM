@@ -214,6 +214,8 @@ export async function POST(req: NextRequest) {
               $set: {
                 currentStep: "BOOKED",
                 meetingStatus: "rescheduled",
+                crmStatus: "meeting-scheduled",
+                nextFollowupAt: undefined,
                 bookedSlot: {
                   date: meetingDate,
                   candidateTime: candStart?.candidateTime || startTime,
@@ -264,6 +266,8 @@ export async function POST(req: NextRequest) {
               $set: {
                 currentStep: "BOOKED",
                 meetingStatus: "rescheduled",
+                crmStatus: "meeting-scheduled",
+                nextFollowupAt: undefined,
                 bookedSlot: {
                   date: meetingDate,
                   candidateTime: candStart?.candidateTime || startTime,

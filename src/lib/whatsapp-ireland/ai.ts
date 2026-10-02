@@ -233,9 +233,13 @@ INQUIRED OCCUPATION MATCH:
     "call-back",
   ];
   const isCrmCandidate =
+    Boolean(session.existingLeadNotified) ||
+    Boolean(session.leadId) ||
+    Boolean(session.bookedSlot) ||
     (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
     session.meetingCompleted === true ||
-    session.meetingStatus === "completed";
+    session.meetingStatus === "completed" ||
+    session.currentStep === "MEETING_COMPLETED";
 
   if (session.crmStatus === "meeting-scheduled" || session.bookedSlot) {
     contextBlock += `

@@ -77,13 +77,25 @@ export async function POST(req: NextRequest) {
     );
 
     // 4. Update CRM lead history if lead matches candidate phone
-    const lead = await db.collection("leads").findOne({
-      $or: [
-        { phone: cleanPhone },
-        { phone: `+${cleanPhone}` },
-        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
-      ],
-    });
+    const last10 = cleanPhone.slice(-10);
+    const leadPhoneQueries: any[] = [
+      { phone: cleanPhone },
+      { phone: `+${cleanPhone}` },
+    ];
+    if (cleanPhone.length >= 8 && !isNaN(Number(cleanPhone))) {
+      leadPhoneQueries.push({ phone: Number(cleanPhone) });
+    }
+    if (last10.length === 10) {
+      leadPhoneQueries.push(
+        { phone: last10 },
+        { phone: `+91${last10}` },
+        { phone: { $regex: `${last10}$` } }
+      );
+      if (!isNaN(Number(last10))) {
+        leadPhoneQueries.push({ phone: Number(last10) });
+      }
+    }
+    const lead = await db.collection("leads").findOne({ $or: leadPhoneQueries });
 
     if (lead) {
       await db.collection("leads").updateOne(
