@@ -148,15 +148,15 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         let sentMessageId: string | undefined;
 
         if (dayTemplate.buttons && dayTemplate.buttons.length > 0) {
-          const btnRes = await sendQuickReplyButtons(session.phone, dayTemplate.message, dayTemplate.buttons);
+          const btnRes = await sendQuickReplyButtons(session.phone, dayTemplate.message, dayTemplate.buttons, { skipLog: true });
           if (btnRes.success) {
             sentMessageId = btnRes.messageId;
           } else {
-            const fallbackTextRes = await sendTextMessage(session.phone, dayTemplate.message);
+            const fallbackTextRes = await sendTextMessage(session.phone, dayTemplate.message, { skipLog: true });
             sentMessageId = fallbackTextRes.messageId;
           }
         } else {
-          const textRes = await sendTextMessage(session.phone, dayTemplate.message);
+          const textRes = await sendTextMessage(session.phone, dayTemplate.message, { skipLog: true });
           sentMessageId = textRes.messageId;
         }
 
@@ -241,7 +241,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
           `🔗 *Google Meet Link:*\n${meetLink}\n\n` +
           `Our Australian visa specialist is ready to evaluate your Australia Employer Sponsored Work Visa file. Please tap the link to join on time! 🇦🇺`;
 
-        const sendRes = await sendTextMessage(slot.phone, reminderMsg);
+        const sendRes = await sendTextMessage(slot.phone, reminderMsg, { skipLog: true });
 
         await logWhatsAppMessage({
           db,

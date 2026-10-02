@@ -72,9 +72,19 @@ export async function register() {
     } catch (err) {
       console.error("[whatsapp-cron] Runner failed:", err);
     }
+
+    try {
+      const { runWhatsAppIrelandFollowupEngine } = await import(
+        "@/lib/whatsapp-ireland/followupEngine"
+      );
+      const { db } = await connectToDatabase();
+      await runWhatsAppIrelandFollowupEngine(db);
+    } catch (err) {
+      console.error("[whatsapp-ireland-cron] Runner failed:", err);
+    }
   });
 
   console.log(
-    "[whatsapp-cron] Scheduled: fires every minute to process due WhatsApp followups."
+    "[whatsapp-cron] Scheduled: fires every minute to process due Australia & Ireland WhatsApp followups (active)."
   );
 }

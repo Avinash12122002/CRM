@@ -55,11 +55,11 @@ export async function DELETE(req: NextRequest) {
         sessionFileIds.push(session.gridFsFileId);
       }
 
-      // 2. Collect all gridFsFileIds from leads
+      // 2. Collect all gridFsFileIds from non-Ireland leads
       const leadPhoneVariants = [cleanPhone, `+${cleanPhone}`, `+${cleanPhone.slice(2)}`];
       const leads = await db
         .collection("leads")
-        .find({ phone: { $in: leadPhoneVariants } })
+        .find({ phone: { $in: leadPhoneVariants }, interestedCountry: { $ne: "Ireland" } })
         .toArray();
       const leadFileIds: string[] = [];
       for (const lead of leads) {
@@ -70,11 +70,13 @@ export async function DELETE(req: NextRequest) {
         }
       }
 
-      // 3. Collect from GridFS chatFiles.files where metadata.candidatePhone matches
+      // 3. Collect from GridFS chatFiles.files where metadata matches Australia candidate (exclude Ireland)
       const gridFiles = await db
         .collection("chatFiles.files")
         .find({
           "metadata.candidatePhone": { $in: [cleanPhone, `+${cleanPhone}`] },
+          "metadata.country": { $ne: "Ireland" },
+          "metadata.source": { $ne: "whatsapp_ireland" },
         })
         .toArray();
       const gridCandidateFileIds = gridFiles.map((gf) => gf._id.toString());
@@ -148,6 +150,8 @@ export async function DELETE(req: NextRequest) {
         const matchingGf = await db.collection("chatFiles.files").find({
           filename: fileName,
           "metadata.candidatePhone": { $in: [cleanPhone, `+${cleanPhone}`] },
+          "metadata.country": { $ne: "Ireland" },
+          "metadata.source": { $ne: "whatsapp_ireland" },
         }).toArray();
         for (const gf of matchingGf) {
           try {
@@ -187,10 +191,10 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // 3. Remove from leads.cvFiles (any phone variant)
+    // 3. Remove from non-Ireland leads.cvFiles (any phone variant)
     const leadPhoneVariants = [cleanPhone, `+${cleanPhone}`, `+${cleanPhone.slice(2)}`];
     await db.collection("leads").updateMany(
-      { phone: { $in: leadPhoneVariants } },
+      { phone: { $in: leadPhoneVariants }, interestedCountry: { $ne: "Ireland" } },
       {
         $pull: {
           cvFiles: fileId

@@ -117,13 +117,17 @@ export async function POST(req: NextRequest) {
 
     const cleanPhone = lead.phone ? String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "") : "";
 
+    const isIreland = lead.interestedCountry === "Ireland";
+
     // Detect candidate timezone and calculate localized timing
     const {
       format12hTime,
       detectCountryFromPhone,
       convertIstSlotToCandidateTime,
       extractShortTimezone,
-    } = await import("@/lib/whatsapp/timezone");
+    } = isIreland
+      ? await import("@/lib/whatsapp-ireland/timezone")
+      : await import("@/lib/whatsapp/timezone");
 
     const countryInfo = cleanPhone ? detectCountryFromPhone(cleanPhone) : null;
     const tzShort = countryInfo ? extractShortTimezone(countryInfo.label) : "IST";
@@ -175,9 +179,6 @@ export async function POST(req: NextRequest) {
     // Send automated WhatsApp confirmation to candidate
     if (cleanPhone && cleanPhone.length >= 8) {
       try {
-        const { sendTextMessage } = await import("@/lib/whatsapp/client");
-        const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp/stateMachine");
-        const meetLink = getStaticGoogleMeetLink();
         const dateObj = new Date(`${meetingDate}T12:00:00+05:30`);
         const formattedDate = new Intl.DateTimeFormat("en-GB", {
           day: "numeric",
@@ -185,52 +186,109 @@ export async function POST(req: NextRequest) {
           year: "numeric",
         }).format(dateObj);
 
-        const confirmMsg =
-          `Dear ${lead.name || "Candidate"},\n\n` +
-          `Thank you for showing your interest in the *Australia Employer Sponsored Work Visa*.\n\n` +
-          `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
-          `📅 *Date:* ${formattedDate}\n` +
-          `⏰ *Time:* ${timeDisplay}\n` +
-          `💻 *Google Meet:* ${meetLink}\n\n` +
-          `Please make sure to *join the meeting on time*.\n\n` +
-          `*Best regards,*\n` +
-          `*TMS Visa*`;
+        if (isIreland) {
+          const { sendTextMessage } = await import("@/lib/whatsapp-ireland/client");
+          const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp-ireland/stateMachine");
+          const { logWhatsAppIrelandMessage } = await import("@/lib/whatsapp-ireland/messageLogger");
+          const meetLink = getStaticGoogleMeetLink();
 
-        await sendTextMessage(cleanPhone, confirmMsg);
+          const confirmMsg =
+            `Dear ${lead.name || "Candidate"},\n\n` +
+            `Thank you for showing your interest in the *Ireland Employer Sponsored Work Visa* (Critical Skills & General Employment). 🇮🇪\n\n` +
+            `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
+            `📅 *Date:* ${formattedDate}\n` +
+            `⏰ *Time:* ${timeDisplay}\n` +
+            `💻 *Google Meet:* ${meetLink}\n\n` +
+            `Please make sure to *join the meeting on time*.\n\n` +
+            `*Best regards,*\n` +
+            `*TMS Visa (Ireland Team) 🇮🇪*`;
 
-        try {
-          const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
-          await logWhatsAppMessage({
-            db,
-            phone: cleanPhone,
-            sender: "bot",
-            senderName: "TMS Visa",
-            text: confirmMsg,
-            createdAt: now,
-          });
-        } catch (logErr) {
-          console.warn("Could not log meeting booking WhatsApp message:", logErr);
-        }
+          await sendTextMessage(cleanPhone, confirmMsg, { skipLog: true });
 
-        await db.collection("whatsapp_sessions").updateOne(
-          { phone: cleanPhone },
-          {
-            $set: {
-              currentStep: "BOOKED",
-              meetingStatus: "booked",
-              bookedSlot: {
-                date: meetingDate,
-                candidateTime: candStart?.candidateTime || startTime,
-                candidateTimeLabel: timeDisplay,
-                istTime: startTime,
-                istTimeLabel: ist12hRange,
-                meetingUserId,
-                meetingUserName: meetingUser.name,
-              },
-              updatedAt: now,
-            },
+          try {
+            await logWhatsAppIrelandMessage({
+              db,
+              phone: cleanPhone,
+              sender: "bot",
+              senderName: "TMS Visa (Ireland)",
+              text: confirmMsg,
+              createdAt: now,
+            });
+          } catch (logErr) {
+            console.warn("Could not log Ireland meeting booking WhatsApp message:", logErr);
           }
-        );
+
+          await db.collection("whatsapp_ireland_sessions").updateOne(
+            { phone: cleanPhone },
+            {
+              $set: {
+                currentStep: "BOOKED",
+                meetingStatus: "booked",
+                bookedSlot: {
+                  date: meetingDate,
+                  candidateTime: candStart?.candidateTime || startTime,
+                  candidateTimeLabel: timeDisplay,
+                  istTime: startTime,
+                  istTimeLabel: ist12hRange,
+                  meetingUserId,
+                  meetingUserName: meetingUser.name,
+                },
+                updatedAt: now,
+              },
+            }
+          );
+        } else {
+          const { sendTextMessage } = await import("@/lib/whatsapp/client");
+          const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp/stateMachine");
+          const meetLink = getStaticGoogleMeetLink();
+
+          const confirmMsg =
+            `Dear ${lead.name || "Candidate"},\n\n` +
+            `Thank you for showing your interest in the *Australia Employer Sponsored Work Visa*.\n\n` +
+            `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
+            `📅 *Date:* ${formattedDate}\n` +
+            `⏰ *Time:* ${timeDisplay}\n` +
+            `💻 *Google Meet:* ${meetLink}\n\n` +
+            `Please make sure to *join the meeting on time*.\n\n` +
+            `*Best regards,*\n` +
+            `*TMS Visa*`;
+
+          await sendTextMessage(cleanPhone, confirmMsg, { skipLog: true });
+
+          try {
+            const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+            await logWhatsAppMessage({
+              db,
+              phone: cleanPhone,
+              sender: "bot",
+              senderName: "TMS Visa",
+              text: confirmMsg,
+              createdAt: now,
+            });
+          } catch (logErr) {
+            console.warn("Could not log meeting booking WhatsApp message:", logErr);
+          }
+
+          await db.collection("whatsapp_sessions").updateOne(
+            { phone: cleanPhone },
+            {
+              $set: {
+                currentStep: "BOOKED",
+                meetingStatus: "booked",
+                bookedSlot: {
+                  date: meetingDate,
+                  candidateTime: candStart?.candidateTime || startTime,
+                  candidateTimeLabel: timeDisplay,
+                  istTime: startTime,
+                  istTimeLabel: ist12hRange,
+                  meetingUserId,
+                  meetingUserName: meetingUser.name,
+                },
+                updatedAt: now,
+              },
+            }
+          );
+        }
       } catch (waErr) {
         console.warn("Could not dispatch WhatsApp confirmation on book:", waErr);
       }

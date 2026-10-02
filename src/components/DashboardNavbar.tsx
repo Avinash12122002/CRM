@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import toast from "react-hot-toast";
 import { useEffect, useState } from "react";
 import CvNavbarDropdown from "@/components/CvNavbarDropdown";
+import WhatsAppNavbarDropdown from "@/components/WhatsAppNavbarDropdown";
 import { MessageSquare } from "lucide-react";
 
 type DashboardNavbarProps = {
@@ -38,6 +39,7 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
   const [todoCount, setTodoCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [whatsappUnreadCount, setWhatsappUnreadCount] = useState(0);
+  const [whatsappIrelandUnreadCount, setWhatsappIrelandUnreadCount] = useState(0);
 
   const role = (user.role || "").trim().toLowerCase();
 
@@ -107,6 +109,27 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
 
     loadWhatsappUnread();
     const interval = setInterval(loadWhatsappUnread, 8000);
+    return () => clearInterval(interval);
+  }, [role]);
+
+  // Admin WhatsApp Ireland unread candidate messages count
+  useEffect(() => {
+    if (role !== "admin") return;
+
+    const loadWhatsappIrelandUnread = async () => {
+      try {
+        const res = await fetch("/api/whatsapp-ireland/conversations/unread");
+        if (res.ok) {
+          const data = await res.json();
+          setWhatsappIrelandUnreadCount(data.unreadCount || 0);
+        }
+      } catch (err) {
+        // Silently ignore polling error
+      }
+    };
+
+    loadWhatsappIrelandUnread();
+    const interval = setInterval(loadWhatsappIrelandUnread, 8000);
     return () => clearInterval(interval);
   }, [role]);
 
@@ -286,24 +309,14 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
                 </Link>
               )}
               {role === "admin" && (
-                <CvNavbarDropdown isActive={isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")} />
+                <CvNavbarDropdown isActive={pathname.startsWith("/dashboard/cv")} />
               )}
               {role === "admin" && (
-                <Link
-                  href="/dashboard/whatsapp"
-                  className={`${deskLinkClass(
-                    isActive("/dashboard/whatsapp") || pathname.startsWith("/dashboard/whatsapp")
-                  )} relative inline-flex items-center gap-1.5`}
-                  title="WhatsApp Candidate Live Chat"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>WhatsApp</span>
-                  {whatsappUnreadCount > 0 && (
-                    <span className="bg-emerald-500 text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center leading-none">
-                      {whatsappUnreadCount}
-                    </span>
-                  )}
-                </Link>
+                <WhatsAppNavbarDropdown
+                  isActive={pathname.startsWith("/dashboard/whatsapp")}
+                  auUnreadCount={whatsappUnreadCount}
+                  ieUnreadCount={whatsappIrelandUnreadCount}
+                />
               )}
 
               {/* All Attendance — admin only */}
@@ -556,32 +569,78 @@ export default function DashboardNavbar({ user }: DashboardNavbarProps) {
               </Link>
             )}
             {role === "admin" && (
-              <Link
-                href="/dashboard/cv"
-                className={navLinkClass(
-                  isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")
-                )}
-              >
-                CV
-              </Link>
+              <div className="py-1">
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                  CV Documents
+                </div>
+                <div className="pl-3 space-y-0.5">
+                  <Link
+                    href="/dashboard/cv"
+                    className={navLinkClass(
+                      isActive("/dashboard/cv") || (pathname.startsWith("/dashboard/cv") && !pathname.startsWith("/dashboard/cv-ireland"))
+                    )}
+                  >
+                    <span>🇦🇺 Australia CVs</span>
+                  </Link>
+                  <Link
+                    href="/dashboard/cv-ireland"
+                    className={navLinkClass(
+                      isActive("/dashboard/cv-ireland") || pathname.startsWith("/dashboard/cv-ireland")
+                    )}
+                  >
+                    <span>🇮🇪 Ireland CVs</span>
+                  </Link>
+                </div>
+              </div>
             )}
             {role === "admin" && (
-              <Link
-                href="/dashboard/whatsapp"
-                className={`${navLinkClass(
-                  isActive("/dashboard/whatsapp") || pathname.startsWith("/dashboard/whatsapp")
-                )} flex items-center justify-between pr-4`}
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-emerald-500" />
-                  <span>WhatsApp Chat</span>
+              <div className="py-1">
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center justify-between pr-3">
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>WhatsApp Live Chat</span>
+                  </div>
+                  {(whatsappUnreadCount + whatsappIrelandUnreadCount > 0) && (
+                    <span className="bg-emerald-500 text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center leading-none">
+                      {whatsappUnreadCount + whatsappIrelandUnreadCount}
+                    </span>
+                  )}
                 </div>
-                {whatsappUnreadCount > 0 && (
-                  <span className="bg-emerald-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
-                    {whatsappUnreadCount}
-                  </span>
-                )}
-              </Link>
+                <div className="pl-3 space-y-0.5">
+                  <Link
+                    href="/dashboard/whatsapp"
+                    className={`${navLinkClass(
+                      isActive("/dashboard/whatsapp") || (pathname.startsWith("/dashboard/whatsapp") && !pathname.startsWith("/dashboard/whatsapp-ireland"))
+                    )} flex items-center justify-between pr-4`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🇦🇺</span>
+                      <span>Australia Chat</span>
+                    </div>
+                    {whatsappUnreadCount > 0 && (
+                      <span className="bg-emerald-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                        {whatsappUnreadCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    href="/dashboard/whatsapp-ireland"
+                    className={`${navLinkClass(
+                      isActive("/dashboard/whatsapp-ireland") || pathname.startsWith("/dashboard/whatsapp-ireland")
+                    )} flex items-center justify-between pr-4`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🇮🇪</span>
+                      <span>Ireland Chat</span>
+                    </div>
+                    {whatsappIrelandUnreadCount > 0 && (
+                      <span className="bg-teal-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                        {whatsappIrelandUnreadCount}
+                      </span>
+                    )}
+                  </Link>
+                </div>
+              </div>
             )}
             {/* All Attendance — admin only */}
             {role === "admin" && (

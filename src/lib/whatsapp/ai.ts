@@ -30,7 +30,7 @@ function sanitizeMeetingLink(text: string, session: WhatsAppSession): string {
   if (isBooked) return text;
 
   // Remove lines like "• Join the meeting via https://meet.google.com/hgu-yxat-nwy when you're ready."
-  let cleaned = text
+  const cleaned = text
     .replace(/[•\-\*]?\s*(?:Join the meeting via|Join via|Meeting link:|Google Meet link:)?\s*https?:\/\/meet\.google\.com\/[^\s\)]+(?:\s*(?:when you(?:'re|re) ready|when ready))?\.?/gi, "")
     .replace(/https?:\/\/meet\.google\.com\/[a-z0-9\-]+/gi, "")
     .replace(/[•\-\*]?\s*Join the meeting via[^\n\.]+\.?/gi, "")

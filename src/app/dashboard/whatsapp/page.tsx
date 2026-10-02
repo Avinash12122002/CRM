@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import DashboardNavbar from "@/components/DashboardNavbar";
@@ -484,6 +484,26 @@ export default function WhatsAppChatPage() {
     }
   };
 
+  const formatMsgDate = (isoString?: string): string => {
+    if (!isoString) return "";
+    try {
+      const d = new Date(isoString);
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      if (d.toDateString() === today.toDateString()) return "Today";
+      if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
+      return d.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+    } catch {
+      return "";
+    }
+  };
+
+  const getMsgDateKey = (isoString?: string): string => {
+    if (!isoString) return "";
+    try { return new Date(isoString).toDateString(); } catch { return ""; }
+  };
+
   const formatListDate = (isoString?: string) => {
     if (!isoString) return "";
     try {
@@ -907,9 +927,21 @@ export default function WhatsAppChatPage() {
                       const isAdmin = msg.sender === "admin";
                       const isBot = msg.sender === "bot";
 
+                      const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                      const showDateSeparator =
+                        !prevMsg ||
+                        getMsgDateKey(msg.createdAt) !== getMsgDateKey(prevMsg.createdAt);
+
                       return (
+                        <React.Fragment key={msg.id || idx}>
+                          {showDateSeparator && (
+                            <div className="flex items-center justify-center my-2">
+                              <span className="px-3 py-0.5 rounded-full bg-zinc-200/80 dark:bg-zinc-700/60 text-[10px] font-medium text-zinc-500 dark:text-zinc-400 shadow-2xs">
+                                {formatMsgDate(msg.createdAt)}
+                              </span>
+                            </div>
+                          )}
                         <div
-                          key={msg.id || idx}
                           className={`w-full flex flex-col ${
                             isCandidate ? "items-start" : "items-end"
                           }`}
@@ -990,11 +1022,14 @@ export default function WhatsAppChatPage() {
                                 isCandidate ? "text-zinc-400" : "text-emerald-100/75"
                               }`}
                             >
-                              <span>{formatMsgTime(msg.createdAt)}</span>
+                              <span title={msg.createdAt ? new Date(msg.createdAt).toLocaleString([], { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}>
+                                {formatMsgTime(msg.createdAt)}
+                              </span>
                               {!isCandidate && <CheckCheck className="w-2.5 h-2.5 text-emerald-200" />}
                             </div>
                           </div>
                         </div>
+                        </React.Fragment>
                       );
                     })
                   )}

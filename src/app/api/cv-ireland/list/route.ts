@@ -11,7 +11,7 @@ export interface CandidateDocFile {
   mimeType?: string;
   url: string;
   downloadUrl: string;
-  source: "whatsapp" | "crm_upload";
+  source: "whatsapp_ireland" | "crm_upload" | "disk";
   receivedAt?: string;
 }
 
@@ -19,6 +19,7 @@ export interface CandidateFolder {
   phone: string;
   leadId?: number | null;
   candidateName: string;
+  country?: string;
   totalFiles: number;
   files: CandidateDocFile[];
   lastUpdated?: string;
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
 
     const { db } = await connectToDatabase();
 
-    // Map to aggregate candidate folders by normalized phone number
+    // Map to aggregate Ireland candidate folders by normalized phone number
     const foldersMap = new Map<string, CandidateFolder>();
 
     const getOrCreateFolder = (phone: string, name: string = "Candidate", leadId?: number | null) => {
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
           phone: cleanPhone,
           leadId: leadId || null,
           candidateName: cleanName,
+          country: "Ireland",
           totalFiles: 0,
           files: [],
         });
@@ -62,18 +64,19 @@ export async function GET(req: NextRequest) {
       return existing;
     };
 
-
-
-    // 2. Load from MongoDB `whatsapp_sessions` collection
-    const sessionsWithDocs = await db
-      .collection("whatsapp_sessions")
+    // 1. Load from MongoDB `whatsapp_ireland_sessions`
+    const irelandSessions = await db
+      .collection("whatsapp_ireland_sessions")
       .find({
-        cvFiles: { $exists: true, $ne: [] },
+        $or: [
+          { cvFiles: { $exists: true, $ne: [] } },
+          { cvFileUrl: { $exists: true, $ne: null } },
+        ],
       })
-      .project({ phone: 1, name: 1, cvFiles: 1, leadId: 1 })
+      .project({ phone: 1, name: 1, cvFiles: 1, cvFileUrl: 1, cvFileName: 1, cvReceivedAt: 1, leadId: 1 })
       .toArray();
 
-    for (const sess of sessionsWithDocs) {
+    for (const sess of irelandSessions) {
       const folder = getOrCreateFolder(sess.phone, sess.name, sess.leadId);
       if (Array.isArray(sess.cvFiles)) {
         for (const file of sess.cvFiles) {
@@ -81,42 +84,7 @@ export async function GET(req: NextRequest) {
           if (!fileName) continue;
           const exists = folder.files.some((f) => f.fileName === fileName);
           if (!exists) {
-            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : file.publicUrl;
-            folder.files.push({
-              id: file.gridFsFileId,
-              fileName,
-              sizeBytes: file.size,
-              mimeType: file.mimeType,
-              url: fileUrl,
-              downloadUrl: fileUrl,
-              source: "whatsapp",
-              receivedAt: file.receivedAt,
-            });
-          }
-        }
-      }
-    }
-
-    // 2. Load genuine candidate cvFiles from `leads` collection (excluding Ireland leads)
-    const leadsWithCv = await db
-      .collection("leads")
-      .find({
-        cvFiles: { $exists: true, $ne: [] },
-        interestedCountry: { $ne: "Ireland" },
-      })
-      .project({ id: 1, name: 1, phone: 1, cvFiles: 1 })
-      .toArray();
-
-    for (const lead of leadsWithCv) {
-      const phone = String(lead.phone || `lead_${lead.id}`);
-      const folder = getOrCreateFolder(phone, lead.name, lead.id);
-      if (Array.isArray(lead.cvFiles)) {
-        for (const file of lead.cvFiles) {
-          const fileName = file.filename || file.fileName;
-          if (!fileName) continue;
-          const exists = folder.files.some((f) => f.fileName === fileName);
-          if (!exists) {
-            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : file.publicUrl;
+            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : (file.publicUrl || sess.cvFileUrl);
             folder.files.push({
               id: file.gridFsFileId,
               fileName,
@@ -124,21 +92,84 @@ export async function GET(req: NextRequest) {
               mimeType: file.mimeType || "application/pdf",
               url: fileUrl,
               downloadUrl: fileUrl,
-              source: "whatsapp",
-              receivedAt: file.receivedAt || file.syncedAt,
+              source: "whatsapp_ireland",
+              receivedAt: file.receivedAt || sess.cvReceivedAt,
             });
           }
+        }
+      } else if (sess.cvFileUrl) {
+        const fileName = sess.cvFileName || "Candidate_CV.pdf";
+        const exists = folder.files.some((f) => f.fileName === fileName);
+        if (!exists) {
+          folder.files.push({
+            fileName,
+            url: sess.cvFileUrl,
+            downloadUrl: sess.cvFileUrl,
+            source: "whatsapp_ireland",
+            receivedAt: sess.cvReceivedAt,
+          });
         }
       }
     }
 
-    // 3. Query GridFS `chatFiles.files` for Australia WhatsApp candidate media (excluding Ireland)
+    // 2. Load Ireland leads from `leads` collection
+    const irelandLeads = await db
+      .collection("leads")
+      .find({
+        interestedCountry: "Ireland",
+        $or: [
+          { cvFiles: { $exists: true, $ne: [] } },
+          { salesDocument: { $exists: true, $ne: null } },
+        ],
+      })
+      .project({ id: 1, name: 1, phone: 1, cvFiles: 1, salesDocument: 1, cvFileName: 1, updatedAt: 1 })
+      .toArray();
+
+    for (const lead of irelandLeads) {
+      const phone = String(lead.phone || `ireland_lead_${lead.id}`);
+      const folder = getOrCreateFolder(phone, lead.name, lead.id);
+      if (Array.isArray(lead.cvFiles)) {
+        for (const file of lead.cvFiles) {
+          const fileName = file.filename || file.fileName;
+          if (!fileName) continue;
+          const exists = folder.files.some((f) => f.fileName === fileName);
+          if (!exists) {
+            const fileUrl = file.gridFsFileId ? `/api/chat/files/${file.gridFsFileId}` : (file.publicUrl || lead.salesDocument);
+            folder.files.push({
+              id: file.gridFsFileId,
+              fileName,
+              sizeBytes: file.size,
+              mimeType: file.mimeType || "application/pdf",
+              url: fileUrl,
+              downloadUrl: fileUrl,
+              source: "whatsapp_ireland",
+              receivedAt: file.receivedAt || lead.updatedAt,
+            });
+          }
+        }
+      } else if (lead.salesDocument) {
+        const fileName = lead.cvFileName || "Ireland_Resume.pdf";
+        const exists = folder.files.some((f) => f.fileName === fileName);
+        if (!exists) {
+          folder.files.push({
+            fileName,
+            url: lead.salesDocument,
+            downloadUrl: lead.salesDocument,
+            source: "whatsapp_ireland",
+            receivedAt: lead.updatedAt,
+          });
+        }
+      }
+    }
+
+    // 3. GridFS candidate documents tagged with Ireland
     const gridFiles = await db
       .collection("chatFiles.files")
       .find({
-        "metadata.candidatePhone": { $exists: true },
-        "metadata.country": { $ne: "Ireland" },
-        "metadata.source": { $ne: "whatsapp_ireland" },
+        $or: [
+          { "metadata.country": "Ireland" },
+          { "metadata.source": "whatsapp_ireland" },
+        ],
       })
       .toArray();
 
@@ -153,13 +184,47 @@ export async function GET(req: NextRequest) {
           id: gf._id.toString(),
           fileName,
           sizeBytes: gf.length,
-          mimeType: gf.contentType,
+          mimeType: gf.contentType || "application/pdf",
           url: `/api/chat/files/${gf._id.toString()}`,
           downloadUrl: `/api/chat/files/${gf._id.toString()}`,
-          source: "whatsapp",
+          source: "whatsapp_ireland",
           receivedAt: gf.uploadDate || gf.metadata?.receivedAt,
         });
       }
+    }
+
+    // 4. Also check local disk for cv/ireland/ folders if any
+    try {
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const diskDir = path.join(process.cwd(), "public", "cv", "ireland");
+      try {
+        const candidateDirs = await fs.readdir(diskDir);
+        for (const phoneDir of candidateDirs) {
+          const folderPath = path.join(diskDir, phoneDir);
+          const stat = await fs.stat(folderPath);
+          if (stat.isDirectory()) {
+            const files = await fs.readdir(folderPath);
+            for (const file of files) {
+              const folder = getOrCreateFolder(phoneDir, "Candidate");
+              const exists = folder.files.some((f) => f.fileName === file);
+              if (!exists) {
+                const publicUrl = `/cv/ireland/${phoneDir}/${file}`;
+                folder.files.push({
+                  fileName: file,
+                  url: publicUrl,
+                  downloadUrl: publicUrl,
+                  source: "disk",
+                });
+              }
+            }
+          }
+        }
+      } catch {
+        // Disk folder doesn't exist yet or is empty — ignore
+      }
+    } catch {
+      // Local fs check non-fatal
     }
 
     // Compute totals and sort
@@ -174,7 +239,7 @@ export async function GET(req: NextRequest) {
     // Sort folders by total files descending
     foldersArray.sort((a, b) => b.totalFiles - a.totalFiles);
 
-    // Fetch viewed records for this admin user (support number & string ID)
+    // Fetch viewed records for this admin user from `cv_ireland_viewed_records`
     const userId = payload.id;
     const userCandidates: any[] = [userId];
     if (typeof userId === "number") {
@@ -185,7 +250,7 @@ export async function GET(req: NextRequest) {
     const userFilter = { $in: Array.from(new Set(userCandidates)) };
 
     const viewedRecords = await db
-      .collection("cv_viewed_records")
+      .collection("cv_ireland_viewed_records")
       .find({ userId: userFilter })
       .toArray();
 
@@ -214,14 +279,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      rootName: "cv",
+      rootName: "cv-ireland",
+      country: "Ireland",
       totalCandidates: foldersArray.length,
       totalDocuments,
       unreadCount,
       folders: foldersArray,
     });
   } catch (err) {
-    console.error("[GET /api/cv/list Error]", err);
+    console.error("[GET /api/cv-ireland/list Error]", err);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -788,6 +788,41 @@ export async function processIncomingWhatsAppMessage(params: {
   const lowerClean = cleanText.toLowerCase();
 
   // =========================================================================
+  // --- EXISTING LEAD DUPLICATE CHECK ---
+  // If this phone number already exists as a CRM lead with a meaningful status,
+  // send a "we already have your details" message and skip the bot flow.
+  // Only triggers on first-ever message (new session just created).
+  // =========================================================================
+  const isNewSession =
+    session.createdAt &&
+    new Date().getTime() - new Date(session.createdAt).getTime() < 60_000; // session < 60s old
+
+  if (isNewSession && session.leadId) {
+    const existingLead = await db.collection("leads").findOne({ id: session.leadId });
+    const advancedStatuses = [
+      "meeting-scheduled",
+      "follow-up",
+      "sales",
+      "payment-pending",
+      "document-pending",
+      "call-back",
+    ];
+    if (existingLead && advancedStatuses.includes(existingLead.status)) {
+      const salutation =
+        session.name && session.name !== "Candidate"
+          ? `Hi ${session.name}! 👋`
+          : "Hi there! 👋";
+      const duplicateMsg =
+        `${salutation}\n\n` +
+        `We already have your details in our system. 📋\n\n` +
+        `Our team will shortly call you to assist with your Australia work visa enquiry. 🇦🇺\n\n` +
+        `If you have any urgent questions in the meantime, please feel free to message us here!`;
+      await sendTextMessage(params.phone, duplicateMsg);
+      return { replyText: duplicateMsg, step: session.currentStep };
+    }
+  }
+
+  // =========================================================================
   // --- SAVE EVERY CANDIDATE MESSAGE TO conversationHistory (for AI training) ---
   // =========================================================================
   if (cleanText && !actionId) {

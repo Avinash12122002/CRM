@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Folder,
   FolderOpen,
@@ -30,7 +31,7 @@ interface DocFile {
   mimeType?: string;
   url: string;
   downloadUrl: string;
-  source: "whatsapp" | "crm_upload" | "disk";
+  source: "whatsapp" | "whatsapp_ireland" | "crm_upload" | "disk";
   receivedAt?: string;
 }
 
@@ -44,11 +45,18 @@ interface CandidateFolder {
 }
 
 export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
+  const pathname = usePathname() || "";
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [folders, setFolders] = useState<CandidateFolder[]>([]);
+  const [countryTab, setCountryTab] = useState<"AU" | "IE">("AU");
+
+  const [auFolders, setAuFolders] = useState<CandidateFolder[]>([]);
+  const [ieFolders, setIeFolders] = useState<CandidateFolder[]>([]);
   const [loading, setLoading] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+
+  const [auUnreadCount, setAuUnreadCount] = useState(0);
+  const [ieUnreadCount, setIeUnreadCount] = useState(0);
+
   const [search, setSearch] = useState("");
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [previewFile, setPreviewFile] = useState<DocFile | null>(null);
@@ -59,9 +67,12 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
 
   useEffect(() => {
     setMounted(true);
-  }, []);
+    if (pathname.startsWith("/dashboard/cv-ireland")) {
+      setCountryTab("IE");
+    }
+  }, [pathname]);
 
-  const fetchFolders = async (showSpinner = false) => {
+  const fetchAustraliaFolders = async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
       const res = await fetch("/api/cv/list");
@@ -77,7 +88,6 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
           }
         } catch {}
 
-        // Apply server + local markAll fallback
         const processedList = list.map((folder) => ({
           ...folder,
           files: (folder.files || []).map((file) => {
@@ -92,35 +102,81 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
           }),
         }));
 
-        setFolders(processedList);
-        setExpandedFolders((prev) => {
-          if (prev.size === 0) {
-            return new Set(processedList.map((f) => String(f?.phone || "")).filter(Boolean));
-          }
-          return prev;
-        });
-
+        setAuFolders(processedList);
         let count = 0;
         for (const f of processedList) {
           for (const file of f.files || []) {
             if (!file.isViewed) count++;
           }
         }
-        setUnreadCount(count);
+        setAuUnreadCount(count);
       }
     } catch (err) {
-      console.error("Failed to load CVs in navbar:", err);
+      console.error("Failed to load AU CVs in navbar:", err);
     } finally {
       if (showSpinner) setLoading(false);
     }
   };
 
-  // Poll for new documents every 10 seconds (just like notification bell)
+  const fetchIrelandFolders = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const res = await fetch("/api/cv-ireland/list");
+      if (res.ok) {
+        const data = await res.json();
+        const list: CandidateFolder[] = Array.isArray(data?.folders) ? data.folders : [];
+        const localMarkAll = typeof window !== "undefined" ? localStorage.getItem("cv_ireland_last_mark_all_read") : null;
+        const localMarkAllTime = localMarkAll ? new Date(localMarkAll).getTime() : 0;
+        let localSavedKeys = new Set<string>();
+        try {
+          if (typeof window !== "undefined") {
+            localSavedKeys = new Set(JSON.parse(localStorage.getItem("cv_ireland_viewed_keys") || "[]"));
+          }
+        } catch {}
+
+        const processedList = list.map((folder) => ({
+          ...folder,
+          files: (folder.files || []).map((file) => {
+            const fKey = String(file.fileKey || file.id || `${folder.phone}_${file.fileName}`);
+            const fileTime = file.receivedAt ? new Date(file.receivedAt).getTime() : 0;
+            const isViewed = Boolean(
+              file.isViewed ||
+              localSavedKeys.has(fKey) ||
+              (localMarkAllTime > 0 && fileTime > 0 && fileTime <= localMarkAllTime)
+            );
+            return { ...file, fileKey: fKey, isViewed };
+          }),
+        }));
+
+        setIeFolders(processedList);
+        let count = 0;
+        for (const f of processedList) {
+          for (const file of f.files || []) {
+            if (!file.isViewed) count++;
+          }
+        }
+        setIeUnreadCount(count);
+      }
+    } catch (err) {
+      console.error("Failed to load IE CVs in navbar:", err);
+    } finally {
+      if (showSpinner) setLoading(false);
+    }
+  };
+
+  const fetchAllFolders = async (showSpinner = false) => {
+    await Promise.all([
+      fetchAustraliaFolders(showSpinner),
+      fetchIrelandFolders(showSpinner),
+    ]);
+  };
+
+  // Poll for new documents every 12 seconds
   useEffect(() => {
-    fetchFolders(true);
+    fetchAllFolders(true);
     const interval = setInterval(() => {
-      fetchFolders(false);
-    }, 10000);
+      fetchAllFolders(false);
+    }, 12000);
     return () => clearInterval(interval);
   }, []);
 
@@ -128,7 +184,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
   const updateCoords = useCallback(() => {
     if (!buttonRef.current) return;
     const rect = buttonRef.current.getBoundingClientRect();
-    const menuWidth = Math.min(430, window.innerWidth - 32);
+    const menuWidth = Math.min(440, window.innerWidth - 32);
     let left = rect.left;
     if (left + menuWidth > window.innerWidth - 16) {
       left = Math.max(16, window.innerWidth - menuWidth - 16);
@@ -144,129 +200,179 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
   useEffect(() => {
     if (!isOpen) return;
     updateCoords();
+
     const handleScrollOrResize = () => updateCoords();
     window.addEventListener("resize", handleScrollOrResize);
     window.addEventListener("scroll", handleScrollOrResize, true);
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        buttonRef.current &&
+        !buttonRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+
     return () => {
       window.removeEventListener("resize", handleScrollOrResize);
       window.removeEventListener("scroll", handleScrollOrResize, true);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [isOpen, updateCoords]);
 
-  // Close on outside click
+  // Current active list based on selected country tab
+  const activeFolders = countryTab === "AU" ? auFolders : ieFolders;
+  const currentUnreadCount = countryTab === "AU" ? auUnreadCount : ieUnreadCount;
+  const totalUnreadCount = (auUnreadCount || 0) + (ieUnreadCount || 0);
+
+  // Initialize expanded folders when list changes
   useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (buttonRef.current && buttonRef.current.contains(target)) {
-        return;
+    if (activeFolders.length > 0) {
+      setExpandedFolders(new Set(activeFolders.map((f) => String(f.phone || "")).filter(Boolean)));
+    }
+  }, [countryTab, activeFolders.length]);
+
+  // Mark single document as viewed
+  const markAsViewed = async (file: DocFile) => {
+    const key = file.fileKey || file.id;
+    if (!key || file.isViewed) return;
+
+    if (countryTab === "AU") {
+      setAuFolders((prev) =>
+        prev.map((folder) => ({
+          ...folder,
+          files: (folder.files || []).map((f) => {
+            if (f.fileKey === key || f.id === key) return { ...f, isViewed: true };
+            return f;
+          }),
+        }))
+      );
+      setAuUnreadCount((prev) => Math.max(0, prev - 1));
+
+      try {
+        const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
+        if (!saved.includes(key)) {
+          saved.push(key);
+          localStorage.setItem("cv_viewed_keys", JSON.stringify(saved));
+        }
+      } catch {}
+
+      try {
+        await fetch("/api/cv/viewed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileKey: key }),
+        });
+      } catch (err) {
+        console.error("Failed to mark AU document viewed:", err);
       }
-      if (menuRef.current && !menuRef.current.contains(target)) {
-        setIsOpen(false);
+    } else {
+      setIeFolders((prev) =>
+        prev.map((folder) => ({
+          ...folder,
+          files: (folder.files || []).map((f) => {
+            if (f.fileKey === key || f.id === key) return { ...f, isViewed: true };
+            return f;
+          }),
+        }))
+      );
+      setIeUnreadCount((prev) => Math.max(0, prev - 1));
+
+      try {
+        const saved = JSON.parse(localStorage.getItem("cv_ireland_viewed_keys") || "[]");
+        if (!saved.includes(key)) {
+          saved.push(key);
+          localStorage.setItem("cv_ireland_viewed_keys", JSON.stringify(saved));
+        }
+      } catch {}
+
+      try {
+        await fetch("/api/cv-ireland/viewed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileKey: key }),
+        });
+      } catch (err) {
+        console.error("Failed to mark IE document viewed:", err);
       }
-    };
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setIsOpen(false);
-        setPreviewFile(null);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen]);
-
-  // Mark single document as viewed (decreases unread badge count)
-  const markAsViewed = async (file: DocFile, folderPhone?: string) => {
-    const key = file.fileKey || file.id || (folderPhone ? `${folderPhone}_${file.fileName}` : `${file.fileName}`);
-    if (!key) return;
-
-    if (file.isViewed) return;
-
-    // Optimistically mark as viewed and decrement unread badge count
-    setFolders((prevFolders) =>
-      prevFolders.map((folder) => ({
-        ...folder,
-        files: (folder.files || []).map((f) => {
-          const fKey = f.fileKey || f.id || (folder.phone ? `${folder.phone}_${f.fileName}` : `${f.fileName}`);
-          if (fKey === key) {
-            return { ...f, isViewed: true };
-          }
-          return f;
-        }),
-      }))
-    );
-
-    setUnreadCount((prev) => Math.max(0, prev - 1));
-
-    // Save to local storage for instant zero-lag offline caching
-    try {
-      const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
-      if (!saved.includes(key)) {
-        saved.push(key);
-        localStorage.setItem("cv_viewed_keys", JSON.stringify(saved));
-      }
-    } catch {}
-
-    // Save to backend
-    try {
-      await fetch("/api/cv/viewed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileKey: key }),
-      });
-    } catch (err) {
-      console.error("Failed to mark document viewed on server:", err);
     }
   };
 
-  // Mark all documents as viewed
+  // Mark all documents as viewed in active country tab
   const markAllAsViewed = async () => {
-    // 1. Gather all keys synchronously from current folders
     const allKeys: string[] = [];
-    for (const folder of folders || []) {
+    for (const folder of activeFolders || []) {
       for (const f of folder.files || []) {
         const fKey = String(f.fileKey || f.id || `${folder.phone}_${f.fileName}`);
         if (fKey) allKeys.push(fKey);
       }
     }
 
-    // 2. Optimistically mark all in state
-    setFolders((prevFolders) =>
-      prevFolders.map((folder) => ({
-        ...folder,
-        files: (folder.files || []).map((f) => ({ ...f, isViewed: true })),
-      }))
-    );
-    setUnreadCount(0);
-
-    // 3. Persist mark all to localStorage as immediate offline fallback
     const nowIso = new Date().toISOString();
-    try {
-      localStorage.setItem("cv_last_mark_all_read", nowIso);
-      const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
-      const merged = Array.from(new Set([...saved, ...allKeys]));
-      localStorage.setItem("cv_viewed_keys", JSON.stringify(merged));
-    } catch {}
 
-    // 4. Send request to backend
-    try {
-      await fetch("/api/cv/viewed", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markAll: true, fileKeys: allKeys }),
-      });
-    } catch (err) {
-      console.error("Failed to mark all documents viewed:", err);
+    if (countryTab === "AU") {
+      setAuFolders((prev) =>
+        prev.map((folder) => ({
+          ...folder,
+          files: (folder.files || []).map((f) => ({ ...f, isViewed: true })),
+        }))
+      );
+      setAuUnreadCount(0);
+
+      try {
+        localStorage.setItem("cv_last_mark_all_read", nowIso);
+        const saved = JSON.parse(localStorage.getItem("cv_viewed_keys") || "[]");
+        for (const k of allKeys) {
+          if (!saved.includes(k)) saved.push(k);
+        }
+        localStorage.setItem("cv_viewed_keys", JSON.stringify(saved));
+      } catch {}
+
+      try {
+        await fetch("/api/cv/viewed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ markAll: true, fileKeys: allKeys }),
+        });
+      } catch (err) {
+        console.error("Failed to mark all AU documents viewed:", err);
+      }
+    } else {
+      setIeFolders((prev) =>
+        prev.map((folder) => ({
+          ...folder,
+          files: (folder.files || []).map((f) => ({ ...f, isViewed: true })),
+        }))
+      );
+      setIeUnreadCount(0);
+
+      try {
+        localStorage.setItem("cv_ireland_last_mark_all_read", nowIso);
+        const saved = JSON.parse(localStorage.getItem("cv_ireland_viewed_keys") || "[]");
+        for (const k of allKeys) {
+          if (!saved.includes(k)) saved.push(k);
+        }
+        localStorage.setItem("cv_ireland_viewed_keys", JSON.stringify(saved));
+      } catch {}
+
+      try {
+        await fetch("/api/cv-ireland/viewed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ markAll: true, fileKeys: allKeys }),
+        });
+      } catch (err) {
+        console.error("Failed to mark all IE documents viewed:", err);
+      }
     }
   };
 
-  const toggleFolder = (phone?: string, e?: React.MouseEvent) => {
+  const toggleFolder = (phone: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (!phone) return;
     setExpandedFolders((prev) => {
@@ -277,8 +383,8 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     });
   };
 
-  // 100% null-safe filtering
-  const filteredFolders = (folders || [])
+  // Filtered folders based on search query
+  const filteredFolders = (activeFolders || [])
     .map((folder) => {
       if (!folder) return null;
       const q = String(search || "").trim().toLowerCase();
@@ -300,7 +406,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
     })
     .filter(Boolean) as CandidateFolder[];
 
-  const totalFiles = (folders || []).reduce(
+  const totalFiles = (activeFolders || []).reduce(
     (sum, f) => sum + (f?.totalFiles || (Array.isArray(f?.files) ? f.files.length : 0)),
     0
   );
@@ -334,7 +440,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
           setIsOpen((prev) => {
             const next = !prev;
             if (next) {
-              fetchFolders(true);
+              fetchAllFolders(true);
               setTimeout(updateCoords, 0);
             }
             return next;
@@ -345,14 +451,14 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
             ? "border-b-2 border-foreground text-zinc-900 dark:text-zinc-100 font-semibold"
             : "border-b-2 border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:border-zinc-300"
         }`}
-        title="Candidate CVs & Documents (Admin Only)"
+        title="Candidate CVs & Documents (Australia & Ireland)"
       >
         <span>CV</span>
 
-        {/* Dynamic Unread Badge — Increases on new files, Decreases on view/download */}
-        {unreadCount > 0 && (
+        {/* Dynamic Total Unread Badge */}
+        {totalUnreadCount > 0 && (
           <span className="bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center leading-none shadow-xs animate-in zoom-in duration-150">
-            {unreadCount > 99 ? "99+" : unreadCount}
+            {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
           </span>
         )}
 
@@ -363,7 +469,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
         />
       </button>
 
-      {/* Dropdown Menu Panel — Rendered directly in Body Portal to eliminate any navbar scrollbars */}
+      {/* Dropdown Menu Panel via Portal */}
       {isOpen && mounted && coords && createPortal(
         <div
           ref={menuRef}
@@ -374,37 +480,39 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
             width: `${coords.width}px`,
             zIndex: 99999,
           }}
-          className="max-h-[80vh] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col font-sans animate-in fade-in zoom-in-95 duration-100"
+          className="max-h-[82vh] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col font-sans animate-in fade-in zoom-in-95 duration-100"
         >
           {/* Header */}
           <div className="p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex items-center justify-between shrink-0 font-mono">
             <div className="flex items-center gap-2">
               <Folder className="w-4 h-4 text-amber-500 fill-amber-500/20" />
-              <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">cv/</span>
-              <span className="text-[11px] font-sans text-zinc-400">
-                ({folders.length} candidates &bull; {totalFiles} docs)
+              <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100">
+                cv/{countryTab === "AU" ? "australia" : "ireland"}/
               </span>
-              {unreadCount > 0 && (
+              <span className="text-[11px] font-sans text-zinc-400">
+                ({activeFolders.length} cand &bull; {totalFiles} docs)
+              </span>
+              {currentUnreadCount > 0 && (
                 <span className="bg-red-500/15 text-red-500 text-[10px] font-semibold px-1.5 py-0.5 rounded font-sans border border-red-500/20">
-                  {unreadCount} new
+                  {currentUnreadCount} new
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1 font-sans">
-              {unreadCount > 0 && (
+              {currentUnreadCount > 0 && (
                 <button
                   type="button"
                   onClick={markAllAsViewed}
                   className="px-2 py-0.5 text-[11px] rounded text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-1 transition"
-                  title="Mark all documents as viewed"
+                  title="Mark active country documents as viewed"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
-                  <span>Mark all read</span>
+                  <span>Mark read</span>
                 </button>
               )}
               <button
                 type="button"
-                onClick={() => fetchFolders(true)}
+                onClick={() => fetchAllFolders(true)}
                 disabled={loading}
                 className="p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition"
                 title="Refresh candidate files"
@@ -421,13 +529,49 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
             </div>
           </div>
 
+          {/* Country Tabs: Australia 🇦🇺 vs Ireland 🇮🇪 */}
+          <div className="flex border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-950/60 p-1.5 gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setCountryTab("AU")}
+              className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 text-xs font-semibold rounded-lg transition-all ${
+                countryTab === "AU"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-xs border border-zinc-200 dark:border-zinc-700"
+                  : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
+              }`}
+            >
+              <span>🇦🇺 Australia</span>
+              {auUnreadCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                  {auUnreadCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCountryTab("IE")}
+              className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 text-xs font-semibold rounded-lg transition-all ${
+                countryTab === "IE"
+                  ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-xs border border-zinc-200 dark:border-zinc-700"
+                  : "text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-300"
+              }`}
+            >
+              <span>🇮🇪 Ireland</span>
+              {ieUnreadCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                  {ieUnreadCount}
+                </span>
+              )}
+            </button>
+          </div>
+
           {/* Search Bar */}
           <div className="p-2 border-b border-zinc-100 dark:border-zinc-800/80 bg-white dark:bg-zinc-900 shrink-0">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400" />
               <input
                 type="text"
-                placeholder="Search phone number or document name..."
+                placeholder={`Search ${countryTab === "AU" ? "Australia" : "Ireland"} phone or document...`}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 placeholder:text-zinc-400 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 text-zinc-800 dark:text-zinc-200"
@@ -437,148 +581,161 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
 
           {/* Directory Tree Body */}
           <div className="p-3 overflow-y-auto flex-1 font-mono text-xs space-y-2 select-none">
-            {loading && folders.length === 0 ? (
+            {loading && activeFolders.length === 0 ? (
               <div className="py-8 text-center text-xs text-zinc-400 space-y-1">
                 <RefreshCw className="w-4 h-4 animate-spin mx-auto text-emerald-500" />
-                <p>Loading candidate folders from database...</p>
+                <p>Loading {countryTab === "AU" ? "Australia" : "Ireland"} candidate folders...</p>
               </div>
             ) : filteredFolders.length === 0 ? (
               <div className="py-6 text-center text-xs text-zinc-400 font-sans">
-                {search ? "No matching folders found" : "No candidate CVs saved in database yet"}
+                {search ? "No matching folders found" : `No ${countryTab === "AU" ? "Australia" : "Ireland"} candidate CVs received yet`}
               </div>
             ) : (
               filteredFolders.map((folder, fIdx) => {
-                const phoneKey = String(folder?.phone || `folder_${fIdx}`);
-                const isExpanded = expandedFolders.has(phoneKey);
+                const isExpanded = expandedFolders.has(folder.phone);
+                const files = folder.files || [];
+                const folderUnreadCount = files.filter((f) => !f.isViewed).length;
                 const isLastFolder = fIdx === filteredFolders.length - 1;
-                const fileList = Array.isArray(folder?.files) ? folder.files : [];
-                const folderUnread = fileList.filter((f) => !f.isViewed).length;
 
                 return (
-                  <div key={phoneKey} className="space-y-1">
-                    {/* Folder Row: └── <candidate_phone_number>/ */}
+                  <div key={folder.phone} className="space-y-1">
+                    {/* Folder Row */}
                     <div
-                      onClick={(e) => toggleFolder(phoneKey, e)}
-                      className="group flex items-center justify-between p-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition text-zinc-800 dark:text-zinc-200"
+                      onClick={() => toggleFolder(folder.phone)}
+                      className="group flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800/80 cursor-pointer transition"
                     >
                       <div className="flex items-center gap-1.5 truncate">
-                        <span className="text-zinc-400 select-none text-[11px]">
-                          {isLastFolder ? "└──" : "├──"}
+                        <span className="text-zinc-400 text-[10px]">
+                          {isLastFolder ? "└─" : "├─"}
                         </span>
                         {isExpanded ? (
-                          <FolderOpen className="w-4 h-4 text-amber-500 fill-amber-500/20 shrink-0" />
+                          <FolderOpen className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20 shrink-0" />
                         ) : (
-                          <Folder className="w-4 h-4 text-amber-500 shrink-0" />
+                          <Folder className="w-3.5 h-3.5 text-amber-500 fill-amber-500/20 shrink-0" />
                         )}
-                        <span className="font-semibold text-zinc-900 dark:text-zinc-100 text-xs">
-                          {phoneKey}/
+                        <span className="font-semibold text-zinc-800 dark:text-zinc-200 truncate">
+                          {folder.phone}/
                         </span>
-                        <span className="font-sans text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                          ({String(folder?.candidateName || "Candidate")})
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <a
-                          href={`https://wa.me/${phoneKey.replace(/[^\d]/g, "")}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1 rounded text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
-                          title={`Chat on WhatsApp with +${phoneKey}`}
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </a>
-                        {folderUnread > 0 && (
-                          <span className="bg-red-500 text-white text-[9px] font-bold px-1 py-0.2 rounded-full font-sans">
-                            {folderUnread}
+                        {folder.candidateName && folder.candidateName !== "Candidate" && (
+                          <span className="text-[11px] font-sans text-zinc-400 truncate max-w-[110px]">
+                            ({folder.candidateName})
                           </span>
                         )}
-                        <span className="text-[10px] text-zinc-400 font-sans">
-                          {fileList.length}
-                        </span>
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5 text-emerald-500" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0 font-sans">
+                        {folderUnreadCount > 0 && (
+                          <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.2 rounded-full">
+                            {folderUnreadCount} new
+                          </span>
                         )}
+                        <span className="text-[11px] text-zinc-400">
+                          {files.length} {files.length === 1 ? "file" : "files"}
+                        </span>
+
+                        {/* Direct WhatsApp Chat link */}
+                        <Link
+                          href={
+                            countryTab === "AU"
+                              ? `/dashboard/whatsapp?phone=${folder.phone}`
+                              : `/dashboard/whatsapp-ireland?phone=${folder.phone}`
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setIsOpen(false);
+                          }}
+                          className="p-1 rounded text-zinc-400 hover:text-emerald-500 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
+                          title="Open Candidate Chat"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                        </Link>
+
+                        <ChevronRight
+                          className={`w-3 h-3 text-zinc-400 transition-transform ${
+                            isExpanded ? "rotate-90" : ""
+                          }`}
+                        />
                       </div>
                     </div>
 
-                    {/* Files inside folder: ├── Resume_John_Doe.pdf */}
+                    {/* Files inside folder */}
                     {isExpanded && (
                       <div className="pl-6 space-y-1">
-                        {fileList.map((file, fileIdx) => {
-                          const isLastFile = fileIdx === fileList.length - 1;
-                          const fileName = String(file?.fileName || "document.pdf");
-                          const isUnread = !file.isViewed;
+                        {files.length === 0 ? (
+                          <div className="text-[11px] text-zinc-400 italic py-1 pl-4 font-sans">
+                            Empty folder (no files found)
+                          </div>
+                        ) : (
+                          files.map((file, fileIdx) => {
+                            const isLastFile = fileIdx === files.length - 1;
+                            const isUnread = !file.isViewed;
 
-                          return (
-                            <div
-                              key={fileIdx}
-                              className={`group/file flex items-center justify-between p-1.5 rounded-md transition text-[11px] ${
-                                isUnread
-                                  ? "bg-red-500/5 hover:bg-red-500/10 border-l-2 border-red-500 pl-2"
-                                  : "hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
-                              }`}
-                            >
-                              <div className="flex items-center gap-1.5 truncate max-w-[230px]">
-                                <span className="text-zinc-400 select-none">
-                                  {isLastFile ? "└──" : "├──"}
-                                </span>
-                                {getFileIcon(fileName, file?.mimeType)}
-                                <span
-                                  className={`truncate font-medium ${
-                                    isUnread
-                                      ? "text-zinc-900 dark:text-zinc-100 font-semibold"
-                                      : "text-zinc-700 dark:text-zinc-300"
-                                  }`}
-                                >
-                                  {fileName}
-                                </span>
-                                {isUnread && (
-                                  <span className="shrink-0 px-1 py-0.2 text-[9px] font-bold uppercase rounded bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/20 font-sans">
-                                    NEW
+                            return (
+                              <div
+                                key={file.fileKey || file.id || `${file.fileName}_${fileIdx}`}
+                                className={`group flex items-center justify-between px-2 py-1 rounded-md text-xs transition ${
+                                  isUnread
+                                    ? "bg-red-50/60 dark:bg-red-950/20 border-l-2 border-red-500 font-semibold"
+                                    : "hover:bg-zinc-100 dark:hover:bg-zinc-800/60 text-zinc-700 dark:text-zinc-300"
+                                }`}
+                              >
+                                <div className="flex items-center gap-1.5 truncate max-w-[240px]">
+                                  <span className="text-zinc-400 text-[10px]">
+                                    {isLastFile ? "└─" : "├─"}
                                   </span>
-                                )}
-                              </div>
+                                  {getFileIcon(file.fileName, file.mimeType)}
+                                  <span
+                                    className="truncate text-[11px] cursor-pointer hover:underline"
+                                    title={file.fileName}
+                                    onClick={() => {
+                                      markAsViewed(file);
+                                      setPreviewFile(file);
+                                    }}
+                                  >
+                                    {file.fileName}
+                                  </span>
+                                  {isUnread && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />
+                                  )}
+                                </div>
 
-                              <div className="flex items-center gap-1 shrink-0 font-sans">
-                                {file?.sizeBytes && (
-                                  <span className="text-[10px] text-zinc-400">
-                                    {formatSize(file.sizeBytes)}
-                                  </span>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    markAsViewed(file, folder.phone);
-                                    setPreviewFile(file);
-                                  }}
-                                  className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition"
-                                  title="Instant Preview (Marks as viewed)"
-                                >
-                                  <Eye className="w-3 h-3" />
-                                </button>
-                                <a
-                                  href={file?.downloadUrl || file?.url || "#"}
-                                  download={fileName}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    markAsViewed(file, folder.phone);
-                                  }}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1 rounded text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition"
-                                  title="Download File (Marks as viewed)"
-                                >
-                                  <Download className="w-3 h-3" />
-                                </a>
+                                <div className="flex items-center gap-1 shrink-0 font-sans">
+                                  {file.sizeBytes && (
+                                    <span className="text-[10px] text-zinc-400">
+                                      {formatSize(file.sizeBytes)}
+                                    </span>
+                                  )}
+
+                                  {/* Quick Preview Eye */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      markAsViewed(file);
+                                      setPreviewFile(file);
+                                    }}
+                                    className="p-1 rounded text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 transition"
+                                    title="Quick Preview"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                  </button>
+
+                                  {/* Download button */}
+                                  <a
+                                    href={file.downloadUrl || file.url || "#"}
+                                    download={String(file.fileName || "document")}
+                                    onClick={() => markAsViewed(file)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1 rounded text-zinc-400 hover:text-emerald-500 transition"
+                                    title="Download Document"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                  </a>
+                                </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })
+                        )}
                       </div>
                     )}
                   </div>
@@ -587,15 +744,17 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
             )}
           </div>
 
-          {/* Footer Link to Dedicated Page */}
-          <div className="p-2.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 shrink-0 flex items-center justify-between font-sans text-xs">
-            <span className="text-[11px] text-zinc-400">MongoDB GridFS Storage</span>
+          {/* Footer: Open Full Explorer */}
+          <div className="p-2.5 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/90 flex items-center justify-between shrink-0 font-sans">
+            <span className="text-[11px] text-zinc-400">
+              Files stored in MongoDB GridFS & disk
+            </span>
             <Link
-              href="/dashboard/cv"
+              href={countryTab === "AU" ? "/dashboard/cv" : "/dashboard/cv-ireland"}
               onClick={() => setIsOpen(false)}
-              className="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-medium"
+              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-xs transition"
             >
-              <span>Open Full Explorer</span>
+              <span>Full Explorer {countryTab === "AU" ? "🇦🇺" : "🇮🇪"}</span>
               <ExternalLink className="w-3 h-3" />
             </Link>
           </div>
@@ -603,7 +762,7 @@ export default function CvNavbarDropdown({ isActive }: { isActive: boolean }) {
         document.body
       )}
 
-      {/* Floating Preview Lightbox Modal — Also mounted to body portal */}
+      {/* Floating Preview Lightbox Modal */}
       {previewFile && mounted && createPortal(
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4">
           <div className="relative w-full max-w-3xl h-[82vh] rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-100">

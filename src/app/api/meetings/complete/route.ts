@@ -209,16 +209,29 @@ export async function POST(req: NextRequest) {
 
     // Send automated WhatsApp confirmation to candidate
     try {
-      const { sendMeetingCompletedNotification } = await import("@/lib/whatsapp/meetingNotifications");
-      await sendMeetingCompletedNotification({
-        db,
-        lead: {
-          id: lead.id,
-          name: lead.name,
-          phone: lead.phone,
-          email: lead.email,
-        },
-      });
+      if (lead.interestedCountry === "Ireland") {
+        const { sendMeetingCompletedNotification } = await import("@/lib/whatsapp-ireland/meetingNotifications");
+        await sendMeetingCompletedNotification({
+          db,
+          lead: {
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            email: lead.email,
+          },
+        });
+      } else {
+        const { sendMeetingCompletedNotification } = await import("@/lib/whatsapp/meetingNotifications");
+        await sendMeetingCompletedNotification({
+          db,
+          lead: {
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            email: lead.email,
+          },
+        });
+      }
     } catch (waErr) {
       console.warn("Failed to dispatch WhatsApp meeting completed notification:", waErr);
     }
