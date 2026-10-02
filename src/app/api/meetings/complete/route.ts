@@ -180,34 +180,60 @@ export async function POST(req: NextRequest) {
     // Sync WhatsApp sessions if lead phone exists
     const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
     if (cleanLeadPhone.length >= 8) {
-      await db.collection("whatsapp_sessions").updateOne(
-        { phone: cleanLeadPhone },
-        {
-          $set: {
-            crmStatus: "follow-up",
-            meetingCompleted: true,
-            meetingCompletedAt: now,
-            meetingStatus: "completed",
-            currentStep: "MEETING_COMPLETED",
-            nextFollowupAt: undefined,
-            updatedAt: now,
-          },
-        }
+      const waSession = await db.collection("whatsapp_sessions").findOne({ phone: cleanLeadPhone });
+      const waIrelandSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanLeadPhone });
+
+      const hasSharedCv = Boolean(
+        lead.hasCv ||
+        lead.salesDocument ||
+        (Array.isArray(lead.cvFiles) && lead.cvFiles.length > 0) ||
+        waSession?.hasUploadedCv ||
+        waSession?.cvReceivedAt ||
+        waSession?.cvFileUrl ||
+        waIrelandSession?.hasUploadedCv ||
+        waIrelandSession?.cvReceivedAt ||
+        waIrelandSession?.cvFileUrl
       );
-      await db.collection("whatsapp_ireland_sessions").updateOne(
-        { phone: cleanLeadPhone },
-        {
-          $set: {
-            crmStatus: "follow-up",
-            meetingCompleted: true,
-            meetingCompletedAt: now,
-            meetingStatus: "completed",
-            currentStep: "MEETING_COMPLETED",
-            nextFollowupAt: undefined,
-            updatedAt: now,
-          },
-        }
-      );
+
+      const { getNext10AmInTimezone } = await import("@/lib/whatsapp/timezone");
+
+      if (waSession) {
+        const candidateTz = (waSession.timeZone as string) || "Asia/Kolkata";
+        await db.collection("whatsapp_sessions").updateOne(
+          { phone: cleanLeadPhone },
+          {
+            $set: {
+              crmStatus: "follow-up",
+              meetingCompleted: true,
+              meetingCompletedAt: now,
+              meetingStatus: "completed",
+              currentStep: hasSharedCv ? "MEETING_COMPLETED" : "AWAITING_CV",
+              followupCount: 0,
+              nextFollowupAt: hasSharedCv ? undefined : getNext10AmInTimezone(candidateTz),
+              updatedAt: now,
+            },
+          }
+        );
+      }
+
+      if (waIrelandSession) {
+        const candidateTz = (waIrelandSession.timeZone as string) || "Asia/Kolkata";
+        await db.collection("whatsapp_ireland_sessions").updateOne(
+          { phone: cleanLeadPhone },
+          {
+            $set: {
+              crmStatus: "follow-up",
+              meetingCompleted: true,
+              meetingCompletedAt: now,
+              meetingStatus: "completed",
+              currentStep: hasSharedCv ? "MEETING_COMPLETED" : "AWAITING_CV",
+              followupCount: 0,
+              nextFollowupAt: hasSharedCv ? undefined : getNext10AmInTimezone(candidateTz),
+              updatedAt: now,
+            },
+          }
+        );
+      }
     }
 
     await logUserAction(db, {

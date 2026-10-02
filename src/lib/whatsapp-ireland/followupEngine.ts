@@ -131,18 +131,50 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
           ? await db.collection("leads").findOne({ id: session.leadId })
           : await db.collection("leads").findOne({ $or: leadPhoneQueries });
 
-        const effectiveCrmStatus = (lead?.status || session.crmStatus || "").toLowerCase().trim();
-        if (effectiveCrmStatus && EXCLUDED_CRM_FOLLOWUP_STATUSES.includes(effectiveCrmStatus)) {
-          // Candidate is actively in CRM pipeline - cancel 7-day automated WhatsApp follow-ups
+        const hasSharedCv = Boolean(
+          session.cvReceivedAt ||
+          session.hasUploadedCv ||
+          session.cvFileUrl ||
+          lead?.hasCv ||
+          lead?.salesDocument ||
+          (Array.isArray(lead?.cvFiles) && lead.cvFiles.length > 0)
+        );
+
+        // If candidate has already shared their CV, immediately stop CV reminders
+        if (session.currentStep === "AWAITING_CV" && hasSharedCv) {
           await updateSession(db, session.phone, {
+            currentStep: "MEETING_COMPLETED",
             nextFollowupAt: undefined,
-            crmStatus: lead?.status || session.crmStatus,
             updatedAt: now,
           });
           continue;
         }
 
+        const isAwaitingCvFollowup = session.currentStep === "AWAITING_CV" && !hasSharedCv;
+
+        const effectiveCrmStatus = (lead?.status || session.crmStatus || "").toLowerCase().trim();
+        if (effectiveCrmStatus && EXCLUDED_CRM_FOLLOWUP_STATUSES.includes(effectiveCrmStatus)) {
+          if (!isAwaitingCvFollowup) {
+            // Candidate is actively in CRM pipeline - cancel 7-day automated WhatsApp follow-ups
+            await updateSession(db, session.phone, {
+              nextFollowupAt: undefined,
+              crmStatus: lead?.status || session.crmStatus,
+              updatedAt: now,
+            });
+            continue;
+          }
+        }
+
         const nextDay = (session.followupCount || 0) + 1;
+        if (nextDay > 7) {
+          await updateSession(db, session.phone, {
+            ...(session.currentStep !== "AWAITING_CV" ? { currentStep: "COLD" } : {}),
+            followupCount: 7,
+            nextFollowupAt: undefined,
+            updatedAt: now,
+          });
+          continue;
+        }
         let stepKey = "STEP_1_WELCOME";
 
         if (session.currentStep === "AWAITING_EMAIL") {

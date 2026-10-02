@@ -177,16 +177,24 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
     };
 
     // 3. Update session in whatsapp_ireland_sessions
+    const existingSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanPhone });
+    const updateFields: Record<string, unknown> = {
+      hasUploadedCv: true,
+      cvReceivedAt: now,
+      cvFileUrl: relativePublicUrl,
+      cvFileName: safeFilename,
+      nextFollowupAt: undefined,
+      updatedAt: now,
+    };
+    if (existingSession?.currentStep === "AWAITING_CV") {
+      updateFields.currentStep = "MEETING_COMPLETED";
+    }
+
     await db.collection("whatsapp_ireland_sessions").updateOne(
       { phone: cleanPhone },
       {
         $push: { cvFiles: fileRecord as any },
-        $set: {
-          cvReceivedAt: now,
-          cvFileUrl: relativePublicUrl,
-          cvFileName: safeFilename,
-          updatedAt: now,
-        },
+        $set: updateFields,
       }
     );
 

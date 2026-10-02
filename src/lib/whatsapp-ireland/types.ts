@@ -63,6 +63,9 @@ export interface WhatsAppSession {
   cvReceivedAt?: Date;
   cvFileUrl?: string;
   cvFileName?: string;
+  hasUploadedCv?: boolean;
+  lastUploadedCvUrl?: string;
+  cvFiles?: any[];
 
   // Candidate Qualifications & Profiling
   occupation?: string;

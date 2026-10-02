@@ -232,9 +232,23 @@ await db.collection("leads").updateOne(
     // Sync WhatsApp sessions if lead phone exists
     const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
     if (cleanLeadPhone.length >= 8) {
+      const waSession = await db.collection("whatsapp_sessions").findOne({ phone: cleanLeadPhone });
+      const waIrelandSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanLeadPhone });
+
+      const hasSharedCv = Boolean(
+        lead.hasCv ||
+        lead.salesDocument ||
+        (Array.isArray(lead.cvFiles) && lead.cvFiles.length > 0) ||
+        waSession?.hasUploadedCv ||
+        waSession?.cvReceivedAt ||
+        waSession?.cvFileUrl ||
+        waIrelandSession?.hasUploadedCv ||
+        waIrelandSession?.cvReceivedAt ||
+        waIrelandSession?.cvFileUrl
+      );
+
       const isPipelineActive = [
         "meeting-scheduled",
-        "follow-up",
         "sales",
         "payment-pending",
         "document-pending",
@@ -245,9 +259,22 @@ await db.collection("leads").updateOne(
         crmStatus: status,
         updatedAt: now,
       };
-      if (isPipelineActive) {
+
+      if (status === "follow-up") {
+        const { getNext10AmInTimezone } = await import("@/lib/whatsapp/timezone");
+        if (!hasSharedCv) {
+          sessionUpdate.currentStep = "AWAITING_CV";
+          sessionUpdate.followupCount = 0;
+          const candidateTz = (waSession?.timeZone || waIrelandSession?.timeZone || "Asia/Kolkata") as string;
+          sessionUpdate.nextFollowupAt = getNext10AmInTimezone(candidateTz);
+        } else {
+          sessionUpdate.currentStep = "MEETING_COMPLETED";
+          sessionUpdate.nextFollowupAt = undefined;
+        }
+      } else if (isPipelineActive) {
         sessionUpdate.nextFollowupAt = undefined;
       }
+
       if (status === "call-back" && callbackDate) {
         sessionUpdate.crmCallbackDate = callbackDate;
       }

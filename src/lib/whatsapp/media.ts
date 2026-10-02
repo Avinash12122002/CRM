@@ -246,9 +246,11 @@ export async function handleIncomingWhatsAppMedia(params: {
     // Update session in whatsapp_sessions
     const existingSession = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
     const updateFields: Record<string, unknown> = {
+      hasUploadedCv: true,
       cvReceivedAt: now,
       cvFileUrl: fileUrl,
       cvFileName: finalFilename,
+      nextFollowupAt: undefined,
       updatedAt: now,
     };
     if (existingSession?.currentStep === "AWAITING_CV") {

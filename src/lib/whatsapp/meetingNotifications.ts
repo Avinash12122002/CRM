@@ -41,6 +41,18 @@ export async function sendMeetingCompletedNotification(params: {
     const session = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
     const candidateTz = (session?.timeZone as string) || "Asia/Kolkata";
 
+    const hasSharedCv = Boolean(
+      session?.hasUploadedCv ||
+      session?.cvReceivedAt ||
+      session?.cvFileUrl ||
+      (lead as any)?.hasCv ||
+      (lead as any)?.salesDocument ||
+      (Array.isArray((lead as any)?.cvFiles) && (lead as any).cvFiles.length > 0)
+    );
+
+    const currentStep = hasSharedCv ? "MEETING_COMPLETED" : "AWAITING_CV";
+    const nextFollowupAt = hasSharedCv ? undefined : getNext10AmInTimezone(candidateTz);
+
     await db.collection("whatsapp_sessions").updateOne(
       { phone: cleanPhone },
       {
@@ -49,9 +61,9 @@ export async function sendMeetingCompletedNotification(params: {
           meetingStatus: "completed",
           meetingCompleted: true,
           meetingCompletedAt: now,
-          currentStep: "MEETING_COMPLETED",
+          currentStep,
           followupCount: 0,
-          nextFollowupAt: undefined,
+          nextFollowupAt,
           updatedAt: now,
         },
         $push: {
