@@ -277,7 +277,12 @@ export async function POST(req: NextRequest) {
 
     // Send automated WhatsApp confirmation to candidate
     try {
-      if (lead.interestedCountry === "Ireland") {
+      const isIrelandLead =
+        lead.interestedCountry === "Ireland" ||
+        lead.channel === "WhatsApp Ireland" ||
+        lead.meetingDetails?.channel === "WhatsApp Ireland";
+
+      if (isIrelandLead) {
         const { sendMeetingCompletedNotification } = await import("@/lib/whatsapp-ireland/meetingNotifications");
         await sendMeetingCompletedNotification({
           db,

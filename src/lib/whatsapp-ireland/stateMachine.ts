@@ -1,17 +1,22 @@
 import { Db } from "mongodb";
 import { connectToDatabase } from "@/lib/mongodb";
 import { getNextId } from "@/lib/auth";
-import { WhatsAppSession, WeekendSlot } from "./types";
+import { WhatsAppSession, WhatsAppStep, MeetingHistoryItem, WeekendSlot } from "./types";
 import {
   detectCountryFromPhone,
   convertIstSlotToCandidateTime,
   extractShortTimezone,
+  findCountryByNameOrCode,
+  format12hTime,
   getNext10AmInTimezone,
   getCandidateConsultationWindow,
 } from "./timezone";
 import {
   getUpcomingWeekendDays,
   getAvailableWeekendSlots,
+  findNextAvailableWeekendDay,
+  formatSlotsOverview,
+  WeekendDayOption,
 } from "./slots";
 import { generateAiResponse } from "./ai";
 import {
@@ -188,6 +193,16 @@ export async function getOrCreateSession(
         existing.crmNotes = lead.notes.map((n: any) => (typeof n === "string" ? n : n.note || "")).filter(Boolean);
       }
 
+      if (lead.country && (!existing.countryName || existing.countryName === "International")) {
+        const matchCountry = findCountryByNameOrCode(lead.country);
+        if (matchCountry) {
+          existing.countryCode = matchCountry.countryCode;
+          existing.countryName = matchCountry.countryName;
+          existing.timeZone = matchCountry.timeZone;
+          existing.timeZoneLabel = matchCountry.label;
+        }
+      }
+
       // CRITICAL: Stop 7-day follow-ups for candidates already in active CRM stages!
       const EXCLUDED_CRM_STATUSES = [
         "meeting-scheduled",
@@ -209,15 +224,58 @@ export async function getOrCreateSession(
       }
     }
 
+    if (!existing.bookedSlot) {
+      const last10 = cleanPhone.slice(-10);
+      const activeSlot = await db.collection("meetingSlots").findOne({
+        status: "scheduled",
+        $or: [
+          { phone: cleanPhone },
+          { phone: `+${cleanPhone}` },
+          ...(last10.length === 10 ? [{ phone: last10 }, { phone: `+91${last10}` }, { phone: { $regex: `${last10}$` } }] : []),
+        ],
+      });
+      if (activeSlot) {
+        const slotTz = existing.timeZone || country.timeZone;
+        const candSlotStart = activeSlot.candidateLocalTime
+          ? { candidateTime: activeSlot.candidateLocalTime, display12h: format12hTime(activeSlot.candidateLocalTime) }
+          : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.startTime, slotTz);
+        const candSlotEnd = activeSlot.candidateLocalEndTime
+          ? { candidateTime: activeSlot.candidateLocalEndTime, display12h: format12hTime(activeSlot.candidateLocalEndTime) }
+          : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.endTime, slotTz);
+        const slotTzShort = extractShortTimezone(existing.timeZoneLabel || country.label);
+        const isIndia = (existing.countryCode || country.countryCode) === "IN";
+        const candLabel = isIndia
+          ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`
+          : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+
+        existing.bookedSlot = {
+          date: activeSlot.meetingDate,
+          candidateTime: candSlotStart.candidateTime,
+          candidateTimeLabel: activeSlot.candidateDisplayLabel || candLabel,
+          istTime: activeSlot.startTime,
+          istTimeLabel: `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`,
+          meetingUserId: activeSlot.meetingUserId || 0,
+          meetingUserName: activeSlot.meetingUserName || "TMS Senior Ireland Expert",
+        };
+        existing.meetingStatus = "booked";
+        if (existing.currentStep === "WELCOME" || existing.currentStep === "AWAITING_EMAIL") {
+          existing.currentStep = "BOOKED";
+        }
+      }
+    }
+
+    if (!existing.meetingStatus) existing.meetingStatus = existing.bookedSlot ? "booked" : "none";
+    if (!existing.meetingHistory) existing.meetingHistory = [];
     return existing;
   }
 
   // Lookup existing CRM lead
+  const cleanLast10 = cleanPhone.slice(-10);
   const existingLead = await db.collection("leads").findOne({
     $or: [
       { phone: cleanPhone },
       { phone: `+${cleanPhone}` },
-      { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
+      ...(cleanLast10.length === 10 ? [{ phone: cleanLast10 }, { phone: `+91${cleanLast10}` }, { phone: { $regex: `${cleanLast10}$` } }] : []),
     ],
   });
 
@@ -247,6 +305,41 @@ export async function getOrCreateSession(
       existingLead.status.toLowerCase().trim()
     );
 
+  // Check if an active meeting slot exists for this phone number
+  const activeSlotNew = await db.collection("meetingSlots").findOne({
+    status: "scheduled",
+    $or: [
+      { phone: cleanPhone },
+      { phone: `+${cleanPhone}` },
+      ...(cleanLast10.length === 10 ? [{ phone: cleanLast10 }, { phone: `+91${cleanLast10}` }, { phone: { $regex: `${cleanLast10}$` } }] : []),
+    ],
+  });
+
+  let bookedSlotNew: WhatsAppSession["bookedSlot"] = undefined;
+  if (activeSlotNew) {
+    const candSlotStart = activeSlotNew.candidateLocalTime
+      ? { candidateTime: activeSlotNew.candidateLocalTime, display12h: format12hTime(activeSlotNew.candidateLocalTime) }
+      : convertIstSlotToCandidateTime(activeSlotNew.meetingDate, activeSlotNew.startTime, country.timeZone);
+    const candSlotEnd = activeSlotNew.candidateLocalEndTime
+      ? { candidateTime: activeSlotNew.candidateLocalEndTime, display12h: format12hTime(activeSlotNew.candidateLocalEndTime) }
+      : convertIstSlotToCandidateTime(activeSlotNew.meetingDate, activeSlotNew.endTime, country.timeZone);
+    const slotTzShort = extractShortTimezone(country.label);
+    const isIndia = country.countryCode === "IN";
+    const candLabel = isIndia
+      ? `${format12hTime(activeSlotNew.startTime)} - ${format12hTime(activeSlotNew.endTime)} IST`
+      : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+
+    bookedSlotNew = {
+      date: activeSlotNew.meetingDate,
+      candidateTime: candSlotStart.candidateTime,
+      candidateTimeLabel: activeSlotNew.candidateDisplayLabel || candLabel,
+      istTime: activeSlotNew.startTime,
+      istTimeLabel: `${format12hTime(activeSlotNew.startTime)} - ${format12hTime(activeSlotNew.endTime)} IST`,
+      meetingUserId: activeSlotNew.meetingUserId || 0,
+      meetingUserName: activeSlotNew.meetingUserName || "TMS Senior Ireland Expert",
+    };
+  }
+
   const newSession: WhatsAppSession = {
     phone: cleanPhone,
     name: resolvedName,
@@ -256,10 +349,10 @@ export async function getOrCreateSession(
     interestedCountry: "Ireland",
     timeZone: country.timeZone,
     timeZoneLabel: country.label,
-    currentStep: "WELCOME",
+    currentStep: bookedSlotNew ? "BOOKED" : "WELCOME",
     leadId: existingLead?.id,
     followupCount: 0,
-    nextFollowupAt: isExcludedNewLead ? undefined : undefined,
+    nextFollowupAt: isExcludedNewLead || bookedSlotNew ? undefined : undefined,
     crmStatus: existingLead?.status,
     crmAssignedTo: existingLead?.assignedTo,
     crmAssignedToName: existingLead?.assignedToName,
@@ -274,6 +367,9 @@ export async function getOrCreateSession(
     meetingCompleted: existingLead?.meetingStatus === "completed" || existingLead?.status === "follow-up",
     paymentPending: existingLead?.status === "payment-pending",
     documentPending: existingLead?.status === "document-pending",
+    meetingStatus: bookedSlotNew ? "booked" : (existingLead?.meetingStatus as any) || "none",
+    bookedSlot: bookedSlotNew,
+    meetingHistory: [],
     lastInteractionAt: now,
     createdAt: now,
     updatedAt: now,
@@ -309,6 +405,99 @@ export async function updateSession(
     .collection(SESSIONS_COLLECTION)
     .updateOne({ phone: cleanPhone }, updateDoc);
 }
+
+/**
+ * Append an entry to meeting history in whatsapp_ireland_sessions
+ */
+export async function appendMeetingHistory(
+  db: Db,
+  phone: string,
+  historyItem: MeetingHistoryItem,
+): Promise<void> {
+  const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
+  await db.collection(SESSIONS_COLLECTION).updateOne(
+    { phone: cleanPhone },
+    {
+      $push: { meetingHistory: historyItem } as any,
+      $set: { updatedAt: new Date() },
+    },
+  );
+}
+
+const MONTH_MAP: Record<string, string> = {
+  jan: "01", january: "01",
+  feb: "02", february: "02",
+  mar: "03", march: "03",
+  apr: "04", april: "04",
+  may: "05",
+  jun: "06", june: "06",
+  jul: "07", july: "07",
+  aug: "08", august: "08",
+  sep: "09", sept: "09", september: "09",
+  oct: "10", october: "10",
+  nov: "11", november: "11",
+  dec: "12", december: "12",
+};
+
+/**
+ * Parses user message text to detect whether candidate mentioned a specific upcoming weekend date.
+ * Matches ISO dates, formatted dates (e.g. "27 sep", "28th september"), slash dates ("27/9"),
+ * or single day numbers if candidate is actively in the SELECTING_DAY step.
+ */
+export function matchWeekendDateFromText(
+  text: string,
+  upcomingWeekends: WeekendDayOption[],
+  isSelectingDayStep: boolean = false
+): string | null {
+  const clean = text.toLowerCase().trim();
+
+  // 1. Direct ISO match (e.g. "2026-09-27")
+  for (const w of upcomingWeekends) {
+    if (clean.includes(w.date)) return w.date;
+  }
+
+  // 2. Day number + month match (e.g. "27 sep", "27th september", "sep 27", "27/9")
+  for (const w of upcomingWeekends) {
+    const parts = w.date.split("-");
+    const month = parts[1];
+    const day = parts[2];
+    const dayNum = parseInt(day, 10).toString();
+    const monthNum = parseInt(month, 10).toString();
+
+    const shortMonths = Object.keys(MONTH_MAP).filter((k) => k.length === 3 && MONTH_MAP[k] === month);
+    const longMonths = Object.keys(MONTH_MAP).filter((k) => k.length > 3 && MONTH_MAP[k] === month);
+    const monthVariants = [...shortMonths, ...longMonths];
+
+    for (const mName of monthVariants) {
+      const rx1 = new RegExp(`\\b${dayNum}(?:st|nd|rd|th)?\\s*(?:of\\s*)?${mName}\\b`, "i");
+      const rx2 = new RegExp(`\\b${mName}\\s*${dayNum}(?:st|nd|rd|th)?\\b`, "i");
+      if (rx1.test(clean) || rx2.test(clean)) {
+        return w.date;
+      }
+    }
+
+    const rxDateSlash = new RegExp(`\\b${dayNum}[/-]0?${monthNum}\\b`);
+    if (rxDateSlash.test(clean)) {
+      return w.date;
+    }
+  }
+
+  // 3. If candidate is actively in SELECTING_DAY step and typed just the day of month (e.g. "27" or "28")
+  if (isSelectingDayStep) {
+    const dayOnlyMatch = clean.match(/\b(0?[1-9]|[12][0-9]|3[01])(?:st|nd|rd|th)?\b/);
+    if (dayOnlyMatch) {
+      const dayVal = parseInt(dayOnlyMatch[1], 10);
+      const matched = upcomingWeekends.find((w) => {
+        const d = parseInt(w.date.split("-")[2], 10);
+        return d === dayVal;
+      });
+      if (matched) return matched.date;
+    }
+  }
+
+  return null;
+}
+
 
 /**
  * Creates or updates an Ireland CRM lead in the `leads` collection
@@ -468,7 +657,7 @@ export async function processIncomingWhatsAppMessage(params: {
   const session = await getOrCreateSession(db, cleanPhone, senderName);
   const now = new Date();
 
-  const cleanActionId = selectedId?.trim() || "";
+  let cleanActionId = selectedId?.trim() || "";
   const rawText = (textBody || "").trim();
   const lowerText = rawText.toLowerCase();
 
@@ -783,6 +972,135 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
+  // --- Meeting Cancellation Request Check ---
+  const isCancelRequest =
+    cleanActionId === "CANCEL_MEETING" ||
+    cleanActionId === "BTN_CANCEL_MEETING" ||
+    lowerText === "cancel" ||
+    lowerText === "cancel meeting" ||
+    lowerText === "cancel consultation" ||
+    lowerText === "cancel slot" ||
+    lowerText === "cancel my appointment" ||
+    lowerText === "cancel my meeting" ||
+    lowerText === "cancel my slot" ||
+    (lowerText.includes("cancel") &&
+      (lowerText.includes("meeting") ||
+        lowerText.includes("consultation") ||
+        lowerText.includes("slot") ||
+        lowerText.includes("appointment")));
+
+  if (isCancelRequest && session.bookedSlot) {
+    const canceledSlot = session.bookedSlot;
+
+    // Release slot in meetingSlots collection
+    try {
+      await db.collection("meetingSlots").updateMany(
+        {
+          phone: session.phone,
+          status: "scheduled",
+        },
+        {
+          $set: {
+            status: "cancelled",
+            cancelledAt: new Date(),
+            updatedAt: new Date(),
+          },
+        }
+      );
+    } catch (slotErr) {
+      console.warn("[WhatsApp Ireland] Could not release slot on cancel:", slotErr);
+    }
+
+    // Append to Meeting History
+    const historyItem: MeetingHistoryItem = {
+      action: "canceled",
+      date: canceledSlot.date,
+      candidateTime: canceledSlot.candidateTimeLabel,
+      istTime: canceledSlot.istTimeLabel,
+      timestamp: new Date(),
+      reason: rawText || "Candidate requested cancellation via WhatsApp",
+    };
+    await appendMeetingHistory(db, session.phone, historyItem);
+
+    // Update session in whatsapp_ireland_sessions
+    await updateSession(db, session.phone, {
+      meetingStatus: "canceled",
+      meetingCanceledAt: new Date(),
+      meetingCancellationReason: rawText || "Requested by candidate via WhatsApp",
+      bookedSlot: undefined,
+      currentStep: "AWAITING_REENGAGEMENT",
+    });
+
+    // Update CRM lead
+    if (session.leadId) {
+      await db.collection("leads").updateOne(
+        { id: session.leadId },
+        {
+          $set: {
+            meetingStatus: "cancelled",
+            meetingCancelledAt: new Date(),
+            meetingDetails: null,
+            updatedAt: new Date(),
+          },
+          $push: {
+            history: {
+              action: "meeting_cancelled_via_whatsapp_ireland",
+              performedByName: "WhatsApp Ireland Bot",
+              timestamp: new Date(),
+              details: `Consultation on ${canceledSlot.date} at ${canceledSlot.istTimeLabel} cancelled by candidate`,
+            } as any,
+          },
+        }
+      );
+    }
+
+    const cancelMsg =
+      `Hello ${session.name || "there"}! 👋\n\n` +
+      `Your Ireland consultation meeting has been cancelled. ℹ️\n\n` +
+      `Please reschedule your 1-on-1 session for an upcoming weekend so our senior expert can assess your Ireland Employer Sponsored Work Visa profile.\n\n` +
+      `👉 Tap below to choose an available time slot:`;
+
+    await sendQuickReplyButtons(session.phone, cancelMsg, [
+      { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
+    ]);
+    return;
+  }
+
+  // --- Reschedule Intent Check ---
+  const isRescheduleIntent =
+    cleanActionId === "BTN_RESCHEDULE" ||
+    cleanActionId === "BTN_RESCHEDULE_MEETING" ||
+    cleanActionId === "BTN_CHANGE_DATE" ||
+    cleanActionId === "BTN_CHANGE_TIME" ||
+    cleanActionId === "BTN_CHANGE_DAY" ||
+    lowerText === "reschedule" ||
+    lowerText === "reschedule meeting" ||
+    lowerText === "reschedule consultation" ||
+    lowerText === "change time" ||
+    lowerText === "change date" ||
+    lowerText === "change meeting" ||
+    lowerText === "change my meeting" ||
+    lowerText === "reschedule my meeting" ||
+    lowerText === "change slot" ||
+    (lowerText.includes("reschedule") &&
+      (lowerText.includes("meeting") || lowerText.includes("consultation") || lowerText.includes("slot") || lowerText.includes("call")));
+
+  if (isRescheduleIntent) {
+    await sendConsultationBookingPrompt(cleanPhone);
+    return;
+  }
+
+  // --- Text Weekend Date Matching ---
+  const upcomingWeekends = getUpcomingWeekendDays(10);
+  const matchedWeekendDate = matchWeekendDateFromText(
+    rawText,
+    upcomingWeekends,
+    session.currentStep === "SELECTING_DAY" || session.currentStep === "SELECTING_SLOT"
+  );
+  if (matchedWeekendDate) {
+    cleanActionId = `SELECT_DAY_${matchedWeekendDate}`;
+  }
+
   // --- Master Guard: Active CRM Candidates ---
   // If candidate is already in active CRM stages, do NOT run new lead intake flows (asking email, booking consultation)
   const ACTIVE_CRM_STATUSES = [
@@ -794,9 +1112,8 @@ export async function processIncomingWhatsAppMessage(params: {
     "call-back",
   ];
   const isCrmCandidate =
-    Boolean(existingCrmLead) ||
-    Boolean(session.existingLeadNotified) ||
     (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
+    (existingCrmLead && existingCrmLead.status && ACTIVE_CRM_STATUSES.includes(existingCrmLead.status.toLowerCase().trim())) ||
     session.meetingCompleted === true ||
     session.meetingStatus === "completed" ||
     session.currentStep === "MEETING_COMPLETED";
@@ -1132,6 +1449,19 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
+  // Greeting for new candidate: Send Welcome with Quick Reply Buttons
+  const normalizedGreeting = lowerText.replace(/[^a-z]/g, "");
+  const isCandidateGreeting =
+    ["hi", "hello", "hey", "start", "restart", "menu", "namaste", "hlo", "hii", "goodmorning", "goodevening", "goodafternoon"].includes(normalizedGreeting) ||
+    lowerText.startsWith("hi ") ||
+    lowerText.startsWith("hello ") ||
+    lowerText.startsWith("hey ");
+
+  if (isCandidateGreeting && (session.currentStep === "WELCOME" || !session.videoSentAt)) {
+    await sendInitialWelcome(cleanPhone, session.name);
+    return;
+  }
+
   // 1. Interactive Button Handling
   if (
     cleanActionId === "BTN_IRELAND_YES" ||
@@ -1237,6 +1567,78 @@ export async function processIncomingWhatsAppMessage(params: {
     const istStart = parts[2];
     const candStart = parts[3];
 
+    // Double-booking collision check against meetingSlots
+    const existingSlot = await db.collection("meetingSlots").findOne({
+      meetingDate,
+      startTime: istStart,
+      status: { $in: ["scheduled", "completed"] },
+    });
+
+    if (existingSlot && existingSlot.phone !== session.phone) {
+      console.log(`[WhatsApp Ireland] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone}`);
+
+      const remainingSlots = await getAvailableWeekendSlots({
+        db,
+        meetingDate,
+        candidateTimeZone: session.timeZone,
+        candidateTimeLabel: session.timeZoneLabel,
+      });
+      const availableRemaining = remainingSlots.filter((s) => s.available);
+
+      if (availableRemaining.length > 0) {
+        const isIndia = session.countryCode === "IN";
+        const dayLabel = remainingSlots[0]?.dayLabel || meetingDate;
+        const candObj = convertIstSlotToCandidateTime(meetingDate, istStart, session.timeZone);
+        const bookedLabel = `${candObj.display12h} (${session.timeZoneLabel})`;
+
+        const collisionMsg =
+          `⚠️ That slot (**${bookedLabel}**) was just booked by another candidate!\n\n` +
+          `All consultation slots are locked once reserved to avoid overlap. Please choose another available time:\n\n` +
+          formatSlotsOverview({
+            slots: availableRemaining,
+            dayLabel,
+            candidateTimeZoneLabel: session.timeZoneLabel,
+            isIndia,
+          });
+
+        await sendTextMessage(session.phone, collisionMsg);
+        return;
+      } else {
+        const nextWeekend = await findNextAvailableWeekendDay({
+          db,
+          afterDate: meetingDate,
+          candidateTimeZone: session.timeZone,
+          candidateTimeLabel: session.timeZoneLabel,
+        });
+
+        if (nextWeekend && nextWeekend.availableSlots.length > 0) {
+          const nextLabel = nextWeekend.dayOption.displayLabel;
+          const isIndia = session.countryCode === "IN";
+
+          const collisionMsg =
+            `⚠️ That slot was just booked, and all slots for that day are now fully reserved! 🔒\n\n` +
+            `Here are all available consultation slots for the next weekend on **${nextLabel}**:\n\n` +
+            formatSlotsOverview({
+              slots: nextWeekend.availableSlots,
+              dayLabel: nextLabel,
+              candidateTimeZoneLabel: session.timeZoneLabel,
+              isIndia,
+            });
+
+          await sendTextMessage(session.phone, collisionMsg);
+          return;
+        } else {
+          const fullText =
+            `⚠️ That slot was just booked and upcoming weekend dates are currently full.\n\n` +
+            `Would you like to review all upcoming dates across the month?`;
+          await sendQuickReplyButtons(session.phone, fullText, [
+            { id: "BTN_RESCHEDULE", title: "View All Dates" },
+          ]);
+          return;
+        }
+      }
+    }
+
     // Compute end times (1-hour interval)
     const istHour = parseInt(istStart.split(":")[0], 10);
     const istEnd = `${String(istHour + 1).padStart(2, "0")}:00`;
@@ -1244,74 +1646,228 @@ export async function processIncomingWhatsAppMessage(params: {
     const candEndObj = convertIstSlotToCandidateTime(meetingDate, istEnd, session.timeZone);
     const candStartObj = convertIstSlotToCandidateTime(meetingDate, istStart, session.timeZone);
 
-    const candidateTimeLabel = `${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel})`;
-    const istTimeLabel = `${istStart} - ${istEnd} IST`;
+    const isIndia = session.countryCode === "IN";
+    const candidateTimeLabel = isIndia
+      ? `${format12hTime(istStart)} - ${format12hTime(istEnd)} IST`
+      : `${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel})`;
+    const istTimeLabel = `${format12hTime(istStart)} - ${format12hTime(istEnd)} IST`;
 
-    // Confirm slot in DB
-    const bookedSlotInfo = {
-      date: meetingDate,
-      candidateTime: candStart,
-      candidateTimeLabel,
-      istTime: istStart,
-      istTimeLabel,
-      meetingUserId: 0,
-      meetingUserName: "TMS Senior Ireland Expert",
-    };
+    // Look up consultant user in CRM (Abhay or first meeting user or admin)
+    const abhayUser = await db.collection("users").findOne({
+      username: { $regex: /^abhay$/i },
+    });
+    const consultantId = abhayUser ? abhayUser.id : 1;
+    const consultantName = abhayUser ? abhayUser.name : "Abhay";
+
+    // Check if this candidate ALREADY had a scheduled slot (rescheduling flow)
+    const previousScheduledSlot = await db.collection("meetingSlots").findOne({
+      phone: session.phone,
+      status: "scheduled",
+    });
+    const isReschedule = Boolean(previousScheduledSlot);
+    let previousSlotDetails = "";
+
+    if (previousScheduledSlot) {
+      previousSlotDetails = `${previousScheduledSlot.meetingDate} at ${previousScheduledSlot.startTime} IST`;
+      await db.collection("meetingSlots").deleteMany({
+        phone: session.phone,
+        status: "scheduled",
+      });
+    }
 
     const meetLink = getStaticGoogleMeetLink();
 
-    await updateSession(db, cleanPhone, {
-      currentStep: "BOOKED",
-      meetingStatus: "booked",
-      meetingBookedAt: now,
-      bookedSlot: bookedSlotInfo,
-      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
-    });
-
-    const leadId = await ensureLeadExists(db, session, {
+    // Ensure lead exists
+    const leadId = session.leadId || await ensureLeadExists(db, session, {
       status: "meeting-scheduled",
+      meetingStatus: "scheduled",
+      assignedTo: consultantId,
+      assignedToName: consultantName,
       meetingDetails: {
         meetingDate,
         startTime: istStart,
         endTime: istEnd,
         meetingLink: meetLink,
+        googleMeetLink: meetLink,
         status: "scheduled",
         candidateTime: candidateTimeLabel,
         channel: "WhatsApp Ireland",
       },
     });
 
-    await updateSession(db, cleanPhone, { leadId });
+    // Insert new slot in meetingSlots
+    const slotId = await getNextId(db, "meetingSlots");
+    const slotDoc = {
+      id: slotId,
+      leadId,
+      meetingDate,
+      startTime: istStart,
+      endTime: istEnd,
+      status: "scheduled",
+      phone: session.phone,
+      email: session.email || "",
+      meetingUserId: consultantId,
+      meetingUserName: consultantName,
+      bookedBy: "WhatsApp Ireland Bot",
+      bookedByName: "WhatsApp Ireland Bot",
+      candidateTimezone: session.timeZone,
+      candidateLocalTime: candStart,
+      candidateLocalEndTime: candEndObj.candidateTime,
+      candidateDisplayLabel: candidateTimeLabel,
+      googleMeetLink: meetLink,
+      channel: "WhatsApp Ireland",
+      createdAt: now,
+      updatedAt: now,
+    };
+    await db.collection("meetingSlots").insertOne(slotDoc);
 
-    // In-App Notification for Admins in CRM
+    // Update CRM lead
+    await db.collection("leads").updateOne(
+      { id: leadId },
+      {
+        $set: {
+          status: "meeting-scheduled",
+          meetingStatus: "scheduled",
+          assignedTo: consultantId,
+          assignedToName: consultantName,
+          assignedToRole: (abhayUser?.role as string) || "meeting",
+          assignedBy: "WhatsApp Ireland Bot",
+          assignedByName: "WhatsApp Ireland Bot",
+          meetingDetails: {
+            meetingUserId: consultantId,
+            meetingUserName: consultantName,
+            meetingDate,
+            startTime: istStart,
+            endTime: istEnd,
+            candidateTimezone: session.timeZone,
+            candidateLocalStartTime: candStart,
+            candidateLocalEndTime: candEndObj.candidateTime,
+            candidateTime: candidateTimeLabel,
+            bookedBy: "WhatsApp Ireland Bot",
+            bookedByName: "WhatsApp Ireland Bot",
+            googleMeetLink: meetLink,
+            meetingLink: meetLink,
+            status: "scheduled",
+            channel: "WhatsApp Ireland",
+          },
+          updatedAt: now,
+        },
+        $addToSet: {
+          visibleTo: consultantId,
+          participants: consultantId,
+        } as any,
+        $push: {
+          history: {
+            action: isReschedule ? "meeting_rescheduled_via_whatsapp_ireland" : "meeting_booked_via_whatsapp_ireland",
+            performedByName: "WhatsApp Ireland Bot",
+            timestamp: now,
+            details: isReschedule
+              ? `Rescheduled from ${previousSlotDetails} to ${meetingDate} at ${candidateTimeLabel}. Room: ${meetLink}`
+              : `Booked Ireland consultation for ${meetingDate} at ${candidateTimeLabel}. Room: ${meetLink}`,
+          } as any,
+        },
+      }
+    );
+
+    // Update session
+    const historyItem: MeetingHistoryItem = {
+      action: isReschedule ? "rescheduled" : "booked",
+      date: meetingDate,
+      candidateTime: candidateTimeLabel,
+      istTime: istTimeLabel,
+      timestamp: now,
+      previousSlot: isReschedule && session.bookedSlot ? {
+        date: session.bookedSlot.date,
+        candidateTime: session.bookedSlot.candidateTimeLabel,
+        istTime: session.bookedSlot.istTimeLabel,
+      } : undefined,
+    };
+
+    const bookedSlotInfo = {
+      date: meetingDate,
+      candidateTime: candStart,
+      candidateTimeLabel,
+      istTime: istStart,
+      istTimeLabel,
+      meetingUserId: consultantId,
+      meetingUserName: "TMS Senior Ireland Expert",
+    };
+
+    await updateSession(db, session.phone, {
+      currentStep: "BOOKED",
+      meetingStatus: isReschedule ? "rescheduled" : "booked",
+      meetingBookedAt: !isReschedule ? now : session.meetingBookedAt || now,
+      meetingRescheduledAt: isReschedule ? now : session.meetingRescheduledAt,
+      meetingRescheduledCount: (session.meetingRescheduledCount || 0) + (isReschedule ? 1 : 0),
+      activeSlotsDate: undefined,
+      bookedSlot: bookedSlotInfo,
+      leadId,
+      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
+    });
+
+    await appendMeetingHistory(db, session.phone, historyItem);
+
+    // In-App Notification for Consultant & Admins in CRM
     try {
       const { createNotification } = await import("@/lib/notifications");
-      const adminUsers = await db.collection("users").find({ role: "admin" }).toArray();
       const candName = session.name || "Ireland WhatsApp Candidate";
-      for (const admin of adminUsers) {
+      if (abhayUser) {
         await createNotification({
-          userId: admin.id,
-          title: "New Ireland WhatsApp Consultation Booked 🇮🇪",
-          message: `1-on-1 Ireland Work Visa consultation booked with ${candName} on ${meetingDate} at ${candidateTimeLabel}.`,
+          userId: abhayUser.id,
+          title: isReschedule ? "Ireland WhatsApp Meeting Rescheduled 🇮🇪" : "New Ireland WhatsApp Meeting Booked 🇮🇪",
+          message: isReschedule
+            ? `Ireland consultation with ${candName} was RESCHEDULED to ${meetingDate} at ${candidateTimeLabel}.`
+            : `1-on-1 Ireland Work Visa consultation booked with ${candName} on ${meetingDate} at ${candidateTimeLabel}.`,
           type: "meeting_scheduled",
           link: `/dashboard/leads/${leadId}`,
         });
       }
     } catch (notifErr) {
-      console.warn("[WhatsApp Ireland] Failed to notify admins of meeting:", notifErr);
+      console.warn("[WhatsApp Ireland] Failed to create notification:", notifErr);
     }
 
-    // Send confirmation message to candidate with Google Meet link
-    const confirmMessage =
-      `🎉 **Your Ireland Consultation is Confirmed!**\n\n` +
-      `📅 **Date:** ${meetingDate}\n` +
-      `⏰ **Your Local Time:** ${candidateTimeLabel}\n` +
-      `👨‍💼 **Expert:** Senior Ireland Migration Counselor\n` +
-      `🔗 **Google Meet Link:** ${meetLink}\n\n` +
-      `Our expert will walk you through the complete process — from CV to work permit to flight tickets. 🇮🇪\n\n` +
-      `In the meantime, feel free to upload your CV here for prior review! 📄`;
+    const candidateDisplayName = session.name && session.name !== "Candidate" ? session.name : "Candidate";
+    const dateObj = new Date(`${meetingDate}T12:00:00+05:30`);
+    const formattedDate = new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(dateObj);
 
-    await sendTextMessage(cleanPhone, confirmMessage);
+    const confirmMessage = isReschedule
+      ? `Dear ${candidateDisplayName},\n\n` +
+        `Your *Ireland Employer Sponsored Work Visa* consultation has been **successfully rescheduled**! ✅🇮🇪\n\n` +
+        `📅 *New Date:* ${formattedDate}\n` +
+        `⏰ *New Time:* ${candidateTimeLabel}\n` +
+        `👨‍💼 *Expert:* Senior Ireland Migration Counselor\n` +
+        `💻 *Google Meet:* ${meetLink}\n\n` +
+        `Please make sure to *join the meeting on time*.\n\n` +
+        `We look forward to speaking with you.\n\n` +
+        `*Best regards,*\n` +
+        `*TMS Visa — Ireland Division*`
+      : `Dear ${candidateDisplayName},\n\n` +
+        `Thank you for showing your interest in the *Ireland Employer Sponsored Work Visa*! 🇮🇪\n\n` +
+        `We are pleased to confirm your *1-on-1 Google Meet consultation* to assess your eligibility across Critical Skills (CSEP) and General Permits (GEP), employer sponsorship, and Stamp 4 PR.\n\n` +
+        `📅 *Date:* ${formattedDate}\n` +
+        `⏰ *Time:* ${candidateTimeLabel}\n` +
+        `👨‍💼 *Expert:* Senior Ireland Migration Counselor\n` +
+        `💻 *Google Meet:* ${meetLink}\n\n` +
+        `Please make sure to *join the meeting on time*.\n\n` +
+        `In the meantime, feel free to upload your CV here for prior review! 📄\n\n` +
+        `*Best regards,*\n` +
+        `*TMS Visa — Ireland Division*`;
+
+    await sendTextMessage(session.phone, confirmMessage);
+
+    // Send Quick Reply Button: Change Date & Time
+    await delay(300);
+    const changePrompt =
+      `ℹ️ *Need to change your date or time?*\n` +
+      `If you mistakenly selected the wrong slot or need to change it later, tap below anytime:`;
+
+    await sendQuickReplyButtons(session.phone, changePrompt, [
+      { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
+    ]);
     return;
   }
 

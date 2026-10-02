@@ -431,28 +431,46 @@ KNOWLEDGE BASE:
 ${TMS_VISA_IRELAND_KNOWLEDGE}
 `;
 
-      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: `${systemPrompt}\nPrimary Intent: ${insights.primaryIntent}` },
-            { role: "user", content: rawMsg },
-          ],
-          temperature: 0.3,
-          max_tokens: 350,
-        }),
-      });
+      const groqModels = [
+        process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "llama-3.3-70b-versatile",
+      ];
 
-      if (response.ok) {
-        const data = await response.json();
-        const aiText = data.choices?.[0]?.message?.content?.trim();
-        if (aiText) {
-          return sanitizeFinalResponse(aiText, session);
+      for (const model of groqModels) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: "system", content: `${systemPrompt}\nPrimary Intent: ${insights.primaryIntent}` },
+                { role: "user", content: rawMsg },
+              ],
+              temperature: 0.3,
+              max_tokens: 350,
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const data = await response.json();
+            const aiText = data.choices?.[0]?.message?.content?.trim();
+            if (aiText) {
+              return sanitizeFinalResponse(aiText, session);
+            }
+          }
+        } catch (_modelErr) {
+          // Continue to next model fallback
         }
       }
     } catch (llmErr) {

@@ -252,7 +252,7 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
     const bookedSessions = (await db
       .collection("whatsapp_ireland_sessions")
       .find({
-        meetingStatus: "booked",
+        meetingStatus: { $in: ["booked", "rescheduled"] },
         "bookedSlot.date": todayIST,
       })
       .toArray()) as unknown as WhatsAppSession[];

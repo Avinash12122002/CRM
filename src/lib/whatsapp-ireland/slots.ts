@@ -2,6 +2,7 @@ import { Db } from "mongodb";
 import { WeekendSlot } from "./types";
 import {
   convertIstSlotToCandidateTime,
+  extractShortTimezone,
   formatDateInZone,
 } from "./timezone";
 
@@ -124,9 +125,19 @@ export async function getAvailableWeekendSlots(params: {
     .project({ _id: 0, "bookedSlot.istTime": 1 })
     .toArray();
 
+  const bookedWhatsAppSessions = await db
+    .collection("whatsapp_sessions")
+    .find({
+      "bookedSlot.date": meetingDate,
+      meetingStatus: { $in: ["booked", "rescheduled"] },
+    })
+    .project({ _id: 0, "bookedSlot.istTime": 1 })
+    .toArray();
+
   const bookedTimes = new Set([
     ...bookedSlots.map((s) => s.startTime),
     ...bookedIrelandSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean),
+    ...bookedWhatsAppSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean),
   ]);
 
   const now = new Date();
@@ -201,4 +212,39 @@ export async function getAvailableWeekendSlots(params: {
   }
 
   return slots;
+}
+
+/**
+ * Formats all available slots for a day into a single complete overview
+ * with all slots formatted in the candidate's country local time.
+ */
+export function formatSlotsOverview(params: {
+  slots: WeekendSlot[];
+  dayLabel: string;
+  candidateTimeZoneLabel: string;
+  isIndia?: boolean;
+}): string {
+  const { slots, dayLabel, candidateTimeZoneLabel } = params;
+
+  let text = `📅 *All Available Consultation Slots for ${dayLabel}*\n`;
+
+  const tzShort = extractShortTimezone(candidateTimeZoneLabel);
+
+  if (slots.length > 0) {
+    const firstLocal = slots[0].candidateDisplayLabel.split(" - ")[0].trim();
+    const lastPart = slots[slots.length - 1].candidateDisplayLabel.split(" - ")[1].split(" (")[0].trim();
+    text += `(1-hour 1-on-1 sessions between ${firstLocal} - ${lastPart} ${tzShort})\n\n`;
+  } else {
+    text += `(1-hour 1-on-1 sessions in your local time — ${tzShort})\n\n`;
+  }
+
+  slots.forEach((s, idx) => {
+    const num = idx + 1;
+    const candRange = s.candidateDisplayLabel.split(" (")[0].trim();
+    text += `*${num}.* ${candRange}\n`;
+  });
+
+  text += `\n👉 Tap *Select Slot* below or reply with your slot number (*1* to *${slots.length}*).\n`;
+  text += `🔄 Want a different date? Tap *Change Date*.`;
+  return text;
 }

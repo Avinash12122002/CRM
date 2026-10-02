@@ -296,6 +296,18 @@ export default function WhatsAppIrelandChatPage() {
         toast.error(errData.error || "Failed to send WhatsApp message");
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       } else {
+        const data = await res.json().catch(() => ({}));
+        if (data?.message) {
+          setMessages((prev) => {
+            const alreadyHasServerMsg = prev.some((m) => m.id === data.message.id);
+            if (alreadyHasServerMsg) {
+              return prev.filter((m) => m.id !== optimisticId);
+            }
+            return prev.map((m) =>
+              m.id === optimisticId ? { ...data.message, id: data.message.id || optimisticId } : m
+            );
+          });
+        }
         loadConversations(true);
       }
     } catch {
