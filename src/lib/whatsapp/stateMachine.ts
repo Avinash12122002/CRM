@@ -324,7 +324,7 @@ export async function getOrCreateSession(
 
   const newSession: WhatsAppSession = {
     phone: cleanPhone,
-    name: candidateName && !candidateName.toLowerCase().includes("test") ? candidateName : existingLead?.name || "Candidate",
+    name: candidateName && !candidateName.toLowerCase().includes("test") && !candidateName.includes("@") && candidateName.length > 1 ? candidateName : (existingLead?.name && !existingLead.name.includes("@") ? existingLead.name : "Candidate"),
     email: existingLead?.email,
     leadId: existingLead?.id,
     countryCode: country.countryCode,
@@ -947,9 +947,9 @@ export async function processIncomingWhatsAppMessage(params: {
     // If not yet notified that they already exist in CRM, notify them immediately
     if (!session.existingLeadNotified) {
       const candidateDisplayName =
-        session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+        session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
           ? session.name
-          : existingLead.name && existingLead.name !== "Candidate" && !existingLead.name.toLowerCase().includes("test")
+          : existingLead.name && existingLead.name !== "Candidate" && !existingLead.name.toLowerCase().includes("test") && !existingLead.name.includes("@")
             ? existingLead.name
             : "there";
 
@@ -1338,16 +1338,16 @@ export async function processIncomingWhatsAppMessage(params: {
   ];
 
   const isCrmCandidate =
-    Boolean(existingLead) ||
     Boolean(session.existingLeadNotified) ||
     (session.crmStatus && ACTIVE_CRM_STATUSES.includes(session.crmStatus.toLowerCase().trim())) ||
+    (existingLead && existingLead.status && ACTIVE_CRM_STATUSES.includes(existingLead.status.toLowerCase().trim())) ||
     session.meetingCompleted === true ||
     session.meetingStatus === "completed" ||
     session.currentStep === "MEETING_COMPLETED";
 
   if (isCrmCandidate) {
     const candidateDisplayName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
         ? session.name
         : "there";
 
@@ -1815,7 +1815,13 @@ export async function processIncomingWhatsAppMessage(params: {
   const isResendOrSendEmailRequest =
     // Asking to send again or resend (handles typos like "give mer again")
     lowerClean.includes("resend") ||
-    lowerClean.includes("again") ||
+    lowerClean === "again" ||
+    lowerClean.startsWith("send again") ||
+    lowerClean.includes("send it again") ||
+    lowerClean.includes("send me again") ||
+    lowerClean.includes("bhejo phir") ||
+    lowerClean.includes("dobara bhejo") ||
+    lowerClean.includes("resend it") ||
     lowerClean.includes("send me email") ||
     lowerClean.includes("send email") ||
     lowerClean.includes("send mail") ||
@@ -2093,7 +2099,7 @@ export async function processIncomingWhatsAppMessage(params: {
   if (isGreeting && (session.currentStep === "BOOKED" || session.bookedSlot)) {
     const meetLink = getStaticGoogleMeetLink();
     const candidateDisplayName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
         ? session.name
         : "";
     const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
@@ -2119,7 +2125,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 1b. If candidate's meeting was cancelled and sends a greeting ("hi", "hello", etc.)
   if (isGreeting && (session.meetingStatus === "canceled" || session.currentStep === "AWAITING_REENGAGEMENT") && !session.bookedSlot && session.email) {
     const candidateDisplayName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
         ? session.name
         : "";
     const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
@@ -2140,7 +2146,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 1c. If candidate already registered their email and sends a greeting ("hi", "hello", etc.)
   if (isGreeting && session.email) {
     const candidateDisplayName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
         ? session.name
         : "";
     const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
@@ -2205,9 +2211,9 @@ export async function processIncomingWhatsAppMessage(params: {
     }
 
     const welcomeText =
-      `Hello ☺️! Welcome to The Migration School (TMS Visa) 🇦🇺.\n\n` +
+      `Hello! Welcome to The Migration School (TMS Visa) 🇦🇺\n\n` +
       `We specialize in employer-sponsored work visas for Australia.\n\n` +
-      `*We have received your enquiry for Australia Employer Sponsored Work Visa, to know all the details ,choose  Insterested*`;
+      `*We have received your enquiry for the Australia Employer Sponsored Work Visa. Tap below to know all the details:*`;
 
     await sendQuickReplyButtons(session.phone, welcomeText, [
       { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -2288,7 +2294,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 3. Candidate clicked YES to 482 -> Request Email
   if (isAffirmative && !isDirectEmail) {
     const emailPrompt =
-      `Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*`;
+      `Great! *Please reply with your Email Address* so we can send you the complete Australia Work Visa details and the Eligible Occupation List (691 roles): 📧`;
 
     const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, session.phone, {
@@ -2465,7 +2471,7 @@ export async function processIncomingWhatsAppMessage(params: {
   });
 
   const candidateDisplayName =
-    session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+    session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
       ? session.name
       : "";
   const nameSalutation = candidateDisplayName ? ` ${candidateDisplayName}` : "";
@@ -3172,7 +3178,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
   if (wantsPhoneChange || isBarePhoneNumber) {
     const candidateDisplayName =
-      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
         ? session.name
         : "there";
 
