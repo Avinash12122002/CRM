@@ -177,6 +177,8 @@ export async function POST(req: NextRequest) {
           year: "numeric",
         }).format(dateObj);
 
+        const safeCandidateName = (lead.name && lead.name !== "at" && lead.name.trim().length > 2 && !lead.name.toLowerCase().includes("test")) ? lead.name.trim() : "Candidate";
+
         if (isIreland) {
           const { sendTextMessage } = await import("@/lib/whatsapp-ireland/client");
           const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp-ireland/stateMachine");
@@ -184,7 +186,7 @@ export async function POST(req: NextRequest) {
           const meetLink = getStaticGoogleMeetLink();
 
           const reschedMsg =
-            `Dear ${lead.name || "Candidate"},\n\n` +
+            `Dear ${safeCandidateName},\n\n` +
             `Your *Ireland Employer Sponsored Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
             `📅 *New Date:* ${formattedDate}\n` +
             `⏰ *New Time:* ${timeDisplay}\n` +
@@ -215,7 +217,7 @@ export async function POST(req: NextRequest) {
                 currentStep: "BOOKED",
                 meetingStatus: "rescheduled",
                 crmStatus: "meeting-scheduled",
-                nextFollowupAt: undefined,
+                nextFollowupAt: null,
                 bookedSlot: {
                   date: meetingDate,
                   candidateTime: candStart?.candidateTime || startTime,
@@ -235,7 +237,7 @@ export async function POST(req: NextRequest) {
           const meetLink = getStaticGoogleMeetLink();
 
           const reschedMsg =
-            `Dear ${lead.name || "Candidate"},\n\n` +
+            `Dear ${safeCandidateName},\n\n` +
             `Your *Australia Employer Sponsored Work Visa* consultation has been **successfully rescheduled**! ✅\n\n` +
             `📅 *New Date:* ${formattedDate}\n` +
             `⏰ *New Time:* ${timeDisplay}\n` +
@@ -267,7 +269,7 @@ export async function POST(req: NextRequest) {
                 currentStep: "BOOKED",
                 meetingStatus: "rescheduled",
                 crmStatus: "meeting-scheduled",
-                nextFollowupAt: undefined,
+                nextFollowupAt: null,
                 bookedSlot: {
                   date: meetingDate,
                   candidateTime: candStart?.candidateTime || startTime,

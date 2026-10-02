@@ -279,6 +279,29 @@ export async function PUT(
       },
     );
 
+    // Sync WhatsApp sessions if lead phone exists so updated name/email/status is immediately reflected
+    const cleanLeadPhone = String(finalPhone || lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
+    if (cleanLeadPhone.length >= 8) {
+      const sessionUpdate: Record<string, unknown> = {
+        crmStatus: effectiveStatus,
+        updatedAt: now,
+      };
+      if (name?.trim()) {
+        sessionUpdate.name = name.trim();
+      }
+      if (email?.trim()) {
+        sessionUpdate.email = email.trim();
+      }
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        { $set: sessionUpdate }
+      );
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        { $set: sessionUpdate }
+      );
+    }
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,

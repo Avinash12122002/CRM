@@ -408,14 +408,25 @@ export async function updateSession(
   updates: Partial<WhatsAppSession>,
 ) {
   const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
+  const setObj: Record<string, any> = { updatedAt: new Date() };
+  const unsetObj: Record<string, any> = {};
+
+  for (const [k, v] of Object.entries(updates)) {
+    if (v === undefined) {
+      unsetObj[k] = "";
+    } else {
+      setObj[k] = v;
+    }
+  }
+
+  const updateDoc: Record<string, any> = { $set: setObj };
+  if (Object.keys(unsetObj).length > 0) {
+    updateDoc.$unset = unsetObj;
+  }
+
   await db.collection(SESSIONS_COLLECTION).updateOne(
     { phone: cleanPhone },
-    {
-      $set: {
-        ...updates,
-        updatedAt: new Date(),
-      },
-    },
+    updateDoc,
   );
 }
 

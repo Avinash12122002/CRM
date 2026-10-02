@@ -314,7 +314,7 @@ export async function POST(
           $set: {
             crmStatus: "sales",
             currentStep: "MEETING_COMPLETED",
-            nextFollowupAt: undefined,
+            nextFollowupAt: null,
             updatedAt: now,
           },
         }
@@ -325,7 +325,7 @@ export async function POST(
           $set: {
             crmStatus: "sales",
             currentStep: "MEETING_COMPLETED",
-            nextFollowupAt: undefined,
+            nextFollowupAt: null,
             updatedAt: now,
           },
         }

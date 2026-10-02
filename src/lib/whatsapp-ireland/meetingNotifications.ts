@@ -1,5 +1,6 @@
 import { Db } from "mongodb";
 import { sendTextMessage } from "./client";
+import { getSafeCandidateDisplayName } from "./stateMachine";
 
 /**
  * Sends an automated WhatsApp confirmation when an Ireland consultation meeting is completed.
@@ -20,7 +21,7 @@ export async function sendMeetingCompletedNotification(params: {
   const cleanPhone = String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "");
   if (cleanPhone.length < 8) return;
 
-  const candidateName = lead.name && !lead.name.toLowerCase().includes("test") ? lead.name : "";
+  const candidateName = getSafeCandidateDisplayName(lead.name);
   const nameSalutation = candidateName ? `Hi ${candidateName}! ` : "";
 
   const messageText =

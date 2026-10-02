@@ -186,6 +186,8 @@ export async function POST(req: NextRequest) {
           year: "numeric",
         }).format(dateObj);
 
+        const safeCandidateName = (lead.name && lead.name !== "at" && lead.name.trim().length > 2 && !lead.name.toLowerCase().includes("test")) ? lead.name.trim() : "Candidate";
+
         if (isIreland) {
           const { sendTextMessage } = await import("@/lib/whatsapp-ireland/client");
           const { getStaticGoogleMeetLink } = await import("@/lib/whatsapp-ireland/stateMachine");
@@ -193,7 +195,7 @@ export async function POST(req: NextRequest) {
           const meetLink = getStaticGoogleMeetLink();
 
           const confirmMsg =
-            `Dear ${lead.name || "Candidate"},\n\n` +
+            `Dear ${safeCandidateName},\n\n` +
             `Thank you for showing your interest in the *Ireland Employer Sponsored Work Visa* (Critical Skills & General Employment). 🇮🇪\n\n` +
             `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
             `📅 *Date:* ${formattedDate}\n` +
@@ -225,7 +227,7 @@ export async function POST(req: NextRequest) {
                 currentStep: "BOOKED",
                 meetingStatus: "booked",
                 crmStatus: "meeting-scheduled",
-                nextFollowupAt: undefined,
+                nextFollowupAt: null,
                 bookedSlot: {
                   date: meetingDate,
                   candidateTime: candStart?.candidateTime || startTime,
@@ -245,7 +247,7 @@ export async function POST(req: NextRequest) {
           const meetLink = getStaticGoogleMeetLink();
 
           const confirmMsg =
-            `Dear ${lead.name || "Candidate"},\n\n` +
+            `Dear ${safeCandidateName},\n\n` +
             `Thank you for showing your interest in the *Australia Employer Sponsored Work Visa*.\n\n` +
             `We are pleased to invite you to a *Google Meet session* to discuss the visa process, eligibility, requirements, and further details.\n\n` +
             `📅 *Date:* ${formattedDate}\n` +
@@ -278,7 +280,7 @@ export async function POST(req: NextRequest) {
                 currentStep: "BOOKED",
                 meetingStatus: "booked",
                 crmStatus: "meeting-scheduled",
-                nextFollowupAt: undefined,
+                nextFollowupAt: null,
                 bookedSlot: {
                   date: meetingDate,
                   candidateTime: candStart?.candidateTime || startTime,

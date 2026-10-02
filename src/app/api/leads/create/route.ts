@@ -104,10 +104,15 @@ export async function POST(req: NextRequest) {
 
     // Normalize phone number
     const cleanPhone = String(phone).trim();
+    const digitsOnly = cleanPhone.replace(/[^\d]/g, "").replace(/^00/, "");
 
-    // Check if phone already exists
+    // Check if phone already exists across formatted/unformatted variations
     const existingLead = await db.collection("leads").findOne({
-      phone: cleanPhone,
+      $or: [
+        { phone: cleanPhone },
+        ...(digitsOnly ? [{ phone: digitsOnly }, { phone: `+${digitsOnly}` }] : []),
+        ...(digitsOnly.length >= 10 ? [{ phone: { $regex: `${digitsOnly.slice(-10)}$` } }] : []),
+      ],
     });
 
     if (existingLead) {

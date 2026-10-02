@@ -217,7 +217,12 @@ async function handleAssign(req: NextRequest) {
           assignedToRole: assignedUser?.role || null,
 
           ...(assignedUser?.role === "case_manager" || assignedUser?.role === "wcm"
-            ? { caseManagerAssignedAt: now }
+            ? {
+                caseManagerAssignedAt:
+                  String(lead.assignedTo) === String(assignedTo) && lead.caseManagerAssignedAt
+                    ? lead.caseManagerAssignedAt
+                    : now,
+              }
             : { caseManagerAssignedAt: null }),
 
           meetingDetails,
@@ -275,7 +280,7 @@ async function handleAssign(req: NextRequest) {
           sessionUpdate.crmStatus = "meeting-scheduled";
           sessionUpdate.meetingStatus = "scheduled";
           sessionUpdate.currentStep = "BOOKED";
-          sessionUpdate.nextFollowupAt = undefined;
+          sessionUpdate.nextFollowupAt = null;
           sessionUpdate.bookedSlot = {
             date: meetingDate,
             istTime: startTime,

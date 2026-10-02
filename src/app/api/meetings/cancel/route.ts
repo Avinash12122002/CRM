@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
           $set: {
             meetingStatus: "canceled",
             crmStatus: "meeting-reschedule",
-            bookedSlot: undefined,
+            bookedSlot: null,
             updatedAt: new Date(),
           },
         }
@@ -110,7 +110,7 @@ export async function POST(req: NextRequest) {
           $set: {
             meetingStatus: "canceled",
             crmStatus: "meeting-reschedule",
-            bookedSlot: undefined,
+            bookedSlot: null,
             updatedAt: new Date(),
           },
         }

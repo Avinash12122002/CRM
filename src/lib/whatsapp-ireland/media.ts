@@ -183,7 +183,7 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
       cvReceivedAt: now,
       cvFileUrl: relativePublicUrl,
       cvFileName: safeFilename,
-      nextFollowupAt: undefined,
+      nextFollowupAt: null,
       updatedAt: now,
     };
     if (existingSession?.currentStep === "AWAITING_CV") {

@@ -209,7 +209,7 @@ export async function POST(req: NextRequest) {
               meetingStatus: "completed",
               currentStep: hasSharedCv ? "MEETING_COMPLETED" : "AWAITING_CV",
               followupCount: 0,
-              nextFollowupAt: hasSharedCv ? undefined : getNext10AmInTimezone(candidateTz),
+              nextFollowupAt: hasSharedCv ? null : getNext10AmInTimezone(candidateTz),
               updatedAt: now,
             },
           }
@@ -228,7 +228,7 @@ export async function POST(req: NextRequest) {
               meetingStatus: "completed",
               currentStep: hasSharedCv ? "MEETING_COMPLETED" : "AWAITING_CV",
               followupCount: 0,
-              nextFollowupAt: hasSharedCv ? undefined : getNext10AmInTimezone(candidateTz),
+              nextFollowupAt: hasSharedCv ? null : getNext10AmInTimezone(candidateTz),
               updatedAt: now,
             },
           }

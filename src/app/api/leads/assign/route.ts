@@ -228,9 +228,16 @@ async function handleAssign(req: NextRequest) {
           assignedToRole: assignedUser?.role || null,
 
           // Stamp caseManagerAssignedAt when assigning/reassigning to a case manager;
-          // clear it when handing back to any other role.
+          // preserve existing timestamp if already assigned to this case manager.
           ...(assignedUser?.role === "case_manager" || assignedUser?.role === "wcm"
-            ? { caseManagerAssignedAt: now }
+            ? {
+                caseManagerAssignedAt:
+                  lead.assignedTo === assignedTo && lead.caseManagerAssignedAt
+                    ? lead.caseManagerAssignedAt
+                    : now,
+                caseManagerId: assignedTo,
+                caseManagerName: assignedUser.name,
+              }
             : { caseManagerAssignedAt: null }),
 
           meetingDetails,
@@ -288,7 +295,7 @@ async function handleAssign(req: NextRequest) {
           sessionUpdate.crmStatus = "meeting-scheduled";
           sessionUpdate.meetingStatus = "scheduled";
           sessionUpdate.currentStep = "BOOKED";
-          sessionUpdate.nextFollowupAt = undefined;
+          sessionUpdate.nextFollowupAt = null;
           sessionUpdate.bookedSlot = {
             date: meetingDate,
             istTime: startTime,

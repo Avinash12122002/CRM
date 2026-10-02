@@ -126,29 +126,31 @@ export async function POST(req: NextRequest) {
             const existingSession = await db.collection("whatsapp_ireland_sessions").findOne({ phone });
             const existingLead = await db.collection("leads").findOne({ $or: leadPhoneQueries });
 
-            if (
-              existingSession?.name &&
-              existingSession.name !== "Candidate" &&
-              !existingSession.name.toLowerCase().includes("test")
-            ) {
-              effectiveSenderName = existingSession.name;
-            } else if (
-              existingLead?.name &&
-              existingLead.name !== "Candidate" &&
-              !existingLead.name.toLowerCase().includes("test")
-            ) {
-              effectiveSenderName = existingLead.name;
-              await db.collection("whatsapp_ireland_sessions").updateOne(
-                { phone, $or: [{ name: { $exists: false } }, { name: "Candidate" }, { name: "" }] },
-                { $set: { name: existingLead.name } }
+            const isValidPersonName = (n?: string): boolean => {
+              if (!n) return false;
+              const t = n.trim();
+              const l = t.toLowerCase();
+              return (
+                t.length > 2 &&
+                l !== "candidate" &&
+                l !== "at" &&
+                !l.includes("test") &&
+                !l.includes("@") &&
+                !/^(hi|hello|hey|namaste|sir|madam|mr|mrs|ms|ok|okay)$/i.test(l)
               );
-            } else if (
-              effectiveSenderName &&
-              effectiveSenderName !== "Candidate" &&
-              !effectiveSenderName.toLowerCase().includes("test")
-            ) {
+            };
+
+            if (isValidPersonName(existingSession?.name)) {
+              effectiveSenderName = existingSession!.name;
+            } else if (isValidPersonName(existingLead?.name)) {
+              effectiveSenderName = existingLead!.name;
               await db.collection("whatsapp_ireland_sessions").updateOne(
-                { phone, $or: [{ name: { $exists: false } }, { name: "Candidate" }, { name: "" }] },
+                { phone },
+                { $set: { name: existingLead!.name } }
+              );
+            } else if (isValidPersonName(effectiveSenderName)) {
+              await db.collection("whatsapp_ireland_sessions").updateOne(
+                { phone, $or: [{ name: { $exists: false } }, { name: "Candidate" }, { name: "at" }, { name: "" }] },
                 { $set: { name: effectiveSenderName } }
               );
             } else {

@@ -269,10 +269,10 @@ await db.collection("leads").updateOne(
           sessionUpdate.nextFollowupAt = getNext10AmInTimezone(candidateTz);
         } else {
           sessionUpdate.currentStep = "MEETING_COMPLETED";
-          sessionUpdate.nextFollowupAt = undefined;
+          sessionUpdate.nextFollowupAt = null;
         }
       } else if (isPipelineActive) {
-        sessionUpdate.nextFollowupAt = undefined;
+        sessionUpdate.nextFollowupAt = null;
       }
 
       if (status === "call-back" && callbackDate) {

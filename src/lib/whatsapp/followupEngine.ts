@@ -69,7 +69,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         });
 
         await updateSession(db, session.phone, {
-          consultationPromptDueAt: undefined,
+          consultationPromptDueAt: null as any,
           updatedAt: now,
         });
 
@@ -148,7 +148,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
       if (session.currentStep === "AWAITING_CV" && hasSharedCv) {
         await updateSession(db, session.phone, {
           currentStep: "MEETING_COMPLETED",
-          nextFollowupAt: undefined,
+          nextFollowupAt: null as any,
           updatedAt: now,
         });
         continue;
@@ -161,7 +161,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         if (!isAwaitingCvFollowup) {
           // Candidate is actively in CRM pipeline - cancel 7-day automated WhatsApp follow-ups
           await updateSession(db, session.phone, {
-            nextFollowupAt: undefined,
+            nextFollowupAt: null as any,
             crmStatus: lead?.status || session.crmStatus,
             updatedAt: now,
           });
@@ -182,7 +182,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         await updateSession(db, session.phone, {
           ...(session.currentStep !== "AWAITING_CV" ? { currentStep: "COLD" } : {}),
           followupCount: 7,
-          nextFollowupAt: undefined,
+          nextFollowupAt: null as any,
           updatedAt: now,
         });
         continue;

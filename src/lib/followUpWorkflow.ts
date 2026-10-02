@@ -98,7 +98,13 @@ export function getFollowUpEmailDraft(
   candidateName: string
 ): { subject: string; body: string } {
   const config = FOLLOW_UP_STAGE_CONFIGS[stage];
-  const name = candidateName || "Candidate";
+  const name =
+    candidateName &&
+    candidateName !== "at" &&
+    candidateName.trim().length > 2 &&
+    !candidateName.toLowerCase().includes("test")
+      ? candidateName.trim()
+      : "Candidate";
 
   let body = "";
 

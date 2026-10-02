@@ -250,7 +250,7 @@ export async function handleIncomingWhatsAppMedia(params: {
       cvReceivedAt: now,
       cvFileUrl: fileUrl,
       cvFileName: finalFilename,
-      nextFollowupAt: undefined,
+      nextFollowupAt: null,
       updatedAt: now,
     };
     if (existingSession?.currentStep === "AWAITING_CV") {

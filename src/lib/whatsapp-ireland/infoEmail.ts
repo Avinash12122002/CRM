@@ -165,10 +165,17 @@ export async function sendWhatsAppIrelandInfoEmail(
     return { success: false, error: "Invalid email address" };
   }
 
-  const candidateName =
-    name && name !== "Candidate" && !name.toLowerCase().includes("test")
-      ? name
-      : "Candidate";
+  const isValidName = (n?: string) =>
+    !!n &&
+    n.trim().length > 2 &&
+    !n.includes("@") &&
+    !/^\d+$/.test(n.trim()) &&
+    n.trim().toLowerCase() !== "candidate" &&
+    n.trim().toLowerCase() !== "applicant" &&
+    n.trim().toLowerCase() !== "at" &&
+    !n.toLowerCase().includes("test");
+
+  const candidateName = isValidName(name) ? name!.trim() : "Applicant";
 
   const htmlContent = DEFAULT_IRELAND_INFO_EMAIL_HTML.replace(
     /\{\{CandidateName\}\}/g,

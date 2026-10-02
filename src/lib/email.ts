@@ -335,9 +335,17 @@ export async function processDueFollowups() {
       const followupNum = wf.followupCount || 1; // Since scheduleNextFollowup increments immediately after send, this will be 1, 2, 3, 4
       const stageLabel = STAGE_LABELS[stage];
 
-      let subject = `Follow-up ${followupNum}: ${stageLabel} — ${lead.name}`;
+      const candidateDisplayName =
+        lead.name &&
+        lead.name !== "at" &&
+        lead.name.trim().length > 2 &&
+        !lead.name.toLowerCase().includes("test")
+          ? lead.name.trim()
+          : "Candidate";
+      const subjectSuffix = candidateDisplayName !== "Candidate" ? ` — ${candidateDisplayName}` : "";
+      let subject = `Follow-up ${followupNum}: ${stageLabel}${subjectSuffix}`;
       let html = `
-        <p>Dear ${lead.name},</p>
+        <p>Dear ${candidateDisplayName},</p>
         <p>This is a follow-up regarding your <strong>${stageLabel}</strong>.</p>
         <p>Please let us know if you have any questions or are ready to proceed.</p>
         <p>Regards,<br/>TMS Visa Team</p>

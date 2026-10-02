@@ -360,6 +360,27 @@ export async function POST(
       }
     );
 
+    // Sync WhatsApp sessions if lead phone exists
+    const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
+    if (cleanLeadPhone.length >= 8) {
+      const waUpdate: Record<string, unknown> = {
+        updatedAt: now,
+      };
+      if (stage === "payment_confirmation" || stage === "case_manager") {
+        waUpdate.crmStatus = "sales";
+        waUpdate.currentStep = "MEETING_COMPLETED";
+        waUpdate.nextFollowupAt = null;
+      }
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        { $set: waUpdate }
+      );
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        { $set: waUpdate }
+      );
+    }
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,
