@@ -45,12 +45,13 @@ export async function sendMeetingCompletedNotification(params: {
       { phone: cleanPhone },
       {
         $set: {
+          crmStatus: "follow-up",
           meetingStatus: "completed",
           meetingCompleted: true,
           meetingCompletedAt: now,
-          currentStep: "AWAITING_CV",
+          currentStep: "MEETING_COMPLETED",
           followupCount: 0,
-          nextFollowupAt: getNext10AmInTimezone(candidateTz),
+          nextFollowupAt: undefined,
           updatedAt: now,
         },
         $push: {

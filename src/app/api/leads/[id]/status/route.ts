@@ -229,6 +229,39 @@ await db.collection("leads").updateOne(
   },
 );
 
+    // Sync WhatsApp sessions if lead phone exists
+    const cleanLeadPhone = String(lead.phone || "").replace(/[^\d]/g, "").replace(/^00/, "");
+    if (cleanLeadPhone.length >= 8) {
+      const isPipelineActive = [
+        "meeting-scheduled",
+        "follow-up",
+        "sales",
+        "payment-pending",
+        "document-pending",
+        "call-back",
+      ].includes(status);
+
+      const sessionUpdate: Record<string, unknown> = {
+        crmStatus: status,
+        updatedAt: now,
+      };
+      if (isPipelineActive) {
+        sessionUpdate.nextFollowupAt = undefined;
+      }
+      if (status === "call-back" && callbackDate) {
+        sessionUpdate.crmCallbackDate = callbackDate;
+      }
+
+      await db.collection("whatsapp_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        { $set: sessionUpdate }
+      );
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanLeadPhone },
+        { $set: sessionUpdate }
+      );
+    }
+
     await logUserAction(db, {
       userId: payload.id,
       userName: payload.name,
