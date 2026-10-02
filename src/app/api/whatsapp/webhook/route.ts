@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { processIncomingWhatsAppMessage } from "@/lib/whatsapp/stateMachine";
+import { processIncomingWhatsAppMessage as processIncomingWhatsAppIrelandMessage } from "@/lib/whatsapp-ireland/stateMachine";
 
 /**
  * GET: Meta Webhook Verification Handshake
@@ -10,10 +11,15 @@ export async function GET(req: NextRequest) {
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  const expectedToken =
-    process.env.WHATSAPP_VERIFY_TOKEN || "TMS_WHATSAPP_TOKEN_2026";
+  const validTokens = [
+    process.env.WHATSAPP_VERIFY_TOKEN,
+    process.env.WHATSAPP_IRELAND_VERIFY_TOKEN,
+    "tms_visa_webhook_secret_2026",
+    "tms_ireland_webhook_secret_2026",
+    "TMS_WHATSAPP_TOKEN_2026",
+  ].filter(Boolean);
 
-  if (mode === "subscribe" && token === expectedToken) {
+  if (mode === "subscribe" && token && validTokens.includes(token)) {
     console.log("[WhatsApp Webhook] Handshake verified successfully!");
     return new NextResponse(challenge, {
       status: 200,
@@ -26,6 +32,8 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST: Incoming Message Events from Meta Cloud API
+ * Automatically routes messages to Australia or Ireland state machine based on
+ * the recipient Meta phone_number_id or display_phone_number.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -33,6 +41,8 @@ export async function POST(req: NextRequest) {
 
     const entries = body?.entry || [];
     let processedCount = 0;
+    let hasIreland = false;
+    let hasAustralia = false;
 
     for (const entry of entries) {
       const changes = entry?.changes || [];
@@ -41,6 +51,21 @@ export async function POST(req: NextRequest) {
         const messages = value?.messages || [];
         const contact = value?.contacts?.[0];
         const defaultSenderName = contact?.profile?.name || "Candidate";
+
+        const incomingPhoneId = String(value?.metadata?.phone_number_id || "");
+        const incomingDisplayPhone = String(value?.metadata?.display_phone_number || "").replace(/[^\d]/g, "");
+
+        const irelandPhoneId = process.env.WHATSAPP_IRELAND_PHONE_NUMBER_ID || "1366657749867122";
+        const isIreland =
+          (Boolean(irelandPhoneId) && incomingPhoneId === irelandPhoneId) ||
+          incomingDisplayPhone.endsWith("8685081010");
+
+        if (isIreland) hasIreland = true;
+        else hasAustralia = true;
+
+        const sessionsCollection = isIreland ? "whatsapp_ireland_sessions" : "whatsapp_sessions";
+        const incomingLogsCollection = isIreland ? "whatsapp_ireland_incoming_logs" : "whatsapp_incoming_logs";
+        const messagesCollection = isIreland ? "whatsapp_ireland_messages" : "whatsapp_messages";
 
         for (const message of messages) {
           if (!message || !message.from) continue;
@@ -93,7 +118,7 @@ export async function POST(req: NextRequest) {
             type = "text";
           }
 
-          console.log(`[WhatsApp Webhook] Incoming message from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
+          console.log(`[WhatsApp Webhook ${isIreland ? "🇮🇪 Ireland" : "🇦🇺 Australia"}] Incoming from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
 
           // 1. Log message to DB for auditing and debugging
           let db;
@@ -122,7 +147,7 @@ export async function POST(req: NextRequest) {
                 leadPhoneQueries.push({ phone: Number(last10) });
               }
             }
-            const existingSession = await db.collection("whatsapp_sessions").findOne({ phone });
+            const existingSession = await db.collection(sessionsCollection).findOne({ phone });
             const existingLead = await db.collection("leads").findOne({ $or: leadPhoneQueries });
 
             const isValidPersonName = (n?: string): boolean => {
@@ -144,13 +169,12 @@ export async function POST(req: NextRequest) {
               effectiveSenderName = existingSession!.name;
             } else if (isValidPersonName(existingLead?.name)) {
               effectiveSenderName = existingLead!.name;
-              await db.collection("whatsapp_sessions").updateOne(
+              await db.collection(sessionsCollection).updateOne(
                 { phone },
                 { $set: { name: existingLead!.name } }
               );
             } else if (isValidPersonName(effectiveSenderName)) {
-              // Only set initial name if session doesn't have one
-              await db.collection("whatsapp_sessions").updateOne(
+              await db.collection(sessionsCollection).updateOne(
                 { phone, $or: [{ name: { $exists: false } }, { name: "Candidate" }, { name: "at" }, { name: "" }] },
                 { $set: { name: effectiveSenderName } }
               );
@@ -158,27 +182,41 @@ export async function POST(req: NextRequest) {
               effectiveSenderName = "Candidate";
             }
 
-            await db.collection("whatsapp_incoming_logs").insertOne({
+            await db.collection(incomingLogsCollection).insertOne({
               phone,
               senderName: effectiveSenderName,
               msgType,
               textBody,
               selectedId,
               rawMessage: message,
+              destination: isIreland ? "ireland" : "australia",
               createdAt: new Date(),
             });
 
-            // 2. Log to unified live chat collection (always logs candidate message!)
-            const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
-            await logWhatsAppMessage({
-              db,
-              phone,
-              sender: "candidate",
-              senderName: effectiveSenderName,
-              text: textBody || (selectedId ? `[Button clicked: ${selectedId}]` : `[${msgType}]`),
-              msgType: type,
-              messageId: message.id,
-            });
+            // 2. Log to live chat collection
+            if (isIreland) {
+              const { logWhatsAppIrelandMessage } = await import("@/lib/whatsapp-ireland/messageLogger");
+              await logWhatsAppIrelandMessage({
+                db,
+                phone,
+                sender: "candidate",
+                senderName: effectiveSenderName,
+                text: textBody || (selectedId ? `[Button clicked: ${selectedId}]` : `[${msgType}]`),
+                msgType: type,
+                messageId: message.id,
+              });
+            } else {
+              const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+              await logWhatsAppMessage({
+                db,
+                phone,
+                sender: "candidate",
+                senderName: effectiveSenderName,
+                text: textBody || (selectedId ? `[Button clicked: ${selectedId}]` : `[${msgType}]`),
+                msgType: type,
+                messageId: message.id,
+              });
+            }
           } catch (dbLogErr) {
             console.warn("[WhatsApp Webhook] Could not save incoming log:", dbLogErr);
           }
@@ -193,24 +231,40 @@ export async function POST(req: NextRequest) {
                 db = dbConn.db;
               }
 
-              const { handleIncomingWhatsAppMedia } = await import("@/lib/whatsapp/media");
-              const mediaResult = await handleIncomingWhatsAppMedia({
-                db,
-                phone,
-                senderName: effectiveSenderName,
-                mediaType: msgType,
-                mediaObj: {
-                  id: mediaObj.id,
-                  filename: mediaObj.filename,
-                  mime_type: mediaObj.mime_type,
-                  caption: mediaObj.caption,
-                },
-              });
+              let mediaResult: { filePath?: string; filename?: string } | null = null;
+              if (isIreland) {
+                const { handleIncomingWhatsAppIrelandMedia } = await import("@/lib/whatsapp-ireland/media");
+                mediaResult = await handleIncomingWhatsAppIrelandMedia({
+                  db,
+                  phone,
+                  senderName: effectiveSenderName,
+                  mediaType: msgType,
+                  mediaObj: {
+                    id: mediaObj.id,
+                    filename: mediaObj.filename,
+                    mime_type: mediaObj.mime_type,
+                    caption: mediaObj.caption,
+                  },
+                });
+              } else {
+                const { handleIncomingWhatsAppMedia } = await import("@/lib/whatsapp/media");
+                mediaResult = await handleIncomingWhatsAppMedia({
+                  db,
+                  phone,
+                  senderName: effectiveSenderName,
+                  mediaType: msgType,
+                  mediaObj: {
+                    id: mediaObj.id,
+                    filename: mediaObj.filename,
+                    mime_type: mediaObj.mime_type,
+                    caption: mediaObj.caption,
+                  },
+                });
+              }
 
-              // If media was saved, update the message document in whatsapp_messages with mediaUrl
               if (mediaResult?.filePath) {
                 try {
-                  await db.collection("whatsapp_messages").updateOne(
+                  await db.collection(messagesCollection).updateOne(
                     { messageId: message.id },
                     {
                       $set: {
@@ -236,13 +290,23 @@ export async function POST(req: NextRequest) {
                 ? type
                 : "text";
 
-            await processIncomingWhatsAppMessage({
-              phone,
-              senderName: effectiveSenderName,
-              messageType: stateMessageType,
-              textBody,
-              selectedId,
-            });
+            if (isIreland) {
+              await processIncomingWhatsAppIrelandMessage({
+                phone,
+                senderName: effectiveSenderName,
+                messageType: stateMessageType,
+                textBody,
+                selectedId,
+              });
+            } else {
+              await processIncomingWhatsAppMessage({
+                phone,
+                senderName: effectiveSenderName,
+                messageType: stateMessageType,
+                textBody,
+                selectedId,
+              });
+            }
           } catch (stateErr) {
             console.error(`[WhatsApp Webhook] State machine error for +${phone}:`, stateErr);
           }
@@ -256,11 +320,18 @@ export async function POST(req: NextRequest) {
       import("@/lib/mongodb")
         .then(({ connectToDatabase }) => connectToDatabase())
         .then(({ db }) => {
-          return import("@/lib/whatsapp/followupEngine").then(({ runWhatsAppFollowupEngine }) =>
-            runWhatsAppFollowupEngine(db)
-          );
+          if (hasAustralia) {
+            import("@/lib/whatsapp/followupEngine")
+              .then(({ runWhatsAppFollowupEngine }) => runWhatsAppFollowupEngine(db))
+              .catch((e) => console.warn("[webhook] Australia follow-up check error:", e));
+          }
+          if (hasIreland) {
+            import("@/lib/whatsapp-ireland/followupEngine")
+              .then(({ runWhatsAppIrelandFollowupEngine }) => runWhatsAppIrelandFollowupEngine(db))
+              .catch((e) => console.warn("[webhook] Ireland follow-up check error:", e));
+          }
         })
-        .catch((e) => console.warn("[webhook] WhatsApp engine check error:", e));
+        .catch((e) => console.warn("[webhook] Background check error:", e));
     }
 
     return NextResponse.json({ status: "success", processedMessages: processedCount }, { status: 200 });
