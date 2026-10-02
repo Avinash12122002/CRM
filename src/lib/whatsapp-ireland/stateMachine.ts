@@ -96,11 +96,22 @@ export async function getOrCreateSession(
           ? candidateName.trim()
           : undefined;
 
-      if (realCandidateName) {
-        existing.name = realCandidateName;
+      let foundName = realCandidateName;
+      if (!foundName) {
+        const lastLog = await db.collection("whatsapp_ireland_incoming_logs").findOne({
+          phone: cleanPhone,
+          senderName: { $exists: true, $nin: ["Candidate", "candidate", "at", ""] },
+        });
+        if (lastLog?.senderName && lastLog.senderName !== "at" && lastLog.senderName.trim().length > 2) {
+          foundName = lastLog.senderName.trim();
+        }
+      }
+
+      if (foundName) {
+        existing.name = foundName;
         await db.collection(SESSIONS_COLLECTION).updateOne(
           { phone: cleanPhone },
-          { $set: { name: realCandidateName, updatedAt: now } }
+          { $set: { name: foundName, updatedAt: now } }
         );
       }
     }

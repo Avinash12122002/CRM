@@ -164,6 +164,7 @@ export async function POST(req: NextRequest) {
               textBody,
               selectedId,
               rawMessage: message,
+              destination: "ireland",
               createdAt: new Date(),
             });
 

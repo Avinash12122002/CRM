@@ -145,11 +145,29 @@ export async function GET(
       ],
     });
 
+    // 6. Also check ireland incoming logs for contact profile name from WhatsApp
+    const incomingLog = await db.collection("whatsapp_ireland_incoming_logs").findOne({
+      phone: cleanPhone,
+      senderName: { $exists: true, $nin: ["Candidate", "candidate", ""] },
+    });
+
+    const candidateResolvedName =
+      (session?.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") ? session.name : null) ||
+      lead?.name ||
+      incomingLog?.senderName ||
+      "Candidate";
+
+    // 7. Self-heal session name if resolved
+    if (candidateResolvedName !== "Candidate" && (!session?.name || session.name === "Candidate" || session.name.toLowerCase().includes("test"))) {
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanPhone },
+        { $set: { name: candidateResolvedName, leadId: lead?.id || session?.leadId || undefined } }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       phone: cleanPhone,
-      session,
-      lead,
       count: messages.length,
       messages: messages.map((m) => ({
         id: String(m._id || m.messageId || `${m.sender}_${new Date(m.createdAt || Date.now()).getTime()}`),
@@ -162,6 +180,44 @@ export async function GET(
         buttons: m.buttons || null,
         createdAt: m.createdAt,
       })),
+      session: session
+        ? {
+            name: candidateResolvedName,
+            email: session.email || lead?.email || null,
+            countryName: session.countryName,
+            countryCode: session.countryCode,
+            timeZone: session.timeZone,
+            timeZoneLabel: session.timeZoneLabel,
+            currentStep: session.currentStep,
+            interestedCountry: session.interestedCountry || "Ireland",
+            bookedSlot: session.bookedSlot || null,
+            cvFileName: session.cvFileName || null,
+            cvFileUrl: session.cvFileUrl || null,
+            cvReceivedAt: session.cvReceivedAt || null,
+            infoEmailSentAt: session.infoEmailSentAt || null,
+            leadId: lead?.id || session.leadId || null,
+          }
+        : {
+            name: candidateResolvedName,
+            email: lead?.email || null,
+            countryName: "International",
+            countryCode: "",
+            timeZone: "Asia/Kolkata",
+            timeZoneLabel: "IST",
+            currentStep: "WELCOME",
+            interestedCountry: "Ireland",
+            bookedSlot: null,
+            leadId: lead?.id || null,
+          },
+      lead: lead
+        ? {
+            id: lead.id,
+            name: lead.name,
+            email: lead.email,
+            status: lead.status,
+            assignedToName: lead.assignedToName,
+          }
+        : null,
     });
   } catch (err) {
     console.error("[GET /api/whatsapp-ireland/conversations/[phone]/messages Error]", err);

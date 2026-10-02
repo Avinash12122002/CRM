@@ -282,7 +282,7 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
       });
     }
 
-    return { filePath: relativePublicUrl, filename: safeFilename };
+    return { filePath: finalFileUrl, filename: safeFilename };
   } catch (err) {
     console.error(`[WhatsApp Ireland Media] Failed to handle media for +${cleanPhone}:`, err);
     return null;

@@ -152,6 +152,7 @@ export async function logWhatsAppIrelandMessage(params: LogWhatsAppIrelandMessag
           console.warn("[MessageLogger Ireland] Failed to import messageIntelligence:", importErr)
         );
     } else {
+      const countryInfo = detectCountryFromPhone(cleanPhone);
       await db.collection("whatsapp_ireland_sessions").updateOne(
         { phone: cleanPhone },
         {
@@ -169,7 +170,20 @@ export async function logWhatsAppIrelandMessage(params: LogWhatsAppIrelandMessag
               $slice: -40,
             } as any,
           },
-        }
+          $setOnInsert: {
+            createdAt,
+            name: "Candidate",
+            countryCode: countryInfo.countryCode,
+            countryName: countryInfo.countryName,
+            interestedCountry: "Ireland",
+            timeZone: countryInfo.timeZone,
+            timeZoneLabel: countryInfo.label,
+            currentStep: "WELCOME",
+            followupCount: 0,
+            unreadCount: 0,
+          },
+        },
+        { upsert: true }
       );
     }
   } catch (err) {
