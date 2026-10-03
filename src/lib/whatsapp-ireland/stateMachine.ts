@@ -484,7 +484,19 @@ export function matchWeekendDateFromText(
     }
   }
 
-  // 3. If candidate is actively in SELECTING_DAY step and typed just the day of month (e.g. "27" or "28")
+  // 3. If candidate typed weekday name (e.g. "Monday", "Mon", "Friday", "this Thursday")
+  for (const w of upcomingWeekends) {
+    const dayNameLower = (w.dayName || "").toLowerCase();
+    const dayNameShort = dayNameLower.slice(0, 3);
+    if (dayNameShort.length === 3) {
+      const rxDay = new RegExp(`\\b(?:this\\s+|next\\s+)?(?:${dayNameLower}|${dayNameShort})\\b`, "i");
+      if (rxDay.test(clean)) {
+        return w.date;
+      }
+    }
+  }
+
+  // 4. If candidate is actively in SELECTING_DAY step and typed just the day of month (e.g. "27" or "28")
   if (isSelectingDayStep) {
     const dayOnlyMatch = clean.match(/\b(0?[1-9]|[12][0-9]|3[01])(?:st|nd|rd|th)?\b/);
     if (dayOnlyMatch) {
@@ -590,7 +602,7 @@ export async function sendInitialWelcome(phone: string, candidateName?: string):
 }
 
 /**
- * Sends consultation booking prompt with weekend slots
+ * Sends consultation booking prompt with weekday slots
  */
 export async function sendConsultationBookingPrompt(phone: string): Promise<void> {
   const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
