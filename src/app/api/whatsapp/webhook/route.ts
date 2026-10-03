@@ -131,21 +131,23 @@ export async function POST(req: NextRequest) {
 
           // ── DEDUP GUARD ─────────────────────────────────────────────────────
           // WhatsApp retries failed deliveries with the same message.id.
-          // Atomically mark this message as processed; skip if already done.
+          // Check if already processed; skip if duplicate.
           if (message.id) {
             const { connectToDatabase: getDb } = await import("@/lib/mongodb");
             const { db: dedupDb } = await getDb();
-            const deduped = await dedupDb.collection("whatsapp_processed_messages").findOneAndUpdate(
-              { messageId: message.id },
-              { $setOnInsert: { messageId: message.id, phone, destination: isIreland ? "ireland" : "australia", createdAt: new Date() } },
-              { upsert: true, returnDocument: "before" }
-            );
-            if (deduped) {
-              // Document existed before — this is a duplicate webhook delivery, skip
+            const alreadyProcessed = await dedupDb.collection("whatsapp_processed_messages").findOne({ messageId: message.id });
+            if (alreadyProcessed) {
               console.log(`[WhatsApp Webhook] Skipping duplicate message ${message.id} from +${phone}`);
               processedCount++;
               continue;
             }
+            // Record processed messageId (fire-and-forget)
+            dedupDb.collection("whatsapp_processed_messages").insertOne({
+              messageId: message.id,
+              phone,
+              destination: isIreland ? "ireland" : "australia",
+              createdAt: new Date(),
+            }).catch(() => {});
           }
           // ────────────────────────────────────────────────────────────────────
 

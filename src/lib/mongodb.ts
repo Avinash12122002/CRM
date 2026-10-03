@@ -67,6 +67,8 @@ async function ensureIndexes(db: Db) {
     db.collection("whatsapp_ireland_messages").createIndex({ phone: 1, createdAt: -1 }),
     db.collection("whatsapp_ireland_messages").createIndex({ messageId: 1 }),
     db.collection("whatsapp_ireland_ai_learnings").createIndex({ _id: 1 }),
+    db.collection("whatsapp_processed_messages").createIndex({ messageId: 1 }, { unique: true }),
+    db.collection("whatsapp_processed_messages").createIndex({ createdAt: 1 }, { expireAfterSeconds: 86400 * 3 }),
   ]).catch((err) => console.error("Index creation failed:", err));
 }
 

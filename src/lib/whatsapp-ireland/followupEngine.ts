@@ -56,7 +56,7 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
           { $set: { consultationPromptSent: true, updatedAt: now } },
           { returnDocument: "after" }
         );
-        if (!claimed) continue; // Another invocation already claimed it
+        if (!claimed?.value && !claimed?.lastErrorObject?.updatedExisting) continue; // Another invocation already claimed it
 
         await sendConsultationBookingPrompt(session.phone);
 
@@ -351,7 +351,7 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
             { returnDocument: "after" }
           );
 
-          if (!claimedFollowup) {
+          if (!claimedFollowup?.value && !claimedFollowup?.lastErrorObject?.updatedExisting) {
             // Another concurrent invocation already incremented the count — skip to avoid duplicate
             continue;
           }
