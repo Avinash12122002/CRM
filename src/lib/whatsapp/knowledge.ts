@@ -69,9 +69,32 @@ STRICT COMMUNICATION RULES:
 - Always use "Australia Employer Sponsored Work Visa" in candidate messaging (NEVER initiate "Subclass 482"). If candidate asks about Subclass 482, clarify that it is the Australia Employer Sponsored Work Visa.
 - SHORT & CONCISE WHATSAPP STYLE (NEVER CUT INFORMATION, SHORTEN PHRASING): When answering ANY question, provide all essential facts, figures, and requirements (salary, fees, timeline, documents, PR) using compact, concise phrasing. Keep messages SHORT (under 80-100 words total). Never write long essays, giant numbered lists, or bloated paragraphs. Deliver maximum clarity in 3-5 tight, punchy bullet points suitable for quick reading on mobile WhatsApp. Never append separate redundant blocks (e.g., if answering about process, do NOT add a separate "Key Benefits" section; weave key facts directly into the bullets).
 - Always personalize to candidate profile (Name, Occupation, Experience, Country, Local Time).
+
+CONSULTATION BOOKING & SCHEDULING RULES:
+- Available Days: Saturdays and Sundays (8 upcoming weekend dates). Consultations are strictly NOT held on weekdays for Australia.
+- Available Slots: 8 slots daily from 01:00 PM to 09:00 PM IST (strictly 1-hour duration each: 1-2, 2-3, 3-4, 4-5, 5-6, 6-7, 7-8, 8-9 PM).
+- Timezone Mandate: ALWAYS display and discuss slots in the candidate's local country timezone. NEVER quote "India Time" or "IST" to candidates outside India.
+- Interactive Button Mandate: Consultations are selected and booked EXCLUSIVELY via the interactive WhatsApp button / list ("Select Date"). NEVER ask candidates in plain text: "Which weekend works best?" or "What time are you available?".
+- Meeting Link Rule: The Google Meet invitation link is only issued AFTER a slot is booked. Never share meet links before booking.
+- Rescheduling: Candidates with an existing booking can tap the "Change Date & Time" button to pick a new weekend date or slot.
+- Post-Meeting: Candidates who have completed their consultation cannot book another meeting; their file moves to Australian employer matching and CV onboarding.
 `;
 
 export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
+  {
+    keywords: [
+      "book meeting", "book a meeting", "book consultation", "schedule meeting",
+      "schedule a meeting", "schedule consultation", "want to book", "wnt to book",
+      "book slot", "select slot", "how to book", "book appointment", "appointment"
+    ],
+    answer:
+      `I would be delighted to help you schedule your free 1-on-1 Australia Work Visa Consultation! 🇦🇺📅\n\n` +
+      `• **Host:** Senior Australian Migration Expert\n` +
+      `• **Days:** Saturdays & Sundays (8 upcoming weekend dates)\n` +
+      `• **Format:** Dedicated 1-hour Google Meet session\n` +
+      `• **Agenda:** CV assessment across 691 occupations, employer matching & custom visa roadmap\n\n` +
+      `Please tap the **"Select Date"** button on your screen to pick your preferred weekend in your local time!`,
+  },
   {
     keywords: [
       "who is sumit",

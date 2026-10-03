@@ -178,6 +178,93 @@ export async function generateAiResponse(params: {
     );
   }
 
+  // 1e. Global Consultation Booking Intent Interceptor (Ireland)
+  const isBookingIntent =
+    lowerMsg === "book" ||
+    lowerMsg === "book meeting" ||
+    lowerMsg === "book a meeting" ||
+    lowerMsg === "booking" ||
+    lowerMsg === "book consultation" ||
+    lowerMsg === "schedule meeting" ||
+    lowerMsg === "schedule a meeting" ||
+    lowerMsg === "schedule consultation" ||
+    lowerMsg === "book slot" ||
+    lowerMsg === "select slot" ||
+    lowerMsg === "book a call" ||
+    lowerMsg === "schedule a call" ||
+    lowerMsg.includes("book a meeting") ||
+    lowerMsg.includes("book meeting") ||
+    lowerMsg.includes("book consultation") ||
+    lowerMsg.includes("schedule meeting") ||
+    lowerMsg.includes("schedule consultation") ||
+    lowerMsg.includes("book a call") ||
+    lowerMsg.includes("schedule a call") ||
+    lowerMsg.includes("book slot") ||
+    lowerMsg.includes("select slot") ||
+    lowerMsg.includes("want to book") ||
+    lowerMsg.includes("wnt to book") ||
+    lowerMsg.includes("want meeting") ||
+    lowerMsg.includes("need meeting") ||
+    lowerMsg.includes("want consultation") ||
+    lowerMsg.includes("need consultation") ||
+    lowerMsg.includes("appointment chahiye") ||
+    lowerMsg.includes("meeting karni") ||
+    lowerMsg.includes("baat karni") ||
+    /(?:i\s+)?(?:want|wnt|need|like)\s+(?:to\s+)?(?:book|take|schedule|have)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)/i.test(lowerMsg) ||
+    /^(?:book|schedule)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)$/i.test(lowerMsg);
+
+  if (isBookingIntent) {
+    const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
+    const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
+
+    if (hasActiveBooking) {
+      const meetLink = "https://meet.google.com/qmv-dfsn-kic";
+      const candTimeDisplay = session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel || "Scheduled time";
+      const dateDisplay = session.bookedSlot?.date || "Scheduled in CRM";
+      return sanitizeFinalResponse(
+        `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
+        `Your 1-on-1 Ireland Work Visa Consultation with our Senior Expert is already confirmed:\n\n` +
+        `📅 **Date:** ${dateDisplay}\n` +
+        `⏰ **Your Time:** ${candTimeDisplay}\n` +
+        `🔗 **Google Meet Link:** ${meetLink}\n\n` +
+        `If you need to change your consultation slot, please tap the *Reschedule Meeting* button! 🇮🇪`,
+        session
+      );
+    }
+
+    if (isMeetingCompleted) {
+      return sanitizeFinalResponse(
+        `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
+        `Your 1-on-1 consultation session with our Senior Ireland Visa Expert has already been completed! ✅\n\n` +
+        `Our review team is currently matching your profile with Irish employers. Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄🇮🇪`,
+        session
+      );
+    }
+
+    return sanitizeFinalResponse(
+      `I would be delighted to help you schedule your free 1-on-1 consultation with our Senior Ireland Migration Expert! 🇮🇪📅\n\n` +
+      `Please tap the **"Select Date"** button on your screen to pick your preferred weekday (Monday to Friday) in your local time (${session.timeZoneLabel || "local time"}).\n\n` +
+      `Once you select a date, our available 1-hour slots will appear instantly!`,
+      session
+    );
+  }
+
+  // Filter out marketing campaign strings from session occupation
+  const isMarketingCampaign = (str?: string) => {
+    if (!str) return false;
+    const l = str.toLowerCase();
+    return (
+      l.includes("ireland work visa") ||
+      l.includes("australia work visa") ||
+      l.includes("critical skills & general employment") ||
+      l.includes("skills in demand") ||
+      l.includes("employer sponsored work visa") ||
+      l.includes("work visa") ||
+      l.includes("visa program")
+    );
+  };
+  const safeOccupation = isMarketingCampaign(session.occupation) ? undefined : session.occupation;
+
   const matchedOcc = findEligibleOccupation(message);
 
   // Build candidate profile dossier
@@ -206,7 +293,7 @@ CRM LIFECYCLE & PIPELINE STAGE:
 VISA INTEREST:
 - Destination of Interest: Ireland 🇮🇪
 - Target Visa Pathway: Ireland Employer Sponsored Work Visa — Critical Skills Employment Permit (CSEP) & General Employment Permit (GEP)
-- Known Occupation: ${session.occupation || (session.occupations && session.occupations.length > 0 ? session.occupations.join(", ") : "Not specified yet")}
+- Known Occupation: ${safeOccupation || (session.occupations && session.occupations.length > 0 ? session.occupations.filter(o => !isMarketingCampaign(o)).join(", ") : "Not specified yet")}
 - Work Experience: ${session.yearsExperience || "Not specified yet"}
 
 FINANCIAL OVERVIEW FOR IRELAND (ACCURATE):
@@ -226,10 +313,9 @@ FINANCIAL OVERVIEW FOR IRELAND (ACCURATE):
 - 100% Money-Back Guarantee: If visa rejected for ANY reason → full refund immediately, no questions asked.
 `;
 
-
   // Occupation eligibility check — 3-way logic
-  const occEligibility = session.occupation
-    ? checkIrelandOccupationEligibility(session.occupation)
+  const occEligibility = safeOccupation
+    ? checkIrelandOccupationEligibility(safeOccupation)
     : matchedOcc
       ? checkIrelandOccupationEligibility(matchedOcc.role)
       : null;
@@ -422,6 +508,16 @@ ${
    - CANDIDATE CAN FREELY CHANGE THEIR NAME: If candidate asks to change or update their name, NEVER refuse! NEVER claim that personal details or names cannot be changed! Warmly invite them: "Please reply with your Full Name (e.g. 'My name is John Doe') and I will update your official CRM profile immediately."
    - CANDIDATE CAN FREELY CHANGE THEIR EMAIL: If candidate asks to change or update their email, NEVER refuse! Warmly invite them: "Please reply with your new Email Address (e.g. 'My email is yourname@gmail.com') and I will update your record and resend your visa documents immediately."
    - NEVER claim that name or email cannot be changed for security reasons! Name and email updates are 100% permitted and supported in this chat.
+
+16. CONSULTATION BOOKING & SCHEDULING RULES (CRITICAL):
+    - NEVER ask the candidate in plain text: "Which weekday works best?", "What day/time are you available?", or "What time (India Time) are you available?".
+    - Never quote "India Time" or "IST" to candidates. Always quote their local country timezone (${session.timeZoneLabel}).
+    - All bookings MUST be initiated through the interactive WhatsApp button ("Select Date").
+    - Available slots are strictly Monday to Friday (weekdays) between 12:00 PM – 08:00 PM IST (always presented in candidate's local time).
+    - If candidate asks to book or schedule a consultation:
+      * If they already have a confirmed slot: remind them of their confirmed date/time and mention they can tap "Reschedule Meeting".
+      * If they already completed consultation: remind them it is complete and ask for their CV.
+      * If they have not booked: tell them to tap the "Select Date" button on their screen to choose their date and slot in their local time.
 
 ${contextBlock}
 

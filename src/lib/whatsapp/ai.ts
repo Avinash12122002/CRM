@@ -209,6 +209,92 @@ export async function generateAiResponse(params: {
     );
   }
 
+  // 1e. Global Consultation Booking Intent Interceptor (Australia)
+  const isBookingIntent =
+    lowerMsg === "book" ||
+    lowerMsg === "book meeting" ||
+    lowerMsg === "book a meeting" ||
+    lowerMsg === "booking" ||
+    lowerMsg === "book consultation" ||
+    lowerMsg === "schedule meeting" ||
+    lowerMsg === "schedule a meeting" ||
+    lowerMsg === "schedule consultation" ||
+    lowerMsg === "book slot" ||
+    lowerMsg === "select slot" ||
+    lowerMsg === "book a call" ||
+    lowerMsg === "schedule a call" ||
+    lowerMsg.includes("book a meeting") ||
+    lowerMsg.includes("book meeting") ||
+    lowerMsg.includes("book consultation") ||
+    lowerMsg.includes("schedule meeting") ||
+    lowerMsg.includes("schedule consultation") ||
+    lowerMsg.includes("book a call") ||
+    lowerMsg.includes("schedule a call") ||
+    lowerMsg.includes("book slot") ||
+    lowerMsg.includes("select slot") ||
+    lowerMsg.includes("want to book") ||
+    lowerMsg.includes("wnt to book") ||
+    lowerMsg.includes("want meeting") ||
+    lowerMsg.includes("need meeting") ||
+    lowerMsg.includes("want consultation") ||
+    lowerMsg.includes("need consultation") ||
+    lowerMsg.includes("appointment chahiye") ||
+    lowerMsg.includes("meeting karni") ||
+    lowerMsg.includes("baat karni") ||
+    /(?:i\s+)?(?:want|wnt|need|like)\s+(?:to\s+)?(?:book|take|schedule|have)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)/i.test(lowerMsg) ||
+    /^(?:book|schedule)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)$/i.test(lowerMsg);
+
+  if (isBookingIntent) {
+    const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
+    const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
+
+    if (hasActiveBooking) {
+      const meetLink = "https://meet.google.com/hgu-yxat-nwy";
+      const candTimeDisplay = session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel || "Scheduled time";
+      const dateDisplay = session.bookedSlot?.date || "Scheduled in CRM";
+      return sanitizeFinalResponse(
+        `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
+        `Your 1-on-1 Australia Work Visa Consultation with our Senior Expert is already confirmed:\n\n` +
+        `📅 **Date:** ${dateDisplay}\n` +
+        `⏰ **Your Time:** ${candTimeDisplay}\n` +
+        `💻 **Google Meet Link:** ${meetLink}\n\n` +
+        `If you need to change your consultation slot, please tap the *Change Date & Time* button! 🇦🇺`,
+        session
+      );
+    }
+
+    if (isMeetingCompleted) {
+      return sanitizeFinalResponse(
+        `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
+        `Your 1-on-1 consultation session with our Senior Australian Migration Expert has already been completed! ✅\n\n` +
+        `Our review team is currently evaluating your profile to match Australian employers. Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄🇦🇺`,
+        session
+      );
+    }
+
+    return sanitizeFinalResponse(
+      `I would be delighted to help you schedule your free 1-on-1 consultation with our Senior Australian Migration Expert! 🇦🇺📅\n\n` +
+      `Please tap the **"Select Date"** button on your screen to pick your preferred weekend (Saturday or Sunday) in your local time (${session.timeZoneLabel || "local time"}).\n\n` +
+      `Once you select a date, our available 1-hour slots will appear instantly!`,
+      session
+    );
+  }
+
+  // Filter out marketing campaign strings from session occupation
+  const isMarketingCampaign = (str?: string) => {
+    if (!str) return false;
+    const l = str.toLowerCase();
+    return (
+      l.includes("australia work visa") ||
+      l.includes("ireland work visa") ||
+      l.includes("skills in demand") ||
+      l.includes("employer sponsored work visa") ||
+      l.includes("work visa") ||
+      l.includes("visa program")
+    );
+  };
+  const safeOccupation = isMarketingCampaign(session.occupation) ? undefined : session.occupation;
+
   const matchedOcc = findEligibleOccupation(message);
 
   // Build rich candidate live profile — fed to AI as system context
@@ -231,8 +317,8 @@ VISA INTEREST:
 - Candidate Goals: ${session.candidateGoals || "Not specified"}
 
 PROFESSIONAL BACKGROUND:
-- Known Occupation: ${session.occupation || (session.occupations && session.occupations.length > 0 ? session.occupations.join(", ") : "Not specified yet")}${session.occupationSector ? ` (Sector: ${session.occupationSector})` : ""}
-- All Identified Occupations: ${session.occupations && session.occupations.length > 0 ? session.occupations.join(", ") : session.occupation || "None"}
+- Known Occupation: ${safeOccupation || (session.occupations && session.occupations.length > 0 ? session.occupations.filter(o => !isMarketingCampaign(o)).join(", ") : "Not specified yet")}${session.occupationSector ? ` (Sector: ${session.occupationSector})` : ""}
+- All Identified Occupations: ${session.occupations && session.occupations.length > 0 ? session.occupations.filter(o => !isMarketingCampaign(o)).join(", ") : safeOccupation || "None"}
 - Current Job Title: ${session.currentJobTitle || "Not specified"}
 - Current Employer: ${session.currentEmployer || "Not specified"}
 - Work Experience: ${session.yearsExperience || "Not specified yet"}

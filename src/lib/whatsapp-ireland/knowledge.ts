@@ -96,9 +96,32 @@ STRICT COMMUNICATION RULES:
 - Always refer to the visa as "Ireland Employer Sponsored Work Visa" or "Ireland Critical Skills Work Permit".
 - SHORT & CONCISE WHATSAPP STYLE (NEVER CUT INFORMATION, SHORTEN PHRASING): When answering ANY question, provide all essential facts, figures, and requirements (salary in Euros, €300/€700 fees, timeline, documents, Stamp 4 PR) using compact, concise phrasing. Keep messages SHORT (under 80-100 words total). Deliver maximum clarity in 3-5 tight, punchy bullet points suitable for quick reading on mobile WhatsApp.
 - Always personalize to candidate profile (Name, Occupation, Experience, Country, Local Time).
+
+CONSULTATION BOOKING & SCHEDULING RULES:
+- Available Days: Monday to Friday (5 upcoming weekdays). Consultations are strictly NOT held on weekends for Ireland.
+- Available Slots: 8 slots daily from 12:00 PM to 08:00 PM IST (strictly 1-hour duration each: 12-1, 1-2, 2-3, 3-4, 4-5, 5-6, 6-7, 7-8 PM).
+- Timezone Mandate: ALWAYS display and discuss slots in the candidate's local country timezone. NEVER quote "India Time" or "IST" to candidates outside India.
+- Interactive Button Mandate: Consultations are selected and booked EXCLUSIVELY via the interactive WhatsApp button / list ("Select Date"). NEVER ask candidates in plain text: "Which weekday works best?" or "What time are you available?".
+- Meeting Link Rule: The Google Meet invitation link is only issued AFTER a slot is booked. Never share meet links before booking.
+- Rescheduling: Candidates with an existing booking can tap the "Reschedule Meeting" button to pick a new date or slot.
+- Post-Meeting: Candidates who have completed their consultation cannot book another meeting; their file moves to CV review and employer matching.
 `;
 
 export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
+  {
+    keywords: [
+      "book meeting", "book a meeting", "book consultation", "schedule meeting",
+      "schedule a meeting", "schedule consultation", "want to book", "wnt to book",
+      "book slot", "select slot", "how to book", "book appointment", "appointment"
+    ],
+    answer:
+      `I would be delighted to help you schedule your free 1-on-1 Ireland Work Visa Consultation! 🇮🇪📅\n\n` +
+      `• **Host:** Senior Ireland Migration Expert\n` +
+      `• **Days:** Monday to Friday (5 upcoming weekdays)\n` +
+      `• **Format:** Dedicated 1-hour Google Meet session\n` +
+      `• **Agenda:** Detailed eligibility check (Critical Skills CSEP vs General GEP), CV review & step-by-step roadmap\n\n` +
+      `Please tap the **"Select Date"** button on your screen to pick your preferred weekday in your local time!`,
+  },
   {
     keywords: [
       "who is sumit",

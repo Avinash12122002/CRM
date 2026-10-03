@@ -455,9 +455,30 @@ export function checkIrelandOccupationEligibility(query: string): OccupationResu
     }
   }
 
-  // 3. Not in CSOL, not in IOL → General Employment Permit (GEP)
+  // 3. Not in CSOL, not in IOL → Check if it looks like a valid occupational title for GEP
   const cleanQuery = q.replace(/[^a-z\s]/g, "").trim();
-  if (cleanQuery.length >= 3) {
+
+  // Guard against conversational phrases, booking intents, questions, and visa program names
+  const NON_OCCUPATION_WORDS = [
+    "meeting", "meering", "meting", "book", "booking", "schedule", "consultation", "appointment", "slot", "slots",
+    "call", "talk", "expert", "video", "scheduale", "bok", "want", "wnt", "need", "like", "tell me",
+    "hi", "hello", "hey", "start", "ok", "okay", "yes", "no", "interested", "not interested",
+    "visa", "work visa", "permit", "work permit", "ireland", "australia", "tms", "tms visa",
+    "ireland work visa", "australia work visa", "critical skills", "general employment", "employer sponsored",
+    "ielts", "pte", "english", "salary", "fee", "fees", "cost", "price", "charge",
+    "documents", "document", "passport", "cv", "resume", "status", "process", "details",
+    "information", "info", "help", "thanks", "thank you", "please", "email", "phone", "number",
+    "how to", "what is", "why", "when", "where", "who", "which", "can i", "could", "would",
+  ];
+
+  const hasQuestionMark = query.includes("?");
+  const isNonOccupationPhrase =
+    hasQuestionMark ||
+    NON_OCCUPATION_WORDS.some((term) => cleanQuery === term || cleanQuery.startsWith(term + " ") || cleanQuery.endsWith(" " + term) || cleanQuery.includes(` ${term} `)) ||
+    NON_OCCUPATION_WORDS.includes(cleanQuery) ||
+    cleanQuery.split(/\s+/).length > 4;
+
+  if (cleanQuery.length >= 3 && !isNonOccupationPhrase) {
     return {
       status: "GEP",
       role: query.trim(),

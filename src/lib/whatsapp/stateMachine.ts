@@ -325,17 +325,20 @@ export async function getOrCreateSession(
     };
   }
 
+  const isMarketingCampaign = (str: string) =>
+    /visa|employer sponsored|482|subclass|tss|skills in demand|migration|work permit/i.test(str);
+
   const leadOccsNew: string[] = [];
   if (Array.isArray(existingLead?.occupations) && existingLead.occupations.length > 0) {
-    leadOccsNew.push(...existingLead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
-  } else if (typeof existingLead?.occupations === "string" && (existingLead.occupations as string).trim()) {
+    leadOccsNew.push(...existingLead.occupations.filter((o: any) => typeof o === "string" && o.trim() && !isMarketingCampaign(o)));
+  } else if (typeof existingLead?.occupations === "string" && (existingLead.occupations as string).trim() && !isMarketingCampaign(existingLead.occupations as string)) {
     leadOccsNew.push((existingLead.occupations as string).trim());
   }
-  if (existingLead?.jobApplied && !leadOccsNew.includes(existingLead.jobApplied)) {
-    leadOccsNew.push(existingLead.jobApplied);
-  }
-  if (existingLead?.occupation && !leadOccsNew.includes(existingLead.occupation)) {
+  if (existingLead?.occupation && !isMarketingCampaign(existingLead.occupation) && !leadOccsNew.includes(existingLead.occupation)) {
     leadOccsNew.push(existingLead.occupation);
+  }
+  if (existingLead?.jobApplied && !isMarketingCampaign(existingLead.jobApplied) && !leadOccsNew.includes(existingLead.jobApplied)) {
+    leadOccsNew.push(existingLead.jobApplied);
   }
 
   const isExcludedNewLead =
@@ -2501,6 +2504,104 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: videoReply, step: session.currentStep };
   }
 
+  // =========================================================================
+  // --- GLOBAL CONSULTATION BOOKING INTENT INTERCEPTOR (AUSTRALIA) ---
+  // If the candidate says ANY variation of wanting to book a meeting
+  // (e.g. "want to book a meeting", "i wnt to book a meering", "book meeting",
+  // "schedule meeting", "book consultation", "book a call", "appointment", etc.):
+  // 1. Check if they already booked a meeting:
+  //    - If YES (active booked slot): Remind them of their confirmed meeting details
+  //      and provide [Change Date & Time] button.
+  //    - If COMPLETED: Remind them consultation is complete and prompt for CV.
+  //    - If NO: IMMEDIATELY send the interactive 8-weekend date selection list ("Select Date")!
+  // =========================================================================
+  const BOOKING_ACTION_IDS_GLOBAL = [
+    "BTN_CONSULT_YES",
+    "BTN_BOOK_MEETING",
+    "BTN_SELECT_SLOT",
+    "BTN_BOOK_CONSULTATION",
+  ];
+
+  const hasExplicitBookingPhraseGlobal =
+    lowerText === "book" ||
+    lowerText === "book meeting" ||
+    lowerText === "book a meeting" ||
+    lowerText === "booking" ||
+    lowerText === "book consultation" ||
+    lowerText === "schedule meeting" ||
+    lowerText === "schedule a meeting" ||
+    lowerText === "schedule consultation" ||
+    lowerText === "book slot" ||
+    lowerText === "select slot" ||
+    lowerText === "book a call" ||
+    lowerText === "schedule a call" ||
+    lowerText.includes("book a meeting") ||
+    lowerText.includes("book meeting") ||
+    lowerText.includes("book consultation") ||
+    lowerText.includes("schedule meeting") ||
+    lowerText.includes("schedule consultation") ||
+    lowerText.includes("book a call") ||
+    lowerText.includes("schedule a call") ||
+    lowerText.includes("book slot") ||
+    lowerText.includes("select slot") ||
+    lowerText.includes("want to book") ||
+    lowerText.includes("wnt to book") ||
+    lowerText.includes("want meeting") ||
+    lowerText.includes("need meeting") ||
+    lowerText.includes("want consultation") ||
+    lowerText.includes("need consultation") ||
+    lowerText.includes("appointment chahiye") ||
+    lowerText.includes("meeting karni") ||
+    lowerText.includes("baat karni") ||
+    /(?:i\s+)?(?:want|wnt|need|like)\s+(?:to\s+)?(?:book|take|schedule|have)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)/i.test(lowerText) ||
+    /^(?:book|schedule)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)$/i.test(lowerText);
+
+  const isGlobalBookingRequest = BOOKING_ACTION_IDS_GLOBAL.includes(actionId) || hasExplicitBookingPhraseGlobal;
+
+  if (isGlobalBookingRequest) {
+    const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
+    const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
+
+    if (hasActiveBooking && session.bookedSlot) {
+      const meetLink = getStaticGoogleMeetLink();
+      const candTimeDisplay = session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel;
+      const candidateDisplayName =
+        session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
+          ? session.name
+          : "";
+      const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+      const bookedReminder =
+        `Hello${nameGreeting}! 👋 Your 1-on-1 consultation with our Senior Migration Expert is already confirmed:\n\n` +
+        `📅 **Date:** ${session.bookedSlot.date}\n` +
+        `⏰ **Time:** ${candTimeDisplay}\n` +
+        `💻 **Google Meet Link:** ${meetLink}\n\n` +
+        `Please make sure to join on time with your CV ready! 🇦🇺\n` +
+        `Need to change your date or time? Tap below:`;
+      await sendQuickReplyButtons(session.phone, bookedReminder, [
+        { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
+        { id: "BTN_ASK_VIDEO", title: "Watch Visa Video" },
+      ]);
+      return { replyText: bookedReminder, step: "BOOKED" };
+    }
+
+    if (isMeetingCompleted) {
+      const candidateDisplayName =
+        session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
+          ? session.name
+          : "";
+      const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+      const completedMsg =
+        `Hello${nameGreeting}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+        `Our review team is currently evaluating your profile to match the requirements of Australian Employers.\n\n` +
+        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄🇦🇺`;
+      await sendTextMessage(session.phone, completedMsg);
+      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
+    }
+
+    // Candidate has NOT booked a meeting -> Immediately send the Interactive 8-Weekend Selection List ("Select Date")!
+    return sendConsultationDateSelection({ db, session });
+  }
+
   // 1. Initial State: WELCOME (when starting or saying hi)
   const isFreshWelcome =
     session.currentStep === "WELCOME" &&
@@ -2509,6 +2610,7 @@ export async function processIncomingWhatsAppMessage(params: {
     !isAffirmative &&
     !isNegative &&
     !isDirectEmail &&
+    !isGlobalBookingRequest &&
     !session.email;
 
   // 1a. If candidate already has a booked consultation and sends a greeting ("hi", "hello", etc.)
@@ -2753,19 +2855,23 @@ export async function processIncomingWhatsAppMessage(params: {
   const BOOKING_KEYWORDS = [
     "meeting", "meet", "book", "booking", "schedule", "scheduling",
     "consult", "consultation", "appointment", "slot", "slots",
+    "meering", "meting", "scheduale", "bok",
     "call with expert", "expert call", "talk to expert", "speak with expert",
     "video call", "google meet", "1 on 1", "1-on-1", "when can we talk",
     "when can we meet", "choose time", "select time", "select date",
     "available date", "available slot", "free slot", "lock slot",
     "baat karni", "meeting karni", "call karni", "appointment chahiye",
+    "want to book", "wnt to book", "want meeting", "need meeting", "want consultation",
   ];
-  const hasBookingKeyword = BOOKING_KEYWORDS.some((kw) => {
-    if (kw.length <= 4) {
-      const rx = new RegExp(`\\b${kw}\\b`, "i");
-      return rx.test(lowerText);
-    }
-    return lowerText.includes(kw);
-  });
+  const hasBookingKeyword =
+    BOOKING_KEYWORDS.some((kw) => {
+      if (kw.length <= 4) {
+        const rx = new RegExp(`\\b${kw}\\b`, "i");
+        return rx.test(lowerText);
+      }
+      return lowerText.includes(kw);
+    }) ||
+    /(?:i\s+)?(?:want|wnt|need|like)\s+(?:to\s+)?(?:book|take|schedule|have)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)/i.test(lowerText);
 
   const candidateDisplayName =
     session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
@@ -2789,13 +2895,14 @@ export async function processIncomingWhatsAppMessage(params: {
     }
     if (hasBookingKeyword) {
       const meetLink = getStaticGoogleMeetLink();
+      const candTimeDisplay = session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel;
       const bookedReminder =
-        `Hello${nameSalutation}! 👋 Your 1-on-1 consultation with our Senior Migration Expert is confirmed:\n\n` +
+        `Hello${nameSalutation}! 👋 Your 1-on-1 consultation with our Senior Migration Expert is already confirmed:\n\n` +
         `📅 **Date:** ${session.bookedSlot.date}\n` +
-        `⏰ **Time:** ${session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel}\n` +
+        `⏰ **Time:** ${candTimeDisplay}\n` +
         `💻 **Google Meet Link:** ${meetLink}\n\n` +
         `Please make sure to join on time with your CV ready! 🇦🇺\n` +
-        `Tap below if you need to change your date or time:`;
+        `Need to change your date or time? Tap below:`;
       await sendQuickReplyButtons(session.phone, bookedReminder, [
         { id: "BTN_RESCHEDULE", title: "Change Date & Time" },
         { id: "BTN_ASK_VIDEO", title: "Watch Visa Video" },
@@ -2804,7 +2911,19 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
-  // 5b. If candidate is actively in the SELECTING_DAY step and replied via text
+  // 5b. If candidate already completed their consultation
+  if (session.meetingCompleted || session.meetingStatus === "completed" || session.currentStep === "MEETING_COMPLETED") {
+    if (hasBookingKeyword) {
+      const completedMsg =
+        `Hello${nameSalutation}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+        `Our review team is currently evaluating your profile to match the requirements of Australian Employers.\n\n` +
+        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄🇦🇺`;
+      await sendTextMessage(session.phone, completedMsg);
+      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
+    }
+  }
+
+  // 5c. If candidate is actively in the SELECTING_DAY step and replied via text
   if (
     session.currentStep === "SELECTING_DAY" &&
     !actionId.startsWith("DAY_DATE_") &&
@@ -2827,7 +2946,7 @@ export async function processIncomingWhatsAppMessage(params: {
     }
   }
 
-  // 5c. Candidate wants Consultation, mentions Day/Date/Slots, or clicked Book Consultation
+  // 5d. Candidate wants Consultation, mentions Day/Date/Slots, or clicked Book Consultation -> Send Interactive Date List directly!
   const wantsConsultation =
     actionId === "BTN_CONSULT_YES" ||
     actionId === "BTN_SELECT_SLOT" ||
@@ -2838,26 +2957,13 @@ export async function processIncomingWhatsAppMessage(params: {
     Boolean(matchedWeekendDate);
 
   if (wantsConsultation && !session.bookedSlot) {
-    // If candidate has registered email, proceed directly to date/slot selection
-    if (session.email) {
-      if (matchedWeekendDate) {
-        return renderSlotSelectionForDate({ db, session, meetingDate: matchedWeekendDate });
-      }
-      if (isWeekdayMention) {
-        return sendConsultationDateSelection({ db, session, introText: weekdayExplanation });
-      }
-      return sendConsultationDateSelection({ db, session });
-    } else {
-      // Prompt candidate for email first so consultation invite & dossier can be sent
-      const emailPromptMsg = isWeekdayMention
-        ? `Hello${nameSalutation}! 👋 Our free 1-on-1 consultations with our Senior Migration Experts are held strictly on **Saturdays and Sundays** between **${candWindowMsg.displayWindow}**.\n\n` +
-          `To book your free session and receive your official Google Meet invitation & visa roadmap, *please reply with your Email Address:*`
-        : `Hello${nameSalutation}! 👋 To book your free 1-on-1 consultation with our Senior Migration Expert, *please reply with your Email Address* so we can register your profile and send your official meeting invitation & visa pack:`;
-
-      await updateSession(db, session.phone, { currentStep: "AWAITING_EMAIL" });
-      await sendTextMessage(session.phone, emailPromptMsg);
-      return { replyText: emailPromptMsg, step: "AWAITING_EMAIL" };
+    if (matchedWeekendDate) {
+      return renderSlotSelectionForDate({ db, session, meetingDate: matchedWeekendDate });
     }
+    if (isWeekdayMention) {
+      return sendConsultationDateSelection({ db, session, introText: weekdayExplanation });
+    }
+    return sendConsultationDateSelection({ db, session });
   }
 
   // 6. Candidate selected day -> Show all slots via helper

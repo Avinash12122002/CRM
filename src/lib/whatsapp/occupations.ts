@@ -746,6 +746,12 @@ export function findEligibleOccupation(query: string): {
   const q = query.trim().toLowerCase();
   if (!q || q.length < 3) return null;
 
+  const BOOKING_IGNORE = [
+    "book a meeting", "book meeting", "book consultation", "schedule meeting", "schedule consultation",
+    "appointment", "book slot", "select slot", "book a call", "schedule call", "meering", "meting",
+  ];
+  if (BOOKING_IGNORE.some((b) => q.includes(b))) return null;
+
   // Words that are too generic to match alone
   const ignoreSet = new Set(["the", "and", "for", "with", "from", "list", "apply", "visa", "work", "role", "jobs"]);
 

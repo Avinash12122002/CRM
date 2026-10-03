@@ -289,17 +289,20 @@ export async function getOrCreateSession(
       ? candidateName
       : "Candidate";
 
+  const isMarketingCampaign = (str: string) =>
+    /visa|employer sponsored|critical skills|general employment|migration|work permit/i.test(str);
+
   const leadOccsNew: string[] = [];
   if (Array.isArray(existingLead?.occupations) && existingLead.occupations.length > 0) {
-    leadOccsNew.push(...existingLead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
-  } else if (typeof existingLead?.occupations === "string" && (existingLead.occupations as string).trim()) {
+    leadOccsNew.push(...existingLead.occupations.filter((o: any) => typeof o === "string" && o.trim() && !isMarketingCampaign(o)));
+  } else if (typeof existingLead?.occupations === "string" && (existingLead.occupations as string).trim() && !isMarketingCampaign(existingLead.occupations as string)) {
     leadOccsNew.push((existingLead.occupations as string).trim());
   }
-  if (existingLead?.jobApplied && !leadOccsNew.includes(existingLead.jobApplied)) {
-    leadOccsNew.push(existingLead.jobApplied);
-  }
-  if (existingLead?.occupation && !leadOccsNew.includes(existingLead.occupation)) {
+  if (existingLead?.occupation && !isMarketingCampaign(existingLead.occupation) && !leadOccsNew.includes(existingLead.occupation)) {
     leadOccsNew.push(existingLead.occupation);
+  }
+  if (existingLead?.jobApplied && !isMarketingCampaign(existingLead.jobApplied) && !leadOccsNew.includes(existingLead.jobApplied)) {
+    leadOccsNew.push(existingLead.jobApplied);
   }
 
   const isExcludedNewLead =
@@ -1219,6 +1222,103 @@ export async function processIncomingWhatsAppMessage(params: {
       (lowerText.includes("meeting") || lowerText.includes("consultation") || lowerText.includes("slot") || lowerText.includes("call")));
 
   if (isRescheduleIntent) {
+    await sendWeekdayDateList(cleanPhone);
+    return;
+  }
+
+  // =========================================================================
+  // --- GLOBAL CONSULTATION BOOKING INTENT INTERCEPTOR (IRELAND) ---
+  // If the candidate says ANY variation of wanting to book a meeting
+  // (e.g. "want to book a meeting", "i wnt to book a meering", "book meeting",
+  // "schedule meeting", "book consultation", "book a call", "appointment", etc.):
+  // 1. Check if they already booked a meeting:
+  //    - If YES (active booked slot): Remind them of their confirmed meeting details
+  //      and provide [Reschedule Meeting] button.
+  //    - If COMPLETED: Remind them consultation is complete and prompt for CV.
+  //    - If NO: IMMEDIATELY send the interactive 5-weekday date selection list ("Select Date")!
+  // =========================================================================
+  const BOOKING_ACTION_IDS = [
+    "BTN_CONSULT_YES",
+    "BTN_BOOK_MEETING",
+    "BTN_SELECT_SLOT",
+    "BTN_BOOK_CONSULTATION",
+  ];
+
+  const hasExplicitBookingPhrase =
+    lowerText === "book" ||
+    lowerText === "book meeting" ||
+    lowerText === "book a meeting" ||
+    lowerText === "booking" ||
+    lowerText === "book consultation" ||
+    lowerText === "schedule meeting" ||
+    lowerText === "schedule a meeting" ||
+    lowerText === "schedule consultation" ||
+    lowerText === "book slot" ||
+    lowerText === "select slot" ||
+    lowerText === "book a call" ||
+    lowerText === "schedule a call" ||
+    lowerText.includes("book a meeting") ||
+    lowerText.includes("book meeting") ||
+    lowerText.includes("book consultation") ||
+    lowerText.includes("schedule meeting") ||
+    lowerText.includes("schedule consultation") ||
+    lowerText.includes("book a call") ||
+    lowerText.includes("schedule a call") ||
+    lowerText.includes("book slot") ||
+    lowerText.includes("select slot") ||
+    lowerText.includes("want to book") ||
+    lowerText.includes("wnt to book") ||
+    lowerText.includes("want meeting") ||
+    lowerText.includes("need meeting") ||
+    lowerText.includes("want consultation") ||
+    lowerText.includes("need consultation") ||
+    lowerText.includes("appointment chahiye") ||
+    lowerText.includes("meeting karni") ||
+    lowerText.includes("baat karni") ||
+    /(?:i\s+)?(?:want|wnt|need|like)\s+(?:to\s+)?(?:book|take|schedule|have)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)/i.test(lowerText) ||
+    /^(?:book|schedule)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)$/i.test(lowerText);
+
+  const isBookingRequest = BOOKING_ACTION_IDS.includes(cleanActionId) || hasExplicitBookingPhrase;
+
+  if (isBookingRequest) {
+    const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled");
+    const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.currentStep === "MEETING_COMPLETED");
+
+    if (hasActiveBooking && session.bookedSlot) {
+      const meetLink = getStaticGoogleMeetLink();
+      const candName = getSafeCandidateDisplayName(session.name) || "there";
+      const candTimeDisplay = session.bookedSlot.candidateTimeLabel || session.bookedSlot.istTimeLabel;
+
+      const bookedMsg =
+        `Hello ${candName}! 👋\n\n` +
+        `Your 1-on-1 Ireland Work Visa Consultation with our Senior Expert is already confirmed:\n\n` +
+        `📅 **Date:** ${session.bookedSlot.date}\n` +
+        `⏰ **Time:** ${candTimeDisplay}\n` +
+        `🔗 **Google Meet Link:**\n${meetLink}\n\n` +
+        `Our expert is ready to evaluate your profile across Critical Skills (CSEP) and General Permits (GEP).\n\n` +
+        `Need to change your consultation date or time? Tap below:`;
+
+      await sendQuickReplyButtons(cleanPhone, bookedMsg, [
+        { id: "BTN_RESCHEDULE", title: "Reschedule Meeting" },
+      ]);
+      return;
+    }
+
+    if (isMeetingCompleted) {
+      const candName = getSafeCandidateDisplayName(session.name) || "there";
+      const completedMsg =
+        `Hello ${candName}! 👋\n\n` +
+        `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+        `Our review team is currently matching your profile with Irish employers.\n\n` +
+        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄🇮🇪`;
+
+      await sendTextMessage(cleanPhone, completedMsg);
+      return;
+    }
+
+    // Candidate has NOT booked a meeting -> Immediately send the Interactive 5-Weekday Selection List ("Select Date")!
+    await updateSession(db, cleanPhone, { currentStep: "SELECTING_DAY" });
+    session.currentStep = "SELECTING_DAY";
     await sendWeekdayDateList(cleanPhone);
     return;
   }
