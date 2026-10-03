@@ -39,8 +39,7 @@ function sanitizeTimezoneForCandidate(text: string, session: WhatsAppSession): s
   return text
     .replace(/(?:12\s*[-–]\s*8\s*PM|12:00\s*PM\s*[-–]\s*08:00\s*PM|1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*IST(?:\s*\([^)]*local time[^)]*\))?/gi, candWindow.displayWindow)
     .replace(/(?:12\s*[-–]\s*8\s*PM|12:00\s*PM\s*[-–]\s*08:00\s*PM|1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*\([^)]*local time[^)]*\)/gi, candWindow.displayWindow)
-    .replace(/\b(?:12\s*[-–]\s*8\s*PM|1\s*[-–]\s*9\s*PM)\s*IST\b/gi, candWindow.displayWindow)
-    .replace(/\s*\(?IST\)?/gi, cleanTz ? ` (${cleanTz})` : "");
+    .replace(/\s*\(?\bIST\b\)?/g, cleanTz && cleanTz !== "India Time" ? ` (${cleanTz})` : "");
 }
 
 function sanitizeFinalResponse(text: string, session: WhatsAppSession): string {
@@ -529,11 +528,11 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
       const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
       if (groqKey) {
         const groqModels = [
-          process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-          "llama3-8b-8192",
-          "mixtral-8x7b-32768",
-          "gemma2-9b-it",
-        ];
+          process.env.GROQ_MODEL,
+          "openai/gpt-oss-120b",
+          "qwen/qwen3.8-27b",
+          "openai/gpt-oss-20b",
+        ].filter(Boolean) as string[];
 
         for (const model of groqModels) {
           try {

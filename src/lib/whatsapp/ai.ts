@@ -54,7 +54,7 @@ function sanitizeTimezoneForCandidate(text: string, session: WhatsAppSession): s
     .replace(/(?:1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*IST(?:\s*\([^)]*local time[^)]*\))?/gi, candWindow.displayWindow)
     .replace(/(?:1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*\([^)]*local time[^)]*\)/gi, candWindow.displayWindow)
     .replace(/\b1\s*[-–]\s*9\s*PM\s*IST\b/gi, candWindow.displayWindow)
-    .replace(/\s*\(?IST\)?/gi, cleanTz ? ` (${cleanTz})` : "");
+    .replace(/\s*\(?\bIST\b\)?/g, cleanTz && cleanTz !== "India Time" ? ` (${cleanTz})` : "");
 }
 
 /**
@@ -571,11 +571,11 @@ ${
       const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
       if (groqKey) {
         const groqModels = [
-          process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
-          "llama3-8b-8192",
-          "mixtral-8x7b-32768",
-          "gemma2-9b-it",
-        ];
+          process.env.GROQ_MODEL,
+          "openai/gpt-oss-120b",
+          "qwen/qwen3.8-27b",
+          "openai/gpt-oss-20b",
+        ].filter(Boolean) as string[];
 
         for (const model of groqModels) {
           try {
@@ -1815,8 +1815,36 @@ function generateHumanVisaExpertReply(params: {
     );
   }
 
+  // 23c. What is visa / Explanation of Australia Employer Sponsored Work Visa
+  if (
+    lower === "what is visa" ||
+    lower === "what is a visa" ||
+    lower.includes("what is visa") ||
+    lower.includes("what is work visa") ||
+    lower.includes("visa kya hai") ||
+    lower.includes("about visa") ||
+    lower === "visa"
+  ) {
+    return (
+      `Hi${nameSalutation}! 🇦🇺 An **Australia Employer Sponsored Work Visa** is an official government permit that allows qualified professionals to work full-time in Australia with an approved employer.\n\n` +
+      `• **Direct Employer Sponsorship:** Work directly for an Australian company\n` +
+      `• **Minimum Salary:** Statutory AUD $76,500/year (+ superannuation/pension & overtime)\n` +
+      `• **PR Pathway:** Fast-track to permanent residency (PR Subclass 186) after 2 years\n` +
+      `• **Family Included:** Spouse gets full work rights, children attend public schools\n` +
+      `• **Employer Covers:** $6,000 embassy fees, $330 nomination, and flight tickets\n\n` +
+      `Feel free to share your occupation or ask any specific question!`
+    );
+  }
+
   // 24. If consultation is completed and candidate asks about next steps
-  if (session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up") {
+  const isAskingNextSteps =
+    lower.includes("next step") ||
+    lower.includes("what next") ||
+    lower.includes("what now") ||
+    lower.includes("after meeting") ||
+    lower.includes("what to do now");
+
+  if ((session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up") && isAskingNextSteps) {
     return (
       `Hi${nameSalutation}! 🇦🇺 Your profile is in active follow-up with our consultation team.\n\n` +
       `Feel free to share any questions on documentation, employer matching, or your 4–5 month roadmap — our team is here to assist!`
