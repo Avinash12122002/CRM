@@ -244,9 +244,12 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
       : `If you have any questions or want to schedule your 1-on-1 consultation, feel free to ask here anytime!`;
 
     const ackMessage =
-      `Thank you${candidateDisplayName}! 📄 We have received your CV / Document.\n\n` +
-      `Our Ireland Review & Recruitment Team will assess your qualifications against the Ireland Critical Skills (CSEP) and General Employment (GEP) lists (minimum 2 years of relevant experience required). 🇮🇪\n\n` +
-      consultationClause;
+      existingSession?.currentStep === "AWAITING_CV" || existingSession?.meetingCompleted
+        ? `Thanks for sharing your CV with us! Our review team is reviewing your qualification and work experience according to Employers Requirement.\n\n` +
+          `Once successfully reviewed , our Ireland team will call you from an Irish number. 🇮🇪📞`
+        : `Thank you${candidateDisplayName}! 📄 We have received your CV / Document.\n\n` +
+          `Our Ireland Review & Recruitment Team will assess your qualifications against the Ireland Critical Skills (CSEP) and General Employment (GEP) lists (minimum 2 years of relevant experience required). 🇮🇪\n\n` +
+          consultationClause;
 
     await sendTextMessage(cleanPhone, ackMessage);
 

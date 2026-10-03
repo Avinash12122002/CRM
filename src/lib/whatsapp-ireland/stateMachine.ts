@@ -626,6 +626,24 @@ export async function sendConsultationBookingPrompt(phone: string): Promise<void
     return;
   }
 
+  const consultationPrompt =
+    `*Ready to take the next step towards Ireland? 🇮🇪*\n\n` +
+    `Book a 1-on-1 consultation meeting with our Ireland Visa Expert to check your job eligibility and visa pathway.`;
+
+  const res = await sendQuickReplyButtons(cleanPhone, consultationPrompt, [
+    { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+    { id: "BTN_CONSULT_NO", title: "Maybe Later" },
+  ]);
+  if (!res.success) {
+    await sendTextMessage(cleanPhone, consultationPrompt);
+  }
+}
+
+export async function sendWeekdayDateList(phone: string): Promise<void> {
+  const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
+  const { db } = await connectToDatabase();
+  const session = await getOrCreateSession(db, cleanPhone);
+
   const weekdays = getUpcomingWeekdays(5);
   const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
 
@@ -1178,7 +1196,7 @@ export async function processIncomingWhatsAppMessage(params: {
       (lowerText.includes("meeting") || lowerText.includes("consultation") || lowerText.includes("slot") || lowerText.includes("call")));
 
   if (isRescheduleIntent) {
-    await sendConsultationBookingPrompt(cleanPhone);
+    await sendWeekdayDateList(cleanPhone);
     return;
   }
 
@@ -1255,11 +1273,30 @@ export async function processIncomingWhatsAppMessage(params: {
       } else {
         statusMsg =
           `${salutation}\n\n` +
-          `Your Ireland consultation has already been completed! ✅\n\n` +
-          `Our advisory team is following up on your application. How can we assist you today? 🇮🇪`;
+          `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+          `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation and agreement.\n\n` +
+          `If you have any questions about your Ireland Employer Sponsored Work Visa file or payment, feel free to reply right here! 🇮🇪`;
       }
 
       await sendTextMessage(cleanPhone, statusMsg);
+      return;
+    }
+
+    const isCvStatusQuery =
+      lowerText.includes("check my cv") ||
+      lowerText.includes("checked my cv") ||
+      lowerText.includes("cv status") ||
+      lowerText.includes("resume status") ||
+      lowerText.includes("cv update") ||
+      lowerText.includes("resume update") ||
+      lowerText.includes("review status") ||
+      lowerText.includes("did you check");
+
+    if (isCvStatusQuery && (session.hasUploadedCv || session.cvReceivedAt)) {
+      const cvStatusMsg =
+        `Thank you for checking in! Please be patient while our review team is still assessing your qualifications and job experience based on Employers requirements.\n\n` +
+        `Once the review is completed, please expect a call from an Irish number.. 🇮🇪📞`;
+      await sendTextMessage(cleanPhone, cvStatusMsg);
       return;
     }
 
@@ -1573,19 +1610,44 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
-  if (
-    cleanActionId === "BTN_IRELAND_NO" ||
-    cleanActionId === "BTN_CONSULT_NO"
-  ) {
-    await sendTextMessage(
-      cleanPhone,
-      `No problem at all! We'll be here whenever you are ready to explore your career in Ireland. 🇮🇪\n\n` +
-      `Feel free to message us here anytime if you have questions.`
-    );
-
+  if (cleanActionId === "BTN_IRELAND_NO" || lowerText === "not right now") {
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, cleanPhone, {
-      currentStep: "COLD",
+      currentStep: "WELCOME",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
     });
+    const noReply =
+      `No problem at all! 😊 Take your time.\n\n` +
+      `Whenever you are ready, we are here to help you explore the Ireland Employer Sponsored Work Visa! 🇮🇪 Remember — it is a fully employer-sponsored work visa where Irish employers sponsor eligible candidates.\n\n` +
+      `Tap below if you change your mind:`;
+    const btnRes = await sendQuickReplyButtons(cleanPhone, noReply, [
+      { id: "BTN_IRELAND_YES", title: "Yes, Interested" },
+      { id: "BTN_IRELAND_NO", title: "Maybe Later" },
+    ]);
+    if (!btnRes.success) {
+      await sendTextMessage(cleanPhone, noReply);
+    }
+    return;
+  }
+
+  if (cleanActionId === "BTN_CONSULT_NO" || lowerText === "maybe later") {
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
+    await updateSession(db, cleanPhone, {
+      currentStep: "AWAITING_CONSULTATION_DECISION",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
+    });
+    const noReply =
+      `No problem at all! 😊 Take your time.\n\n` +
+      `Whenever you are ready, we are here to help you explore the Ireland Employer Sponsored Work Visa — this is a fully employer-sponsored visa where the Irish employer covers your permit fees! 🇮🇪\n\n` +
+      `Tap below when you are ready to book your free consultation:`;
+    const btnRes = await sendQuickReplyButtons(cleanPhone, noReply, [
+      { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+    ]);
+    if (!btnRes.success) {
+      await sendTextMessage(cleanPhone, noReply);
+    }
     return;
   }
 
@@ -1685,13 +1747,23 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
+  if (cleanActionId === "BTN_SELECT_SLOT" && session.activeSlotsDate) {
+    cleanActionId = `SELECT_DAY_${session.activeSlotsDate}`;
+  } else if (cleanActionId === "BTN_SELECT_SLOT") {
+    await sendWeekdayDateList(cleanPhone);
+    return;
+  }
+
   if (
     cleanActionId === "BTN_CONSULT_YES" ||
     cleanActionId === "BTN_BOOK_MEETING" ||
+    cleanActionId === "BTN_RESCHEDULE" ||
+    cleanActionId === "BTN_RESCHEDULE_MEETING" ||
     lowerText.includes("book consultation") ||
-    lowerText.includes("book meeting")
+    lowerText.includes("book meeting") ||
+    lowerText === "select date"
   ) {
-    await sendConsultationBookingPrompt(cleanPhone);
+    await sendWeekdayDateList(cleanPhone);
     return;
   }
 

@@ -25,8 +25,7 @@ export async function sendMeetingCompletedNotification(params: {
   const nameSalutation = candidateName ? `Hi ${candidateName}! ` : "";
 
   const messageText =
-    `${nameSalutation}Thanks for attending the consultation. We hope you enjoyed the session with our Ireland migration expert! 🇮🇪\n\n` +
-    `Now, our review team will assess your profile to match the requirements of approved Irish Employers.\n\n` +
+    `Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Irish Employers! 🇮🇪\n\n` +
     `Please send your CV / Resume here in PDF or Word document format. 📄`;
 
   try {

@@ -187,14 +187,13 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
           session.currentStep === "VIDEO_SENT_AWAITING_INTEREST" ||
           session.currentStep === "AWAITING_CONSULTATION_DECISION"
         ) {
-          stepKey = "STEP_3_VIDEO";
-        } else if (
-          session.currentStep === "SELECTING_DAY" ||
-          session.currentStep === "SELECTING_SLOT"
-        ) {
-          stepKey = "STEP_4_CONSULTATION";
+          stepKey = "STEP_3_CONSULTATION";
+        } else if (session.currentStep === "SELECTING_DAY") {
+          stepKey = "STEP_4_DATE";
+        } else if (session.currentStep === "SELECTING_SLOT") {
+          stepKey = "STEP_4_SLOT";
         } else if (session.currentStep === "AWAITING_CV") {
-          stepKey = "STEP_5_CV";
+          stepKey = "STEP_6_CV";
         } else if (
           session.currentStep === "RESCHEDULING_DATE" ||
           session.currentStep === "RESCHEDULING_SLOT" ||
@@ -280,10 +279,11 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
         const cleanTz = rawTz.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
         const candTzSuffix = cleanTz ? ` (${cleanTz})` : "";
         const reminderText =
-          `⏰ **Ireland Consultation Reminder**\n\n` +
-          `Your 1-on-1 consultation with our **Senior Ireland Migration Expert** starts in **1 hour** at **${candTimeDisplay}**${candTzSuffix}!\n\n` +
-          `🔗 **Google Meet Link:** ${meetLink}\n\n` +
-          `Please ensure you have a stable internet connection and quiet environment. See you soon! 🇮🇪`;
+          `⏰ *Reminder: Your Ireland Visa Consultation is in 1 Hour!*\n\n` +
+          `📅 *Date:* ${session.bookedSlot.date}\n` +
+          `⏰ *Time:* ${candTimeDisplay}${candTzSuffix}\n\n` +
+          `🔗 *Google Meet Link:*\n${meetLink}\n\n` +
+          `Our Ireland visa specialist is ready to evaluate your Ireland Employer Sponsored Work Visa file. Please tap the link to join on time! 🇮🇪`;
 
         await sendTextMessage(session.phone, reminderText, { skipLog: true });
 

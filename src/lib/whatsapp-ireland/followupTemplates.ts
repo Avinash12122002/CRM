@@ -128,8 +128,8 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     },
   ],
 
-  // Step 3: Video Sent / Awaiting Interest
-  STEP_3_VIDEO: [
+  // Step 3: Consultation Decision
+  STEP_3_CONSULTATION: [
     {
       day: 1,
       message:
@@ -199,71 +199,98 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     },
   ],
 
-  // Step 4: Consultation Decision / Selecting Slot
-  STEP_4_CONSULTATION: [
+  // Step 4 Date: Select Consultation Date
+  STEP_4_DATE: [
     {
       day: 1,
       message:
-        `We have open consultation slots available! 📅\n\n` +
-        `Tap below to select an available time in your local timezone:`,
-      buttons: [
-        { id: "BTN_CONSULT_YES", title: "Choose Slot" },
-        { id: "BTN_CONSULT_NO", title: "Later" },
-      ],
+        `You're one step closer to booking a meeting with us! 📅\n\n` +
+        `Please select your preferred date to speak with our Ireland visa specialist:`,
+      buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
       day: 2,
       message:
-        `Weekday consultation slots for our Ireland Migration Specialist fill up quickly. Secure your slot today! ⏰`,
-      buttons: [
-        { id: "BTN_CONSULT_YES", title: "Select Slot" },
-        { id: "BTN_CONSULT_NO", title: "Not Now" },
-      ],
+        `Talk 1-on-1 with our live Ireland visa counselor! 🤝\n\n` +
+        `Pick a weekday date to discuss the Ireland Employer Sponsored Work Visa:`,
+      buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
       day: 3,
       message:
-        `Consultations are 100% free, 1-on-1 via Google Meet, and scheduled strictly in your local timezone! 🌐`,
-      buttons: [
-        { id: "BTN_CONSULT_YES", title: "Book Free Slot" },
-        { id: "BTN_CONSULT_NO", title: "Later" },
-      ],
+        `Know more about the Ireland Employer Sponsored Work Visa: Tap below to pick an upcoming weekday date that fits your schedule! 🇮🇪`,
+      buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
       day: 4,
       message:
-        `Have questions about the €300 initial fee, English coaching, or Irish employer interviews? Our expert will explain everything in detail.`,
-      buttons: [
-        { id: "BTN_CONSULT_YES", title: "Book Call" },
-        { id: "BTN_CONSULT_NO", title: "Not Right Now" },
-      ],
+        `Consultation slots are filling fast for this week! Choose your date now so our senior advisor can evaluate your file:`,
+      buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
       day: 5,
       message:
-        `New weekday slots have just been opened! Pick a time that suits your schedule:`,
-      buttons: [
-        { id: "BTN_CONSULT_YES", title: "View Slots" },
-        { id: "BTN_CONSULT_NO", title: "Skip" },
-      ],
+        `Reserve your 1-on-1 session to verify your qualifications and employer sponsorship eligibility in Ireland. Pick a date below:`,
+      buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
       day: 6,
       message:
-        `Almost out of slots for this week. Reserve your 1-on-1 Ireland migration assessment:`,
-      buttons: [
-        { id: "BTN_CONSULT_YES", title: "Reserve Slot" },
-        { id: "BTN_CONSULT_NO", title: "Not Now" },
-      ],
+        `Don't let your Irish employer sponsorship opportunity slip. Select your consultation date today to lock in your session:`,
+      buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
     },
     {
       day: 7,
       message:
-        `Final invitation for this week's Ireland consultations. Tap below or reply whenever you'd like to schedule. 🇮🇪`,
-      buttons: [
-        { id: "BTN_CONSULT_YES", title: "Book Now" },
-        { id: "BTN_CONSULT_NO", title: "Close" },
-      ],
+        `Final Reminder: Choose your consultation date today to connect 1-on-1 with our Ireland migration team. 🇮🇪`,
+      buttons: [{ id: "BTN_RESCHEDULE", title: "Select Date" }],
+    },
+  ],
+
+  // Step 4 Slot: Select Time Slot
+  STEP_4_SLOT: [
+    {
+      day: 1,
+      message:
+        `You selected your consultation date! ⏰\n\n` +
+        `Please pick your convenient time slot to lock in your meeting:`,
+      buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
+    },
+    {
+      day: 2,
+      message:
+        `Available time slots are closing! Tap below to choose your 1-hour consultation time and receive your Google Meet invitation link:`,
+      buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
+    },
+    {
+      day: 3,
+      message:
+        `Complete your booking in 10 seconds: Select a time slot to confirm your 1-on-1 Ireland Employer Sponsored Work Visa consultation! 📅`,
+      buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
+    },
+    {
+      day: 4,
+      message:
+        `Our visa advisors are organizing consultations for your selected date. Please choose your preferred time slot below:`,
+      buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
+    },
+    {
+      day: 5,
+      message:
+        `Quick reminder: Approved Irish employers are looking for eligible applicants. Pick an available time slot to finalize your consultation:`,
+      buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
+    },
+    {
+      day: 6,
+      message:
+        `Limited time slots remaining! Please select your 1-hour consultation slot before the schedule is finalized.`,
+      buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
+    },
+    {
+      day: 7,
+      message:
+        `Final Reminder: Pick your consultation time slot now, or reply with another date that works better for you. ⏰`,
+      buttons: [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }],
     },
   ],
 
@@ -354,3 +381,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     },
   ],
 };
+
+// Aliases for compatibility
+(STEP_FOLLOWUP_MESSAGES as any).STEP_3_VIDEO = STEP_FOLLOWUP_MESSAGES.STEP_3_CONSULTATION;
+(STEP_FOLLOWUP_MESSAGES as any).STEP_6_CV = STEP_FOLLOWUP_MESSAGES.STEP_5_CV;
