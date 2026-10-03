@@ -197,7 +197,18 @@ export async function GET(
     );
 
     // 5. Check if candidate exists in CRM Leads using robust multi-field lookup
-    const lead = await findMatchingCrmLead(db, cleanPhone, session, "whatsapp_sessions");
+    let lead = await findMatchingCrmLead(db, cleanPhone, session, "whatsapp_sessions");
+    if (!lead) {
+      try {
+        const { syncOrCreateCrmLead } = await import("@/lib/whatsapp/leadLookup");
+        lead = await syncOrCreateCrmLead(db, cleanPhone, session, {
+          destination: "Australia",
+          sessionsCollection: "whatsapp_sessions",
+        });
+      } catch (autoLeadErr) {
+        console.warn("[messages] Could not auto-create CRM lead:", autoLeadErr);
+      }
+    }
 
     // Also check incoming logs for contact profile name from WhatsApp
     const incomingLog = await db.collection("whatsapp_incoming_logs").findOne({

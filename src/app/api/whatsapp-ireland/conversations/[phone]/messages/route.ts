@@ -139,7 +139,18 @@ export async function GET(
     );
 
     // 5. Lookup matching CRM lead using robust multi-field lookup
-    const lead = await findMatchingCrmLead(db, cleanPhone, session, "whatsapp_ireland_sessions");
+    let lead = await findMatchingCrmLead(db, cleanPhone, session, "whatsapp_ireland_sessions");
+    if (!lead) {
+      try {
+        const { syncOrCreateCrmLead } = await import("@/lib/whatsapp-ireland/leadLookup");
+        lead = await syncOrCreateCrmLead(db, cleanPhone, session, {
+          destination: "Ireland",
+          sessionsCollection: "whatsapp_ireland_sessions",
+        });
+      } catch (autoLeadErr) {
+        console.warn("[ireland-messages] Could not auto-create CRM lead:", autoLeadErr);
+      }
+    }
 
     // 6. Also check ireland incoming logs for contact profile name from WhatsApp
     const incomingLog = await db.collection("whatsapp_ireland_incoming_logs").findOne({

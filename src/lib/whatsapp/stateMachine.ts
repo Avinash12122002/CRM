@@ -952,7 +952,23 @@ export async function processIncomingWhatsAppMessage(params: {
     phoneQueries.push({ id: session.leadId });
   }
 
-  const existingLead = await db.collection("leads").findOne({ $or: phoneQueries });
+  let existingLead = await db.collection("leads").findOne({ $or: phoneQueries });
+
+  if (!existingLead) {
+    try {
+      const { syncOrCreateCrmLead } = await import("@/lib/whatsapp/leadLookup");
+      existingLead = (await syncOrCreateCrmLead(db, cleanPhone, session, {
+        destination: "Australia",
+        sessionsCollection: SESSIONS_COLLECTION,
+      })) as any;
+      if (existingLead?.id) {
+        session.leadId = existingLead.id;
+        session.crmStatus = existingLead.status || "new-lead";
+      }
+    } catch (e) {
+      console.warn("[WhatsApp] Could not auto-create lead in stateMachine:", e);
+    }
+  }
 
   if (existingLead) {
     // Keep session leadId and crmStatus in sync
@@ -970,6 +986,8 @@ export async function processIncomingWhatsAppMessage(params: {
     const isSelfAutomationLead =
       existingLead.id === session.leadId ||
       existingLead.leadSource === "WhatsApp Ad Automation" ||
+      existingLead.leadSource === "WhatsApp Ireland Automation" ||
+      existingLead.leadSource === "WhatsApp Ireland" ||
       session.currentStep !== "WELCOME";
 
     if (!session.existingLeadNotified && !isSelfAutomationLead) {

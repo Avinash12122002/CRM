@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
               }
             }
             const existingSession = await db.collection(sessionsCollection).findOne({ phone });
-            const existingLead = await db.collection("leads").findOne({ $or: leadPhoneQueries });
+            let existingLead = await db.collection("leads").findOne({ $or: leadPhoneQueries });
 
             const isValidPersonName = (n?: string): boolean => {
               if (!n) return false;
@@ -207,6 +207,64 @@ export async function POST(req: NextRequest) {
               );
             } else {
               effectiveSenderName = "Candidate";
+            }
+
+            // AUTO-CREATE CRM LEAD on first message if none exists yet (status: "new-lead")
+            if (!existingLead) {
+              try {
+                if (isIreland) {
+                  const { syncOrCreateCrmLead } = await import("@/lib/whatsapp-ireland/leadLookup");
+                  existingLead = (await syncOrCreateCrmLead(
+                    db,
+                    phone,
+                    {
+                      name: isValidPersonName(effectiveSenderName) ? effectiveSenderName : undefined,
+                      phone,
+                      countryName: "Ireland",
+                    },
+                    {
+                      destination: "Ireland",
+                      sessionsCollection: "whatsapp_ireland_sessions",
+                    }
+                  )) as any;
+                } else {
+                  const { syncOrCreateCrmLead } = await import("@/lib/whatsapp/leadLookup");
+                  existingLead = (await syncOrCreateCrmLead(
+                    db,
+                    phone,
+                    {
+                      name: isValidPersonName(effectiveSenderName) ? effectiveSenderName : undefined,
+                      phone,
+                      countryName: phone.startsWith("91") ? "India" : "Australia",
+                    },
+                    {
+                      destination: "Australia",
+                      sessionsCollection: "whatsapp_sessions",
+                    }
+                  )) as any;
+                }
+                console.log(`[WhatsApp Webhook] Auto-created CRM lead #${existingLead?.id} (status: ${existingLead?.status}) for +${phone}`);
+              } catch (createErr) {
+                console.warn("[WhatsApp Webhook] Could not auto-create CRM lead on first message:", createErr);
+              }
+            } else {
+              // Ensure existing session has leadId linked
+              if (existingSession && !existingSession.leadId && existingLead?.id) {
+                await db.collection(sessionsCollection).updateOne(
+                  { phone },
+                  { $set: { leadId: existingLead.id } }
+                ).catch(() => {});
+              }
+              // If lead has generic name but we now have candidate's verified name, update lead
+              if (
+                isValidPersonName(effectiveSenderName) &&
+                (!existingLead.name || existingLead.name === "Candidate" || String(existingLead.name).startsWith("WhatsApp Candidate"))
+              ) {
+                await db.collection("leads").updateOne(
+                  { id: existingLead.id },
+                  { $set: { name: effectiveSenderName, updatedAt: new Date() } }
+                ).catch(() => {});
+              }
             }
 
             await db.collection(incomingLogsCollection).insertOne({
