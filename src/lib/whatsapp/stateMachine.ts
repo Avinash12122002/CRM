@@ -629,35 +629,57 @@ export async function sendTimedVideoAndProcessGuide(
     await sendTextMessage(cleanPhone, videoIntro);
   }
 
-  // 2. Schedule the consultation booking prompt after 10 minutes (skipping the old long complete process text)
+  // 2. Schedule the consultation booking prompt after 10 minutes (skipping the old long complete process text).
+  // Uses an atomic findOneAndUpdate with consultationPromptSent guard to prevent
+  // duplicate sends when multiple serverless invocations (webhook retries) each
+  // register their own setTimeout.
   setTimeout(async () => {
     try {
       const { connectToDatabase } = await import("@/lib/mongodb");
       const { db } = await connectToDatabase();
-      const s = await db.collection("whatsapp_sessions").findOne({
-        $or: [{ phone: cleanPhone }, { phone: `+${cleanPhone}` }],
-      });
-      if (s && (s.currentStep === "AWAITING_CONSULTATION_DECISION" || s.currentStep === "VIDEO_SENT_AWAITING_INTEREST") && !s.bookedSlot) {
-        await sendConsultationBookingPrompt(cleanPhone);
-        const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
-        await logWhatsAppMessage({
-          db,
-          phone: cleanPhone,
-          sender: "bot",
-          senderName: "Aria (TMS Visa)",
-          text: `*Ready to take the next step towards Australia? 🇦🇺*\n\nBook a 1-on-1 consultation meeting with our Australian Visa Expert to check your job eligibility and visa pathway.`,
-          msgType: "interactive_button",
-          buttons: [
-            { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-            { id: "BTN_CONSULT_NO", title: "Maybe Later" },
+
+      // Atomically claim the "send slot" — only the first timer to reach this wins.
+      // If consultationPromptSent is already true, this returns null and we skip.
+      const claimed = await db.collection("whatsapp_sessions").findOneAndUpdate(
+        {
+          $and: [
+            { $or: [{ phone: cleanPhone }, { phone: `+${cleanPhone}` }] },
+            { $or: [
+              { currentStep: "AWAITING_CONSULTATION_DECISION" },
+              { currentStep: "VIDEO_SENT_AWAITING_INTEREST" },
+            ]},
           ],
-          createdAt: new Date(),
-        });
-        await updateSession(db, cleanPhone, {
-          consultationPromptDueAt: undefined,
-          updatedAt: new Date(),
-        });
+          bookedSlot: { $exists: false },
+          consultationPromptSent: { $ne: true },
+        },
+        { $set: { consultationPromptSent: true, updatedAt: new Date() } },
+        { returnDocument: "after" }
+      );
+
+      if (!claimed) {
+        // Another timer already claimed it or session state changed — do nothing.
+        return;
       }
+
+      await sendConsultationBookingPrompt(cleanPhone);
+      const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
+      await logWhatsAppMessage({
+        db,
+        phone: cleanPhone,
+        sender: "bot",
+        senderName: "Aria (TMS Visa)",
+        text: `*Ready to take the next step towards Australia? 🇦🇺*\n\nBook a 1-on-1 consultation meeting with our Australian Visa Expert to check your job eligibility and visa pathway.`,
+        msgType: "interactive_button",
+        buttons: [
+          { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+          { id: "BTN_CONSULT_NO", title: "Maybe Later" },
+        ],
+        createdAt: new Date(),
+      });
+      await db.collection("whatsapp_sessions").updateOne(
+        { $or: [{ phone: cleanPhone }, { phone: `+${cleanPhone}` }] },
+        { $unset: { consultationPromptDueAt: "" }, $set: { updatedAt: new Date() } }
+      );
     } catch (err) {
       console.error("[WhatsApp] Error sending 10-minute consultation prompt:", err);
     }
@@ -1692,6 +1714,7 @@ export async function processIncomingWhatsAppMessage(params: {
       infoEmailSentAt: now,
       videoSentAt: now,
       consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
+      consultationPromptSent: false,  // Reset dedup flag so the 10-min timer can fire exactly once
       nextFollowupAt: getNext10AmInTimezone(session.timeZone),
       followupCount: 0,
     });

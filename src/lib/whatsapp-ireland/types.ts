@@ -59,6 +59,7 @@ export interface WhatsAppSession {
   videoSentAt?: Date;
   welcomeSentAt?: Date;
   consultationPromptDueAt?: Date;
+  consultationPromptSent?: boolean;  // Dedup flag: true after the 10-min prompt fires, prevents duplicate sends
   infoEmailSentAt?: Date;
   cvReceivedAt?: Date;
   cvFileUrl?: string;
