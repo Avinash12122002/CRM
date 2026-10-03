@@ -12,11 +12,14 @@ import { runWhatsAppIrelandFollowupEngine } from "@/lib/whatsapp-ireland/followu
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
+    const isVercelCron =
+      req.headers.get("x-vercel-cron") === "1" ||
+      req.headers.get("user-agent")?.toLowerCase().includes("vercel-cron");
     const provided =
       req.headers.get("x-cron-secret") ||
       req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
       req.nextUrl.searchParams.get("secret");
-    if (!provided || provided !== cronSecret) {
+    if (!isVercelCron && (!provided || provided !== cronSecret)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
   }

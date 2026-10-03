@@ -485,9 +485,10 @@ ${
       const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
       if (groqKey) {
         const groqModels = [
-          process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
-          "openai/gpt-oss-120b",
-          "openai/gpt-oss-20b",
+          process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+          "llama3-8b-8192",
+          "mixtral-8x7b-32768",
+          "gemma2-9b-it",
         ];
 
         for (const model of groqModels) {
@@ -560,9 +561,16 @@ ${
 
             if (res.ok) {
               const data = await res.json();
-              const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (replyText && replyText.trim().length > 10) {
-                return sanitizeFinalResponse(replyText.trim(), session);
+              // Guard against safety-blocked or empty Gemini responses
+              const candidate = data.candidates?.[0];
+              const finishReason = candidate?.finishReason;
+              if (finishReason === "SAFETY" || finishReason === "RECITATION" || !candidate?.content) {
+                // Gemini blocked this — fall through to OpenAI fallback
+              } else {
+                const replyText = candidate?.content?.parts?.[0]?.text;
+                if (replyText && replyText.trim().length > 10) {
+                  return sanitizeFinalResponse(replyText.trim(), session);
+                }
               }
             }
         } catch {

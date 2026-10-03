@@ -427,8 +427,9 @@ export async function updateSession(
   }
 
   await db.collection(SESSIONS_COLLECTION).updateOne(
-    { phone: cleanPhone },
+    { $or: [{ phone: cleanPhone }, { phone: `+${cleanPhone}` }] },
     updateDoc,
+    { upsert: true }
   );
 }
 
@@ -586,6 +587,7 @@ export async function sendTimedVideoAndProcessGuide(
   email: string,
   videoUrl?: string,
 ) {
+  const cleanPhone = phone.replace(/[^\d]/g, "").replace(/^00/, "");
   const actualVideoUrl = videoUrl || getVideo482Url();
 
   // 1. Send the 482 explainer video guide
@@ -595,7 +597,7 @@ export async function sendTimedVideoAndProcessGuide(
       `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
       `▶️ *Watch the Video Here:*\n${actualVideoUrl}\n\n` +
       `*(Tap the link above to watch the video anytime)*`;
-    await sendTextMessage(phone, videoIntro);
+    await sendTextMessage(cleanPhone, videoIntro);
   }
 
   // 2. Schedule the consultation booking prompt after 10 minutes (skipping the old long complete process text)
@@ -603,13 +605,15 @@ export async function sendTimedVideoAndProcessGuide(
     try {
       const { connectToDatabase } = await import("@/lib/mongodb");
       const { db } = await connectToDatabase();
-      const s = await db.collection("whatsapp_sessions").findOne({ phone });
+      const s = await db.collection("whatsapp_sessions").findOne({
+        $or: [{ phone: cleanPhone }, { phone: `+${cleanPhone}` }],
+      });
       if (s && (s.currentStep === "AWAITING_CONSULTATION_DECISION" || s.currentStep === "VIDEO_SENT_AWAITING_INTEREST") && !s.bookedSlot) {
-        await sendConsultationBookingPrompt(phone);
+        await sendConsultationBookingPrompt(cleanPhone);
         const { logWhatsAppMessage } = await import("@/lib/whatsapp/messageLogger");
         await logWhatsAppMessage({
           db,
-          phone,
+          phone: cleanPhone,
           sender: "bot",
           senderName: "Aria (TMS Visa)",
           text: `*Ready to take the next step towards Australia? 🇦🇺*\n\nBook a 1-on-1 consultation meeting with our Australian Visa Expert to check your job eligibility and visa pathway.`,
@@ -620,7 +624,7 @@ export async function sendTimedVideoAndProcessGuide(
           ],
           createdAt: new Date(),
         });
-        await updateSession(db, phone, {
+        await updateSession(db, cleanPhone, {
           consultationPromptDueAt: undefined,
           updatedAt: new Date(),
         });
@@ -1497,6 +1501,255 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: emailChangePrompt, step: "AWAITING_EMAIL_UPDATE" };
   }
 
+  // =========================================================================
+  // --- INTAKE FUNNEL INTENT DETECTION (Step 1, Step 2, Step 3) ---
+  // Must execute BEFORE any active CRM conversational routing so that candidates
+  // actively going through the funnel or providing their email are NEVER intercepted!
+  // =========================================================================
+
+  const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+  const isDirectEmail = EMAIL_PATTERN.test(cleanText);
+
+  // Affirmative check (handles button clicks or typed equivalents like "yes, interested", "sure", "yep")
+  const isAffirmative =
+    actionId === "BTN_482_YES" ||
+    actionId === "BTN_YES_AUSTRALIA" ||
+    (session.currentStep === "WELCOME" &&
+      ["yes", "yep", "yeah", "interested", "sure", "ok", "okay"].some((w) =>
+        lowerText === w || (w === "ok" ? /\bok\b/.test(lowerText) : lowerText.includes(w))
+      ));
+
+  // Negative check (handles button clicks or typed equivalents like "not right now", "no", "maybe later")
+  const NEGATIVE_EXACT_OR_PREFIXES = [
+    "not right now",
+    "not now",
+    "not interested",
+    "maybe later",
+    "later",
+    "no thanks",
+    "no thank you",
+    "dont want",
+    "don't want",
+  ];
+  const isNegative =
+    actionId === "BTN_482_NO" ||
+    actionId === "BTN_CONSULT_NO" ||
+    lowerText === "no" ||
+    lowerText === "nope" ||
+    lowerText === "nah" ||
+    lowerText.startsWith("no ") ||
+    lowerText.startsWith("no,") ||
+    lowerText.startsWith("no.") ||
+    NEGATIVE_EXACT_OR_PREFIXES.some(
+      (w) => lowerText === w || lowerText.startsWith(w + " ") || lowerText.endsWith(" " + w)
+    );
+
+  // 1. Post-Meeting CV Status Check (Guard 7.3)
+  const isCvStatusInquiry =
+    lowerClean.includes("check my cv") ||
+    lowerClean.includes("checked my cv") ||
+    lowerClean.includes("cv status") ||
+    lowerClean.includes("resume status") ||
+    lowerClean.includes("cv check") ||
+    lowerClean.includes("resume check") ||
+    lowerClean.includes("did you check");
+  if (isCvStatusInquiry && (session.hasUploadedCv || session.cvReceivedAt || session.currentStep === "MEETING_COMPLETED")) {
+    const cvStatusMsg =
+      `Thank you for checking in! Please be patient while our review team is still assessing your qualifications and job experience based on Employers requirements.\n\n` +
+      `Once the review is completed, please expect a call from an Australian number.. 🇦🇺📞`;
+    await sendTextMessage(session.phone, cvStatusMsg);
+    return { replyText: cvStatusMsg, step: session.currentStep };
+  }
+
+  // 2. STEP 2: Email Intake & Information Delivery (AWAITING_EMAIL or direct email shared)
+  if (
+    session.currentStep === "AWAITING_EMAIL" ||
+    (isDirectEmail && session.currentStep !== "BOOKED" && session.currentStep !== "MEETING_COMPLETED" && session.currentStep !== "AWAITING_EMAIL_UPDATE")
+  ) {
+    const emailMatch = cleanText.match(EMAIL_PATTERN);
+    const extractedEmail = emailMatch ? emailMatch[0].toLowerCase() : cleanText.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const isValidFormat = emailRegex.test(extractedEmail);
+    const domain = extractedEmail.includes("@") ? extractedEmail.split("@")[1] : "";
+    const isValidDomain = domain.includes(".") && domain.length >= 4;
+
+    const ACCEPTED_DOMAINS = [
+      "gmail.com", "googlemail.com",
+      "yahoo.com", "yahoo.in", "yahoo.co.in", "yahoo.co.uk", "yahoo.com.au",
+      "outlook.com", "outlook.in", "hotmail.com", "hotmail.in", "live.com",
+      "icloud.com", "me.com",
+      "rediffmail.com", "protonmail.com", "proton.me",
+      "aol.com", "mail.com", "zoho.com", "ymail.com",
+    ];
+    const isWhitelistedDomain = ACCEPTED_DOMAINS.includes(domain) || (domain.includes(".") && !domain.startsWith(".") && domain.split(".").every(part => part.length >= 2));
+
+    if (!isValidFormat || !isValidDomain || !isWhitelistedDomain) {
+      const isQuestionOrInquiry =
+        cleanText.includes("?") ||
+        !cleanText.includes("@") ||
+        cleanText.split(/\s+/).length > 2;
+
+      if (isQuestionOrInquiry) {
+        const aiAnswer = await generateAiResponse({
+          message: cleanText,
+          session,
+        });
+
+        const replyWithEmailPrompt =
+          `${aiAnswer}\n\n` +
+          `Whenever you're ready, *please reply with your Email Address* so our team can officially register your profile and email your full visa roadmap:`;
+
+        await sendTextMessage(session.phone, replyWithEmailPrompt);
+        return { replyText: replyWithEmailPrompt, step: "AWAITING_EMAIL" };
+      }
+
+      const invalidEmailMsg =
+        `⚠️ Please enter a valid email address (e.g. yourname@gmail.com or yourname@yahoo.com) so we can send you the official visa details.`;
+      await sendTextMessage(session.phone, invalidEmailMsg);
+      return { replyText: invalidEmailMsg, step: "AWAITING_EMAIL" };
+    }
+
+    // Valid Email: create/update CRM lead
+    const updatedSession = {
+      ...session,
+      email: extractedEmail,
+      currentStep: "AWAITING_CONSULTATION_DECISION" as WhatsAppStep,
+      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
+      followupCount: 0,
+    };
+    const leadId = await syncCrmLead(db, updatedSession, "new-lead");
+
+    // 1. Instant WhatsApp confirmation message
+    const emailSentNotice = `We have sent an email about the whole process to your email address (**${extractedEmail}**)! Please check your inbox (and spam/junk folder) as well. 📩`;
+    await sendTextMessage(session.phone, emailSentNotice);
+
+    const now = new Date();
+    await updateSession(db, session.phone, {
+      email: extractedEmail,
+      leadId,
+      currentStep: "AWAITING_CONSULTATION_DECISION",
+      infoEmailSentAt: now,
+      videoSentAt: now,
+      consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
+      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
+      followupCount: 0,
+    });
+    session.currentStep = "AWAITING_CONSULTATION_DECISION";
+    session.email = extractedEmail;
+    session.leadId = leadId;
+    session.consultationPromptDueAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // 2. Dispatch info email asynchronously so SMTP does not block the WhatsApp webhook or delay video delivery
+    (async () => {
+      try {
+        const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
+        await sendWhatsAppInfoEmail({
+          phone: session.phone,
+          name: session.name,
+          email: extractedEmail,
+          leadId,
+        });
+      } catch (emailErr) {
+        console.error("[WhatsApp] Error sending info email in background:", emailErr);
+      }
+    })();
+
+    // 3. Send Step 3 video link after 2 seconds
+    try {
+      await delay(2000);
+      const actualVideoUrl = videoUrl || getVideo482Url();
+      await sendTimedVideoAndProcessGuide(session.phone, extractedEmail, actualVideoUrl);
+    } catch (delayErr) {
+      console.error("[WhatsApp] Error in video delivery delay:", delayErr);
+    }
+
+    return {
+      replyText: emailSentNotice,
+      step: "AWAITING_CONSULTATION_DECISION",
+    };
+  }
+
+  // 3. STEP 1: Candidate clicked YES to explore Australia Employer Sponsored Work Visa -> Request Email
+  if (
+    actionId === "BTN_482_YES" ||
+    actionId === "BTN_YES_AUSTRALIA" ||
+    (session.currentStep === "WELCOME" && isAffirmative && !isDirectEmail)
+  ) {
+    const emailPrompt = `Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*`;
+
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
+    await updateSession(db, session.phone, {
+      currentStep: "AWAITING_EMAIL",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
+    });
+    session.currentStep = "AWAITING_EMAIL";
+    await sendTextMessage(session.phone, emailPrompt);
+    return { replyText: emailPrompt, step: "AWAITING_EMAIL" };
+  }
+
+  // 4. STEP 1: Candidate clicked NOT RIGHT NOW at Welcome -> Re-engagement buttons + 7-day follow-up
+  if (
+    actionId === "BTN_482_NO" ||
+    (session.currentStep === "WELCOME" && isNegative)
+  ) {
+    const noReply =
+      `No problem at all! 😊 Take your time.\n\n` +
+      `Whenever you are ready, we are here to help you explore the Australia Employer Sponsored Work Visa! 🇦🇺 Remember — it is a fully employer-sponsored work visa where Australian employers pay for your sponsorship.\n\n` +
+      `Tap below if you change your mind:`;
+    const btnRes = await sendQuickReplyButtons(session.phone, noReply, [
+      { id: "BTN_482_YES", title: "Yes, Interested" },
+      { id: "BTN_482_NO", title: "Maybe Later" },
+    ]);
+    if (!btnRes.success) {
+      await sendTextMessage(session.phone, noReply);
+    }
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
+    await updateSession(db, session.phone, {
+      currentStep: "WELCOME",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
+    });
+    session.currentStep = "WELCOME";
+    return { replyText: noReply, step: "WELCOME" };
+  }
+
+  // 5. STEP 3: Consultation Decision
+  if (
+    actionId === "BTN_CONSULT_YES" ||
+    (session.currentStep === "AWAITING_CONSULTATION_DECISION" && (lowerText === "book" || lowerText === "book consultation" || lowerText === "book meeting" || isAffirmative))
+  ) {
+    return await sendConsultationDateSelection({
+      db,
+      session,
+    });
+  }
+
+  if (
+    actionId === "BTN_CONSULT_NO" ||
+    (session.currentStep === "AWAITING_CONSULTATION_DECISION" && isNegative)
+  ) {
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
+    await updateSession(db, session.phone, {
+      currentStep: "AWAITING_CONSULTATION_DECISION",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
+    });
+    session.currentStep = "AWAITING_CONSULTATION_DECISION";
+
+    const noReply =
+      `No problem at all! 😊 Take your time.\n\n` +
+      `Whenever you are ready, we are here to help you explore the Australia Employer Sponsored Work Visa — this is a fully employer-sponsored visa where the Australian employer covers your sponsorship charges! 🇦🇺\n\n` +
+      `Tap below when you are ready to book your free consultation:`;
+    const btnRes = await sendQuickReplyButtons(session.phone, noReply, [
+      { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+    ]);
+    if (!btnRes.success) {
+      await sendTextMessage(session.phone, noReply);
+    }
+    return { replyText: noReply, step: "AWAITING_CONSULTATION_DECISION" };
+  }
+
   // --- Master Guard: Active CRM Candidates ---
   // (meeting-scheduled, follow-up, sales, payment-pending, document-pending, call-back)
   // All intake steps (email collection, video guides, booking prompts, slot selection)
@@ -1879,9 +2132,7 @@ export async function processIncomingWhatsAppMessage(params: {
           lowerClean.includes("mail") ||
           lowerClean.includes("bhejo")));
 
-    const isPureEmailInput = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(cleanText.trim());
-
-    if (isAsking691List || isResendOrSendEmailRequest || (isPureEmailInput && session.currentStep !== "AWAITING_EMAIL_UPDATE")) {
+    if (isAsking691List || isResendOrSendEmailRequest) {
       const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
       const targetEmail = emailMatch ? emailMatch[0].toLowerCase() : (session.email || existingLead?.email);
 
@@ -2218,43 +2469,7 @@ export async function processIncomingWhatsAppMessage(params: {
     lowerText.startsWith("hi ") ||
     lowerText.startsWith("hello ");
 
-  // Affirmative check (handles button clicks or typed equivalents like "yes, interested", "sure", "yep")
-  const isAffirmative =
-    actionId === "BTN_482_YES" ||
-    (session.currentStep === "WELCOME" &&
-      ["yes", "yep", "yeah", "interested", "sure", "ok", "okay"].some((w) =>
-        lowerText === w || (w === "ok" ? /\bok\b/.test(lowerText) : lowerText.includes(w))
-      ));
 
-  // Negative check (handles button clicks or typed equivalents like "not right now", "no", "maybe later")
-  // CRITICAL: Word boundary matching prevents false positives like "nonsense", "normal", "nothing", "nobody"!
-  const NEGATIVE_EXACT_OR_PREFIXES = [
-    "not right now",
-    "not now",
-    "not interested",
-    "maybe later",
-    "later",
-    "no thanks",
-    "no thank you",
-    "dont want",
-    "don't want",
-  ];
-  const isNegative =
-    actionId === "BTN_482_NO" ||
-    actionId === "BTN_CONSULT_NO" ||
-    lowerText === "no" ||
-    lowerText === "nope" ||
-    lowerText === "nah" ||
-    lowerText.startsWith("no ") ||
-    lowerText.startsWith("no,") ||
-    lowerText.startsWith("no.") ||
-    NEGATIVE_EXACT_OR_PREFIXES.some(
-      (w) => lowerText === w || lowerText.startsWith(w + " ") || lowerText.endsWith(" " + w)
-    );
-
-  // Email format check
-  const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
-  const isDirectEmail = EMAIL_PATTERN.test(cleanText);
 
   // Handle Watch 482 Video button click
   if (actionId === "BTN_ASK_VIDEO") {
@@ -2423,7 +2638,6 @@ export async function processIncomingWhatsAppMessage(params: {
         ? "AWAITING_CONSULTATION_DECISION"
         : session.currentStep === "SELECTING_DAY" ||
           session.currentStep === "SELECTING_SLOT" ||
-          session.currentStep === "AWAITING_EMAIL" ||
           session.currentStep === "AWAITING_CV" ||
           session.currentStep === "RESCHEDULING_DATE" ||
           session.currentStep === "RESCHEDULING_SLOT"
@@ -2474,123 +2688,7 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: noReply, step: targetStep };
   }
 
-  // 3. Candidate clicked YES to 482 -> Request Email
-  if (isAffirmative && !isDirectEmail) {
-    const emailPrompt = `Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*`;
 
-    const nextFollowup = getNext10AmInTimezone(session.timeZone);
-    await updateSession(db, session.phone, {
-      currentStep: "AWAITING_EMAIL",
-      followupCount: 0,
-      nextFollowupAt: nextFollowup,
-    });
-    await sendTextMessage(session.phone, emailPrompt);
-    return { replyText: emailPrompt, step: "AWAITING_EMAIL" };
-  }
-
-  // 4. In AWAITING_EMAIL state (or direct email shared) -> Validate Email, Send Info Email, Wait 2s -> Send Video, Schedule 10m Prompt
-  if (session.currentStep === "AWAITING_EMAIL" || (isDirectEmail && session.currentStep !== "BOOKED")) {
-    const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    const extractedEmail = emailMatch ? emailMatch[0].toLowerCase() : cleanText.trim().toLowerCase();
-    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    const isValidFormat = emailRegex.test(extractedEmail);
-    const domain = extractedEmail.includes("@") ? extractedEmail.split("@")[1] : "";
-    const isValidDomain = domain.includes(".") && domain.length >= 4;
-
-    // Whitelist of accepted email providers (gmail, yahoo, outlook, hotmail, etc.)
-    const ACCEPTED_DOMAINS = [
-      "gmail.com", "googlemail.com",
-      "yahoo.com", "yahoo.in", "yahoo.co.in", "yahoo.co.uk", "yahoo.com.au",
-      "outlook.com", "outlook.in", "hotmail.com", "hotmail.in", "live.com",
-      "icloud.com", "me.com",
-      "rediffmail.com", "protonmail.com", "proton.me",
-      "aol.com", "mail.com", "zoho.com", "ymail.com",
-      // Also allow corporate / custom domains that have at least 2-part structure
-    ];
-    const isWhitelistedDomain = ACCEPTED_DOMAINS.includes(domain) || (domain.includes(".") && !domain.startsWith(".") && domain.split(".").every(part => part.length >= 2));
-
-    if (!isValidFormat || !isValidDomain || !isWhitelistedDomain) {
-      // Check if candidate is asking a question or conversing rather than an attempted email
-      const isQuestionOrInquiry =
-        cleanText.includes("?") ||
-        !cleanText.includes("@") ||
-        cleanText.split(/\s+/).length > 2;
-
-      if (isQuestionOrInquiry) {
-        const aiAnswer = await generateAiResponse({
-          message: cleanText,
-          session,
-        });
-
-        const replyWithEmailPrompt =
-          `${aiAnswer}\n\n` +
-          `Whenever you're ready, *please reply with your Email Address* so our team can officially register your profile and email your full visa roadmap:`;
-
-        await sendTextMessage(session.phone, replyWithEmailPrompt);
-        return { replyText: replyWithEmailPrompt, step: "AWAITING_EMAIL" };
-      }
-
-      const invalidEmailMsg =
-        `⚠️ Please enter a valid email address (e.g. yourname@gmail.com or yourname@yahoo.com) so we can send you the official visa details.`;
-      await sendTextMessage(session.phone, invalidEmailMsg);
-      return { replyText: invalidEmailMsg, step: "AWAITING_EMAIL" };
-    }
-
-    // Save email & create/update lead in CRM
-    const updatedSession = {
-      ...session,
-      email: extractedEmail,
-      currentStep: "AWAITING_CONSULTATION_DECISION" as WhatsAppStep,
-      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
-      followupCount: 0,
-    };
-    const leadId = await syncCrmLead(db, updatedSession, "new-lead");
-
-    // 1. Instant WhatsApp confirmation message
-    const emailSentNotice = `We have sent an email about the whole process to your email address (**${extractedEmail}**)! Please check your inbox (and spam/junk folder) as well. 📩`;
-    await sendTextMessage(session.phone, emailSentNotice);
-
-    const now = new Date();
-    await updateSession(db, session.phone, {
-      email: extractedEmail,
-      leadId,
-      currentStep: "AWAITING_CONSULTATION_DECISION",
-      infoEmailSentAt: now,
-      videoSentAt: now,
-      consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
-      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
-      followupCount: 0,
-    });
-
-    // 2. Dispatch info email asynchronously so SMTP does not block the WhatsApp webhook or delay video delivery
-    (async () => {
-      try {
-        const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
-        await sendWhatsAppInfoEmail({
-          phone: session.phone,
-          name: session.name,
-          email: extractedEmail,
-          leadId,
-        });
-      } catch (emailErr) {
-        console.error("[WhatsApp] Error sending info email in background:", emailErr);
-      }
-    })();
-
-    // 3. Send Step 3 video link after 2 seconds
-    try {
-      await delay(2000);
-      const actualVideoUrl = videoUrl || getVideo482Url();
-      await sendTimedVideoAndProcessGuide(session.phone, extractedEmail, actualVideoUrl);
-    } catch (delayErr) {
-      console.error("[WhatsApp] Error in video delivery delay:", delayErr);
-    }
-
-    return {
-      replyText: emailSentNotice,
-      step: "AWAITING_CONSULTATION_DECISION",
-    };
-  }
 
   // 5. Candidate wants Consultation, Mentions a Day/Date, or wants to Reschedule/Change Date
   if (actionId === "BTN_SELECT_SLOT" && session.activeSlotsDate) {

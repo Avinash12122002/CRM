@@ -49,13 +49,13 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
 
         const promptText =
           `*Ready to take the next step towards Ireland? 🇮🇪*\n\n` +
-          `Book a 1-on-1 consultation meeting with our Senior Ireland Visa Expert to check your job eligibility and visa pathway.`;
+          `Book a 1-on-1 consultation meeting with our Ireland Visa Expert to check your job eligibility and visa pathway.`;
 
         await logWhatsAppIrelandMessage({
           db,
           phone: session.phone,
           sender: "bot",
-          senderName: "Aria (TMS Visa - Ireland)",
+          senderName: "Pearl (TMS Visa)",
           text: promptText,
           msgType: "interactive_button",
           buttons: [
@@ -66,7 +66,7 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
         });
 
         await updateSession(db, session.phone, {
-          consultationPromptDueAt: null as any,
+          consultationPromptDueAt: undefined,
           updatedAt: now,
         });
 
@@ -291,7 +291,7 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
           db,
           phone: session.phone,
           sender: "bot",
-          senderName: "Aria (TMS Visa - Ireland)",
+          senderName: "Pearl (TMS Visa)",
           text: reminderText,
           msgType: "text",
           createdAt: now,
