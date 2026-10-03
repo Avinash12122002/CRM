@@ -9,6 +9,7 @@ type Meeting = {
   name: string;
   phone: string;
   status: string;
+  interestedCountry?: string | null;
   meetingStatus?: string;
   meetingDetails?: {
     meetingDate: string;
@@ -229,7 +230,7 @@ export default function MeetingsPage() {
             <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-700">
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
-                  {["Lead","Phone","Meeting Date","Start","End","Meeting User","Booked By","Status","Actions"].map((h) => (
+                  {["Lead","Phone","Meeting Date","Start","End","Interested Country","Booked By","Status","Actions"].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
                       {h}
                     </th>
@@ -240,7 +241,7 @@ export default function MeetingsPage() {
               <tbody className="divide-y divide-gray-100 dark:divide-zinc-700">
                 {meetings.length === 0 && !pageLoading ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-16">
+                    <td colSpan={9} className="text-center py-16">
                       <svg className="w-10 h-10 mx-auto text-gray-300 dark:text-zinc-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
@@ -251,6 +252,11 @@ export default function MeetingsPage() {
                   meetings.map((meeting) => {
                     const isFinished  = meeting.meetingStatus === "completed" || meeting.meetingStatus === "cancelled";
                     const isActioning = actionLoading === meeting.id;
+                    const country =
+                      meeting.interestedCountry ||
+                      (meeting.meetingDetails?.bookedByName?.includes("Ireland") ? "Ireland" : "Australia");
+                    const isIreland = country.toLowerCase() === "ireland";
+
                     return (
                       <tr key={meeting.id} className={`transition-colors ${rowBg(meeting.meetingStatus)}`}>
 
@@ -269,8 +275,17 @@ export default function MeetingsPage() {
                         <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.endTime || "—"}</span>
                         </td>
-                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.meetingUserName || "—"}</span>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                              isIreland
+                                ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                                : "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                            }`}
+                          >
+                            <span>{isIreland ? "🇮🇪" : "🇦🇺"}</span>
+                            <span>{country}</span>
+                          </span>
                         </td>
                         <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.bookedByName || "—"}</span>

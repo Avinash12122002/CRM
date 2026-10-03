@@ -96,6 +96,11 @@ export async function GET(req: NextRequest) {
       name: l.name || "—",
       phone: l.phone || "—",
       status: l.status || "—",
+      interestedCountry:
+        l.interestedCountry ||
+        (l.meetingDetails?.channel?.includes("Ireland") || l.meetingDetails?.bookedByName?.includes("Ireland")
+          ? "Ireland"
+          : "Australia"),
       meetingStatus: l.meetingStatus || (l.status === "sales" ? "completed" : "scheduled"),
       meetingDetails: l.meetingDetails,
     }));
