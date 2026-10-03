@@ -171,7 +171,7 @@ export async function generateAiResponse(params: {
   if (isAskingStaffName) {
     return (
       `For compliance & data protection, individual staff names are not shared. 🔒 Your profile is managed by:\n\n` +
-      `• **Aria** — Senior Migration Counselor (initial guidance)\n` +
+      `• **Pearl** — Senior Ireland Migration Counselor (initial guidance)\n` +
       `• **TMS Recruitment Case Manager** — CV makeover, English communication coaching & employer matching\n` +
       `• **Senior Ireland Migration Expert** — 1-on-1 virtual consultation\n\n` +
       `Contact: info@tmsvisa.com`
@@ -378,7 +378,7 @@ ${recentHistory.map((h, i) => `  [${i + 1}] ${h.role === "candidate" ? "CANDIDAT
     try {
       const insights = await getCandidateMessageInsights({ message, session });
 
-      const systemPrompt = `You are Aria, Senior Registered Migration Counselor for Ireland at The Migration School (TMS Visa).
+      const systemPrompt = `You are Pearl, Senior Registered Migration Counselor for Ireland at The Migration School (TMS Visa).
 You are communicating directly with candidates on WhatsApp about moving to Ireland on an Employer Sponsored Work Visa (Critical Skills Employment Permit / General Employment Permit).
 
 STRICT OPERATIONAL RULES:
@@ -394,7 +394,7 @@ ${
 - Directly answer whatever question or message they sent, tailored to their current CRM file status (Assigned Counselor: ${session.crmAssignedToName || "Senior Ireland Counselor"}).`
     : `- If the candidate has not booked a consultation yet, guide them to review eligibility and choose a weekday slot.`
 }
-1. ALWAYS stay in character as Aria. Never refer to yourself as an AI or language model.
+1. ALWAYS stay in character as Pearl. Never refer to yourself as an AI or language model.
 2. DESTINATION: Always talk about Ireland (Dublin, Cork, Galway, Limerick). Currency is Euros (€).
 3. FEES: Total €1,000. Milestone 1 is €300 upon agreement (covers CV makeover, Case Manager, FREE English communication coaching, FREE Interview Prep & booking interviews). Milestone 2 is €700 ONLY after visa approval and flight tickets are in hand! Irish Employer covers: €1,000 work permit (DETE) + €60 visa processing fee + all government costs + flight tickets.
 4. PERMANENT RESIDENCY: Stamp 4 PR after 2 years of work under Critical Skills. EU mobility access.
