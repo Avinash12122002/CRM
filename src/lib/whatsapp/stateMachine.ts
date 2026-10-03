@@ -174,24 +174,40 @@ export async function getOrCreateSession(
       if (lead.status === "meeting-scheduled" && !existing.meetingStatus) existing.meetingStatus = "booked";
       if (lead.interestedCountry) existing.interestedCountry = lead.interestedCountry;
 
-      // Extract all possible occupations from CRM lead
+      // Extract all possible occupations from CRM lead (strictly filter out marketing campaign names)
+      const isMarketingTitle = (title?: string): boolean => {
+        if (!title) return false;
+        const lower = title.toLowerCase();
+        return (
+          lower.includes("australia work visa") ||
+          lower.includes("ireland work visa") ||
+          lower.includes("skills in demand") ||
+          lower.includes("employer sponsored work visa") ||
+          lower.includes("work visa") ||
+          lower.includes("visa program")
+        );
+      };
+
       const leadOccs: string[] = [];
       if (Array.isArray(lead.occupations) && lead.occupations.length > 0) {
-        leadOccs.push(...lead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
-      } else if (typeof lead.occupations === "string" && (lead.occupations as string).trim()) {
+        leadOccs.push(...lead.occupations.filter((o: any) => typeof o === "string" && o.trim() && !isMarketingTitle(o)));
+      } else if (typeof lead.occupations === "string" && (lead.occupations as string).trim() && !isMarketingTitle(lead.occupations as string)) {
         leadOccs.push((lead.occupations as string).trim());
       }
-      if (lead.jobApplied && !leadOccs.includes(lead.jobApplied)) {
+      if (lead.jobApplied && !leadOccs.includes(lead.jobApplied) && !isMarketingTitle(lead.jobApplied)) {
         leadOccs.push(lead.jobApplied);
       }
-      if (lead.occupation && !leadOccs.includes(lead.occupation)) {
+      if (lead.occupation && !leadOccs.includes(lead.occupation) && !isMarketingTitle(lead.occupation)) {
         leadOccs.push(lead.occupation);
       }
       if (leadOccs.length > 0) {
         existing.occupations = leadOccs;
-        if (!existing.occupation) {
+        if (!existing.occupation || isMarketingTitle(existing.occupation)) {
           existing.occupation = leadOccs[0];
         }
+      } else if (existing.occupation && isMarketingTitle(existing.occupation)) {
+        existing.occupation = undefined;
+        await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $unset: { occupation: "" } });
       }
 
       if (lead.experience && !existing.yearsExperience) existing.yearsExperience = lead.experience;
@@ -2492,8 +2508,25 @@ export async function processIncomingWhatsAppMessage(params: {
 
 
 
-  // Handle Watch 482 Video button click
-  if (actionId === "BTN_ASK_VIDEO") {
+  // Handle Watch 482 Video button click or text asking for video
+  const isVideoRequest =
+    actionId === "BTN_ASK_VIDEO" ||
+    lowerText === "video" ||
+    lowerText === "give me video" ||
+    lowerText === "send video" ||
+    lowerText === "send me video" ||
+    lowerText === "watch video" ||
+    lowerText === "video link" ||
+    lowerText === "video bhejo" ||
+    lowerText === "show me video" ||
+    lowerText === "show video" ||
+    lowerText.includes("watch video") ||
+    lowerText.includes("give me video") ||
+    lowerText.includes("send video") ||
+    lowerText.includes("video link") ||
+    lowerText.includes("explainer video");
+
+  if (isVideoRequest) {
     const videoUrl = getVideo482Url();
     const videoReply =
       `Here is our Australia Employer Sponsored Work Visa explainer video! 🎥🇦🇺\n\n` +

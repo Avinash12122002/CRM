@@ -110,6 +110,17 @@ CONSULTATION BOOKING & SCHEDULING RULES:
 export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
   {
     keywords: [
+      "give me video", "send video", "watch video", "video link", "explainer video",
+      "video bhejo", "show video", "video please", "send me video", "share video"
+    ],
+    answer:
+      `🎥 *Ireland Employer Sponsored Work Visa — Explainer Video:*\n\n` +
+      `▶️ **Watch the Video Here:**\nhttps://tmsvisa.com/ireland-work-visa-process\n\n` +
+      `• **Key Highlights:** Critical Skills CSEP vs General GEP, employer covers €1,000 permit + €60 visa + flight tickets, €300/€700 fees, and Stamp 4 PR after 2 years.\n` +
+      `• **Next Step:** Tap **"Select Date"** to book your free 1-on-1 consultation with our Ireland expert! 🇮🇪`,
+  },
+  {
+    keywords: [
       "book meeting", "book a meeting", "book consultation", "schedule meeting",
       "schedule a meeting", "schedule consultation", "want to book", "wnt to book",
       "book slot", "select slot", "how to book", "book appointment", "appointment"

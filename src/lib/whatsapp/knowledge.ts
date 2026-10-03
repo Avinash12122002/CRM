@@ -83,6 +83,17 @@ CONSULTATION BOOKING & SCHEDULING RULES:
 export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
   {
     keywords: [
+      "give me video", "send video", "watch video", "video link", "explainer video",
+      "video bhejo", "show video", "video please", "send me video", "share video"
+    ],
+    answer:
+      `🎥 *Australia Employer Sponsored Work Visa — Explainer Video:*\n\n` +
+      `▶️ **Watch the Video Here:**\nhttps://tmsvisa.com/australia-work-visa-process/\n\n` +
+      `• **Key Highlights:** 691 eligible occupations, employer sponsorship, AUD $76,500+ min salary, AUD 300/700 fees, and direct PR pathway.\n` +
+      `• **Next Step:** Tap **"Select Date"** to book your free 1-on-1 weekend consultation with our Australian expert! 🇦🇺`,
+  },
+  {
+    keywords: [
       "book meeting", "book a meeting", "book consultation", "schedule meeting",
       "schedule a meeting", "schedule consultation", "want to book", "wnt to book",
       "book slot", "select slot", "how to book", "book appointment", "appointment"

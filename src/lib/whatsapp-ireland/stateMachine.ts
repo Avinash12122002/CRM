@@ -165,22 +165,39 @@ export async function getOrCreateSession(
       if (lead.meetingStatus) existing.meetingStatus = lead.meetingStatus;
       if (lead.status === "meeting-scheduled" && !existing.meetingStatus) existing.meetingStatus = "booked";
 
-      // Extract occupations
+      // Extract occupations (strictly filter out marketing campaign names)
+      const isMarketingTitle = (title?: string): boolean => {
+        if (!title) return false;
+        const lower = title.toLowerCase();
+        return (
+          lower.includes("ireland work visa") ||
+          lower.includes("australia work visa") ||
+          lower.includes("critical skills & general employment") ||
+          lower.includes("skills in demand") ||
+          lower.includes("employer sponsored work visa") ||
+          lower.includes("work visa") ||
+          lower.includes("visa program")
+        );
+      };
+
       const leadOccs: string[] = [];
       if (Array.isArray(lead.occupations) && lead.occupations.length > 0) {
-        leadOccs.push(...lead.occupations.filter((o: any) => typeof o === "string" && o.trim()));
-      } else if (typeof lead.occupations === "string" && (lead.occupations as string).trim()) {
+        leadOccs.push(...lead.occupations.filter((o: any) => typeof o === "string" && o.trim() && !isMarketingTitle(o)));
+      } else if (typeof lead.occupations === "string" && (lead.occupations as string).trim() && !isMarketingTitle(lead.occupations as string)) {
         leadOccs.push((lead.occupations as string).trim());
       }
-      if (lead.jobApplied && !leadOccs.includes(lead.jobApplied)) {
+      if (lead.jobApplied && !leadOccs.includes(lead.jobApplied) && !isMarketingTitle(lead.jobApplied)) {
         leadOccs.push(lead.jobApplied);
       }
-      if (lead.occupation && !leadOccs.includes(lead.occupation)) {
+      if (lead.occupation && !leadOccs.includes(lead.occupation) && !isMarketingTitle(lead.occupation)) {
         leadOccs.push(lead.occupation);
       }
       if (leadOccs.length > 0) {
         existing.occupations = leadOccs;
-        if (!existing.occupation) existing.occupation = leadOccs[0];
+        if (!existing.occupation || isMarketingTitle(existing.occupation)) existing.occupation = leadOccs[0];
+      } else if (existing.occupation && isMarketingTitle(existing.occupation)) {
+        existing.occupation = undefined;
+        await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $unset: { occupation: "" } });
       }
 
       if (lead.experience && !existing.yearsExperience) existing.yearsExperience = lead.experience;
@@ -1223,6 +1240,40 @@ export async function processIncomingWhatsAppMessage(params: {
 
   if (isRescheduleIntent) {
     await sendWeekdayDateList(cleanPhone);
+    return;
+  }
+
+  // --- Video Request Interceptor (Ireland) ---
+  const isVideoRequest =
+    cleanActionId === "BTN_ASK_VIDEO" ||
+    lowerText === "video" ||
+    lowerText === "give me video" ||
+    lowerText === "send video" ||
+    lowerText === "send me video" ||
+    lowerText === "watch video" ||
+    lowerText === "video link" ||
+    lowerText === "video bhejo" ||
+    lowerText === "show me video" ||
+    lowerText === "show video" ||
+    lowerText.includes("watch video") ||
+    lowerText.includes("give me video") ||
+    lowerText.includes("send video") ||
+    lowerText.includes("video link") ||
+    lowerText.includes("explainer video");
+
+  if (isVideoRequest) {
+    const videoUrl = getVideoIrelandUrl();
+    const videoReply =
+      `🎥 *Ireland Employer Sponsored Work Visa — Process Guide Video* 🇮🇪\n\n` +
+      `▶️ **Watch the Video Here:**\n${videoUrl}\n\n` +
+      `This video explains:\n` +
+      `• Critical Skills (CSEP) vs General Employment Permit (GEP)\n` +
+      `• Employer sponsorship (Employer covers €1,000 permit + €60 visa + flight tickets!)\n` +
+      `• 2-stage milestone fee (€300 to start / €700 only after visa approval)\n` +
+      `• Fast-track Stamp 4 PR after 2 years\n\n` +
+      `*(Tap the link above to watch anytime)*`;
+
+    await sendTextMessage(cleanPhone, videoReply);
     return;
   }
 
