@@ -345,7 +345,14 @@ Every incoming message runs this sequence:
 ---
 
 ### Step 10: Meeting Completed & Post-Meeting CV Intake (`AWAITING_CV`)
-- **When sent:** When meeting status is updated to `completed` in CRM (or candidate attends 1-on-1 session).
+- **When sent:** When meeting status is updated to `completed` in CRM (e.g., when Pearl, Abhay, or any meeting coordinator marks it complete via `/api/meetings/complete`).
+- **Strict Guard & Reschedule Prevention Rule:**
+  - **No Rescheduling or Re-booking:** Once marked `completed` in CRM or attended, the candidate **CANNOT reschedule** and **CANNOT book another meeting**.
+  - **Session Cleanup:** The system unsets `bookedSlot` (`$unset: { bookedSlot: 1 }`) across sessions so that old slot reminders or "Reschedule" buttons are never shown.
+  - **Inbound Interceptor:** If a candidate attempts to select dates (`DAY_DATE_...`, `SELECT_DAY_...`), choose a time slot (`SLOT_...`), click a reschedule button, or asks to reschedule/book in chat:
+    - The bot immediately blocks the request.
+    - Responds: *"Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅ Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match employers..."*
+    - The CRM API `/api/meetings/reschedule` and `/api/meetings/book` also reject any attempt with HTTP 400.
 - **Message sent:**
   > *"Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Irish Employers! 🇮🇪\n\nPlease send your CV / Resume here in PDF or Word document format. 📄"*
 - **Candidate action:** Uploads their CV/Resume file on WhatsApp.

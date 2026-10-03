@@ -246,9 +246,45 @@ export async function generateAiResponse(params: {
     /(?:i\s+)?(?:want|wnt|need|like)\s+(?:to\s+)?(?:book|take|schedule|have)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)/i.test(lowerMsg) ||
     /^(?:book|schedule)\s+(?:a\s+)?(?:meeting|meering|meting|consultation|call|slot|appointment)$/i.test(lowerMsg);
 
-  if (isBookingIntent) {
-    const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
+  // 1e. Global Consultation Reschedule Intent Interceptor (Ireland)
+  const isRescheduleIntent =
+    lowerMsg.includes("reschedule") ||
+    lowerMsg.includes("change date") ||
+    lowerMsg.includes("change time") ||
+    lowerMsg.includes("change slot") ||
+    lowerMsg.includes("change meeting") ||
+    lowerMsg.includes("different date") ||
+    lowerMsg.includes("different time") ||
+    lowerMsg.includes("different slot") ||
+    lowerMsg.includes("postpone") ||
+    lowerMsg.includes("delay meeting");
+
+  if (isRescheduleIntent) {
     const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
+    if (isMeetingCompleted) {
+      return sanitizeFinalResponse(
+        `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
+        `Your 1-on-1 consultation session with our Senior Ireland Visa Expert has already been completed! ✅\n\n` +
+        `Since your consultation is already complete, you cannot reschedule or book another meeting. Our team is currently reviewing your profile for Ireland employment opportunities! 🇮🇪\n\n` +
+        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`,
+        session
+      );
+    }
+  }
+
+  if (isBookingIntent) {
+    const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
+    const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
+
+    if (isMeetingCompleted) {
+      return sanitizeFinalResponse(
+        `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
+        `Your 1-on-1 consultation session with our Senior Ireland Visa Expert has already been completed! ✅\n\n` +
+        `Since your consultation is already complete, you cannot reschedule or book another meeting. Our team is currently reviewing your profile for Ireland employment opportunities! 🇮🇪\n\n` +
+        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`,
+        session
+      );
+    }
 
     if (hasActiveBooking) {
       const meetLink = "https://meet.google.com/qmv-dfsn-kic";
@@ -261,15 +297,6 @@ export async function generateAiResponse(params: {
         `⏰ **Your Time:** ${candTimeDisplay}\n` +
         `🔗 **Google Meet Link:** ${meetLink}\n\n` +
         `If you need to change your consultation slot, please tap the *Reschedule Meeting* button! 🇮🇪`,
-        session
-      );
-    }
-
-    if (isMeetingCompleted) {
-      return sanitizeFinalResponse(
-        `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
-        `Your 1-on-1 consultation session with our Senior Ireland Visa Expert has already been completed! ✅\n\n` +
-        `Our review team is currently matching your profile with Irish employers. Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄🇮🇪`,
         session
       );
     }

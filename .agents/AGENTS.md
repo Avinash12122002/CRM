@@ -416,6 +416,21 @@ const payload = verifyToken(token);
 - Same collection (`leads`) but filtered/namespaced differently
 - Same roles can access as general leads
 
+### 9.7 Meeting Completion & Rescheduling Prevention
+
+- **Trigger:** Staff (such as Pearl, Abhay, or any authorized meeting/admin user) marks a meeting complete via `POST /api/meetings/complete`.
+- **System Actions on Completion:**
+  1. Sets `lead.meetingStatus = "completed"`, `lead.status = "follow-up"`, and sets `meetingCompletedAt = new Date()`.
+  2. Cleans up WhatsApp sessions across `whatsapp_sessions` and `whatsapp_ireland_sessions` by setting `meetingStatus: "completed"`, `meetingCompleted: true`, and strictly unsetting `bookedSlot` (`$unset: { bookedSlot: 1 }`).
+- **Reschedule & Re-Booking Prevention Rules:**
+  - Once completed, a candidate **CANNOT reschedule** and **CANNOT book another consultation**.
+  - `POST /api/meetings/reschedule` and `POST /api/meetings/book` return `400 Bad Request` if `lead.meetingStatus === "completed"`, `lead.status === "follow-up"`, or `lead.meetingCompletedAt` exists.
+  - CRM Lead detail pages (`/dashboard/leads/[id]` and `/dashboard/triloknath-leads/[id]`) automatically hide the "Reschedule" button when meeting is completed.
+  - WhatsApp state machines (`src/lib/whatsapp/stateMachine.ts` and `src/lib/whatsapp-ireland/stateMachine.ts`) and AI handlers (`src/lib/whatsapp/ai.ts` and `src/lib/whatsapp-ireland/ai.ts`):
+    - Sync live CRM lead completed state into session upon any inbound message.
+    - Guard against reschedule intents, booking intents, interactive date clicks (`DAY_DATE_`, `SELECT_DAY_`), and slot clicks (`SLOT_`).
+    - Reply with the official notice: *"Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅ Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match employers..."* and transition step to `MEETING_COMPLETED` (prompting for CV).
+
 ---
 
 ## 10. Chat System
@@ -580,3 +595,4 @@ npm start
 8. **Industries list** — `"Job Portals"` was removed from `INDUSTRIES` (it's now a lead source phase only). Existing BD leads with `industry: "Job Portals"` remain as historical data.
 9. **Admin-only Occupation Editing Security** — `PUT /api/case-manager/leads/[id]/occupations` rejects any non-admin call with 403 Forbidden.
 10. **Case Lead file isolation** — `/dashboard/case-leads/[id]` uses `/api/case-manager/leads/[id]` to fetch lead data, ensuring non-case lead endpoints (`/api/leads/[id]`) remain clean and untouched.
+11. **Completed Meetings Immutability & Reschedule Guard** — Once a meeting is marked complete by staff (e.g. Pearl, Abhay), candidates can NEVER reschedule or re-book another consultation. WhatsApp sessions must have `bookedSlot` unset (`$unset: { bookedSlot: 1 }`), and all endpoints (`/api/meetings/reschedule`, `/api/meetings/book`), UI components, and state machines/AI handlers must strictly block re-scheduling and inform the candidate that their consultation has already finished.

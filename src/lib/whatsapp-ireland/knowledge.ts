@@ -12,6 +12,7 @@ IDENTITY & REGISTERED OFFICES:
 - Website: www.tmsvisa.com
 - Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Ireland Migration Expert on Monday to Friday (weekdays) scheduled strictly in candidate's local country timezone.
 - Meeting Link Rule: The Google Meet invitation link is only issued to candidates after their consultation slot is officially booked. Never send the meeting link to a candidate who has not booked a meeting.
+- Completed Consultations Rule: Once a candidate has completed their 1-on-1 consultation session (marked complete in CRM by Pearl or the Senior Ireland Expert), the meeting CANNOT be rescheduled, and another consultation CANNOT be booked. The candidate's consultation is finished, and their required next action is submitting their CV / Resume so our review team can match their profile with Irish employers.
 - Official Explainer Video Link: https://tmsvisa.com/ireland-work-visa-process
 
 THE IRELAND PROGRAM & GUARANTEE:
