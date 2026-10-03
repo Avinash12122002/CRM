@@ -92,12 +92,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const [hours, minutes] = startTime.split(":");
+
+    const endDate = new Date();
+
+    endDate.setHours(Number(hours), Number(minutes) + 30, 0, 0);
+
+    const endTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(
+      endDate.getMinutes(),
+    ).padStart(2, "0")}`;
+
     const existingSlot = await db.collection("meetingSlots").findOne({
       meetingUserId: { $in: meetingUserMatchIds },
       meetingDate,
-      startTime,
       status: "scheduled",
       leadId: { $nin: [lead.id, String(lead.id)] },
+      $or: [
+        { startTime },
+        {
+          startTime: { $lt: endTime },
+          endTime: { $gt: startTime },
+        },
+      ],
     });
 
     if (existingSlot) {
@@ -111,27 +127,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const isIreland = lead.interestedCountry === "Ireland";
+
     await db.collection("meetingSlots").deleteMany({
-      leadId,
+      $or: [{ leadId }, { leadId: String(leadId) }],
+      ...(isIreland ? { channel: "WhatsApp Ireland" } : { channel: { $ne: "WhatsApp Ireland" } }),
     });
 
     const slotId = await getNextId(db, "meetingSlots");
 
     const now = new Date();
 
-    const [hours, minutes] = startTime.split(":");
-
-    const endDate = new Date();
-
-    endDate.setHours(Number(hours), Number(minutes) + 30, 0, 0);
-
-    const endTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(
-      endDate.getMinutes(),
-    ).padStart(2, "0")}`;
-
     const cleanPhone = lead.phone ? String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "") : "";
-
-    const isIreland = lead.interestedCountry === "Ireland";
 
     // Detect candidate timezone and calculate localized timing
     const {
@@ -181,6 +188,8 @@ export async function POST(req: NextRequest) {
 
       phone: cleanPhone,
       candidatePhone: cleanPhone,
+
+      channel: isIreland ? "WhatsApp Ireland" : "WhatsApp",
 
       status: "scheduled",
 

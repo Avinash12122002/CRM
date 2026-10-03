@@ -154,7 +154,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 3,
       message:
         `Ireland offers both Critical Skills (CSEP) and General Employment Permits (GEP). With a minimum of 2 years' experience, our team checks which pathway best fits your occupation! 🇮🇪\n\n` +
-        `Would you like to book a free 1-on-1 consultation slot for this weekend?`,
+        `Would you like to book a free 1-on-1 consultation slot?`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
         { id: "BTN_CONSULT_NO", title: "Not Now" },
@@ -163,7 +163,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 4,
       message:
-        `Our Senior Ireland Migration Expert is holding free virtual sessions this weekend. Slots are limited! 📅`,
+        `Our Senior Ireland Migration Expert is holding free virtual sessions this week. Slots are limited! 📅`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "View Available Slots" },
         { id: "BTN_CONSULT_NO", title: "Maybe Later" },
@@ -182,7 +182,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 6,
       message:
-        `Don't let another hiring quarter pass! Take 15 minutes this weekend to speak with our Ireland specialist.`,
+        `Don't let another hiring quarter pass! Take 15 minutes this week to speak with our Ireland specialist.`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Schedule Session" },
         { id: "BTN_CONSULT_NO", title: "Not Now" },
@@ -204,17 +204,17 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 1,
       message:
-        `We have open consultation slots for this weekend! 📅\n\n` +
+        `We have open consultation slots available! 📅\n\n` +
         `Tap below to select an available time in your local timezone:`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Choose Slot" },
-        { id: "BTN_CONSULT_NO", title: "Next Weekend" },
+        { id: "BTN_CONSULT_NO", title: "Later" },
       ],
     },
     {
       day: 2,
       message:
-        `Weekend consultation slots for our Ireland Migration Specialist fill up quickly. Secure your slot today! ⏰`,
+        `Weekday consultation slots for our Ireland Migration Specialist fill up quickly. Secure your slot today! ⏰`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Select Slot" },
         { id: "BTN_CONSULT_NO", title: "Not Now" },
@@ -241,7 +241,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 5,
       message:
-        `New weekend slots have just been opened! Pick a time that suits your schedule:`,
+        `New weekday slots have just been opened! Pick a time that suits your schedule:`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "View Slots" },
         { id: "BTN_CONSULT_NO", title: "Skip" },
@@ -250,7 +250,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 6,
       message:
-        `Almost out of weekend slots for this round. Reserve your 1-on-1 Ireland migration assessment:`,
+        `Almost out of slots for this week. Reserve your 1-on-1 Ireland migration assessment:`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Reserve Slot" },
         { id: "BTN_CONSULT_NO", title: "Not Now" },
@@ -259,7 +259,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 7,
       message:
-        `Final invitation for this weekend's Ireland consultations. Tap below or reply whenever you'd like to schedule. 🇮🇪`,
+        `Final invitation for this week's Ireland consultations. Tap below or reply whenever you'd like to schedule. 🇮🇪`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Now" },
         { id: "BTN_CONSULT_NO", title: "Close" },
@@ -316,7 +316,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
         `To proceed, your initial milestone of **€300** is due. This covers:\n` +
         `• Dedicated TMS Case Manager from Day 1\n` +
         `• European/Irish-standard professional CV makeover\n` +
-        `• FREE weekly English communication coaching (from first weekend)\n` +
+        `• FREE weekly English communication coaching\n` +
         `• FREE Interview Preparation coaching\n` +
         `• TMS books your interviews with Irish employers\n\n` +
         `Pay the remaining €700 ONLY after visa approval & flight tickets are in hand! 🇮🇪`,
@@ -325,7 +325,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 2,
       message:
         `Your 1-Year Professional Services Agreement is ready! 📋\n\n` +
-        `Complete your €300 initial milestone to activate your Case Manager, Irish CV makeover, free English coaching & Interview Preparation — all starting this weekend.\n\n` +
+        `Complete your €300 initial milestone to activate your Case Manager, Irish CV makeover, free English coaching & Interview Preparation — all starting this week.\n\n` +
         `Remember: €700 balance only after your Irish visa and flight tickets are confirmed!`,
     },
     {

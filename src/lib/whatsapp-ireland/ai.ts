@@ -175,7 +175,7 @@ export async function generateAiResponse(params: {
       `For compliance & data protection, individual staff names are not shared. 🔒 Your profile is managed by:\n\n` +
       `• **Aria** — Senior Migration Counselor (initial guidance)\n` +
       `• **TMS Recruitment Case Manager** — CV makeover, English communication coaching & employer matching\n` +
-      `• **Senior Ireland Migration Expert** — 1-on-1 weekend consultation\n\n` +
+      `• **Senior Ireland Migration Expert** — 1-on-1 virtual consultation\n\n` +
       `Contact: info@tmsvisa.com`
     );
   }
@@ -391,10 +391,10 @@ ${
 - All initial intake steps (asking for email, sending info brochures, scheduling/holding consultations) HAVE ALREADY BEEN FULLY COMPLETED by our human team!
 - UNDER NO CIRCUMSTANCES ask candidate for their email address. We already have it in CRM!
 - UNDER NO CIRCUMSTANCES ask or prompt them to book a consultation meeting or schedule a call.
-- UNDER NO CIRCUMSTANCES ask "Would you like to schedule a consultation" or suggest booking open weekend slots.
+- UNDER NO CIRCUMSTANCES ask "Would you like to schedule a consultation" or suggest booking open slots.
 - UNDER NO CIRCUMSTANCES ask "What is your occupation and years of experience" as if they are a new stranger.
 - Directly answer whatever question or message they sent, tailored to their current CRM file status (Assigned Counselor: ${session.crmAssignedToName || "Senior Ireland Counselor"}).`
-    : `- If the candidate has not booked a consultation yet, guide them to review eligibility and choose a weekend slot.`
+    : `- If the candidate has not booked a consultation yet, guide them to review eligibility and choose a weekday slot.`
 }
 1. ALWAYS stay in character as Aria. Never refer to yourself as an AI or language model.
 2. DESTINATION: Always talk about Ireland (Dublin, Cork, Galway, Limerick). Currency is Euros (€).
@@ -575,7 +575,7 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
         `• **Candidate fee:** €300 to start (CV makeover, Case Manager, FREE English coaching & Interview Prep), €700 only after visa & flights in hand\n\n` +
         (isCrmCandidate
           ? `Our team is actively managing your file (Status: ${session.crmStatus || "In Progress"}). Please let us know if you have any questions or documents to update!`
-          : `Would you like to schedule a free 1-on-1 consultation with our Senior Ireland Migration Expert this weekend?`),
+          : `Would you like to schedule a free 1-on-1 consultation with our Senior Ireland Migration Expert this week?`),
         session
       );
     }
@@ -600,7 +600,7 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
         `However, many candidates qualify under related eligible occupations or specific exemptions depending on their exact duties, degree, and background.\n\n` +
         (isCrmCandidate
           ? `Your assigned counselor is reviewing related eligible classifications for your background. Please feel free to message any questions or additional details here anytime!`
-          : `We recommend booking a free 1-on-1 session with our Senior Ireland Migration Expert to evaluate alternative eligible titles and review your CV. Would you like to view open weekend slots?`),
+          : `We recommend booking a free 1-on-1 session with our Senior Ireland Migration Expert to evaluate alternative eligible titles and review your CV. Would you like to view open consultation slots?`),
         session
       );
     }
@@ -615,7 +615,7 @@ ${TMS_VISA_IRELAND_KNOWLEDGE}
       `• Fast-track to Stamp 4 PR after 2 years. 100% Money-Back Guarantee.\n\n` +
       (isCrmCandidate
         ? `Our team is tracking your file (Status: ${session.crmStatus || "In Progress"}). Please let us know if you have any questions or documents to share!`
-        : `Would you like to schedule a free 1-on-1 consultation with our Ireland expert this weekend?`),
+        : `Would you like to schedule a free 1-on-1 consultation with our Ireland expert this week?`),
       session
     );
   }

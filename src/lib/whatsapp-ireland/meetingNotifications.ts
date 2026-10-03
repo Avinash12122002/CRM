@@ -104,16 +104,16 @@ export async function sendMeetingCancelledNotification(params: {
     `Please reschedule your consultation with our Ireland expert by choosing an available date below:`;
 
   try {
-    const { getUpcomingWeekendDays } = await import("./slots");
+    const { getUpcomingWeekdays } = await import("./slots");
     const { sendInteractiveList } = await import("./client");
     const { detectCountryFromPhone, getCandidateConsultationWindow } = await import("./timezone");
-    const weekends = getUpcomingWeekendDays(10);
+    const weekdays = getUpcomingWeekdays(5);
     const countryInfo = detectCountryFromPhone(cleanPhone);
     const candWindow = getCandidateConsultationWindow(countryInfo.timeZone, countryInfo.label);
     const sections = [
       {
         title: "Available Dates",
-        rows: weekends.slice(0, 10).map((w) => ({
+        rows: weekdays.slice(0, 5).map((w) => ({
           id: `RESCHEDULE_DAY_${w.date}`,
           title: w.displayLabel.slice(0, 24),
           description: `Window: ${candWindow.displayWindow}`.slice(0, 72),

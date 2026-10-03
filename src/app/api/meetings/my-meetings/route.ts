@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
         name: 1,
         phone: 1,
         status: 1,
+        interestedCountry: 1,
 
         meetingStatus: 1,
         meetingDetails: 1,

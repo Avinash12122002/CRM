@@ -121,7 +121,7 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
       `Your Ireland profile is managed by:\n` +
       `• **Aria** — Senior Migration Counselor\n` +
       `• **TMS Recruitment Case Manager** — CV makeover, English communication coaching, Interview Prep & employer matching\n` +
-      `• **Senior Ireland Migration Expert** — 1-on-1 weekend consultation\n\n` +
+      `• **Senior Ireland Migration Expert** — 1-on-1 virtual consultation\n\n` +
       `Contact: info@tmsvisa.com`,
   },
   {

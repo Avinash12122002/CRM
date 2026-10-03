@@ -87,12 +87,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const [hour, minute] = startTime.split(":");
+
+    const endDate = new Date();
+
+    endDate.setHours(Number(hour), Number(minute) + 30, 0, 0);
+
+    const endTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(
+      endDate.getMinutes(),
+    ).padStart(2, "0")}`;
+
     const slotExists = await db.collection("meetingSlots").findOne({
       meetingUserId: { $in: meetingUserMatchIds },
       meetingDate,
-      startTime,
       status: "scheduled",
       leadId: { $nin: [lead.id, String(lead.id)] },
+      $or: [
+        { startTime },
+        {
+          startTime: { $lt: endTime },
+          endTime: { $gt: startTime },
+        },
+      ],
     });
 
     if (slotExists) {
@@ -104,25 +120,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const [hour, minute] = startTime.split(":");
-
-    const endDate = new Date();
-
-    endDate.setHours(Number(hour), Number(minute) + 30, 0, 0);
-
-    const endTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(
-      endDate.getMinutes(),
-    ).padStart(2, "0")}`;
+    const isIreland = lead.interestedCountry === "Ireland";
 
     const now = new Date();
 
     await db.collection("meetingSlots").deleteMany({
       $or: [{ leadId: lead.id }, { leadId: String(lead.id) }],
+      ...(isIreland ? { channel: "WhatsApp Ireland" } : { channel: { $ne: "WhatsApp Ireland" } }),
     });
 
     const cleanPhone = lead.phone ? String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "") : "";
-
-    const isIreland = lead.interestedCountry === "Ireland";
 
     // Detect candidate timezone and calculate localized timing
     const {
@@ -163,6 +170,8 @@ export async function POST(req: NextRequest) {
       candidateLocalEndTime: candEnd?.candidateTime || endTime,
       candidateTimezone: tzShort,
       candidateDisplayLabel: timeDisplay,
+
+      channel: isIreland ? "WhatsApp Ireland" : "WhatsApp",
 
       phone: cleanPhone,
       candidatePhone: cleanPhone,

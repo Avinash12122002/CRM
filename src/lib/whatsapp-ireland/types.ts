@@ -150,3 +150,11 @@ export interface WeekendSlot {
   available: boolean;
   meetingUserId?: number;
 }
+
+/** A Mon–Fri weekday option for Ireland consultation date selection */
+export interface WeekdayOption {
+  date: string; // YYYY-MM-DD
+  dayName: "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday";
+  displayLabel: string; // e.g. "Mon, 6 Oct"
+}
+

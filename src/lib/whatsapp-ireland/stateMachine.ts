@@ -12,12 +12,12 @@ import {
   getCandidateConsultationWindow,
 } from "./timezone";
 import {
-  getUpcomingWeekendDays,
-  getAvailableWeekendSlots,
-  findNextAvailableWeekendDay,
+  getUpcomingWeekdays,
+  getAvailableWeekdaySlots,
+  findNextAvailableWeekday,
   formatSlotsOverview,
-  WeekendDayOption,
 } from "./slots";
+import type { WeekdayOption } from "./types";
 import { generateAiResponse } from "./ai";
 import {
   sendTextMessage,
@@ -446,7 +446,7 @@ const MONTH_MAP: Record<string, string> = {
  */
 export function matchWeekendDateFromText(
   text: string,
-  upcomingWeekends: WeekendDayOption[],
+  upcomingWeekends: WeekdayOption[],
   isSelectingDayStep: boolean = false
 ): string | null {
   const clean = text.toLowerCase().trim();
@@ -612,13 +612,13 @@ export async function sendConsultationBookingPrompt(phone: string): Promise<void
     return;
   }
 
-  const weekends = getUpcomingWeekendDays(10);
+  const weekdays = getUpcomingWeekdays(5);
   const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
 
   const sections = [
     {
       title: "Available Consultation Dates",
-      rows: weekends.slice(0, 10).map((w) => ({
+      rows: weekdays.slice(0, 5).map((w) => ({
         id: `SELECT_DAY_${w.date}`,
         title: w.displayLabel.slice(0, 24),
         description: `Window: ${candWindow.displayWindow}`.slice(0, 72),
@@ -631,7 +631,7 @@ export async function sendConsultationBookingPrompt(phone: string): Promise<void
     "Ireland 1-on-1 Consultation",
     `Speak directly with our **Senior Ireland Migration Expert** to assess your eligibility for Irish employer sponsorship! 🇮🇪\n\n` +
     `All sessions are 100% free and conducted via Google Meet in your local timezone (${candWindow.tzShort}).\n\n` +
-    `Please select a convenient weekend date below:`,
+    `Please select a convenient weekday (Mon–Fri) below:`,
     "Choose Date 📅",
     sections
   );
@@ -1061,7 +1061,7 @@ export async function processIncomingWhatsAppMessage(params: {
     const cancelMsg =
       `Hello ${session.name || "there"}! 👋\n\n` +
       `Your Ireland consultation meeting has been cancelled. ℹ️\n\n` +
-      `Please reschedule your 1-on-1 session for an upcoming weekend so our senior expert can assess your Ireland Employer Sponsored Work Visa profile.\n\n` +
+      `Please reschedule your 1-on-1 session for an upcoming weekday so our senior expert can assess your Ireland Employer Sponsored Work Visa profile.\n\n` +
       `👉 Tap below to choose an available time slot:`;
 
     await sendQuickReplyButtons(session.phone, cancelMsg, [
@@ -1094,11 +1094,11 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
-  // --- Text Weekend Date Matching ---
-  const upcomingWeekends = getUpcomingWeekendDays(10);
+  // --- Text Weekday Date Matching ---
+  const upcomingWeekdays = getUpcomingWeekdays(5);
   const matchedWeekendDate = matchWeekendDateFromText(
     rawText,
-    upcomingWeekends,
+    upcomingWeekdays,
     session.currentStep === "SELECTING_DAY" || session.currentStep === "SELECTING_SLOT"
   );
   if (matchedWeekendDate) {
@@ -1536,7 +1536,7 @@ export async function processIncomingWhatsAppMessage(params: {
   // 2. Date Selection (SELECT_DAY_YYYY-MM-DD or RESCHEDULE_DAY_YYYY-MM-DD)
   if (cleanActionId.startsWith("SELECT_DAY_") || cleanActionId.startsWith("RESCHEDULE_DAY_")) {
     const dateStr = cleanActionId.replace("SELECT_DAY_", "").replace("RESCHEDULE_DAY_", "");
-    const availableSlots = await getAvailableWeekendSlots({
+    const availableSlots = await getAvailableWeekdaySlots({
       db,
       meetingDate: dateStr,
       candidateTimeZone: session.timeZone,
@@ -1546,7 +1546,7 @@ export async function processIncomingWhatsAppMessage(params: {
     if (availableSlots.length === 0) {
       await sendTextMessage(
         cleanPhone,
-        `All slots for ${dateStr} are currently booked. Please select another weekend date: `
+        `All slots for ${dateStr} are currently booked. Please select another weekday date: `
       );
       await sendConsultationBookingPrompt(cleanPhone);
       return;
@@ -1581,12 +1581,20 @@ export async function processIncomingWhatsAppMessage(params: {
     const meetingDate = parts[1];
     const istStart = parts[2];
     const candStart = parts[3];
+    const istHour = parseInt(istStart.split(":")[0], 10);
+    const istEnd = `${String(istHour + 1).padStart(2, "0")}:00`;
 
-    // Double-booking collision check against meetingSlots
+    // Double-booking collision check against meetingSlots (checks full 1-hour interval overlap)
     const existingSlot = await db.collection("meetingSlots").findOne({
       meetingDate,
-      startTime: istStart,
       status: { $in: ["scheduled", "completed"] },
+      $or: [
+        { startTime: istStart },
+        {
+          startTime: { $lt: istEnd },
+          endTime: { $gt: istStart },
+        },
+      ],
     });
 
     const isSameCandidateSameChannel =
@@ -1597,7 +1605,7 @@ export async function processIncomingWhatsAppMessage(params: {
     if (existingSlot && !isSameCandidateSameChannel) {
       console.log(`[WhatsApp Ireland] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone} (${existingSlot.channel || "WhatsApp"})`);
 
-      const remainingSlots = await getAvailableWeekendSlots({
+      const remainingSlots = await getAvailableWeekdaySlots({
         db,
         meetingDate,
         candidateTimeZone: session.timeZone,
@@ -1624,7 +1632,7 @@ export async function processIncomingWhatsAppMessage(params: {
         await sendTextMessage(session.phone, collisionMsg);
         return;
       } else {
-        const nextWeekend = await findNextAvailableWeekendDay({
+        const nextWeekend = await findNextAvailableWeekday({
           db,
           afterDate: meetingDate,
           candidateTimeZone: session.timeZone,
@@ -1637,7 +1645,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
           const collisionMsg =
             `⚠️ That slot was just booked, and all slots for that day are now fully reserved! 🔒\n\n` +
-            `Here are all available consultation slots for the next weekend on **${nextLabel}**:\n\n` +
+            `Here are all available consultation slots for the next available day on **${nextLabel}**:\n\n` +
             formatSlotsOverview({
               slots: nextWeekend.availableSlots,
               dayLabel: nextLabel,
@@ -1649,7 +1657,7 @@ export async function processIncomingWhatsAppMessage(params: {
           return;
         } else {
           const fullText =
-            `⚠️ That slot was just booked and upcoming weekend dates are currently full.\n\n` +
+            `⚠️ That slot was just booked and upcoming weekday dates are currently full.\n\n` +
             `Would you like to review all upcoming dates across the month?`;
           await sendQuickReplyButtons(session.phone, fullText, [
             { id: "BTN_RESCHEDULE", title: "View All Dates" },
@@ -1659,9 +1667,7 @@ export async function processIncomingWhatsAppMessage(params: {
       }
     }
 
-    // Compute end times (1-hour interval)
-    const istHour = parseInt(istStart.split(":")[0], 10);
-    const istEnd = `${String(istHour + 1).padStart(2, "0")}:00`;
+    // Cand times (1-hour interval computed earlier)
 
     const candEndObj = convertIstSlotToCandidateTime(meetingDate, istEnd, session.timeZone);
     const candStartObj = convertIstSlotToCandidateTime(meetingDate, istStart, session.timeZone);
@@ -1672,12 +1678,12 @@ export async function processIncomingWhatsAppMessage(params: {
       : `${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel})`;
     const istTimeLabel = `${format12hTime(istStart)} - ${format12hTime(istEnd)} IST`;
 
-    // Look up consultant user in CRM (Abhay or first meeting user or admin)
-    const abhayUser = await db.collection("users").findOne({
-      username: { $regex: /^abhay$/i },
+    // Look up Pearl (WM role) as the Ireland consultation meeting user
+    const pearlUser = await db.collection("users").findOne({
+      username: { $regex: /^pearl$/i },
     });
-    const consultantId = abhayUser ? abhayUser.id : 1;
-    const consultantName = abhayUser ? abhayUser.name : "Abhay";
+    const consultantId = pearlUser ? pearlUser.id : 1;
+    const consultantName = pearlUser ? pearlUser.name : "Pearl";
 
     // Check if this candidate ALREADY had a scheduled slot for Ireland (rescheduling flow)
     const previousScheduledSlot = await db.collection("meetingSlots").findOne({
@@ -1752,7 +1758,7 @@ export async function processIncomingWhatsAppMessage(params: {
           meetingStatus: "scheduled",
           assignedTo: consultantId,
           assignedToName: consultantName,
-          assignedToRole: (abhayUser?.role as string) || "meeting",
+          assignedToRole: (pearlUser?.role as string) || "wm",
           assignedBy: "WhatsApp Ireland Bot",
           assignedByName: "WhatsApp Ireland Bot",
           meetingDetails: {
@@ -1829,13 +1835,13 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await appendMeetingHistory(db, session.phone, historyItem);
 
-    // In-App Notification for Consultant & Admins in CRM
+    // In-App Notification for Pearl & Admins in CRM
     try {
       const { createNotification } = await import("@/lib/notifications");
       const candName = session.name || "Ireland WhatsApp Candidate";
-      if (abhayUser) {
+      if (pearlUser) {
         await createNotification({
-          userId: abhayUser.id,
+          userId: pearlUser.id,
           title: isReschedule ? "Ireland WhatsApp Meeting Rescheduled 🇮🇪" : "New Ireland WhatsApp Meeting Booked 🇮🇪",
           message: isReschedule
             ? `Ireland consultation with ${candName} was RESCHEDULED to ${meetingDate} at ${candidateTimeLabel}.`

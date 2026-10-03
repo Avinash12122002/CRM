@@ -69,10 +69,9 @@ export async function GET(req: NextRequest) {
       .project({
         _id: 0,
         startTime: 1,
+        endTime: 1,
       })
       .toArray();
-
-    const bookedTimes = bookedSlots.map((slot) => slot.startTime);
 
     const slots = [];
 
@@ -85,6 +84,19 @@ export async function GET(req: NextRequest) {
         "0",
       )}:${String(minute).padStart(2, "0")}`;
 
+      const slotEndMinute = minute + 30;
+      const slotEndHour = hour + Math.floor(slotEndMinute / 60);
+      const slotEndMinNorm = slotEndMinute % 60;
+      const endTime = `${String(slotEndHour).padStart(2, "0")}:${String(
+        slotEndMinNorm,
+      ).padStart(2, "0")}`;
+
+      const isOverlapping = bookedSlots.some((b) => {
+        const bStart = b.startTime;
+        const bEnd = b.endTime || b.startTime;
+        return startTime < bEnd && endTime > bStart;
+      });
+
       const now = new Date();
 
       const slotDateTime = new Date(`${meetingDate}T${startTime}:00+05:30`);
@@ -92,7 +104,7 @@ export async function GET(req: NextRequest) {
       const isPastSlot = slotDateTime <= now;
       slots.push({
         startTime,
-        available: !bookedTimes.includes(startTime) && !isPastSlot,
+        available: !isOverlapping && !isPastSlot,
       });
 
       minute += 30;

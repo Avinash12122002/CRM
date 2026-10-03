@@ -1,22 +1,19 @@
 import { Db } from "mongodb";
-import { WeekendSlot } from "./types";
+import { WeekendSlot, WeekdayOption } from "./types";
 import {
   convertIstSlotToCandidateTime,
   extractShortTimezone,
   formatDateInZone,
 } from "./timezone";
 
-export interface WeekendDayOption {
-  date: string; // YYYY-MM-DD
-  dayName: "Saturday" | "Sunday";
-  displayLabel: string; // e.g. "Saturday, 26 Sep"
-}
-
 /**
- * Returns upcoming weekend days (Saturdays and Sundays) relative to the current IST time.
- * Defaults to 10 days (~1 full month of weekend days).
+ * Returns upcoming weekday days (Mon–Fri only, skipping Sat/Sun) relative
+ * to the current IST time.  Defaults to 5 weekdays.
+ *
+ * If today is a weekday AND the last slot (19:00 IST) has already started,
+ * today is skipped.
  */
-export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
+export function getUpcomingWeekdays(count: number = 5): WeekdayOption[] {
   const now = new Date();
   const todayISTStr = formatDateInZone(now, "Asia/Kolkata");
 
@@ -28,21 +25,28 @@ export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
     }).format(now),
     10
   );
-  const isPastLastSlotToday = currentHourIST >= 21;
+  // Last slot starts at 19:00 — if at or past 19 today is over
+  const isPastLastSlotToday = currentHourIST >= 19;
 
-  const weekendDays: WeekendDayOption[] = [];
+  const weekdays: WeekdayOption[] = [];
   let checkDate = new Date(`${todayISTStr}T12:00:00+05:30`);
 
   if (isPastLastSlotToday) {
     checkDate = new Date(checkDate.getTime() + 86400000);
   }
 
-  while (weekendDays.length < count) {
-    const dayOfWeek = checkDate.getDay(); // 0 = Sunday, 6 = Saturday
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+  const DAY_NAMES: Record<number, WeekdayOption["dayName"]> = {
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+  };
+
+  while (weekdays.length < count) {
+    const dayOfWeek = checkDate.getDay(); // 0 = Sun, 6 = Sat
+    if (dayOfWeek >= 1 && dayOfWeek <= 5) {
       const dateISO = formatDateInZone(checkDate, "Asia/Kolkata");
-      const dayName: "Saturday" | "Sunday" =
-        dayOfWeek === 6 ? "Saturday" : "Sunday";
       const displayLabel = new Intl.DateTimeFormat("en-US", {
         timeZone: "Asia/Kolkata",
         weekday: "short",
@@ -50,35 +54,36 @@ export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
         month: "short",
       }).format(checkDate);
 
-      weekendDays.push({
+      weekdays.push({
         date: dateISO,
-        dayName,
+        dayName: DAY_NAMES[dayOfWeek],
         displayLabel,
       });
     }
     checkDate = new Date(checkDate.getTime() + 86400000);
   }
 
-  return weekendDays;
+  return weekdays;
 }
 
 /**
- * Scans upcoming weekend days (after a given date) to find the next weekend day that has at least one available slot.
+ * Scans upcoming weekdays (Mon–Fri, after a given date) to find the next
+ * weekday that has at least one available slot.
  */
-export async function findNextAvailableWeekendDay(params: {
+export async function findNextAvailableWeekday(params: {
   db: Db;
   afterDate?: string;
   candidateTimeZone: string;
   candidateTimeLabel: string;
-}): Promise<{ dayOption: WeekendDayOption; availableSlots: WeekendSlot[] } | null> {
+}): Promise<{ dayOption: WeekdayOption; availableSlots: WeekendSlot[] } | null> {
   const { db, afterDate, candidateTimeZone, candidateTimeLabel } = params;
-  const allWeekends = getUpcomingWeekendDays(10);
+  const allWeekdays = getUpcomingWeekdays(10);
 
-  for (const day of allWeekends) {
+  for (const day of allWeekdays) {
     if (afterDate && day.date <= afterDate) {
       continue;
     }
-    const slots = await getAvailableWeekendSlots({
+    const slots = await getAvailableWeekdaySlots({
       db,
       meetingDate: day.date,
       candidateTimeZone,
@@ -94,10 +99,11 @@ export async function findNextAvailableWeekendDay(params: {
 }
 
 /**
- * Generates all 1-hour consultation slots strictly between 01:00 PM and 09:00 PM IST
- * for a specific date (8 slots per day), checked against booked Ireland meetings in MongoDB.
+ * Generates all 1-hour consultation slots between 12:00 PM and 08:00 PM IST
+ * for a specific weekday date (8 slots), checked against booked Ireland
+ * meetings in MongoDB.
  */
-export async function getAvailableWeekendSlots(params: {
+export async function getAvailableWeekdaySlots(params: {
   db: Db;
   meetingDate: string; // YYYY-MM-DD
   candidateTimeZone: string;
@@ -106,14 +112,24 @@ export async function getAvailableWeekendSlots(params: {
 }): Promise<WeekendSlot[]> {
   const { db, meetingDate, candidateTimeZone, candidateTimeLabel } = params;
 
-  // 1. Fetch already booked slots for this date in Ireland sessions or general meetingSlots
+  // Look up Pearl (WM role) so her CRM-booked meetings are also checked
+  const pearlUser = await db.collection("users").findOne({
+    username: { $regex: /^pearl$/i },
+  });
+  const matchPearlIds = pearlUser ? [pearlUser.id, String(pearlUser.id)] : [];
+
+  // 1. Fetch already booked slots for this date (shared meetingSlots collection)
   const bookedSlots = await db
     .collection("meetingSlots")
     .find({
       meetingDate,
+      $or: [
+        { channel: "WhatsApp Ireland" },
+        ...(matchPearlIds.length > 0 ? [{ meetingUserId: { $in: matchPearlIds } }] : []),
+      ],
       status: { $in: ["scheduled", "completed"] },
     })
-    .project({ _id: 0, startTime: 1 })
+    .project({ _id: 0, startTime: 1, endTime: 1 })
     .toArray();
 
   const bookedIrelandSessions = await db
@@ -125,20 +141,10 @@ export async function getAvailableWeekendSlots(params: {
     .project({ _id: 0, "bookedSlot.istTime": 1 })
     .toArray();
 
-  const bookedWhatsAppSessions = await db
-    .collection("whatsapp_sessions")
-    .find({
-      "bookedSlot.date": meetingDate,
-      meetingStatus: { $in: ["booked", "rescheduled"] },
-    })
-    .project({ _id: 0, "bookedSlot.istTime": 1 })
-    .toArray();
-
-  const bookedTimes = new Set([
-    ...bookedSlots.map((s) => s.startTime),
-    ...bookedIrelandSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean),
-    ...bookedWhatsAppSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean),
-  ]);
+  const bookedSessionTimes = new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bookedIrelandSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean)
+  );
 
   const now = new Date();
 
@@ -151,7 +157,9 @@ export async function getAvailableWeekendSlots(params: {
 
   const slots: WeekendSlot[] = [];
 
+  // 8 slots: 12:00–20:00 IST (noon to 8 PM)
   const all8SlotTimes = [
+    { start: "12:00", end: "13:00" },
     { start: "13:00", end: "14:00" },
     { start: "14:00", end: "15:00" },
     { start: "15:00", end: "16:00" },
@@ -159,7 +167,6 @@ export async function getAvailableWeekendSlots(params: {
     { start: "17:00", end: "18:00" },
     { start: "18:00", end: "19:00" },
     { start: "19:00", end: "20:00" },
-    { start: "20:00", end: "21:00" },
   ];
 
   for (const item of all8SlotTimes) {
@@ -168,9 +175,17 @@ export async function getAvailableWeekendSlots(params: {
 
     const slotDateTime = new Date(`${meetingDate}T${istStart}:00+05:30`);
     const isPastSlot = slotDateTime.getTime() <= now.getTime();
-    const isBooked = bookedTimes.has(istStart);
 
-    if (!isBooked && !isPastSlot) {
+    // Check overlap with any booked meeting in meetingSlots or sessions
+    const isOverlapping =
+      bookedSessionTimes.has(istStart) ||
+      bookedSlots.some((b) => {
+        const bStart = b.startTime;
+        const bEnd = b.endTime || b.startTime;
+        return istStart < bEnd && istEnd > bStart;
+      });
+
+    if (!isOverlapping && !isPastSlot) {
       const candStart = convertIstSlotToCandidateTime(
         meetingDate,
         istStart,
@@ -216,7 +231,7 @@ export async function getAvailableWeekendSlots(params: {
 
 /**
  * Formats all available slots for a day into a single complete overview
- * with all slots formatted in the candidate's country local time.
+ * with all slots formatted in the candidate's local time.
  */
 export function formatSlotsOverview(params: {
   slots: WeekendSlot[];
@@ -248,3 +263,14 @@ export function formatSlotsOverview(params: {
   text += `🔄 Want a different date? Tap *Change Date*.`;
   return text;
 }
+
+// ─── Backward-compat aliases (used by stateMachine.ts via named imports) ─────
+
+/** @deprecated Use getUpcomingWeekdays for Ireland. */
+export const getUpcomingWeekendDays = getUpcomingWeekdays;
+
+/** @deprecated Use findNextAvailableWeekday for Ireland. */
+export const findNextAvailableWeekendDay = findNextAvailableWeekday;
+
+/** @deprecated Use getAvailableWeekdaySlots for Ireland. */
+export const getAvailableWeekendSlots = getAvailableWeekdaySlots;
