@@ -148,6 +148,27 @@ export async function sendMeetingCancelledNotification(params: {
         },
       }
     );
+
+    // Release slot in meetingSlots collection so it is immediately unlocked for others
+    await db.collection("meetingSlots").updateMany(
+      {
+        $or: [
+          { phone: cleanPhone },
+          { phone: `+${cleanPhone}` },
+          ...(lead.id ? [{ leadId: lead.id }, { leadId: String(lead.id) }] : []),
+        ],
+        channel: "WhatsApp Ireland",
+        status: "scheduled",
+      },
+      {
+        $set: {
+          status: "cancelled",
+          cancelledAt: now,
+          cancelledReason: "Consultation marked cancelled in CRM",
+          updatedAt: now,
+        },
+      }
+    );
   } catch (err) {
     console.warn(`[WhatsApp Ireland] Failed to dispatch meeting cancelled message to +${cleanPhone}:`, err);
   }

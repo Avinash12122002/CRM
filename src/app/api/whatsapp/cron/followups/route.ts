@@ -29,10 +29,24 @@ export async function GET(req: NextRequest) {
     const { autoTrainIfStale } = await import("@/lib/whatsapp/messageIntelligence");
     await autoTrainIfStale(db);
 
+    // Also run WhatsApp Ireland followup engine alongside Australia
+    let irelandResults: any[] = [];
+    try {
+      const { runWhatsAppIrelandFollowupEngine } = await import("@/lib/whatsapp-ireland/followupEngine");
+      irelandResults = await runWhatsAppIrelandFollowupEngine(db);
+
+      const { autoTrainIfStale: autoTrainIrelandIfStale } = await import("@/lib/whatsapp-ireland/messageIntelligence");
+      await autoTrainIrelandIfStale(db);
+    } catch (ieErr) {
+      console.warn("[WhatsApp Cron] Error running Ireland follow-up engine:", ieErr);
+    }
+
     return NextResponse.json({
       success: true,
-      processed: results.length,
-      results,
+      processed: results.length + irelandResults.length,
+      australiaProcessed: results.length,
+      irelandProcessed: irelandResults.length,
+      results: [...results, ...irelandResults],
       timestamp: new Date().toISOString(),
     });
   } catch (err) {

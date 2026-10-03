@@ -181,6 +181,7 @@ export async function sendMeetingCancelledNotification(params: {
           { phone: `+${cleanPhone}` },
           ...(lead.id ? [{ leadId: lead.id }, { leadId: String(lead.id) }] : []),
         ],
+        channel: { $ne: "WhatsApp Ireland" },
         status: "scheduled",
       },
       {

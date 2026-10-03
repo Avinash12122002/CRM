@@ -453,7 +453,7 @@ async function syncCrmLead(
     const updatedLeadFields: Record<string, unknown> = {
       email: session.email || existingLead.email,
       country: session.countryName || existingLead.country,
-      interestedCountry: "Australia",
+      interestedCountry: existingLead.interestedCountry || "Australia",
       jobApplied: session.occupation || existingLead.jobApplied || "Australia Employer Sponsored Work Visa",
       leadSource: existingLead.leadSource || "WhatsApp Ad Automation",
       updatedAt: now,
@@ -2133,6 +2133,7 @@ export async function processIncomingWhatsAppMessage(params: {
       await db.collection("meetingSlots").updateMany(
         {
           phone: session.phone,
+          channel: { $ne: "WhatsApp Ireland" },
           status: "scheduled",
         },
         {
@@ -2925,8 +2926,13 @@ export async function processIncomingWhatsAppMessage(params: {
       status: { $in: ["scheduled", "completed"] },
     });
 
-    if (existingSlot && existingSlot.phone !== session.phone) {
-      console.log(`[WhatsApp] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone}`);
+    const isSameCandidateSameChannel =
+      existingSlot &&
+      existingSlot.phone === session.phone &&
+      existingSlot.channel !== "WhatsApp Ireland";
+
+    if (existingSlot && !isSameCandidateSameChannel) {
+      console.log(`[WhatsApp] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone} (${existingSlot.channel || "WhatsApp"})`);
 
       // Re-query available slots for this date
       const remainingSlots = await getAvailableWeekendSlots({
@@ -3025,6 +3031,7 @@ export async function processIncomingWhatsAppMessage(params: {
     // Check if this candidate ALREADY has a previously scheduled meeting (Rescheduling flow!)
     const previousScheduledSlot = await db.collection("meetingSlots").findOne({
       phone: session.phone,
+      channel: { $ne: "WhatsApp Ireland" },
       status: "scheduled",
     });
 
@@ -3038,6 +3045,7 @@ export async function processIncomingWhatsAppMessage(params: {
       // Delete previous scheduled slot from meetingSlots so it is immediately FREE and UNLOCKED for others in the whole system!
       await db.collection("meetingSlots").deleteMany({
         phone: session.phone,
+        channel: { $ne: "WhatsApp Ireland" },
         status: "scheduled",
       });
     }

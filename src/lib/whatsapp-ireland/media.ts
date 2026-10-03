@@ -224,7 +224,7 @@ export async function handleIncomingWhatsAppIrelandMedia(params: {
           $set: {
             salesDocument: finalFileUrl,
             cvFileName: safeFilename,
-            interestedCountry: "Ireland",
+            interestedCountry: lead.interestedCountry || "Ireland",
             updatedAt: now,
           },
         }

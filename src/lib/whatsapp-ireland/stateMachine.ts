@@ -518,14 +518,17 @@ async function ensureLeadExists(
   });
 
   if (existing) {
+    const updateFields: Record<string, unknown> = {
+      ...additionalData,
+      updatedAt: new Date(),
+    };
+    if (!existing.interestedCountry) {
+      updateFields.interestedCountry = "Ireland";
+    }
     await db.collection("leads").updateOne(
       { id: existing.id },
       {
-        $set: {
-          ...additionalData,
-          interestedCountry: "Ireland",
-          updatedAt: new Date(),
-        },
+        $set: updateFields,
       }
     );
     return existing.id;
@@ -997,6 +1000,7 @@ export async function processIncomingWhatsAppMessage(params: {
       await db.collection("meetingSlots").updateMany(
         {
           phone: session.phone,
+          channel: "WhatsApp Ireland",
           status: "scheduled",
         },
         {
@@ -1585,8 +1589,13 @@ export async function processIncomingWhatsAppMessage(params: {
       status: { $in: ["scheduled", "completed"] },
     });
 
-    if (existingSlot && existingSlot.phone !== session.phone) {
-      console.log(`[WhatsApp Ireland] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone}`);
+    const isSameCandidateSameChannel =
+      existingSlot &&
+      existingSlot.phone === session.phone &&
+      existingSlot.channel === "WhatsApp Ireland";
+
+    if (existingSlot && !isSameCandidateSameChannel) {
+      console.log(`[WhatsApp Ireland] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone} (${existingSlot.channel || "WhatsApp"})`);
 
       const remainingSlots = await getAvailableWeekendSlots({
         db,
@@ -1670,9 +1679,10 @@ export async function processIncomingWhatsAppMessage(params: {
     const consultantId = abhayUser ? abhayUser.id : 1;
     const consultantName = abhayUser ? abhayUser.name : "Abhay";
 
-    // Check if this candidate ALREADY had a scheduled slot (rescheduling flow)
+    // Check if this candidate ALREADY had a scheduled slot for Ireland (rescheduling flow)
     const previousScheduledSlot = await db.collection("meetingSlots").findOne({
       phone: session.phone,
+      channel: "WhatsApp Ireland",
       status: "scheduled",
     });
     const isReschedule = Boolean(previousScheduledSlot);
@@ -1682,6 +1692,7 @@ export async function processIncomingWhatsAppMessage(params: {
       previousSlotDetails = `${previousScheduledSlot.meetingDate} at ${previousScheduledSlot.startTime} IST`;
       await db.collection("meetingSlots").deleteMany({
         phone: session.phone,
+        channel: "WhatsApp Ireland",
         status: "scheduled",
       });
     }

@@ -431,46 +431,131 @@ KNOWLEDGE BASE:
 ${TMS_VISA_IRELAND_KNOWLEDGE}
 `;
 
-      const groqModels = [
-        process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
-        "openai/gpt-oss-120b",
-        "openai/gpt-oss-20b",
-        "llama-3.3-70b-versatile",
-      ];
+      // 3a. Groq Cloud (Primary Engine - Ultra-fast LPU inference)
+      const groqKey = process.env.GROQ_API_KEY || (apiKey?.startsWith("gsk_") ? apiKey : undefined);
+      if (groqKey) {
+        const groqModels = [
+          process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
+          "openai/gpt-oss-120b",
+          "openai/gpt-oss-20b",
+          "llama-3.3-70b-versatile",
+        ];
 
-      for (const model of groqModels) {
+        for (const model of groqModels) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+            const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${groqKey}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: "system", content: `${systemPrompt}\nPrimary Intent: ${insights.primaryIntent}` },
+                  { role: "user", content: rawMsg },
+                ],
+                temperature: 0.3,
+                max_tokens: 350,
+              }),
+              signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+              const data = await response.json();
+              const aiText = data.choices?.[0]?.message?.content?.trim();
+              if (aiText && aiText.length > 10) {
+                return sanitizeFinalResponse(aiText, session);
+              }
+            }
+          } catch (_modelErr) {
+            // Continue to next model fallback
+          }
+        }
+      }
+
+      // 3b. Google Gemini
+      const geminiKey = process.env.GEMINI_API_KEY || (apiKey?.startsWith("AIza") ? apiKey : undefined);
+      if (geminiKey) {
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-          const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+          const res = await fetch(geminiUrl, {
             method: "POST",
-            headers: {
-              Authorization: `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              model,
-              messages: [
-                { role: "system", content: `${systemPrompt}\nPrimary Intent: ${insights.primaryIntent}` },
-                { role: "user", content: rawMsg },
+              contents: [
+                {
+                  role: "user",
+                  parts: [
+                    {
+                      text: `${systemPrompt}\nPrimary Intent: ${insights.primaryIntent}\n\nCandidate says: "${rawMsg}"\n\nProvide your WhatsApp reply:`,
+                    },
+                  ],
+                },
               ],
-              temperature: 0.3,
-              max_tokens: 350,
+              generationConfig: {
+                maxOutputTokens: 350,
+                temperature: 0.3,
+              },
             }),
             signal: controller.signal,
           });
           clearTimeout(timeoutId);
 
-          if (response.ok) {
-            const data = await response.json();
-            const aiText = data.choices?.[0]?.message?.content?.trim();
-            if (aiText) {
-              return sanitizeFinalResponse(aiText, session);
+          if (res.ok) {
+            const data = await res.json();
+            const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (replyText && replyText.trim().length > 10) {
+              return sanitizeFinalResponse(replyText.trim(), session);
             }
           }
-        } catch (_modelErr) {
-          // Continue to next model fallback
+        } catch {
+          // Fallback to OpenAI
+        }
+      }
+
+      // 3c. OpenAI
+      const openAiKey = process.env.OPENAI_API_KEY || (apiKey?.startsWith("sk-") ? apiKey : undefined);
+      if (openAiKey) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+          const res = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${openAiKey}`,
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: `${systemPrompt}\nPrimary Intent: ${insights.primaryIntent}` },
+                { role: "user", content: rawMsg },
+              ],
+              max_tokens: 350,
+              temperature: 0.3,
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const data = await res.json();
+            const replyText = data.choices?.[0]?.message?.content;
+            if (replyText && replyText.trim().length > 10) {
+              return sanitizeFinalResponse(replyText.trim(), session);
+            }
+          }
+        } catch {
+          // Fallback
         }
       }
     } catch (llmErr) {

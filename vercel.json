@@ -5,6 +5,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/whatsapp-ireland/cron/followups",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/email/cron",
       "schedule": "0 10 * * *"
     }
