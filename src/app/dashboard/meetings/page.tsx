@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import toast from "react-hot-toast";
 import DashboardNavbar from "@/components/DashboardNavbar";
 
@@ -261,7 +262,14 @@ export default function MeetingsPage() {
                       <tr key={meeting.id} className={`transition-colors ${rowBg(meeting.meetingStatus)}`}>
 
                         <td className="px-4 py-2.5">
-                          <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{meeting.name}</span>
+                          <Link
+                            href={`/dashboard/leads/${meeting.id}`}
+                            className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline transition inline-flex items-center gap-1 group"
+                            title="View Lead Details"
+                          >
+                            <span>{meeting.name}</span>
+                            <span className="text-[10px] text-blue-400 dark:text-blue-500 opacity-60 group-hover:opacity-100 transition">↗</span>
+                          </Link>
                         </td>
                         <td className="px-4 py-2.5">
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.phone}</span>
