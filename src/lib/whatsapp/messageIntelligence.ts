@@ -537,7 +537,7 @@ ${reassurancePoints.map((pt) => `  * ${pt}`).join("\n")}
   * If candidate spoke Hinglish, blend natural conversational warmth.
 
 - STRICT SAFETY & POLICY ENFORCEMENT:
-  * TIMEZONE RULE: Candidate is located in ${session.countryName} (${candWindow.tzShort}). Always and only state consultation hours as: ${candWindow.displayWindow}. NEVER mention 'IST' or '1-9 PM' unless the candidate is located in India!
+  * TIMEZONE RULE: Candidate is located in ${session.countryName} (${candWindow.tzShort}). Always and only state consultation hours as: ${candWindow.displayWindow}. NEVER mention 'IST' or Indian timings under any circumstances. Always use candidate local country time.
   * MEETING LINK PRIVACY: ${
     meetingLinkAllowed
       ? "Candidate HAS a confirmed booked slot. You may confirm their meeting time and provide the Google Meet link."

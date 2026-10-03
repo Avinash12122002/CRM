@@ -41,7 +41,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
       .collection("whatsapp_sessions")
       .find({
         currentStep: { $in: ["AWAITING_CONSULTATION_DECISION", "VIDEO_SENT_AWAITING_INTEREST"] },
-        consultationPromptDueAt: { $lte: now },
+        consultationPromptDueAt: { $type: "date", $lte: now },
         bookedSlot: { $in: [null, undefined] },
       })
       .toArray()) as unknown as WhatsAppSession[];
@@ -69,7 +69,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         });
 
         await updateSession(db, session.phone, {
-          consultationPromptDueAt: null as any,
+          consultationPromptDueAt: undefined,
           updatedAt: now,
         });
 
@@ -180,9 +180,9 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
       if (targetDay > 7) {
         // Capped after 7 days -> stop further followups
         await updateSession(db, session.phone, {
-          ...(session.currentStep !== "AWAITING_CV" ? { currentStep: "COLD" } : {}),
+          currentStep: "COLD",
           followupCount: 7,
-          nextFollowupAt: null as any,
+          nextFollowupAt: undefined,
           updatedAt: now,
         });
         continue;
@@ -253,7 +253,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
           followupCount: targetDay,
           lastFollowupSentAt: now,
           nextFollowupAt: nextFollowup,
-          ...(isFinalDay && session.currentStep !== "AWAITING_CV" ? { currentStep: "COLD" } : {}),
+          ...(isFinalDay ? { currentStep: "COLD" } : {}),
         });
 
         results.push({
@@ -299,11 +299,13 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         const candTime12h = slot.candidateLocalTime ? format12hTime(slot.candidateLocalTime) : ist12h;
 
         const isIndia =
+          slot.candidateTimezone === "Asia/Kolkata" ||
           slot.candidateTimezone === "IST" ||
           String(slot.phone).replace(/\D/g, "").startsWith("91");
-        const timeLine = isIndia
-          ? `⏰ *Time:* ${ist12h} IST\n\n`
-          : `⏰ *Time:* ${candTime12h} (${slot.candidateTimezone || "Local"})\n\n`;
+        const rawTz = slot.candidateTimezone || "";
+        const cleanTz = rawTz.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+        const candTzLabel = cleanTz ? ` (${cleanTz})` : (isIndia ? " (India Time)" : "");
+        const timeLine = `⏰ *Time:* ${candTime12h}${candTzLabel}\n\n`;
 
         const reminderMsg =
           `⏰ *Reminder: Your Australian Visa Consultation is in 1 Hour!*\n\n` +

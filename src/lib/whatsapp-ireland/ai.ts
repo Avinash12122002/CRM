@@ -33,16 +33,14 @@ function sanitizeMeetingLink(text: string, session: WhatsAppSession): string {
 
 function sanitizeTimezoneForCandidate(text: string, session: WhatsAppSession): string {
   if (!text) return text;
-  const isIndia = session.countryCode === "IN" || session.timeZone === "Asia/Kolkata";
-  if (isIndia) return text;
-
   const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
+  const cleanTz = candWindow.tzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
 
   return text
     .replace(/(?:12\s*[-–]\s*8\s*PM|12:00\s*PM\s*[-–]\s*08:00\s*PM|1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*IST(?:\s*\([^)]*local time[^)]*\))?/gi, candWindow.displayWindow)
     .replace(/(?:12\s*[-–]\s*8\s*PM|12:00\s*PM\s*[-–]\s*08:00\s*PM|1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*\([^)]*local time[^)]*\)/gi, candWindow.displayWindow)
     .replace(/\b(?:12\s*[-–]\s*8\s*PM|1\s*[-–]\s*9\s*PM)\s*IST\b/gi, candWindow.displayWindow)
-    .replace(/\bIST\b/g, candWindow.tzShort);
+    .replace(/\s*\(?IST\)?/gi, cleanTz ? ` (${cleanTz})` : "");
 }
 
 function sanitizeFinalResponse(text: string, session: WhatsAppSession): string {

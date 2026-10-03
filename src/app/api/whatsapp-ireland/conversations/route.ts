@@ -74,26 +74,53 @@ export async function GET(req: NextRequest) {
     const phoneTenDigits = allPhones
       .map((p) => p.slice(-10))
       .filter((p) => p.length >= 7);
+    const sessionLeadIds = sessions
+      .map((s: any) => s.leadId)
+      .filter((id: any): id is number => typeof id === "number" && !isNaN(id));
+    const sessionEmails = sessions
+      .map((s: any) => (s.email || "").trim().toLowerCase())
+      .filter((e: string) => e.length > 3 && e.includes("@"));
 
     const leadMapByPhone = new Map<string, any>();
+    const leadMapById = new Map<number, any>();
+    const leadMapByEmail = new Map<string, any>();
+
+    const leadBatchOrQueries: any[] = [];
     if (allPhones.length > 0) {
+      leadBatchOrQueries.push(
+        { phone: { $in: allPhones } },
+        { phone: { $in: allPhones.map((p) => `+${p}`) } },
+        ...phoneTenDigits.map((p) => ({ phone: { $regex: `${p}$` } }))
+      );
+    }
+    if (sessionLeadIds.length > 0) {
+      leadBatchOrQueries.push({ id: { $in: sessionLeadIds } });
+    }
+    if (sessionEmails.length > 0) {
+      leadBatchOrQueries.push({ email: { $in: sessionEmails } });
+    }
+
+    if (leadBatchOrQueries.length > 0) {
       const matchingLeads = await db
         .collection("leads")
-        .find({
-          $or: [
-            { phone: { $in: allPhones } },
-            { phone: { $in: allPhones.map((p) => `+${p}`) } },
-            ...phoneTenDigits.map((p) => ({ phone: { $regex: `${p}$` } })),
-          ],
-        })
+        .find({ $or: leadBatchOrQueries })
         .toArray();
 
       for (const lead of matchingLeads) {
+        if (lead.id) {
+          leadMapById.set(lead.id, lead);
+        }
+        if (lead.email) {
+          leadMapByEmail.set(String(lead.email).trim().toLowerCase(), lead);
+        }
         if (lead.phone) {
           const clean = String(lead.phone).replace(/[^\d]/g, "");
           leadMapByPhone.set(clean, lead);
           if (clean.length >= 10) {
             leadMapByPhone.set(clean.slice(-10), lead);
+          }
+          if (clean.length >= 9) {
+            leadMapByPhone.set(clean.slice(-9), lead);
           }
         }
       }
@@ -102,8 +129,11 @@ export async function GET(req: NextRequest) {
     // 4. Format conversations
     let conversations = sessions.map((s: any) => {
       const matchingLead =
+        (s.leadId ? leadMapById.get(s.leadId) : null) ||
         leadMapByPhone.get(s.phone) ||
-        (s.phone.length >= 10 ? leadMapByPhone.get(s.phone.slice(-10)) : null);
+        (s.phone.length >= 10 ? leadMapByPhone.get(s.phone.slice(-10)) : null) ||
+        (s.phone.length >= 9 ? leadMapByPhone.get(s.phone.slice(-9)) : null) ||
+        (s.email ? leadMapByEmail.get(String(s.email).trim().toLowerCase()) : null);
 
       const resolvedName =
         matchingLead?.name && !matchingLead.name.toLowerCase().includes("test")

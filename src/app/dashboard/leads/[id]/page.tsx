@@ -1551,9 +1551,8 @@ export default function LeadDetailPage() {
                       <p className="text-sm text-gray-600 mt-1">
                         {lead.meetingDetails.meetingDate}
                       </p>
-                      <p className="text-sm text-gray-600">
-                        {lead.meetingDetails.startTime} —{" "}
-                        {lead.meetingDetails.endTime}
+                      <p className="text-sm font-medium text-gray-800">
+                        {lead.meetingDetails.startTime} — {lead.meetingDetails.endTime} IST (Indian Time)
                       </p>
                       <span className="inline-block mt-2 px-2 py-1 text-xs rounded bg-purple-100 text-purple-700 capitalize">
                         {lead.meetingDetails.status}
@@ -2076,12 +2075,12 @@ export default function LeadDetailPage() {
                         value: lead.meetingDetails!.meetingDate,
                       },
                       {
-                        label: "Start Time",
-                        value: lead.meetingDetails!.startTime,
+                        label: "Start Time (IST)",
+                        value: lead.meetingDetails!.startTime ? `${lead.meetingDetails!.startTime} IST` : "—",
                       },
                       {
-                        label: "End Time",
-                        value: lead.meetingDetails!.endTime,
+                        label: "End Time (IST)",
+                        value: lead.meetingDetails!.endTime ? `${lead.meetingDetails!.endTime} IST` : "—",
                       },
                     ].map(({ label, value }) => (
                       <div

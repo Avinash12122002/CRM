@@ -231,7 +231,7 @@ export default function MeetingsPage() {
             <table className="min-w-full divide-y divide-gray-100 dark:divide-zinc-700">
               <thead className="bg-gray-50 dark:bg-zinc-700">
                 <tr>
-                  {["Lead","Phone","Meeting Date","Start","End","Interested Country","Booked By","Status","Actions"].map((h) => (
+                  {["Lead","Phone","Meeting Date","Start (IST)","End (IST)","Interested Country","Booked By","Status","Actions"].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide">
                       {h}
                     </th>
@@ -278,10 +278,14 @@ export default function MeetingsPage() {
                           <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.meetingDate || "—"}</span>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.startTime || "—"}</span>
+                          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                            {meeting.meetingDetails?.startTime ? `${meeting.meetingDetails.startTime} IST` : "—"}
+                          </span>
                         </td>
                         <td className="px-4 py-2.5">
-                          <span className="text-xs text-gray-700 dark:text-gray-300">{meeting.meetingDetails?.endTime || "—"}</span>
+                          <span className="text-xs font-medium text-gray-800 dark:text-gray-200">
+                            {meeting.meetingDetails?.endTime ? `${meeting.meetingDetails.endTime} IST` : "—"}
+                          </span>
                         </td>
                         <td className="px-4 py-2.5">
                           <span

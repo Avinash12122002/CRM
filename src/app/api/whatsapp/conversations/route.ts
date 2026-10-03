@@ -74,27 +74,56 @@ export async function GET(req: NextRequest) {
     const phoneTenDigits = allPhones
       .map((p) => p.slice(-10))
       .filter((p) => p.length >= 7);
+    const sessionLeadIds = sessions
+      .map((s) => s.leadId)
+      .filter((id): id is number => typeof id === "number" && !isNaN(id));
+    const sessionEmails = sessions
+      .map((s) => (s.email || "").trim().toLowerCase())
+      .filter((e) => e.length > 3 && e.includes("@"));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const leadMapByPhone = new Map<string, any>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leadMapById = new Map<number, any>();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const leadMapByEmail = new Map<string, any>();
+
+    const leadBatchOrQueries: any[] = [];
     if (allPhones.length > 0) {
+      leadBatchOrQueries.push(
+        { phone: { $in: allPhones } },
+        { phone: { $in: allPhones.map((p) => `+${p}`) } },
+        ...phoneTenDigits.map((p) => ({ phone: { $regex: `${p}$` } }))
+      );
+    }
+    if (sessionLeadIds.length > 0) {
+      leadBatchOrQueries.push({ id: { $in: sessionLeadIds } });
+    }
+    if (sessionEmails.length > 0) {
+      leadBatchOrQueries.push({ email: { $in: sessionEmails } });
+    }
+
+    if (leadBatchOrQueries.length > 0) {
       const matchingLeads = await db
         .collection("leads")
-        .find({
-          $or: [
-            { phone: { $in: allPhones } },
-            { phone: { $in: allPhones.map((p) => `+${p}`) } },
-            ...phoneTenDigits.map((p) => ({ phone: { $regex: `${p}$` } })),
-          ],
-        })
+        .find({ $or: leadBatchOrQueries })
         .toArray();
 
       for (const lead of matchingLeads) {
+        if (lead.id) {
+          leadMapById.set(lead.id, lead);
+        }
+        if (lead.email) {
+          leadMapByEmail.set(String(lead.email).trim().toLowerCase(), lead);
+        }
         if (lead.phone) {
           const clean = String(lead.phone).replace(/[^\d]/g, "");
           leadMapByPhone.set(clean, lead);
           if (clean.length >= 10) {
             leadMapByPhone.set(clean.slice(-10), lead);
+          }
+          if (clean.length >= 9) {
+            leadMapByPhone.set(clean.slice(-9), lead);
           }
         }
       }
@@ -121,7 +150,12 @@ export async function GET(req: NextRequest) {
 
     // 5. Synthesize conversations with real candidate names
     const conversations = sessions.map((s) => {
-      const lead = leadMapByPhone.get(s.phone) || leadMapByPhone.get(s.phone.slice(-10));
+      const lead =
+        (s.leadId ? leadMapById.get(s.leadId) : null) ||
+        leadMapByPhone.get(s.phone) ||
+        leadMapByPhone.get(s.phone.slice(-10)) ||
+        leadMapByPhone.get(s.phone.slice(-9)) ||
+        (s.email ? leadMapByEmail.get(String(s.email).trim().toLowerCase()) : null);
       const profileName = incomingNameMap.get(s.phone);
       const actualName =
         (s.name && s.name !== "Candidate" && !s.name.toLowerCase().includes("test") ? s.name : null) ||

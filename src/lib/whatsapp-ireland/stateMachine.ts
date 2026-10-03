@@ -243,11 +243,11 @@ export async function getOrCreateSession(
         const candSlotEnd = activeSlot.candidateLocalEndTime
           ? { candidateTime: activeSlot.candidateLocalEndTime, display12h: format12hTime(activeSlot.candidateLocalEndTime) }
           : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.endTime, slotTz);
-        const slotTzShort = extractShortTimezone(existing.timeZoneLabel || country.label);
+        const slotTzShort = extractShortTimezone(existing.timeZoneLabel || country.label).replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
         const isIndia = (existing.countryCode || country.countryCode) === "IN";
         const candLabel = isIndia
-          ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`
-          : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+          ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)}`
+          : `${candSlotStart.display12h} - ${candSlotEnd.display12h}${slotTzShort ? ` (${slotTzShort})` : ""}`;
 
         existing.bookedSlot = {
           date: activeSlot.meetingDate,
@@ -325,11 +325,11 @@ export async function getOrCreateSession(
     const candSlotEnd = activeSlotNew.candidateLocalEndTime
       ? { candidateTime: activeSlotNew.candidateLocalEndTime, display12h: format12hTime(activeSlotNew.candidateLocalEndTime) }
       : convertIstSlotToCandidateTime(activeSlotNew.meetingDate, activeSlotNew.endTime, country.timeZone);
-    const slotTzShort = extractShortTimezone(country.label);
+    const slotTzShort = extractShortTimezone(country.label).replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
     const isIndia = country.countryCode === "IN";
     const candLabel = isIndia
-      ? `${format12hTime(activeSlotNew.startTime)} - ${format12hTime(activeSlotNew.endTime)} IST`
-      : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+      ? `${format12hTime(activeSlotNew.startTime)} - ${format12hTime(activeSlotNew.endTime)}`
+      : `${candSlotStart.display12h} - ${candSlotEnd.display12h}${slotTzShort ? ` (${slotTzShort})` : ""}`;
 
     bookedSlotNew = {
       date: activeSlotNew.meetingDate,
@@ -656,6 +656,69 @@ export async function sendConsultationBookingPrompt(phone: string): Promise<void
 }
 
 /**
+ * Dispatches Step 3 Ireland video link and schedules consultation prompt 10 minutes later
+ */
+export async function sendTimedVideoAndProcessGuide(
+  phone: string,
+  email: string,
+  videoUrl?: string,
+) {
+  const actualVideoUrl = videoUrl || getVideoIrelandUrl();
+
+  // 1. Send the Ireland explainer video guide
+  if (actualVideoUrl) {
+    const isDirectVideoFile = Boolean(actualVideoUrl.match(/\.(mp4|mov|3gp|mkv)($|\?)/i));
+    if (isDirectVideoFile) {
+      await sendVideoMessage(
+        phone,
+        actualVideoUrl,
+        `Here is our quick explainer video on how the **Ireland Employer Sponsored Work Visa** works! 🎬🇮🇪\n\n` +
+        `Watch how approved Irish employers sponsor candidates, cover €1,000 permit fees, and pave the way to Stamp 4 PR.`
+      );
+    } else {
+      const videoIntro =
+        `🎥 *Ireland Work Visa — Process Guide Video* 🇮🇪\n\n` +
+        `Here is our video explaining how approved Irish employers sponsor candidates, cover €1,000 permit fees, and pave the way to Stamp 4 PR:\n\n` +
+        `▶️ *Watch the Video Here:*\n${actualVideoUrl}\n\n` +
+        `*(Tap the link above to watch the video anytime)*`;
+      await sendTextMessage(phone, videoIntro);
+    }
+  }
+
+  // 2. Schedule the consultation booking prompt after 10 minutes
+  setTimeout(async () => {
+    try {
+      const { connectToDatabase } = await import("@/lib/mongodb");
+      const { db } = await connectToDatabase();
+      const s = await db.collection("whatsapp_ireland_sessions").findOne({ phone });
+      if (s && (s.currentStep === "AWAITING_CONSULTATION_DECISION" || s.currentStep === "VIDEO_SENT_AWAITING_INTEREST") && !s.bookedSlot) {
+        await sendConsultationBookingPrompt(phone);
+        const { logWhatsAppIrelandMessage } = await import("@/lib/whatsapp-ireland/messageLogger");
+        await logWhatsAppIrelandMessage({
+          db,
+          phone,
+          sender: "bot",
+          senderName: "Pearl (TMS Visa)",
+          text: `*Ready to take the next step towards Ireland? 🇮🇪*\n\nBook a 1-on-1 consultation meeting with our Ireland Visa Expert to check your job eligibility and visa pathway.`,
+          msgType: "interactive_button",
+          buttons: [
+            { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+            { id: "BTN_CONSULT_NO", title: "Maybe Later" },
+          ],
+          createdAt: new Date(),
+        });
+        await updateSession(db, phone, {
+          consultationPromptDueAt: undefined,
+          updatedAt: new Date(),
+        });
+      }
+    } catch (err) {
+      console.error("[WhatsApp Ireland] Error sending 10-minute consultation prompt:", err);
+    }
+  }, 10 * 60 * 1000);
+}
+
+/**
  * Master message processor for incoming Ireland WhatsApp messages
  */
 export async function processIncomingWhatsAppMessage(params: {
@@ -721,8 +784,16 @@ export async function processIncomingWhatsAppMessage(params: {
       );
     }
 
-    // If not yet notified that they already exist in CRM, notify them immediately
-    if (!session.existingLeadNotified) {
+    // Only trigger pre-existing lead notification for pre-existing CRM leads who just messaged in WELCOME
+    // Do NOT block leads created by this WhatsApp automation funnel itself!
+    const isSelfAutomationLead =
+      existingCrmLead.id === session.leadId ||
+      existingCrmLead.leadSource === "WhatsApp Ad Automation" ||
+      existingCrmLead.leadSource === "WhatsApp Ireland" ||
+      existingCrmLead.channel === "WhatsApp Ireland" ||
+      session.currentStep !== "WELCOME";
+
+    if (!session.existingLeadNotified && !isSelfAutomationLead) {
       const candidateDisplayName =
         session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
           ? session.name
@@ -1041,12 +1112,15 @@ export async function processIncomingWhatsAppMessage(params: {
     await appendMeetingHistory(db, session.phone, historyItem);
 
     // Update session in whatsapp_ireland_sessions
+    const nextFollowup = getNext10AmInTimezone(session.timeZone || "Asia/Kolkata");
     await updateSession(db, session.phone, {
       meetingStatus: "canceled",
       meetingCanceledAt: new Date(),
       meetingCancellationReason: rawText || "Requested by candidate via WhatsApp",
       bookedSlot: undefined,
-      currentStep: "AWAITING_REENGAGEMENT",
+      currentStep: "RESCHEDULING_DATE",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
     });
 
     // Update CRM lead
@@ -1487,37 +1561,15 @@ export async function processIncomingWhatsAppMessage(params: {
     lowerText === "yes, interested" ||
     lowerText === "interested"
   ) {
-    const videoUrl = getVideoIrelandUrl();
-    const isDirectVideoFile = Boolean(videoUrl && videoUrl.match(/\.(mp4|mov|3gp|mkv)($|\?)/i));
+    const emailPrompt = `Great! Now we will share all the details over your email, *please reply with your Email Address:* 📧`;
 
-    if (isDirectVideoFile) {
-      await sendVideoMessage(
-        cleanPhone,
-        videoUrl,
-        `Here is our quick 2-minute explainer video on how the **Ireland Employer Sponsored Work Visa** works! 🎬🇮🇪\n\n` +
-        `Watch how approved Irish employers sponsor candidates, cover €1,000 permit fees, and pave the way to Stamp 4 PR.`
-      );
-    } else {
-      const videoIntro =
-        `🎥 *Ireland Work Visa — Process Guide Video* 🇮🇪\n\n` +
-        `Here is our video explaining how approved Irish employers sponsor candidates, cover €1,000 permit fees, and pave the way to Stamp 4 PR:\n\n` +
-        `▶️ *Watch the Video Here:*\n${videoUrl}\n\n` +
-        `*(Tap the link above to watch the video anytime)*`;
-      await sendTextMessage(cleanPhone, videoIntro);
-    }
-
-    await delay(1200);
-
-    await sendTextMessage(
-      cleanPhone,
-      `Please reply with your **Email Address** 📩 so we can send you our comprehensive Ireland Work Visa Guide and Occupation List.`
-    );
-
+    const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, cleanPhone, {
       currentStep: "AWAITING_EMAIL",
-      videoSentAt: now,
-      consultationPromptDueAt: new Date(now.getTime() + 10 * 60 * 1000), // 10 min prompt
+      nextFollowupAt: nextFollowup,
+      followupCount: 0,
     });
+    await sendTextMessage(cleanPhone, emailPrompt);
     return;
   }
 
@@ -1534,6 +1586,102 @@ export async function processIncomingWhatsAppMessage(params: {
     await updateSession(db, cleanPhone, {
       currentStep: "COLD",
     });
+    return;
+  }
+
+  // 2. In AWAITING_EMAIL state (or direct email shared) -> Validate Email, Send Info Email, Wait 2s -> Send Video, Schedule 10m Prompt
+  const directEmailRegexMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const isDirectEmail = Boolean(directEmailRegexMatch);
+
+  if (session.currentStep === "AWAITING_EMAIL" || (isDirectEmail && session.currentStep !== "BOOKED" && session.currentStep !== "AWAITING_EMAIL_UPDATE")) {
+    const extractedEmail = directEmailRegexMatch ? directEmailRegexMatch[0].toLowerCase() : rawText.trim().toLowerCase();
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const isValidFormat = emailRegex.test(extractedEmail);
+    const domain = extractedEmail.includes("@") ? extractedEmail.split("@")[1] : "";
+    const isValidDomain = domain.includes(".") && domain.length >= 4;
+
+    const ACCEPTED_DOMAINS = [
+      "gmail.com", "googlemail.com",
+      "yahoo.com", "yahoo.in", "yahoo.co.in", "yahoo.co.uk", "yahoo.com.au",
+      "outlook.com", "outlook.in", "hotmail.com", "hotmail.in", "live.com",
+      "icloud.com", "me.com",
+      "rediffmail.com", "protonmail.com", "proton.me",
+      "aol.com", "mail.com", "zoho.com", "ymail.com",
+    ];
+    const isWhitelistedDomain = ACCEPTED_DOMAINS.includes(domain) || (domain.includes(".") && !domain.startsWith(".") && domain.split(".").every(part => part.length >= 2));
+
+    if (!isValidFormat || !isValidDomain || !isWhitelistedDomain) {
+      const isQuestionOrInquiry =
+        rawText.includes("?") ||
+        !rawText.includes("@") ||
+        rawText.split(/\s+/).length > 2;
+
+      if (isQuestionOrInquiry) {
+        const aiAnswer = await generateAiResponse({
+          message: rawText,
+          session,
+        });
+
+        const replyWithEmailPrompt =
+          `${aiAnswer}\n\n` +
+          `Whenever you're ready, *please reply with your Email Address* so our team can officially register your profile and email your full Ireland visa information pack: 📧`;
+
+        await sendTextMessage(cleanPhone, replyWithEmailPrompt);
+        return;
+      }
+
+      const invalidEmailMsg =
+        `⚠️ Please enter a valid email address (e.g. yourname@gmail.com or yourname@yahoo.com) so we can send you the official Ireland visa details.`;
+      await sendTextMessage(cleanPhone, invalidEmailMsg);
+      return;
+    }
+
+    // Save email & create/update lead in CRM
+    const leadId = session.leadId || await ensureLeadExists(db, session, {
+      email: extractedEmail,
+      status: "new-lead",
+    });
+
+    // 1. Instant WhatsApp confirmation message
+    const emailSentNotice = `We have sent an email about the whole process to your email address (**${extractedEmail}**)! Please check your inbox (and spam/junk folder) as well. 📩`;
+    await sendTextMessage(cleanPhone, emailSentNotice);
+
+    const nowTime = new Date();
+    await updateSession(db, cleanPhone, {
+      email: extractedEmail,
+      leadId,
+      currentStep: "AWAITING_CONSULTATION_DECISION",
+      infoEmailSentAt: nowTime,
+      videoSentAt: nowTime,
+      consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
+      nextFollowupAt: getNext10AmInTimezone(session.timeZone),
+      followupCount: 0,
+    });
+
+    // 2. Dispatch info email asynchronously so SMTP does not block the WhatsApp webhook or delay video delivery
+    (async () => {
+      try {
+        const { sendWhatsAppIrelandInfoEmail } = await import("./infoEmail");
+        await sendWhatsAppIrelandInfoEmail({
+          phone: cleanPhone,
+          name: session.name,
+          email: extractedEmail,
+          leadId,
+        });
+      } catch (emailErr) {
+        console.error("[WhatsApp Ireland] Error sending info email in background:", emailErr);
+      }
+    })();
+
+    // 3. Send Step 3 video link after 2 seconds
+    try {
+      await delay(2000);
+      const actualVideoUrl = getVideoIrelandUrl();
+      await sendTimedVideoAndProcessGuide(cleanPhone, extractedEmail, actualVideoUrl);
+    } catch (delayErr) {
+      console.error("[WhatsApp Ireland] Error in video delivery delay:", delayErr);
+    }
+
     return;
   }
 
@@ -1705,10 +1853,11 @@ export async function processIncomingWhatsAppMessage(params: {
     const candEndObj = convertIstSlotToCandidateTime(meetingDate, istEnd, session.timeZone);
     const candStartObj = convertIstSlotToCandidateTime(meetingDate, istStart, session.timeZone);
 
+    const cleanCandTz = extractShortTimezone(session.timeZoneLabel).replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
     const isIndia = session.countryCode === "IN";
     const candidateTimeLabel = isIndia
-      ? `${format12hTime(istStart)} - ${format12hTime(istEnd)} IST`
-      : `${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel})`;
+      ? `${candStartObj.display12h} - ${candEndObj.display12h}`
+      : `${candStartObj.display12h} - ${candEndObj.display12h}${cleanCandTz ? ` (${cleanCandTz})` : ""}`;
     const istTimeLabel = `${format12hTime(istStart)} - ${format12hTime(istEnd)} IST`;
 
     const consultantId = pearlUser ? pearlUser.id : 1;
@@ -1928,44 +2077,6 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
-  // 4. Email Address Detection
-  const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  if (emailMatch) {
-    const extractedEmail = emailMatch[0].toLowerCase();
-
-    await updateSession(db, cleanPhone, {
-      email: extractedEmail,
-      currentStep: "AWAITING_CONSULTATION_DECISION",
-    });
-
-    const leadId = await ensureLeadExists(db, session, { email: extractedEmail });
-
-    // Send Ireland information email pack
-    await sendWhatsAppIrelandInfoEmail({
-      phone: cleanPhone,
-      name: session.name,
-      email: extractedEmail,
-      leadId,
-    });
-
-    await sendTextMessage(
-      cleanPhone,
-      `Thank you! 📩 We have dispatched the **Ireland Work Visa Information Pack** to **${extractedEmail}**.\n\n` +
-      `It includes:\n` +
-      `• 2-stage milestone fees (€300 to start / €700 only after visa approval)\n` +
-      `• 3-Way eligibility check (Critical Skills CSOL & General GEP — min 2 yrs experience)\n` +
-      `• Irish employer sponsorship process & Occupation Lists\n` +
-      `• FREE Interview Preparation & English communication coaching\n` +
-      `• Stamp 4 PR roadmap & CSEP benefits\n` +
-      `• 100% Money-Back Guarantee terms`
-    );
-
-    await delay(1200);
-
-    // Prompt for 1-on-1 consultation
-    await sendConsultationBookingPrompt(cleanPhone);
-    return;
-  }
 
   // 5. Intelligent AI Reasoning
   try {

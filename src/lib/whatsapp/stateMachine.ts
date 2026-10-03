@@ -246,11 +246,11 @@ export async function getOrCreateSession(
         const candSlotEnd = activeSlot.candidateLocalEndTime
           ? { candidateTime: activeSlot.candidateLocalEndTime, display12h: format12hTime(activeSlot.candidateLocalEndTime) }
           : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.endTime, slotTz);
-        const slotTzShort = extractShortTimezone(existing.timeZoneLabel || country.label);
+        const slotTzShort = extractShortTimezone(existing.timeZoneLabel || country.label).replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
         const isIndia = (existing.countryCode || country.countryCode) === "IN";
         const candLabel = isIndia
-          ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`
-          : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+          ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)}`
+          : `${candSlotStart.display12h} - ${candSlotEnd.display12h}${slotTzShort ? ` (${slotTzShort})` : ""}`;
 
         existing.bookedSlot = {
           date: activeSlot.meetingDate,
@@ -308,11 +308,11 @@ export async function getOrCreateSession(
     const candSlotEnd = activeSlot.candidateLocalEndTime
       ? { candidateTime: activeSlot.candidateLocalEndTime, display12h: format12hTime(activeSlot.candidateLocalEndTime) }
       : convertIstSlotToCandidateTime(activeSlot.meetingDate, activeSlot.endTime, country.timeZone);
-    const slotTzShort = extractShortTimezone(country.label);
+    const slotTzShort = extractShortTimezone(country.label).replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
     const isIndia = country.countryCode === "IN";
     const candLabel = isIndia
-      ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)} IST`
-      : `${candSlotStart.display12h} - ${candSlotEnd.display12h} (${slotTzShort})`;
+      ? `${format12hTime(activeSlot.startTime)} - ${format12hTime(activeSlot.endTime)}`
+      : `${candSlotStart.display12h} - ${candSlotEnd.display12h}${slotTzShort ? ` (${slotTzShort})` : ""}`;
 
     initialBookedSlot = {
       date: activeSlot.meetingDate,
@@ -584,30 +584,18 @@ export async function sendConsultationBookingPrompt(phone: string) {
 export async function sendTimedVideoAndProcessGuide(
   phone: string,
   email: string,
-  videoUrl: string,
+  videoUrl?: string,
 ) {
-  // 1. Send the 482 explainer video
-  if (videoUrl) {
-    const isWebOrDriveLink =
-      videoUrl.includes("drive.google.com") ||
-      videoUrl.includes("tmsvisa.com") ||
-      videoUrl.includes("youtu") ||
-      !videoUrl.toLowerCase().endsWith(".mp4");
+  const actualVideoUrl = videoUrl || getVideo482Url();
 
-    if (isWebOrDriveLink) {
-      const videoIntro =
-        `🎥 *Australia Work Visa — Process Guide Video* 🇦🇺\n\n` +
-        `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
-        `▶️ *Watch the Video Here:*\n${videoUrl}\n\n` +
-        `*(Tap the link above to watch the video anytime)*`;
-      await sendTextMessage(phone, videoIntro);
-    } else {
-      await sendVideoMessage(
-        phone,
-        videoUrl,
-        "🇦🇺 Australia Employer Sponsored Work Visa Process Guide by The Migration School",
-      );
-    }
+  // 1. Send the 482 explainer video guide
+  if (actualVideoUrl) {
+    const videoIntro =
+      `🎥 *Australia Work Visa — Process Guide Video* 🇦🇺\n\n` +
+      `Here is our video explaining employer sponsorship requirements, eligible occupations, and relocation pathways:\n\n` +
+      `▶️ *Watch the Video Here:*\n${actualVideoUrl}\n\n` +
+      `*(Tap the link above to watch the video anytime)*`;
+    await sendTextMessage(phone, videoIntro);
   }
 
   // 2. Schedule the consultation booking prompt after 10 minutes (skipping the old long complete process text)
@@ -734,8 +722,7 @@ export async function sendConsultationDateSelection(params: {
     ? allWeekends.filter((w) => w.dayName === filterDay)
     : allWeekends;
 
-  // Always show candidate's local timezone in the date selection description
-  const tzShortLabel = extractShortTimezone(session.timeZoneLabel);
+  const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
 
   const sections = [
     {
@@ -743,7 +730,7 @@ export async function sendConsultationDateSelection(params: {
       rows: weekends.slice(0, 10).map((w) => ({
         id: `DAY_DATE_${w.date}`,
         title: w.displayLabel.slice(0, 24), // e.g. "Sat, 26 Sep"
-        description: `${w.dayName} · 1PM-9PM ${tzShortLabel}`.slice(0, 72),
+        description: `${w.dayName} · ${candWindow.displayWindow}`.slice(0, 72),
       })),
     },
   ];
@@ -766,12 +753,9 @@ export async function sendConsultationDateSelection(params: {
     } else {
       const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
       dayText =
-        `Hello${nameSalutation}! 👋 To book your free 1-on-1 consultation with our Senior Migration Expert, please select your preferred weekend date below:\n\n` +
-        `• **Format:** Dedicated 1-hour Google Meet session with our Senior Migration Expert.\n` +
-        `• **Agenda:** CV review, eligibility check for 691 roles, and custom visa roadmap.\n` +
-        `• **Timings:** Saturdays & Sundays between **${candWindow.displayWindow}** (in 1-hour slots).\n` +
-        `• **Cost:** 100% Free.\n\n` +
-        `Please tap **Select Date** below to choose your date:`;
+        `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n` +
+        `All slots run strictly between ${candWindow.displayWindow} in 1-hour intervals.\n` +
+        `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
     }
   }
 
@@ -977,8 +961,14 @@ export async function processIncomingWhatsAppMessage(params: {
       );
     }
 
-    // If not yet notified that they already exist in CRM, notify them immediately
-    if (!session.existingLeadNotified) {
+    // Only trigger pre-existing lead notification for pre-existing CRM leads who just messaged in WELCOME
+    // Do NOT block leads created by this WhatsApp automation funnel itself!
+    const isSelfAutomationLead =
+      existingLead.id === session.leadId ||
+      existingLead.leadSource === "WhatsApp Ad Automation" ||
+      session.currentStep !== "WELCOME";
+
+    if (!session.existingLeadNotified && !isSelfAutomationLead) {
       const candidateDisplayName =
         session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
           ? session.name
@@ -1531,23 +1521,32 @@ export async function processIncomingWhatsAppMessage(params: {
   if (isCrmCandidate) {
     const candidateDisplayName = getSafeCandidateDisplayName(session.name) || "there";
 
-    // 1. If candidate attempts to book, reschedule, or select slots
-    const triesToBookAgain =
-      actionId === "BTN_CONSULT_YES" ||
+    const isRescheduleAction =
       actionId === "BTN_RESCHEDULE" ||
       actionId === "BTN_RESCHEDULE_MEETING" ||
-      actionId === "BTN_YES_AUSTRALIA" ||
-      actionId === "BTN_EMAIL_CONFIRM" ||
-      actionId.startsWith("DAY_DATE_") ||
-      actionId.startsWith("DAY_SELECT_") ||
-      actionId.startsWith("SLOT_") ||
-      actionId.startsWith("BTN_SLOTS_") ||
-      lowerText === "book" ||
-      lowerText === "book meeting" ||
-      lowerText === "book consultation" ||
-      lowerText === "schedule" ||
-      lowerText === "reschedule" ||
-      (lowerText.includes("meeting") && (lowerText.includes("link") || lowerText.includes("when") || lowerText.includes("time") || lowerText.includes("room")));
+      actionId === "BTN_CHANGE_DAY" ||
+      session.currentStep === "RESCHEDULING_DATE" ||
+      session.currentStep === "RESCHEDULING_SLOT";
+
+    // 1. If candidate attempts to re-book after consultation is already completed (Guard)
+    const isMeetingDone =
+      session.meetingCompleted === true ||
+      session.meetingStatus === "completed" ||
+      session.currentStep === "MEETING_COMPLETED" ||
+      session.crmStatus === "sales" ||
+      session.crmStatus === "payment-pending" ||
+      session.crmStatus === "document-pending";
+
+    const triesToBookAgain =
+      !isRescheduleAction &&
+      (actionId === "BTN_CONSULT_YES" ||
+        actionId === "BTN_YES_AUSTRALIA" ||
+        actionId === "BTN_EMAIL_CONFIRM" ||
+        (!session.bookedSlot && actionId.startsWith("DAY_DATE_")) ||
+        lowerText === "book" ||
+        lowerText === "book meeting" ||
+        lowerText === "book consultation" ||
+        (isMeetingDone && (lowerText === "schedule" || lowerText === "reschedule")));
 
     if (triesToBookAgain) {
       let alreadyDoneMsg = "";
@@ -1584,8 +1583,8 @@ export async function processIncomingWhatsAppMessage(params: {
         alreadyDoneMsg =
           `Hello ${candidateDisplayName}! 👋\n\n` +
           `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-          `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation.\n\n` +
-          `If you have any questions about your Australia Employer Sponsored Work Visa, feel free to reply right here! 🇦🇺`;
+          `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation and agreement.\n\n` +
+          `If you have any questions about your Australia Employer Sponsored Work Visa file or payment, feel free to reply right here! 🇦🇺`;
       }
 
       await sendTextMessage(session.phone, alreadyDoneMsg);
@@ -2162,12 +2161,15 @@ export async function processIncomingWhatsAppMessage(params: {
     await appendMeetingHistory(db, session.phone, historyItem);
 
     // Update session in whatsapp_sessions
+    const nextFollowup = getNext10AmInTimezone(session.timeZone || "Asia/Kolkata");
     await updateSession(db, session.phone, {
       meetingStatus: "canceled",
       meetingCanceledAt: new Date(),
       meetingCancellationReason: cleanText || "Requested by candidate via WhatsApp",
       bookedSlot: undefined,
-      currentStep: "AWAITING_REENGAGEMENT",
+      currentStep: "RESCHEDULING_DATE",
+      followupCount: 0,
+      nextFollowupAt: nextFollowup,
     });
 
     // Update CRM lead
@@ -2392,9 +2394,9 @@ export async function processIncomingWhatsAppMessage(params: {
     }
 
     const welcomeText =
-      `Hello! Welcome to The Migration School (TMS Visa) 🇦🇺\n\n` +
-      `We specialize in employer-sponsored work visas for Australia.\n\n` +
-      `*We have received your enquiry for the Australia Employer Sponsored Work Visa. Tap below to know all the details:*`;
+      `Hello ☺️! Welcome to The Migration School (TMS Visa) 🇦🇺.\n` +
+      `We specialize in employer-sponsored work visas for Australia.\n` +
+      `*We have received your enquiry for Australia Employer Sponsored Work Visa, to know all the details ,choose  Insterested*`;
 
     await sendQuickReplyButtons(session.phone, welcomeText, [
       { id: "BTN_482_YES", title: "Yes, Interested" },
@@ -2474,8 +2476,7 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 3. Candidate clicked YES to 482 -> Request Email
   if (isAffirmative && !isDirectEmail) {
-    const emailPrompt =
-      `Great! *Please reply with your Email Address* so we can send you the complete Australia Work Visa details and the Eligible Occupation List (691 roles): 📧`;
+    const emailPrompt = `Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*`;
 
     const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, session.phone, {
@@ -2487,7 +2488,7 @@ export async function processIncomingWhatsAppMessage(params: {
     return { replyText: emailPrompt, step: "AWAITING_EMAIL" };
   }
 
-  // 4. In AWAITING_EMAIL state (or direct email shared) -> Validate Email, Send Info Email, Wait 10s -> Send Video, Schedule 10m Prompt
+  // 4. In AWAITING_EMAIL state (or direct email shared) -> Validate Email, Send Info Email, Wait 2s -> Send Video, Schedule 10m Prompt
   if (session.currentStep === "AWAITING_EMAIL" || (isDirectEmail && session.currentStep !== "BOOKED")) {
     const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     const extractedEmail = emailMatch ? emailMatch[0].toLowerCase() : cleanText.trim().toLowerCase();
@@ -2545,25 +2546,8 @@ export async function processIncomingWhatsAppMessage(params: {
     };
     const leadId = await syncCrmLead(db, updatedSession, "new-lead");
 
-    // 1. Dispatch info email from info@tmsvisa.com
-    let emailSentSuccessfully = false;
-    try {
-      const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
-      const emailRes = await sendWhatsAppInfoEmail({
-        phone: session.phone,
-        name: session.name,
-        email: extractedEmail,
-        leadId,
-      });
-      emailSentSuccessfully = emailRes.success === true;
-    } catch (emailErr) {
-      console.error("[WhatsApp] Error sending info email:", emailErr);
-    }
-
-    // 2. Immediate WhatsApp message confirming email was sent
-    const emailSentNotice = emailSentSuccessfully
-      ? `We have sent an email about the whole process to your email address (**${extractedEmail}**)! Please check your inbox (and spam/junk folder) as well. 📩`
-      : `We registered your email address (**${extractedEmail}**). Our team is dispatching your visa roadmap now — please check your inbox and spam folder shortly! 📩`;
+    // 1. Instant WhatsApp confirmation message
+    const emailSentNotice = `We have sent an email about the whole process to your email address (**${extractedEmail}**)! Please check your inbox (and spam/junk folder) as well. 📩`;
     await sendTextMessage(session.phone, emailSentNotice);
 
     const now = new Date();
@@ -2571,17 +2555,33 @@ export async function processIncomingWhatsAppMessage(params: {
       email: extractedEmail,
       leadId,
       currentStep: "AWAITING_CONSULTATION_DECISION",
-      ...(emailSentSuccessfully ? { infoEmailSentAt: now } : {}),
+      infoEmailSentAt: now,
       videoSentAt: now,
       consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
       nextFollowupAt: getNext10AmInTimezone(session.timeZone),
       followupCount: 0,
     });
 
-    // 3. Send Step 3 video link after 2 seconds so candidate receives email confirmation notice first
+    // 2. Dispatch info email asynchronously so SMTP does not block the WhatsApp webhook or delay video delivery
+    (async () => {
+      try {
+        const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
+        await sendWhatsAppInfoEmail({
+          phone: session.phone,
+          name: session.name,
+          email: extractedEmail,
+          leadId,
+        });
+      } catch (emailErr) {
+        console.error("[WhatsApp] Error sending info email in background:", emailErr);
+      }
+    })();
+
+    // 3. Send Step 3 video link after 2 seconds
     try {
       await delay(2000);
-      await sendTimedVideoAndProcessGuide(session.phone, extractedEmail, videoUrl);
+      const actualVideoUrl = videoUrl || getVideo482Url();
+      await sendTimedVideoAndProcessGuide(session.phone, extractedEmail, actualVideoUrl);
     } catch (delayErr) {
       console.error("[WhatsApp] Error in video delivery delay:", delayErr);
     }
@@ -3144,9 +3144,10 @@ export async function processIncomingWhatsAppMessage(params: {
 
     // 5. Update session in whatsapp_sessions
     const ist12hRange = `${format12hTime(istStart)} - ${format12hTime(istEnd)} IST`;
+    const candTz = extractShortTimezone(session.timeZoneLabel).replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
     const candidateTimeFormatted = session.countryCode === "IN"
-      ? ist12hRange
-      : `${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel})`;
+      ? `${candStartObj.display12h} - ${candEndObj.display12h}`
+      : `${candStartObj.display12h} - ${candEndObj.display12h}${candTz ? ` (${candTz})` : ""}`;
 
     const historyItem: MeetingHistoryItem = {
       action: isReschedule ? "rescheduled" : "booked",
@@ -3199,7 +3200,6 @@ export async function processIncomingWhatsAppMessage(params: {
       `⏰ *New Time:* ${timeDisplay}\n` +
       `💻 *Google Meet:* ${meetLink}\n\n` +
       `Please make sure to *join the meeting on time*.\n\n` +
-      `We look forward to speaking with you.\n\n` +
       `*Best regards,*\n` +
       `*TMS Visa*`
       : `Dear ${candidateDisplayName},\n\n` +

@@ -276,9 +276,12 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
         if ((session as any)[reminderSentKey]) continue;
 
         const candTimeDisplay = format12hTime(session.bookedSlot.candidateTime);
+        const rawTz = session.timeZoneLabel || "";
+        const cleanTz = rawTz.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+        const candTzSuffix = cleanTz ? ` (${cleanTz})` : "";
         const reminderText =
           `⏰ **Ireland Consultation Reminder**\n\n` +
-          `Your 1-on-1 consultation with our **Senior Ireland Migration Expert** starts in **1 hour** at **${candTimeDisplay}** (${session.timeZoneLabel})!\n\n` +
+          `Your 1-on-1 consultation with our **Senior Ireland Migration Expert** starts in **1 hour** at **${candTimeDisplay}**${candTzSuffix}!\n\n` +
           `🔗 **Google Meet Link:** ${meetLink}\n\n` +
           `Please ensure you have a stable internet connection and quiet environment. See you soon! 🇮🇪`;
 

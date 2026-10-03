@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { verifyToken } from "@/lib/auth";
 import { sendTextMessage } from "@/lib/whatsapp/client";
 import { logWhatsAppMessage } from "@/lib/whatsapp/messageLogger";
+import { findMatchingCrmLead } from "@/lib/whatsapp/leadLookup";
 
 /**
  * GET /api/whatsapp/conversations/[phone]/messages
@@ -195,14 +196,8 @@ export async function GET(
       { $set: { unreadCount: 0, lastReadAt: new Date() } }
     );
 
-    // 5. Check if candidate exists in CRM Leads
-    const lead = await db.collection("leads").findOne({
-      $or: [
-        { phone: cleanPhone },
-        { phone: `+${cleanPhone}` },
-        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
-      ],
-    });
+    // 5. Check if candidate exists in CRM Leads using robust multi-field lookup
+    const lead = await findMatchingCrmLead(db, cleanPhone, session, "whatsapp_sessions");
 
     // Also check incoming logs for contact profile name from WhatsApp
     const incomingLog = await db.collection("whatsapp_incoming_logs").findOne({
@@ -216,12 +211,20 @@ export async function GET(
       incomingLog?.senderName ||
       "Candidate";
 
-    // Self-heal session name in DB if resolved
+    // Self-heal session name and leadId in DB if resolved
+    const sessionUpdates: Record<string, any> = {};
     if (candidateResolvedName !== "Candidate" && (!session?.name || session.name === "Candidate" || session.name.toLowerCase().includes("test"))) {
+      sessionUpdates.name = candidateResolvedName;
+    }
+    const resolvedLeadId = lead?.id || session?.leadId;
+    if (resolvedLeadId && session?.leadId !== resolvedLeadId) {
+      sessionUpdates.leadId = resolvedLeadId;
+    }
+    if (Object.keys(sessionUpdates).length > 0) {
       await db.collection("whatsapp_sessions").updateOne(
         { phone: cleanPhone },
-        { $set: { name: candidateResolvedName, leadId: lead?.id || session?.leadId || undefined } }
-      );
+        { $set: sessionUpdates }
+      ).catch(() => {});
     }
 
     return NextResponse.json({
@@ -377,13 +380,8 @@ export async function POST(
     });
 
     // 4. Update CRM lead timeline if lead exists
-    const lead = await db.collection("leads").findOne({
-      $or: [
-        { phone: cleanPhone },
-        { phone: `+${cleanPhone}` },
-        { phone: { $regex: `${cleanPhone.slice(-10)}$` } },
-      ],
-    });
+    const session = await db.collection("whatsapp_sessions").findOne({ phone: cleanPhone });
+    const lead = await findMatchingCrmLead(db, cleanPhone, session, "whatsapp_sessions");
 
     if (lead) {
       await db.collection("leads").updateOne(

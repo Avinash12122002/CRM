@@ -6,10 +6,10 @@ import { CountryTimezoneInfo } from "./types";
  */
 export const COUNTRY_TIMEZONE_MAP: CountryTimezoneInfo[] = [
   // --- South Asia ---
-  { countryCode: "IN", countryName: "India", dialCode: "91", timeZone: "Asia/Kolkata", label: "India Time (IST)" },
+  { countryCode: "IN", countryName: "India", dialCode: "91", timeZone: "Asia/Kolkata", label: "India Time" },
   { countryCode: "PK", countryName: "Pakistan", dialCode: "92", timeZone: "Asia/Karachi", label: "Pakistan Time (PKT)" },
   { countryCode: "BD", countryName: "Bangladesh", dialCode: "880", timeZone: "Asia/Dhaka", label: "Bangladesh Time (BST)" },
-  { countryCode: "LK", countryName: "Sri Lanka", dialCode: "94", timeZone: "Asia/Colombo", label: "Sri Lanka Time (IST)" },
+  { countryCode: "LK", countryName: "Sri Lanka", dialCode: "94", timeZone: "Asia/Colombo", label: "Sri Lanka Time" },
   { countryCode: "NP", countryName: "Nepal", dialCode: "977", timeZone: "Asia/Kathmandu", label: "Nepal Time (NPT)" },
   { countryCode: "BT", countryName: "Bhutan", dialCode: "975", timeZone: "Asia/Thimphu", label: "Bhutan Time (BTT)" },
   { countryCode: "MV", countryName: "Maldives", dialCode: "960", timeZone: "Indian/Maldives", label: "Maldives Time (MVT)" },
@@ -27,7 +27,7 @@ export const COUNTRY_TIMEZONE_MAP: CountryTimezoneInfo[] = [
   { countryCode: "IQ", countryName: "Iraq", dialCode: "964", timeZone: "Asia/Baghdad", label: "Iraq Time (AST)" },
   { countryCode: "YE", countryName: "Yemen", dialCode: "967", timeZone: "Asia/Aden", label: "Yemen Time (AST)" },
   { countryCode: "TR", countryName: "Turkey", dialCode: "90", timeZone: "Europe/Istanbul", label: "Turkey Time (TRT)" },
-  { countryCode: "IL", countryName: "Israel", dialCode: "972", timeZone: "Asia/Jerusalem", label: "Israel Time (IST/IDT)" },
+  { countryCode: "IL", countryName: "Israel", dialCode: "972", timeZone: "Asia/Jerusalem", label: "Israel Time (IDT)" },
   { countryCode: "IR", countryName: "Iran", dialCode: "98", timeZone: "Asia/Tehran", label: "Iran Time (IRST)" },
 
   // --- Africa ---
@@ -107,7 +107,7 @@ export const COUNTRY_TIMEZONE_MAP: CountryTimezoneInfo[] = [
 
   // --- Europe ---
   { countryCode: "GB", countryName: "United Kingdom", dialCode: "44", timeZone: "Europe/London", label: "UK Time (GMT/BST)" },
-  { countryCode: "IE", countryName: "Ireland", dialCode: "353", timeZone: "Europe/Dublin", label: "Ireland Time (IST/GMT)" },
+  { countryCode: "IE", countryName: "Ireland", dialCode: "353", timeZone: "Europe/Dublin", label: "Ireland Time (GMT)" },
   { countryCode: "DE", countryName: "Germany", dialCode: "49", timeZone: "Europe/Berlin", label: "Germany Time (CET/CEST)" },
   { countryCode: "FR", countryName: "France", dialCode: "33", timeZone: "Europe/Paris", label: "France Time (CET/CEST)" },
   { countryCode: "IT", countryName: "Italy", dialCode: "39", timeZone: "Europe/Rome", label: "Italy Time (CET/CEST)" },
@@ -194,7 +194,7 @@ export const DEFAULT_TIMEZONE: CountryTimezoneInfo = {
   countryName: "India",
   dialCode: "91",
   timeZone: "Asia/Kolkata",
-  label: "India Time (IST)",
+  label: "India Time",
 };
 
 /**
@@ -333,7 +333,7 @@ export function format12hTime(time24: string): string {
 }
 
 /**
- * Extracts short timezone code like "WAT", "GST", "IST", "EAT", "GMT" from label e.g. "Nigeria Time (WAT)"
+ * Extracts short timezone code like "WAT", "GST", "EAT", "GMT" from label e.g. "Nigeria Time (WAT)"
  */
 export function extractShortTimezone(label: string): string {
   if (!label) return "Local Time";
@@ -341,9 +341,18 @@ export function extractShortTimezone(label: string): string {
   if (match) {
     const inside = match[1];
     if (inside.includes("/")) {
-      return inside.split("/")[0].trim();
+      const parts = inside.split("/").map((p) => p.trim());
+      const nonIst = parts.find((p) => p.toUpperCase() !== "IST");
+      if (nonIst) return nonIst;
+      return parts[0];
+    }
+    if (inside.toUpperCase() === "IST") {
+      return "India Time";
     }
     return inside.trim();
+  }
+  if (label.toUpperCase().includes("INDIA")) {
+    return "India Time";
   }
   return label;
 }
@@ -371,8 +380,8 @@ export function getCandidateConsultationWindow(
     return {
       start12h: "01:00 PM",
       end12h: "09:00 PM",
-      tzShort: "IST",
-      displayWindow: "01:00 PM – 09:00 PM IST",
+      tzShort: "India Time",
+      displayWindow: "01:00 PM – 09:00 PM (India Time)",
     };
   }
 

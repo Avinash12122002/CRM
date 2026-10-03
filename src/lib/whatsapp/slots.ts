@@ -234,15 +234,17 @@ export function formatSlotsOverview(params: {
 
   let text = `📅 *All Available Consultation Slots for ${dayLabel}*\n`;
 
-  const tzShort = extractShortTimezone(candidateTimeZoneLabel);
+  const rawTzShort = extractShortTimezone(candidateTimeZoneLabel);
+  const tzShort = rawTzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+  const tzSuffix = tzShort ? ` ${tzShort}` : "";
 
   // Always show candidate's local time range in header
   if (slots.length > 0) {
     const firstLocal = slots[0].candidateDisplayLabel.split(" - ")[0].trim();
     const lastPart = slots[slots.length - 1].candidateDisplayLabel.split(" - ")[1].split(" (")[0].trim();
-    text += `(1-hour 1-on-1 sessions between ${firstLocal} - ${lastPart} ${tzShort})\n\n`;
+    text += `(1-hour 1-on-1 sessions between ${firstLocal} - ${lastPart}${tzSuffix})\n\n`;
   } else {
-    text += `(1-hour 1-on-1 sessions in your local time — ${tzShort})\n\n`;
+    text += `(1-hour 1-on-1 sessions in your local time${tzSuffix ? ` — ${tzShort}` : ""})\n\n`;
   }
 
   // Always show slots in candidate's local timezone (India candidates see IST which is their local time)

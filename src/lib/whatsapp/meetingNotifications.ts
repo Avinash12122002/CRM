@@ -22,11 +22,8 @@ export async function sendMeetingCompletedNotification(params: {
   const cleanPhone = String(lead.phone).replace(/[^\d]/g, "").replace(/^00/, "");
   if (cleanPhone.length < 8) return;
 
-  const candidateName = getSafeCandidateDisplayName(lead.name);
-  const nameSalutation = candidateName ? `Hi ${candidateName}! ` : "";
-
   const messageText =
-    `${nameSalutation}Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Australian Employers! 🇦🇺\n\n` +
+    `Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Australian Employers! 🇦🇺\n\n` +
     `Please send your CV / Resume here in PDF or Word document format. 📄`;
 
   try {

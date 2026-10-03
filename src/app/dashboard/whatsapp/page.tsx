@@ -29,6 +29,7 @@ import {
   Pencil,
   Check,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -48,6 +49,7 @@ interface ConversationItem {
   bookedSlot?: {
     date: string;
     candidateTimeLabel?: string;
+    istTime?: string;
     istTimeLabel?: string;
     meetingUserName?: string;
   } | null;
@@ -153,6 +155,31 @@ export default function WhatsAppChatPage() {
       toast.error("Network error updating candidate name");
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const [creatingLead, setCreatingLead] = useState(false);
+
+  const handleCreateOrLinkLead = async () => {
+    if (!selectedPhone || creatingLead) return;
+    setCreatingLead(true);
+    try {
+      const res = await fetch(`/api/whatsapp/conversations/${selectedPhone}/sync-lead`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok && data.lead) {
+        setLead(data.lead);
+        toast.success(`CRM Lead #${data.lead.id} linked!`);
+        fetchConversations(true);
+      } else {
+        toast.error(data.error || "Failed to link CRM lead");
+      }
+    } catch (err) {
+      console.error("Failed to sync/create CRM lead:", err);
+      toast.error("Failed to create CRM lead");
+    } finally {
+      setCreatingLead(false);
     }
   };
 
@@ -1261,20 +1288,25 @@ export default function WhatsAppChatPage() {
             {selectedConv.bookedSlot && (
               <div className="space-y-1">
                 <h4 className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-                  Confirmed Consultation
+                  Confirmed Consultation (Indian Time)
                 </h4>
                 <div className="p-2.5 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-500/30 space-y-1 text-[11px]">
                   <div className="flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-300">
                     <Calendar className="w-3 h-3" />
                     <span>{selectedConv.bookedSlot.date}</span>
                   </div>
-                  <div className="text-[10px] text-zinc-600 dark:text-zinc-400 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                  <div className="text-[11px] font-bold text-emerald-800 dark:text-emerald-200 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-emerald-600" />
                     <span>
-                      {selectedConv.bookedSlot.candidateTimeLabel ||
-                        selectedConv.bookedSlot.istTimeLabel}
+                      {selectedConv.bookedSlot.istTimeLabel ||
+                        (selectedConv.bookedSlot.istTime ? `${selectedConv.bookedSlot.istTime} IST` : "Indian Time")}
                     </span>
                   </div>
+                  {selectedConv.bookedSlot.candidateTimeLabel && (
+                    <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      Candidate Local: {selectedConv.bookedSlot.candidateTimeLabel}
+                    </div>
+                  )}
                   {selectedConv.bookedSlot.meetingUserName && (
                     <div className="text-[10px] text-zinc-500">
                       Host: {selectedConv.bookedSlot.meetingUserName}
@@ -1285,30 +1317,69 @@ export default function WhatsAppChatPage() {
             )}
 
             {/* CRM Lead Link */}
-            {lead && (
-              <div className="p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-500/30 space-y-1.5 text-xs">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs text-blue-700 dark:text-blue-300">
-                    CRM Lead #{lead.id}
-                  </span>
-                  <span className="text-[9px] font-semibold uppercase px-1 py-0.2 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
-                    {lead.status}
-                  </span>
-                </div>
-                {lead.assignedToName && (
-                  <div className="text-[10px] text-zinc-500">
-                    Assigned: {lead.assignedToName}
+            {(() => {
+              const effectiveLeadId = lead?.id || session?.leadId || selectedConv.leadId;
+              if (effectiveLeadId) {
+                return (
+                  <div className="p-2.5 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 border border-blue-500/30 space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-blue-700 dark:text-blue-300">
+                        CRM Lead #{effectiveLeadId}
+                      </span>
+                      <span className="text-[9px] font-semibold uppercase px-1 py-0.2 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                        {lead?.status || "LINKED"}
+                      </span>
+                    </div>
+                    {lead?.assignedToName && (
+                      <div className="text-[10px] text-zinc-500">
+                        Assigned: {lead.assignedToName}
+                      </div>
+                    )}
+                    <Link
+                      href={`/dashboard/leads/${effectiveLeadId}`}
+                      target="_blank"
+                      className="block text-center py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] transition shadow-xs"
+                    >
+                      View Full Lead Profile
+                    </Link>
                   </div>
-                )}
-                <Link
-                  href={`/dashboard/leads/${lead.id}`}
-                  target="_blank"
-                  className="block text-center py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] transition"
-                >
-                  View Full Lead Profile
-                </Link>
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div className="p-2.5 rounded-lg bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200/60 dark:border-zinc-800 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-xs text-zinc-500 dark:text-zinc-400">
+                      CRM Lead Profile
+                    </span>
+                    <span className="text-[9px] font-semibold uppercase px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300/40">
+                      Not Linked
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    No CRM lead linked to this conversation yet.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCreateOrLinkLead}
+                    disabled={creatingLead}
+                    className="w-full text-center py-1.5 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium text-[11px] transition flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {creatingLead ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Linking Lead...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Create CRM Lead Profile</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
