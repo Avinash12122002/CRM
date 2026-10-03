@@ -231,6 +231,7 @@ export async function getOrCreateSession(
       const last10 = cleanPhone.slice(-10);
       const activeSlot = await db.collection("meetingSlots").findOne({
         status: "scheduled",
+        channel: { $ne: "WhatsApp Ireland" },
         $or: [
           { phone: cleanPhone },
           { phone: `+${cleanPhone}` },
@@ -290,6 +291,7 @@ export async function getOrCreateSession(
   const existingLead = await db.collection("leads").findOne({ $or: phoneQueries });
   const activeSlot = await db.collection("meetingSlots").findOne({
     status: "scheduled",
+    channel: { $ne: "WhatsApp Ireland" },
     $or: phoneQueries,
   });
 
@@ -2918,20 +2920,28 @@ export async function processIncomingWhatsAppMessage(params: {
     const meetingDate = parts[1];
     const istStart = parts[2];
     const candidateStart = parts[3];
+    const istHour = parseInt(istStart.split(":")[0], 10);
+    const istEnd = `${String(istHour + 1).padStart(2, "0")}:00`;
 
     // Double-booking check: Ensure slot is not already locked/booked by someone else!
     const existingSlot = await db.collection("meetingSlots").findOne({
       meetingDate,
-      startTime: istStart,
+      channel: { $ne: "WhatsApp Ireland" },
       status: { $in: ["scheduled", "completed"] },
+      $or: [
+        { startTime: istStart },
+        {
+          startTime: { $lt: istEnd },
+          endTime: { $gt: istStart },
+        },
+      ],
     });
 
-    const isSameCandidateSameChannel =
+    const isSameCandidate =
       existingSlot &&
-      existingSlot.phone === session.phone &&
-      existingSlot.channel !== "WhatsApp Ireland";
+      existingSlot.phone === session.phone;
 
-    if (existingSlot && !isSameCandidateSameChannel) {
+    if (existingSlot && !isSameCandidate) {
       console.log(`[WhatsApp] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone} (${existingSlot.channel || "WhatsApp"})`);
 
       // Re-query available slots for this date
@@ -2999,11 +3009,7 @@ export async function processIncomingWhatsAppMessage(params: {
       }
     }
 
-    // Compute 1-hour end times (e.g. 11:00 -> 12:00, 18:00 -> 19:00)
-    const [h, m] = istStart.split(":").map(Number);
-    const endH = h + 1;
-    const endM = m;
-    const istEnd = `${String(endH).padStart(2, "0")}:${String(endM).padStart(2, "0")}`;
+    // Compute 1-hour end times
     const candStartObj = convertIstSlotToCandidateTime(
       meetingDate,
       istStart,

@@ -10,7 +10,7 @@ IDENTITY & REGISTERED OFFICES:
 - Counselor AI Persona: "Aria", Senior Registered Migration Counselor for Ireland at The Migration School.
 - Official Email: info@tmsvisa.com | Compliance: compliance@tmsvisa.com | Recruitment: recruitment@tmsvisa.com
 - Website: www.tmsvisa.com
-- Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Ireland Migration Expert on Saturdays & Sundays scheduled strictly in candidate's local country timezone.
+- Free Consultations: Dedicated 1-on-1 Google Meet session with our Senior Ireland Migration Expert on Monday to Friday (weekdays) scheduled strictly in candidate's local country timezone.
 - Meeting Link Rule: The Google Meet invitation link is only issued to candidates after their consultation slot is officially booked. Never send the meeting link to a candidate who has not booked a meeting.
 - Official Explainer Video Link: https://tmsvisa.com/ireland-work-visa-process
 
@@ -48,7 +48,7 @@ FINANCIAL BREAKDOWN & 2-STAGE MILESTONE FEES:
   * Milestone 1 (Start): €300 upon signing agreement. Covers:
     – Dedicated TMS Recruitment Case Manager from Day 1
     – European/Irish-standard professional CV makeover
-    – Free weekly English communication coaching (from first weekend — to impress employers, NOT a visa requirement)
+    – Free weekly English communication coaching (from first week — to impress employers, NOT a visa requirement)
     – Free Interview Preparation coaching
     – Booking your interviews with Irish employers
     – End-to-end guidance from agreement signing to visa approval and flight tickets
@@ -61,7 +61,7 @@ CHRONOLOGICAL PROCESS (3-5 MONTHS TOTAL):
    - Sign the 1-Year Professional Services Agreement.
    - Dedicated TMS Case Manager assigned from Day 1.
    - European/Irish-standard professional CV prepared from your basic CV.
-   - Free weekly English communication coaching begins from the very first weekend — to help candidates communicate confidently and impress Irish employers during interviews (no PTE or IELTS score required).
+   - Free weekly English communication coaching begins from the very first week — to help candidates communicate confidently and impress Irish employers during interviews (no PTE or IELTS score required).
    - Free Interview Preparation coaching begins immediately.
 3. Employer Placement & Interviews:
    - TMS presents your profile directly to approved Irish employers actively hiring.
@@ -82,7 +82,7 @@ CHRONOLOGICAL PROCESS (3-5 MONTHS TOTAL):
 
 ENGLISH LANGUAGE — IRELAND VISA REQUIREMENTS:
 - Ireland Employer Sponsored Work Visa does NOT require a PTE or IELTS score. There is NO English language test required for this visa.
-- Free Weekly English Communication Classes: TMS provides FREE weekly English communication coaching sessions from the very first weekend after enrollment — purely to help candidates impress employers during interviews and stand out as confident communicators.
+- Free Weekly English Communication Classes: TMS provides FREE weekly English communication coaching sessions from the very first week after enrollment — purely to help candidates impress employers during interviews and stand out as confident communicators.
 - This is a value-added benefit, not a visa requirement. No test, no score, no exam needed.
 
 CRITICAL DATA & ADMIN POLICIES:
@@ -174,7 +174,7 @@ export const FAQ_FALLBACKS: Array<{ keywords: string[]; answer: string }> = [
       `*English for Ireland Work Visa:*\n\n` +
       `• The Ireland Employer Sponsored Work Visa does **NOT** require a PTE or IELTS score! 🎉\n` +
       `• No English test, no exam score needed at any stage of the visa process.\n` +
-      `• TMS provides **FREE weekly English communication coaching** from your very first weekend — purely to help you communicate confidently and impress Irish employers during interviews.\n` +
+      `• TMS provides **FREE weekly English communication coaching** from your very first week — purely to help you communicate confidently and impress Irish employers during interviews.\n` +
       `• It's a value-added benefit, not a requirement. 🇮🇪`,
   },
   {

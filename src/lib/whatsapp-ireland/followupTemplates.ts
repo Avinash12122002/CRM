@@ -24,7 +24,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 2,
       message:
         `Did you know? Under the Ireland Employer Sponsored Work Visa, your sponsoring Irish employer covers your €1,000 Work Permit fee + €60 Visa Processing fee + flight tickets! 💼✈️\n\n` +
-        `And TMS provides FREE Interview Preparation & English communication coaching from your very first weekend.\n\n` +
+        `And TMS provides FREE Interview Preparation & English communication coaching from your very first week.\n\n` +
         `Don't miss this opportunity to advance your international career in Europe:`,
       buttons: [
         { id: "BTN_IRELAND_YES", title: "Yes, Interested" },

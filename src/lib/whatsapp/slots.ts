@@ -108,14 +108,15 @@ export async function getAvailableWeekendSlots(params: {
 }): Promise<WeekendSlot[]> {
   const { db, meetingDate, candidateTimeZone, candidateTimeLabel } = params;
 
-  // 1. Fetch already booked slots for this date
+  // 1. Fetch already booked slots for this date (excluding Ireland meetings)
   const bookedSlots = await db
     .collection("meetingSlots")
     .find({
       meetingDate,
+      channel: { $ne: "WhatsApp Ireland" },
       status: { $in: ["scheduled", "completed"] },
     })
-    .project({ _id: 0, startTime: 1 })
+    .project({ _id: 0, startTime: 1, endTime: 1 })
     .toArray();
 
   const bookedWhatsAppSessions = await db
@@ -127,20 +128,10 @@ export async function getAvailableWeekendSlots(params: {
     .project({ _id: 0, "bookedSlot.istTime": 1 })
     .toArray();
 
-  const bookedIrelandSessions = await db
-    .collection("whatsapp_ireland_sessions")
-    .find({
-      "bookedSlot.date": meetingDate,
-      meetingStatus: { $in: ["booked", "rescheduled"] },
-    })
-    .project({ _id: 0, "bookedSlot.istTime": 1 })
-    .toArray();
-
-  const bookedTimes = new Set([
-    ...bookedSlots.map((s) => s.startTime),
-    ...bookedWhatsAppSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean),
-    ...bookedIrelandSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean),
-  ]);
+  const bookedSessionTimes = new Set(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bookedWhatsAppSessions.map((s: any) => s.bookedSlot?.istTime).filter(Boolean)
+  );
 
   // Current time in IST to filter out past slots if booking for today
   const now = new Date();
@@ -173,10 +164,18 @@ export async function getAvailableWeekendSlots(params: {
 
     const slotDateTime = new Date(`${meetingDate}T${istStart}:00+05:30`);
     const isPastSlot = slotDateTime.getTime() <= now.getTime();
-    const isBooked = bookedTimes.has(istStart);
+
+    // Check overlap with any booked meeting in meetingSlots or sessions
+    const isOverlapping =
+      bookedSessionTimes.has(istStart) ||
+      bookedSlots.some((b) => {
+        const bStart = b.startTime;
+        const bEnd = b.endTime || b.startTime;
+        return istStart < bEnd && istEnd > bStart;
+      });
 
     // If slot is booked or in the past, DO NOT SHOW IT!
-    if (!isBooked && !isPastSlot) {
+    if (!isOverlapping && !isPastSlot) {
       // Convert start and end times to candidate's local timezone
       const candStart = convertIstSlotToCandidateTime(
         meetingDate,

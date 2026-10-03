@@ -228,6 +228,7 @@ export async function getOrCreateSession(
       const last10 = cleanPhone.slice(-10);
       const activeSlot = await db.collection("meetingSlots").findOne({
         status: "scheduled",
+        channel: "WhatsApp Ireland",
         $or: [
           { phone: cleanPhone },
           { phone: `+${cleanPhone}` },
@@ -308,6 +309,7 @@ export async function getOrCreateSession(
   // Check if an active meeting slot exists for this phone number
   const activeSlotNew = await db.collection("meetingSlots").findOne({
     status: "scheduled",
+    channel: "WhatsApp Ireland",
     $or: [
       { phone: cleanPhone },
       { phone: `+${cleanPhone}` },
@@ -1533,9 +1535,16 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
-  // 2. Date Selection (SELECT_DAY_YYYY-MM-DD or RESCHEDULE_DAY_YYYY-MM-DD)
-  if (cleanActionId.startsWith("SELECT_DAY_") || cleanActionId.startsWith("RESCHEDULE_DAY_")) {
-    const dateStr = cleanActionId.replace("SELECT_DAY_", "").replace("RESCHEDULE_DAY_", "");
+  // 2. Date Selection (SELECT_DAY_YYYY-MM-DD or RESCHEDULE_DAY_YYYY-MM-DD or DAY_DATE_YYYY-MM-DD)
+  if (
+    cleanActionId.startsWith("SELECT_DAY_") ||
+    cleanActionId.startsWith("RESCHEDULE_DAY_") ||
+    cleanActionId.startsWith("DAY_DATE_")
+  ) {
+    const dateStr = cleanActionId
+      .replace("SELECT_DAY_", "")
+      .replace("RESCHEDULE_DAY_", "")
+      .replace("DAY_DATE_", "");
     const availableSlots = await getAvailableWeekdaySlots({
       db,
       meetingDate: dateStr,
@@ -1584,23 +1593,35 @@ export async function processIncomingWhatsAppMessage(params: {
     const istHour = parseInt(istStart.split(":")[0], 10);
     const istEnd = `${String(istHour + 1).padStart(2, "0")}:00`;
 
-    // Double-booking collision check against meetingSlots (checks full 1-hour interval overlap)
+    const pearlUser = await db.collection("users").findOne({
+      username: { $regex: /^pearl$/i },
+    });
+    const matchPearlIds = pearlUser ? [pearlUser.id, String(pearlUser.id)] : [];
+
+    // Double-booking collision check against meetingSlots (checks full 1-hour interval overlap for Ireland/Pearl)
     const existingSlot = await db.collection("meetingSlots").findOne({
       meetingDate,
       status: { $in: ["scheduled", "completed"] },
       $or: [
-        { startTime: istStart },
+        { channel: "WhatsApp Ireland" },
+        ...(matchPearlIds.length > 0 ? [{ meetingUserId: { $in: matchPearlIds } }] : []),
+      ],
+      $and: [
         {
-          startTime: { $lt: istEnd },
-          endTime: { $gt: istStart },
+          $or: [
+            { startTime: istStart },
+            {
+              startTime: { $lt: istEnd },
+              endTime: { $gt: istStart },
+            },
+          ],
         },
       ],
     });
 
     const isSameCandidateSameChannel =
       existingSlot &&
-      existingSlot.phone === session.phone &&
-      existingSlot.channel === "WhatsApp Ireland";
+      existingSlot.phone === session.phone;
 
     if (existingSlot && !isSameCandidateSameChannel) {
       console.log(`[WhatsApp Ireland] Collision: slot ${meetingDate} ${istStart} is already booked by ${existingSlot.phone} (${existingSlot.channel || "WhatsApp"})`);
@@ -1678,10 +1699,6 @@ export async function processIncomingWhatsAppMessage(params: {
       : `${candStartObj.display12h} - ${candEndObj.display12h} (${session.timeZoneLabel})`;
     const istTimeLabel = `${format12hTime(istStart)} - ${format12hTime(istEnd)} IST`;
 
-    // Look up Pearl (WM role) as the Ireland consultation meeting user
-    const pearlUser = await db.collection("users").findOne({
-      username: { $regex: /^pearl$/i },
-    });
     const consultantId = pearlUser ? pearlUser.id : 1;
     const consultantName = pearlUser ? pearlUser.name : "Pearl";
 

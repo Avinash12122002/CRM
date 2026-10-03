@@ -282,6 +282,7 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
       .collection("meetingSlots")
       .find({
         meetingDate: todayISO,
+        channel: { $ne: "WhatsApp Ireland" },
         status: "scheduled",
         reminderSent: { $ne: true },
       })

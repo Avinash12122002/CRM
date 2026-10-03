@@ -39,9 +39,9 @@ function sanitizeTimezoneForCandidate(text: string, session: WhatsAppSession): s
   const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
 
   return text
-    .replace(/(?:1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*IST(?:\s*\([^)]*local time[^)]*\))?/gi, candWindow.displayWindow)
-    .replace(/(?:1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*\([^)]*local time[^)]*\)/gi, candWindow.displayWindow)
-    .replace(/\b1\s*[-–]\s*9\s*PM\s*IST\b/gi, candWindow.displayWindow)
+    .replace(/(?:12\s*[-–]\s*8\s*PM|12:00\s*PM\s*[-–]\s*08:00\s*PM|1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*IST(?:\s*\([^)]*local time[^)]*\))?/gi, candWindow.displayWindow)
+    .replace(/(?:12\s*[-–]\s*8\s*PM|12:00\s*PM\s*[-–]\s*08:00\s*PM|1\s*[-–]\s*9\s*PM|01:00\s*PM\s*[-–]\s*09:00\s*PM)\s*\([^)]*local time[^)]*\)/gi, candWindow.displayWindow)
+    .replace(/\b(?:12\s*[-–]\s*8\s*PM|1\s*[-–]\s*9\s*PM)\s*IST\b/gi, candWindow.displayWindow)
     .replace(/\bIST\b/g, candWindow.tzShort);
 }
 
@@ -221,7 +221,7 @@ FINANCIAL OVERVIEW FOR IRELAND (ACCURATE):
   * Milestone 1: €300 upon agreement signing. Covers:
     – Dedicated TMS Recruitment Case Manager from Day 1
     – European/Irish-standard professional CV makeover
-    – Free weekly English communication coaching (from first weekend — to impress employers, NOT a visa requirement)
+    – Free weekly English communication coaching (from first week — to impress employers, NOT a visa requirement)
     – Free Interview Preparation coaching
     – Booking interviews with Irish employers on candidate's behalf
   * Milestone 2: €700 paid ONLY after visa approval AND flight tickets are in hand!
