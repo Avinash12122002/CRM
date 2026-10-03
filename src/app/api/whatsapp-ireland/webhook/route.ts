@@ -100,7 +100,28 @@ export async function POST(req: NextRequest) {
 
           console.log(`[WhatsApp Ireland Webhook] Incoming message from +${phone} (${senderName}): "${textBody || selectedId || msgType}"`);
 
+          // ── DEDUP GUARD ─────────────────────────────────────────────────────
+          // WhatsApp retries failed deliveries with the same message.id.
+          // Atomically mark this message as processed; skip if already done.
+          if (message.id) {
+            const { connectToDatabase: getDb } = await import("@/lib/mongodb");
+            const { db: dedupDb } = await getDb();
+            const deduped = await dedupDb.collection("whatsapp_processed_messages").findOneAndUpdate(
+              { messageId: message.id },
+              { $setOnInsert: { messageId: message.id, phone, createdAt: new Date() } },
+              { upsert: true, returnDocument: "before" }
+            );
+            if (deduped) {
+              // Document existed before — this is a duplicate webhook delivery, skip
+              console.log(`[WhatsApp Ireland Webhook] Skipping duplicate message ${message.id} from +${phone}`);
+              processedCount++;
+              continue;
+            }
+          }
+          // ────────────────────────────────────────────────────────────────────
+
           // 1. Log message to Ireland DB for auditing
+
           let db;
           let effectiveSenderName = senderName;
           try {

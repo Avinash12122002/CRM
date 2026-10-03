@@ -43,11 +43,24 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
         currentStep: { $in: ["AWAITING_CONSULTATION_DECISION", "VIDEO_SENT_AWAITING_INTEREST"] },
         consultationPromptDueAt: { $type: "date", $lte: now },
         bookedSlot: { $in: [null, undefined] },
+        consultationPromptSent: { $ne: true },  // Skip if already sent by setTimeout timer
       })
       .toArray()) as unknown as WhatsAppSession[];
 
     for (const session of dueConsultationSessions) {
       try {
+        // Atomically claim the send slot — prevents double-send with concurrent cron invocations
+        const claimed = await db.collection("whatsapp_sessions").findOneAndUpdate(
+          {
+            phone: session.phone,
+            consultationPromptSent: { $ne: true },
+            consultationPromptDueAt: { $type: "date", $lte: now },
+          },
+          { $set: { consultationPromptSent: true, updatedAt: now } },
+          { returnDocument: "after" }
+        );
+        if (!claimed) continue; // Another invocation already claimed it
+
         await sendConsultationBookingPrompt(session.phone);
 
         const promptText =
@@ -68,10 +81,10 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
           createdAt: now,
         });
 
-        await updateSession(db, session.phone, {
-          consultationPromptDueAt: undefined,
-          updatedAt: now,
-        });
+        await db.collection("whatsapp_sessions").updateOne(
+          { phone: session.phone },
+          { $unset: { consultationPromptDueAt: "" }, $set: { updatedAt: now } }
+        );
 
         results.push({ phone: session.phone, type: "consultation_prompt_10min" });
       } catch (promptErr) {
@@ -346,12 +359,27 @@ export async function runWhatsAppFollowupEngine(db: Db): Promise<FollowupRunResu
           ? undefined
           : getNext10AmInTimezone(session.timeZone || "Asia/Kolkata");
 
-        await updateSession(db, session.phone, {
-          followupCount: targetDay,
-          lastFollowupSentAt: now,
-          nextFollowupAt: nextFollowup,
-          ...(isFinalDay ? { currentStep: "COLD" } : {}),
-        });
+        // Atomically increment followupCount — prevents double-send when cron runs concurrently
+        const claimedFollowup = await db.collection("whatsapp_sessions").findOneAndUpdate(
+          {
+            phone: session.phone,
+            followupCount: session.followupCount ?? 0, // Must still be at same count
+          },
+          {
+            $set: {
+              followupCount: targetDay,
+              lastFollowupSentAt: now,
+              nextFollowupAt: isFinalDay ? null : getNext10AmInTimezone(session.timeZone || "Asia/Kolkata"),
+              ...(isFinalDay ? { currentStep: "COLD" } : {}),
+            },
+          },
+          { returnDocument: "after" }
+        );
+
+        if (!claimedFollowup) {
+          // Another concurrent invocation already incremented the count — skip to avoid duplicate
+          continue;
+        }
 
         results.push({
           phone: session.phone,
