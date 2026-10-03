@@ -218,6 +218,103 @@ export async function generateAiResponse(params: {
     );
   }
 
+  // 1d-2. Global Email Send / Resend Interceptor (Australia)
+  // If candidate asks for email to be sent/resent, dispatch actual SMTP email immediately!
+  const isAsking691ListInAi =
+    lowerMsg.includes("691") ||
+    lowerMsg.includes("occupation list") ||
+    lowerMsg.includes("occupations list") ||
+    lowerMsg.includes("eligible list") ||
+    lowerMsg.includes("eligible occupations") ||
+    lowerMsg.includes("list of occupations");
+
+  const isEmailSendOrResendRequestInAi =
+    /\b(send|sende|sed|sned|semd|shre|share|give|bhejo|karo|forward)\b.*\b(email|mail|brochure|pack|pdf|document|file|list)\b/i.test(lowerMsg) ||
+    /\b(email|mail|brochure|pack|pdf|list)\b.*\b(send|sende|sed|sned|semd|bhejo|karo|forward|resend|re-send|again)\b/i.test(lowerMsg) ||
+    /\b(resend|re-send)\b/i.test(lowerMsg) ||
+    /\b(send|sende|forward|bhejo)\s+(it\s+)?again\b/i.test(lowerMsg) ||
+    /\b(email|mail)\s+again\b/i.test(lowerMsg) ||
+    /\b(want|need|give|share)\s+(it\s+)?again\b/i.test(lowerMsg) ||
+    lowerMsg === "i want again" ||
+    lowerMsg === "want again" ||
+    lowerMsg === "again" ||
+    lowerMsg === "send again" ||
+    lowerMsg === "send it again" ||
+    lowerMsg === "resend please" ||
+    lowerMsg === "please resend" ||
+    lowerMsg === "resend it" ||
+    lowerMsg === "send once more" ||
+    lowerMsg === "one more time" ||
+    lowerMsg === "sende email" ||
+    lowerMsg === "sende mail" ||
+    lowerMsg === "send email" ||
+    lowerMsg === "send mail" ||
+    lowerMsg === "email" ||
+    lowerMsg === "mail" ||
+    /\b(not|did\s*n[o']?t|never|haven?[']?t)\b.*\b(receiv|reciev|get|got|aaya|mila)\b/i.test(lowerMsg) ||
+    lowerMsg.includes("no mail") ||
+    lowerMsg.includes("no email") ||
+    lowerMsg.includes("mail nahi") ||
+    lowerMsg.includes("email nahi") ||
+    lowerMsg.includes("brochure") ||
+    lowerMsg.includes("information pack") ||
+    lowerMsg.includes("info pack") ||
+    isAsking691ListInAi ||
+    ((lowerMsg.includes("pdf") || lowerMsg.includes("document")) &&
+      (lowerMsg.includes("send") || lowerMsg.includes("sende") || lowerMsg.includes("give") || lowerMsg.includes("share") || lowerMsg.includes("email") || lowerMsg.includes("mail") || lowerMsg.includes("bhejo")));
+
+  if (isEmailSendOrResendRequestInAi) {
+    const emailMatch = rawMsg.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    let targetEmail = emailMatch ? emailMatch[0].toLowerCase() : session.email;
+
+    if (targetEmail) {
+      try {
+        const { sendWhatsAppInfoEmail } = await import("./infoEmail");
+        const candDisplayName = getSafeCandidateDisplayName(session.name) || "Applicant";
+        const sendRes = await sendWhatsAppInfoEmail({
+          phone: session.phone,
+          name: candDisplayName,
+          email: targetEmail,
+          leadId: session.leadId,
+        });
+
+        if (sendRes.success) {
+          return sanitizeFinalResponse(
+            isAsking691ListInAi
+              ? `✅ I have immediately dispatched the complete **691 Eligible Occupation List (PDF)** & **Australia Work Visa Information Pack** to **${targetEmail}**! 📩\n\n` +
+                `📎 **Attached in your email:**\n` +
+                `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+                `• 📋 **Full Subclass 482 Work Visa Process & Sponsorship Details**\n\n` +
+                `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** right now.\n\n` +
+                `💡 *Quick Check:* Reply with your **Job Title** and **Years of Experience** right here for a free instant eligibility check! 🇦🇺\n\n` +
+                `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`
+              : `✅ We have immediately sent the official **Australia Employer Sponsored Work Visa Information Pack** & **691 Eligible Occupation List (PDF)** to **${targetEmail}**! 📩\n\n` +
+                `📎 **Attached in your email:**\n` +
+                `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+                `• 📋 **Full Subclass 482 Work Visa Process & Sponsorship Details**\n\n` +
+                `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from new corporate domains can sometimes be filtered there).\n\n` +
+                `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`,
+            session
+          );
+        } else {
+          return sanitizeFinalResponse(
+            `⚠️ We attempted to dispatch the Australia Information Pack to **${targetEmail}**, but encountered a delivery issue (${sendRes.error || "delivery failed"}).\n\n` +
+            `Please reply with your updated or alternate email address (e.g. *"My email is name@gmail.com"*), and we will resend it immediately! 📧`,
+            session
+          );
+        }
+      } catch (err) {
+        console.error("[generateAiResponse Australia] Error sending email:", err);
+      }
+    } else {
+      return sanitizeFinalResponse(
+        `I would be delighted to send you the official Australia Work Visa Information Pack & 691 Eligible Occupations List (PDF)! 📄🇦🇺\n\n` +
+        `Please reply with your **Email Address** (e.g. *name@gmail.com*) so I can dispatch it to your inbox immediately. 📧`,
+        session
+      );
+    }
+  }
+
   // 2. Strict Anonymity Fallback: Inquiries about individual staff names (Sumit, Abhay, etc.)
   const isAskingStaffName =
     lowerMsg.includes("sumit") ||
@@ -294,11 +391,16 @@ export async function generateAiResponse(params: {
   if (isRescheduleIntent) {
     const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
     if (isMeetingCompleted) {
+      const hasSharedCv = Boolean(session.hasUploadedCv || session.cvFileUrl || session.cvReceivedAt || session.cvFileName || session.currentStep === "MEETING_COMPLETED");
+      const cvNotice = hasSharedCv
+        ? `We already have your CV / Resume on file, and our review team is currently evaluating your profile to match active Australian employer sponsorships! 📄`
+        : `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`;
+
       return sanitizeFinalResponse(
         `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
         `Your 1-on-1 consultation session with our Senior Australian Migration Expert has already been completed! ✅\n\n` +
         `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match Australian employers! 🇦🇺\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`,
+        cvNotice,
         session
       );
     }
@@ -309,11 +411,16 @@ export async function generateAiResponse(params: {
     const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
 
     if (isMeetingCompleted) {
+      const hasSharedCv = Boolean(session.hasUploadedCv || session.cvFileUrl || session.cvReceivedAt || session.cvFileName || session.currentStep === "MEETING_COMPLETED");
+      const cvNotice = hasSharedCv
+        ? `We already have your CV / Resume on file, and our review team is currently evaluating your profile to match active Australian employer sponsorships! 📄`
+        : `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`;
+
       return sanitizeFinalResponse(
         `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
         `Your 1-on-1 consultation session with our Senior Australian Migration Expert has already been completed! ✅\n\n` +
         `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match Australian employers! 🇦🇺\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`,
+        cvNotice,
         session
       );
     }

@@ -1616,6 +1616,165 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // =========================================================================
+  // --- GLOBAL EMAIL SEND / RESEND / WANT AGAIN INTERCEPTOR (AUSTRALIA) ---
+  // Intercepts any candidate asking to send, resend, forward, or get their email / brochure / 691 list / info pack.
+  // Handles typos ("sende email", "sed email"), requests ("i want again", "send again", "email again"),
+  // and complaints ("did not receive", "didn't receive", "no email").
+  // Dispatches actual SMTP email via sendWhatsAppInfoEmail every single time!
+  // =========================================================================
+  const isAsking691ListTop =
+    lowerClean.includes("691") ||
+    lowerClean.includes("occupation list") ||
+    lowerClean.includes("occupations list") ||
+    lowerClean.includes("eligible list") ||
+    lowerClean.includes("eligible occupations") ||
+    lowerClean.includes("list of occupations") ||
+    lowerClean.includes("jobs list") ||
+    lowerClean.includes("job list");
+
+  const isEmailSendOrResendRequestTop =
+    // Typo & phrasing variations of send email / mail / pack / brochure
+    /\b(send|sende|sed|sned|semd|shre|share|give|bhejo|karo|forward)\b.*\b(email|mail|brochure|pack|pdf|document|file|list)\b/i.test(lowerClean) ||
+    /\b(email|mail|brochure|pack|pdf|list)\b.*\b(send|sende|sed|sned|semd|bhejo|karo|forward|resend|re-send|again)\b/i.test(lowerClean) ||
+    // Explicit resend or send again
+    /\b(resend|re-send)\b/i.test(lowerClean) ||
+    /\b(send|sende|forward|bhejo)\s+(it\s+)?again\b/i.test(lowerClean) ||
+    /\b(email|mail)\s+again\b/i.test(lowerClean) ||
+    /\b(want|need|give|share)\s+(it\s+)?again\b/i.test(lowerClean) ||
+    lowerClean === "i want again" ||
+    lowerClean === "want again" ||
+    lowerClean === "again" ||
+    lowerClean === "send again" ||
+    lowerClean === "send it again" ||
+    lowerClean === "resend please" ||
+    lowerClean === "please resend" ||
+    lowerClean === "resend it" ||
+    lowerClean === "send once more" ||
+    lowerClean === "one more time" ||
+    lowerClean === "sende email" ||
+    lowerClean === "sende mail" ||
+    lowerClean === "send email" ||
+    lowerClean === "send mail" ||
+    lowerClean === "email" ||
+    lowerClean === "mail" ||
+    // Delivery issues / not received
+    /\b(not|did\s*n[o']?t|never|haven?[']?t)\b.*\b(receiv|reciev|get|got|aaya|mila)\b/i.test(lowerClean) ||
+    lowerClean.includes("no mail") ||
+    lowerClean.includes("no email") ||
+    lowerClean.includes("mail nahi") ||
+    lowerClean.includes("email nahi") ||
+    lowerClean.includes("mail aaya nahi") ||
+    lowerClean.includes("email aaya nahi") ||
+    lowerClean.includes("brochure") ||
+    lowerClean.includes("information pack") ||
+    lowerClean.includes("info pack") ||
+    isAsking691ListTop ||
+    ((lowerClean.includes("pdf") || lowerClean.includes("document")) &&
+      (lowerClean.includes("send") || lowerClean.includes("sende") || lowerClean.includes("give") || lowerClean.includes("share") || lowerClean.includes("email") || lowerClean.includes("mail") || lowerClean.includes("bhejo")));
+
+  if (isEmailSendOrResendRequestTop) {
+    const emailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    let targetEmail = emailMatch ? emailMatch[0].toLowerCase() : (session.email || existingLead?.email);
+
+    if (!targetEmail) {
+      const cleanLeadPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+      const last10 = cleanLeadPhone.slice(-10);
+      const leadDoc = await db.collection("leads").findOne(
+        {
+          $or: [
+            { phone: session.phone },
+            { phone: `+${session.phone}` },
+            { phone: cleanLeadPhone },
+            { phone: `+${cleanLeadPhone}` },
+            ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+          ],
+          email: { $exists: true, $nin: ["", null] },
+        },
+        { projection: { email: 1, name: 1, id: 1 } }
+      );
+      if (leadDoc?.email) {
+        targetEmail = String(leadDoc.email).trim().toLowerCase();
+        session.email = targetEmail;
+      }
+    }
+
+    if (targetEmail) {
+      if (emailMatch && session.email !== targetEmail) {
+        session.email = targetEmail;
+        await updateSession(db, session.phone, { email: targetEmail });
+        const cleanLeadPhone = session.phone.replace(/[^\d]/g, "").replace(/^00/, "");
+        const last10 = cleanLeadPhone.slice(-10);
+        await db.collection("leads").updateMany(
+          {
+            $or: [
+              ...(existingLead?.id ? [{ id: existingLead.id }] : []),
+              ...(session.leadId ? [{ id: session.leadId }] : []),
+              { phone: session.phone },
+              { phone: `+${session.phone}` },
+              { phone: cleanLeadPhone },
+              { phone: `+${cleanLeadPhone}` },
+              ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+            ],
+          },
+          { $set: { email: targetEmail, updatedAt: new Date() } }
+        );
+      }
+
+      const { sendWhatsAppInfoEmail } = await import("@/lib/whatsapp/infoEmail");
+      const candDisplayName =
+        getSafeCandidateDisplayName(session.name) ||
+        (existingLead?.name ? getSafeCandidateDisplayName(existingLead.name) : "") ||
+        "Applicant";
+
+      const sendRes = await sendWhatsAppInfoEmail({
+        phone: session.phone,
+        name: candDisplayName,
+        email: targetEmail,
+        leadId: session.leadId || existingLead?.id,
+      });
+
+      if (sendRes.success) {
+        await updateSession(db, session.phone, {
+          infoEmailSentAt: new Date(),
+          email: targetEmail,
+        });
+
+        const successMsg = isAsking691ListTop
+          ? `✅ I have immediately dispatched the complete **691 Eligible Occupation List (PDF)** & **Australia Work Visa Information Pack** to **${targetEmail}**! 📩\n\n` +
+            `📎 **Attached in your email:**\n` +
+            `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+            `• 📋 **Full Subclass 482 Work Visa Process & Sponsorship Details**\n\n` +
+            `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** right now.\n\n` +
+            `💡 *Quick Check:* Reply with your **Job Title** and **Years of Experience** right here for a free instant eligibility check! 🇦🇺\n\n` +
+            `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`
+          : `✅ We have immediately sent the official **Australia Employer Sponsored Work Visa Information Pack** & **691 Eligible Occupation List (PDF)** to **${targetEmail}**! 📩\n\n` +
+            `📎 **Attached in your email:**\n` +
+            `• 🇦🇺 **Official 691 Eligible Occupation List (PDF)**\n` +
+            `• 📋 **Full Subclass 482 Work Visa Process & Sponsorship Details**\n\n` +
+            `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from new corporate domains can sometimes be filtered there).\n\n` +
+            `Need it sent to a different email address? Just reply: *"My email is yourname@example.com"*. 📧`;
+
+        await sendTextMessage(session.phone, successMsg);
+        return { replyText: successMsg, step: session.currentStep };
+      } else {
+        const failMsg =
+          `⚠️ We attempted to dispatch the Australia Information Pack to **${targetEmail}**, but encountered a delivery issue (${sendRes.error || "delivery failed"}).\n\n` +
+          `Please reply with your updated or alternate email address (e.g. *"My email is name@gmail.com"*), and we will resend it immediately! 📧`;
+
+        await sendTextMessage(session.phone, failMsg);
+        return { replyText: failMsg, step: session.currentStep };
+      }
+    } else {
+      const askEmailMsg =
+        `I would be delighted to send you the official Australia Work Visa Information Pack & 691 Eligible Occupations List (PDF)! 📄🇦🇺\n\n` +
+        `Please reply with your **Email Address** (e.g. *name@gmail.com*) so I can dispatch it to your inbox immediately. 📧`;
+
+      await sendTextMessage(session.phone, askEmailMsg);
+      return { replyText: askEmailMsg, step: session.currentStep };
+    }
+  }
+
+  // =========================================================================
   // --- INTAKE FUNNEL INTENT DETECTION (Step 1, Step 2, Step 3) ---
   // Must execute BEFORE any active CRM conversational routing so that candidates
   // actively going through the funnel or providing their email are NEVER intercepted!
@@ -1790,6 +1949,37 @@ export async function processIncomingWhatsAppMessage(params: {
     actionId === "BTN_YES_AUSTRALIA" ||
     (session.currentStep === "WELCOME" && isAffirmative && !isDirectEmail)
   ) {
+    const knownEmail = session.email || existingLead?.email;
+    if (knownEmail && /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(knownEmail)) {
+      // Candidate ALREADY has a valid email registered -> do NOT ask for email again!
+      session.email = knownEmail.toLowerCase();
+      await updateSession(db, session.phone, {
+        email: session.email,
+        currentStep: "AWAITING_CONSULTATION_DECISION",
+        infoEmailSentAt: new Date(),
+        videoSentAt: new Date(),
+        consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
+        consultationPromptSent: false,
+        nextFollowupAt: getNext10AmInTimezone(session.timeZone),
+      });
+      session.currentStep = "AWAITING_CONSULTATION_DECISION";
+
+      const ackMsg =
+        `Great! We already have your registered email address (**${session.email}**) on file. 📩\n\n` +
+        `Our complete **Australia Employer Sponsored Work Visa Information Pack** has been sent to your inbox! Please check both your **Inbox** and **Spam/Junk folder**.\n\n` +
+        `*(Need it sent to a different email? Just reply: "My email is yourname@example.com")*`;
+      await sendTextMessage(session.phone, ackMsg);
+
+      try {
+        await delay(1500);
+        const actualVideoUrl = getVideo482Url();
+        await sendTimedVideoAndProcessGuide(session.phone, session.email!, actualVideoUrl);
+      } catch (videoErr) {
+        console.error("[WhatsApp Australia] Error sending video:", videoErr);
+      }
+      return { replyText: ackMsg, step: "AWAITING_CONSULTATION_DECISION" };
+    }
+
     const emailPrompt = `Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*`;
 
     const nextFollowup = getNext10AmInTimezone(session.timeZone);
@@ -1999,11 +2189,31 @@ export async function processIncomingWhatsAppMessage(params: {
           `Our counseling team already has a callback scheduled${cbDate} for you. 📞\n\n` +
           `If you have any questions in the meantime, feel free to reply right here! 🇦🇺`;
       } else {
+        const hasSharedCv = Boolean(
+          session.hasUploadedCv === true ||
+          session.cvFileUrl ||
+          session.cvReceivedAt ||
+          session.cvFileName ||
+          session.currentStep === "MEETING_COMPLETED" ||
+          existingLead?.hasCv === true ||
+          (Array.isArray(existingLead?.cvFiles) && existingLead.cvFiles.length > 0) ||
+          existingLead?.salesDocument?.resumeUrl ||
+          existingLead?.salesDocument?.cvUrl ||
+          existingLead?.salesDocument?.resumeName ||
+          existingLead?.resumeUrl ||
+          existingLead?.cvUrl ||
+          existingLead?.cvUploadedAt
+        );
+
+        const cvNotice = hasSharedCv
+          ? `✅ We have received your CV / Resume. Our review team is currently evaluating your profile to match Australian Employers! You will receive an update once the assessment is complete. 📄\n\n`
+          : `📄 Please ensure your latest CV / Resume is uploaded here in PDF or Word document format.\n\n`;
+
         alreadyDoneMsg =
           `Hello ${candidateDisplayName}! 👋\n\n` +
           `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
           `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Australian Employers! 🇦🇺\n\n` +
-          `📄 Please ensure your latest CV / Resume is uploaded here in PDF or Word document format.\n\n` +
+          cvNotice +
           `If you have any questions regarding your Australia Employer Sponsored Work Visa file or next steps, feel free to reply right here!`;
       }
 
@@ -2753,10 +2963,31 @@ export async function processIncomingWhatsAppMessage(params: {
           ? session.name
           : (existingLead?.name ? getSafeCandidateDisplayName(existingLead.name) : "");
       const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+
+      const hasSharedCv = Boolean(
+        session.hasUploadedCv === true ||
+        session.cvFileUrl ||
+        session.cvReceivedAt ||
+        session.cvFileName ||
+        session.currentStep === "MEETING_COMPLETED" ||
+        existingLead?.hasCv === true ||
+        (Array.isArray(existingLead?.cvFiles) && existingLead.cvFiles.length > 0) ||
+        existingLead?.salesDocument?.resumeUrl ||
+        existingLead?.salesDocument?.cvUrl ||
+        existingLead?.salesDocument?.resumeName ||
+        existingLead?.resumeUrl ||
+        existingLead?.cvUrl ||
+        existingLead?.cvUploadedAt
+      );
+
+      const cvNotice = hasSharedCv
+        ? `✅ We have received your CV / Resume. Our review team is currently evaluating your profile to match Australian Employers! You will receive an update once the assessment is complete. 📄\n\n`
+        : `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄\n\n`;
+
       const completedMsg =
         `Hello${nameGreeting}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
         `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Australian Employers! 🇦🇺\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄\n\n` +
+        cvNotice +
         `If you have any questions regarding your application or next steps, feel free to reply right here!`;
       await sendTextMessage(session.phone, completedMsg);
       await db.collection(SESSIONS_COLLECTION).updateOne(
@@ -3111,10 +3342,31 @@ export async function processIncomingWhatsAppMessage(params: {
         ? session.name
         : (existingLead?.name ? getSafeCandidateDisplayName(existingLead.name) : "");
     const nameGreeting = candName ? ` ${candName}` : "";
+
+    const hasSharedCv = Boolean(
+      session.hasUploadedCv === true ||
+      session.cvFileUrl ||
+      session.cvReceivedAt ||
+      session.cvFileName ||
+      session.currentStep === "MEETING_COMPLETED" ||
+      existingLead?.hasCv === true ||
+      (Array.isArray(existingLead?.cvFiles) && existingLead.cvFiles.length > 0) ||
+      existingLead?.salesDocument?.resumeUrl ||
+      existingLead?.salesDocument?.cvUrl ||
+      existingLead?.salesDocument?.resumeName ||
+      existingLead?.resumeUrl ||
+      existingLead?.cvUrl ||
+      existingLead?.cvUploadedAt
+    );
+
+    const cvNotice = hasSharedCv
+      ? `✅ We have received your CV / Resume. Our review team is currently evaluating your profile to match Australian Employers! You will receive an update once the assessment is complete. 📄\n\n`
+      : `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄\n\n`;
+
     return (
       `Hello${nameGreeting}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
       `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Australian Employers! 🇦🇺\n\n` +
-      `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄\n\n` +
+      cvNotice +
       `If you have any questions regarding your application or next steps, feel free to reply right here!`
     );
   };

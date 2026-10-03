@@ -191,6 +191,89 @@ export async function generateAiResponse(params: {
     );
   }
 
+  // 1d-2. Global Email Send / Resend Interceptor (Ireland)
+  // If candidate asks for email to be sent/resent, dispatch actual SMTP email immediately!
+  const isEmailSendOrResendRequest =
+    /\b(send|sende|sed|sned|semd|shre|share|give|bhejo|karo|forward)\b.*\b(email|mail|brochure|pack|pdf|document|file)\b/i.test(lowerMsg) ||
+    /\b(email|mail|brochure|pack|pdf)\b.*\b(send|sende|sed|sned|semd|bhejo|karo|forward|resend|re-send|again)\b/i.test(lowerMsg) ||
+    /\b(resend|re-send)\b/i.test(lowerMsg) ||
+    /\b(send|sende|forward|bhejo)\s+(it\s+)?again\b/i.test(lowerMsg) ||
+    /\b(email|mail)\s+again\b/i.test(lowerMsg) ||
+    /\b(want|need|give|share)\s+(it\s+)?again\b/i.test(lowerMsg) ||
+    lowerMsg === "i want again" ||
+    lowerMsg === "want again" ||
+    lowerMsg === "again" ||
+    lowerMsg === "send again" ||
+    lowerMsg === "send it again" ||
+    lowerMsg === "resend please" ||
+    lowerMsg === "please resend" ||
+    lowerMsg === "resend it" ||
+    lowerMsg === "send once more" ||
+    lowerMsg === "one more time" ||
+    lowerMsg === "sende email" ||
+    lowerMsg === "sende mail" ||
+    lowerMsg === "send email" ||
+    lowerMsg === "send mail" ||
+    lowerMsg === "email" ||
+    lowerMsg === "mail" ||
+    /\b(not|did\s*n[o']?t|never|haven?[']?t)\b.*\b(receiv|reciev|get|got|aaya|mila)\b/i.test(lowerMsg) ||
+    lowerMsg.includes("no mail") ||
+    lowerMsg.includes("no email") ||
+    lowerMsg.includes("mail nahi") ||
+    lowerMsg.includes("email nahi") ||
+    lowerMsg.includes("brochure") ||
+    lowerMsg.includes("information pack") ||
+    lowerMsg.includes("info pack") ||
+    lowerMsg.includes("occupation list") ||
+    lowerMsg.includes("critical skills list") ||
+    ((lowerMsg.includes("pdf") || lowerMsg.includes("document")) &&
+      (lowerMsg.includes("send") || lowerMsg.includes("sende") || lowerMsg.includes("give") || lowerMsg.includes("share") || lowerMsg.includes("email") || lowerMsg.includes("mail") || lowerMsg.includes("bhejo")));
+
+  if (isEmailSendOrResendRequest) {
+    const emailMatch = rawMsg.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    let targetEmail = emailMatch ? emailMatch[0].toLowerCase() : session.email;
+
+    if (targetEmail) {
+      try {
+        const { sendWhatsAppIrelandInfoEmail } = await import("./infoEmail");
+        const candDisplayName = getSafeCandidateDisplayName(session.name) || "Applicant";
+        const sendRes = await sendWhatsAppIrelandInfoEmail({
+          phone: session.phone,
+          name: candDisplayName,
+          email: targetEmail,
+          leadId: session.leadId,
+        });
+
+        if (sendRes.success) {
+          return sanitizeFinalResponse(
+            `✅ We have immediately sent the official **Ireland Work Visa Information Pack** to **${targetEmail}**! 📩🇮🇪\n\n` +
+            `📎 **Included in your email:**\n` +
+            `• 🇮🇪 **Complete Ireland Work Visa Guide (CSEP & GEP pathways)**\n` +
+            `• 💶 **€1,000 Fee Breakdown & 100% Refund Guarantee**\n` +
+            `• 📋 **4 Required Documents Checklist & Next Steps**\n\n` +
+            `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from corporate domains can occasionally be filtered there).\n\n` +
+            `Need it sent to a different email address? Simply reply: *"My email is yourname@example.com"*. 📧`,
+            session
+          );
+        } else {
+          return sanitizeFinalResponse(
+            `⚠️ We attempted to dispatch the Ireland Information Pack to **${targetEmail}**, but encountered a delivery issue (${sendRes.error || "delivery failed"}).\n\n` +
+            `Please reply with your updated or alternate email address (e.g. *"My email is name@gmail.com"*), and we will resend it immediately! 📧`,
+            session
+          );
+        }
+      } catch (err) {
+        console.error("[generateAiResponse Ireland] Error sending email:", err);
+      }
+    } else {
+      return sanitizeFinalResponse(
+        `I would be delighted to send you the official Ireland Work Visa Information Pack! 📄🇮🇪\n\n` +
+        `Please reply with your **Email Address** (e.g. *name@gmail.com*) so I can dispatch it to your inbox immediately. 📧`,
+        session
+      );
+    }
+  }
+
   // 2. Staff Name Inquiries Fallback
   const isAskingStaffName =
     lowerMsg.includes("sumit") ||
@@ -262,11 +345,16 @@ export async function generateAiResponse(params: {
   if (isRescheduleIntent) {
     const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
     if (isMeetingCompleted) {
+      const hasSharedCv = Boolean(session.hasUploadedCv || session.cvFileUrl || session.cvReceivedAt || session.cvFileName || session.currentStep === "MEETING_COMPLETED");
+      const cvNotice = hasSharedCv
+        ? `We already have your CV / Resume on file, and our review team is currently assessing your qualifications to match active Irish employer sponsorships! 📄`
+        : `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`;
+
       return sanitizeFinalResponse(
         `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
         `Your 1-on-1 consultation session with our Senior Ireland Visa Expert has already been completed! ✅\n\n` +
         `Since your consultation is already complete, you cannot reschedule or book another meeting. Our team is currently reviewing your profile for Ireland employment opportunities! 🇮🇪\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`,
+        cvNotice,
         session
       );
     }
@@ -277,11 +365,16 @@ export async function generateAiResponse(params: {
     const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
 
     if (isMeetingCompleted) {
+      const hasSharedCv = Boolean(session.hasUploadedCv || session.cvFileUrl || session.cvReceivedAt || session.cvFileName || session.currentStep === "MEETING_COMPLETED");
+      const cvNotice = hasSharedCv
+        ? `We already have your CV / Resume on file, and our review team is currently assessing your qualifications to match active Irish employer sponsorships! 📄`
+        : `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`;
+
       return sanitizeFinalResponse(
         `Hello ${session.name && session.name !== "Candidate" ? session.name : "there"}! 👋\n\n` +
         `Your 1-on-1 consultation session with our Senior Ireland Visa Expert has already been completed! ✅\n\n` +
         `Since your consultation is already complete, you cannot reschedule or book another meeting. Our team is currently reviewing your profile for Ireland employment opportunities! 🇮🇪\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄`,
+        cvNotice,
         session
       );
     }
@@ -578,6 +671,10 @@ ${
       * If they already have a confirmed slot: remind them of their confirmed date/time and mention they can tap "Reschedule Meeting".
       * If they already completed consultation: remind them it is complete and ask for their CV.
       * If they have not booked: tell them to tap the "Select Date" button on their screen to choose their date and slot in their local time.
+
+17. STRICT EMAIL DISPATCH RULE:
+    - NEVER falsely claim "I have resent the email" or "I've sent it to your inbox" if you did not execute an automated dispatch.
+    - If candidate requests their info pack or email, remind them to check their inbox or confirm their email address.
 
 ${contextBlock}
 

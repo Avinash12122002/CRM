@@ -24,9 +24,25 @@ export async function sendMeetingCompletedNotification(params: {
   const candidateName = getSafeCandidateDisplayName(lead.name);
   const nameSalutation = candidateName ? `Hi ${candidateName}! ` : "";
 
-  const messageText =
-    `Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Irish Employers! 🇮🇪\n\n` +
-    `Please send your CV / Resume here in PDF or Word document format. 📄`;
+  const session = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanPhone });
+  const candidateTz = (session?.timeZone as string) || "Asia/Kolkata";
+
+  const hasSharedCv = Boolean(
+    session?.hasUploadedCv ||
+    session?.cvReceivedAt ||
+    session?.cvFileUrl ||
+    session?.cvFileName ||
+    session?.currentStep === "MEETING_COMPLETED" ||
+    (lead as any)?.hasCv ||
+    (lead as any)?.salesDocument ||
+    (lead as any)?.resumeUrl ||
+    (lead as any)?.cvUrl ||
+    (Array.isArray((lead as any)?.cvFiles) && (lead as any).cvFiles.length > 0)
+  );
+
+  const messageText = hasSharedCv
+    ? `Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. We already have your CV / Resume on file, and our review team is currently evaluating your profile to match the requirements of Irish Employers! 🇮🇪`
+    : `Thanks for attending the meeting. We hope that you enjoyed the meeting with our expert. Now, our review team will review your CV to match the requirements of Irish Employers! 🇮🇪\n\nPlease send your CV / Resume here in PDF or Word document format. 📄`;
 
   try {
     await sendTextMessage(cleanPhone, messageText);
@@ -38,18 +54,6 @@ export async function sendMeetingCompletedNotification(params: {
   try {
     const now = new Date();
     const { getNext10AmInTimezone } = await import("./timezone");
-    const session = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanPhone });
-    const candidateTz = (session?.timeZone as string) || "Asia/Kolkata";
-
-    const hasSharedCv = Boolean(
-      session?.hasUploadedCv ||
-      session?.cvReceivedAt ||
-      session?.cvFileUrl ||
-      (lead as any)?.hasCv ||
-      (lead as any)?.salesDocument ||
-      (Array.isArray((lead as any)?.cvFiles) && (lead as any).cvFiles.length > 0)
-    );
-
     const currentStep = hasSharedCv ? "MEETING_COMPLETED" : "AWAITING_CV";
     const nextFollowupAt = hasSharedCv ? undefined : getNext10AmInTimezone(candidateTz);
 

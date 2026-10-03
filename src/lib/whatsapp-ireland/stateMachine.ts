@@ -1317,11 +1317,32 @@ export async function processIncomingWhatsAppMessage(params: {
       getSafeCandidateDisplayName(session.name) ||
       (existingCrmLead?.name ? getSafeCandidateDisplayName(existingCrmLead.name) : "") ||
       "there";
+
+    const hasSharedCv = Boolean(
+      session.hasUploadedCv === true ||
+      session.cvFileUrl ||
+      session.cvReceivedAt ||
+      session.cvFileName ||
+      session.currentStep === "MEETING_COMPLETED" ||
+      existingCrmLead?.hasCv === true ||
+      (Array.isArray(existingCrmLead?.cvFiles) && existingCrmLead.cvFiles.length > 0) ||
+      existingCrmLead?.salesDocument?.resumeUrl ||
+      existingCrmLead?.salesDocument?.cvUrl ||
+      existingCrmLead?.salesDocument?.resumeName ||
+      existingCrmLead?.resumeUrl ||
+      existingCrmLead?.cvUrl ||
+      existingCrmLead?.cvUploadedAt
+    );
+
+    const cvNotice = hasSharedCv
+      ? `✅ We have received your CV / Resume. Our review team is currently evaluating your profile against active Irish employer sponsorships. You will be contacted once the review is completed! 📄\n\n`
+      : `📄 Please ensure your latest CV / Resume is uploaded here in PDF or Word document format.\n\n`;
+
     return (
       `Hello ${candName}! 👋\n\n` +
       `Your 1-on-1 Ireland Work Visa Consultation with our senior expert has already been completed! ✅\n\n` +
       `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Irish Employers! 🇮🇪\n\n` +
-      `📄 Please ensure your latest CV / Resume is uploaded here in PDF or Word document format.\n\n` +
+      cvNotice +
       `If you have any questions regarding your application or next steps, feel free to reply right here!`
     );
   };
@@ -1411,6 +1432,148 @@ export async function processIncomingWhatsAppMessage(params: {
 
     await sendTextMessage(cleanPhone, videoReply);
     return;
+  }
+
+  // =========================================================================
+  // --- GLOBAL EMAIL SEND / RESEND / WANT AGAIN INTERCEPTOR (IRELAND) ---
+  // Intercepts any candidate asking to send, resend, forward, or get their email / brochure / info pack.
+  // Handles typos ("sende email", "sed email"), requests ("i want again", "send again", "email again"),
+  // and complaints ("did not receive", "didn't receive", "no email").
+  // Dispatches actual SMTP email via sendWhatsAppIrelandInfoEmail every single time!
+  // =========================================================================
+  const isEmailSendOrResendRequest =
+    // Typo & phrasing variations of send email / mail / pack / brochure
+    /\b(send|sende|sed|sned|semd|shre|share|give|bhejo|karo|forward)\b.*\b(email|mail|brochure|pack|pdf|document|file)\b/i.test(lowerText) ||
+    /\b(email|mail|brochure|pack|pdf)\b.*\b(send|sende|sed|sned|semd|bhejo|karo|forward|resend|re-send|again)\b/i.test(lowerText) ||
+    // Explicit resend or send again
+    /\b(resend|re-send)\b/i.test(lowerText) ||
+    /\b(send|sende|forward|bhejo)\s+(it\s+)?again\b/i.test(lowerText) ||
+    /\b(email|mail)\s+again\b/i.test(lowerText) ||
+    /\b(want|need|give|share)\s+(it\s+)?again\b/i.test(lowerText) ||
+    lowerText === "i want again" ||
+    lowerText === "want again" ||
+    lowerText === "again" ||
+    lowerText === "send again" ||
+    lowerText === "send it again" ||
+    lowerText === "resend please" ||
+    lowerText === "please resend" ||
+    lowerText === "resend it" ||
+    lowerText === "send once more" ||
+    lowerText === "one more time" ||
+    lowerText === "sende email" ||
+    lowerText === "sende mail" ||
+    lowerText === "send email" ||
+    lowerText === "send mail" ||
+    lowerText === "email" ||
+    lowerText === "mail" ||
+    // Delivery issues / not received
+    /\b(not|did\s*n[o']?t|never|haven?[']?t)\b.*\b(receiv|reciev|get|got|aaya|mila)\b/i.test(lowerText) ||
+    lowerText.includes("no mail") ||
+    lowerText.includes("no email") ||
+    lowerText.includes("mail nahi") ||
+    lowerText.includes("email nahi") ||
+    lowerText.includes("mail aaya nahi") ||
+    lowerText.includes("email aaya nahi") ||
+    lowerText.includes("brochure") ||
+    lowerText.includes("information pack") ||
+    lowerText.includes("info pack") ||
+    lowerText.includes("occupation list") ||
+    lowerText.includes("critical skills list") ||
+    ((lowerText.includes("pdf") || lowerText.includes("document")) &&
+      (lowerText.includes("send") || lowerText.includes("sende") || lowerText.includes("give") || lowerText.includes("share") || lowerText.includes("email") || lowerText.includes("mail") || lowerText.includes("bhejo")));
+
+  if (isEmailSendOrResendRequest) {
+    const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    let targetEmail = emailMatch ? emailMatch[0].toLowerCase() : (session.email || existingCrmLead?.email);
+
+    if (!targetEmail) {
+      const cleanLeadPhone = cleanPhone.replace(/[^\d]/g, "").replace(/^00/, "");
+      const last10 = cleanLeadPhone.slice(-10);
+      const leadDoc = await db.collection("leads").findOne(
+        {
+          $or: [
+            { phone: cleanPhone },
+            { phone: `+${cleanPhone}` },
+            { phone: cleanLeadPhone },
+            { phone: `+${cleanLeadPhone}` },
+            ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+          ],
+          email: { $exists: true, $nin: ["", null] },
+        },
+        { projection: { email: 1, name: 1, id: 1 } }
+      );
+      if (leadDoc?.email) {
+        targetEmail = String(leadDoc.email).trim().toLowerCase();
+        session.email = targetEmail;
+      }
+    }
+
+    if (targetEmail) {
+      if (emailMatch && session.email !== targetEmail) {
+        session.email = targetEmail;
+        await updateSession(db, cleanPhone, { email: targetEmail });
+        const cleanLeadPhone = cleanPhone.replace(/[^\d]/g, "").replace(/^00/, "");
+        const last10 = cleanLeadPhone.slice(-10);
+        await db.collection("leads").updateMany(
+          {
+            $or: [
+              ...(existingCrmLead?.id ? [{ id: existingCrmLead.id }] : []),
+              { phone: cleanPhone },
+              { phone: `+${cleanPhone}` },
+              { phone: cleanLeadPhone },
+              { phone: `+${cleanLeadPhone}` },
+              ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+            ],
+          },
+          { $set: { email: targetEmail, updatedAt: new Date() } }
+        );
+      }
+
+      const candidateDisplayName =
+        getSafeCandidateDisplayName(session.name) ||
+        (existingCrmLead?.name ? getSafeCandidateDisplayName(existingCrmLead.name) : "") ||
+        "Applicant";
+
+      const sendRes = await sendWhatsAppIrelandInfoEmail({
+        phone: cleanPhone,
+        name: candidateDisplayName,
+        email: targetEmail,
+        leadId: existingCrmLead?.id || session.leadId,
+      });
+
+      if (sendRes.success) {
+        await updateSession(db, cleanPhone, {
+          infoEmailSentAt: new Date(),
+          email: targetEmail,
+        });
+
+        const successMsg =
+          `✅ We have immediately sent the official **Ireland Work Visa Information Pack** to **${targetEmail}**! 📩🇮🇪\n\n` +
+          `📎 **Included in your email:**\n` +
+          `• 🇮🇪 **Complete Ireland Work Visa Guide (CSEP & GEP pathways)**\n` +
+          `• 💶 **€1,000 Fee Breakdown & 100% Refund Guarantee**\n` +
+          `• 📋 **4 Required Documents Checklist & Next Steps**\n\n` +
+          `📬 *Important:* Please check both your **Inbox** and **Spam/Junk folder** (emails with PDF attachments from corporate domains can occasionally be filtered there).\n\n` +
+          `Need it sent to a different email address? Simply reply: *"My email is yourname@example.com"*. 📧`;
+
+        await sendTextMessage(cleanPhone, successMsg);
+        return;
+      } else {
+        const failMsg =
+          `⚠️ We attempted to dispatch the Ireland Information Pack to **${targetEmail}**, but encountered a delivery issue (${sendRes.error || "delivery failed"}).\n\n` +
+          `Please reply with your updated or alternate email address (e.g. *"My email is name@gmail.com"*), and we will resend it immediately! 📧`;
+
+        await sendTextMessage(cleanPhone, failMsg);
+        return;
+      }
+    } else {
+      const askEmailMsg =
+        `I would be delighted to send you the official Ireland Work Visa Information Pack! 📄🇮🇪\n\n` +
+        `Please reply with your **Email Address** (e.g. *name@gmail.com*) so I can dispatch it to your inbox immediately. 📧`;
+
+      await sendTextMessage(cleanPhone, askEmailMsg);
+      return;
+    }
   }
 
   // =========================================================================
@@ -1751,6 +1914,37 @@ export async function processIncomingWhatsAppMessage(params: {
     cleanActionId === "BTN_IRELAND_YES" ||
     (session.currentStep === "WELCOME" && isAffirmative && !isDirectEmail)
   ) {
+    const knownEmail = session.email || existingCrmLead?.email;
+    if (knownEmail && /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(knownEmail)) {
+      // Candidate ALREADY has a valid email registered -> do NOT ask for email again!
+      session.email = knownEmail.toLowerCase();
+      await updateSession(db, cleanPhone, {
+        email: session.email,
+        currentStep: "AWAITING_CONSULTATION_DECISION",
+        infoEmailSentAt: new Date(),
+        videoSentAt: new Date(),
+        consultationPromptDueAt: new Date(Date.now() + 10 * 60 * 1000),
+        consultationPromptSent: false,
+        nextFollowupAt: getNext10AmInTimezone(session.timeZone),
+      });
+      session.currentStep = "AWAITING_CONSULTATION_DECISION";
+
+      const ackMsg =
+        `Great! We already have your registered email address (**${session.email}**) on file. 📩\n\n` +
+        `Our complete **Ireland Employer Sponsored Work Visa Process Guide** has been dispatched to your inbox! Please check both your **Inbox** and **Spam/Junk folder**.\n\n` +
+        `*(Need it sent to a different email? Just reply: "My email is yourname@example.com")*`;
+      await sendTextMessage(cleanPhone, ackMsg);
+
+      try {
+        await delay(1500);
+        const actualVideoUrl = getVideoIrelandUrl();
+        await sendTimedVideoAndProcessGuide(cleanPhone, session.email!, actualVideoUrl);
+      } catch (videoErr) {
+        console.error("[WhatsApp Ireland] Error sending video:", videoErr);
+      }
+      return;
+    }
+
     const emailPrompt =
       `Great! To send you our complete **Ireland Employer Sponsored Work Visa Process Guide**, please share your **Email Address**: 📩\n\n` +
       `*(Type your email below)*`;
@@ -2106,39 +2300,7 @@ export async function processIncomingWhatsAppMessage(params: {
     }
 
     // Email Resend, "Send Me Email", Brochure, PDF, or "Did Not Receive" Email
-    const isAskingIrelandEmail =
-      lowerText.includes("send me email") ||
-      lowerText.includes("send email") ||
-      lowerText.includes("send me mail") ||
-      lowerText.includes("send mail") ||
-      lowerText.includes("resend") ||
-      lowerText.includes("email me") ||
-      lowerText.includes("mail me") ||
-      lowerText.includes("email send") ||
-      lowerText.includes("mail send") ||
-      lowerText.includes("email bhejo") ||
-      lowerText.includes("mail bhejo") ||
-      lowerText.includes("send on email") ||
-      lowerText.includes("did not receive") ||
-      lowerText.includes("didn't receive") ||
-      lowerText.includes("did not recieved") ||
-      lowerText.includes("didn't recieved") ||
-      lowerText.includes("not received") ||
-      lowerText.includes("not recieved") ||
-      lowerText.includes("not receive") ||
-      lowerText.includes("haven't received") ||
-      lowerText.includes("have not received") ||
-      lowerText.includes("havent received") ||
-      lowerText.includes("no mail") ||
-      lowerText.includes("no email") ||
-      lowerText.includes("mail nahi") ||
-      lowerText.includes("email nahi") ||
-      lowerText.includes("brochure") ||
-      lowerText.includes("information pack") ||
-      lowerText.includes("info pack") ||
-      lowerText.includes("occupation list") ||
-      lowerText.includes("critical skills list") ||
-      (lowerText.includes("pdf") && (lowerText.includes("send") || lowerText.includes("give") || lowerText.includes("share") || lowerText.includes("email") || lowerText.includes("mail")));
+    const isAskingIrelandEmail = isEmailSendOrResendRequest;
 
     if (isAskingIrelandEmail) {
       const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
@@ -2175,6 +2337,12 @@ export async function processIncomingWhatsAppMessage(params: {
             `📬 *Please check both your Inbox and Spam/Junk folder.*\n\n` +
             `Need it sent to another email address? Just reply with your email! 📧`;
           await sendTextMessage(cleanPhone, successMsg);
+          return;
+        } else {
+          const failMsg =
+            `⚠️ We attempted to dispatch the Ireland Information Pack to **${targetEmail}**, but encountered a delivery issue (${sendRes.error || "delivery failed"}).\n\n` +
+            `Please reply with your updated or alternate email address (e.g. *"My email is name@gmail.com"*), and we will resend it immediately! 📧`;
+          await sendTextMessage(cleanPhone, failMsg);
           return;
         }
       } else {
