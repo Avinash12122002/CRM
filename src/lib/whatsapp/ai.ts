@@ -3,6 +3,7 @@ import { TMS_VISA_KNOWLEDGE, FAQ_FALLBACKS } from "./knowledge";
 import { findEligibleOccupation } from "./occupations";
 import { getCandidateMessageInsights, CandidateMessageInsight } from "./messageIntelligence";
 import { getCandidateConsultationWindow } from "./timezone";
+import { getSafeCandidateDisplayName } from "./stateMachine";
 
 /**
  * Removes any accidental staff names (Sumit, Abhay, etc.) to guarantee strict institutional anonymity.
@@ -163,6 +164,39 @@ export async function generateAiResponse(params: {
     );
   }
 
+  // 1c-2. Candidate asks "What is my name?" / "Who am I?"
+  const isAskingMyName =
+    lowerMsg === "what is my name" ||
+    lowerMsg === "what's my name" ||
+    lowerMsg === "whats my name" ||
+    lowerMsg === "tell me my name" ||
+    lowerMsg === "my name?" ||
+    lowerMsg === "who am i" ||
+    lowerMsg === "do you know my name" ||
+    lowerMsg === "mera naam kya hai" ||
+    lowerMsg === "mera name kya hai" ||
+    lowerMsg.includes("what is my name") ||
+    lowerMsg.includes("what's my name") ||
+    lowerMsg.includes("whats my name") ||
+    lowerMsg.includes("tell my name") ||
+    lowerMsg.includes("do you know my name") ||
+    lowerMsg.includes("mera naam");
+
+  if (isAskingMyName) {
+    const verifiedName = getSafeCandidateDisplayName(session.name);
+    if (verifiedName) {
+      return (
+        `Your registered name in our CRM records is **${verifiedName}**! 📝\n\n` +
+        `If you'd like to update your name anytime, just reply with your full name (for example: *"My name is John Doe"*), and I will update your profile instantly! 🇦🇺`
+      );
+    } else {
+      return (
+        `We don't have your full name registered on your profile yet! ✍️\n\n` +
+        `Please reply with your **Full Name** (for example: *"My name is John Doe"* or *"Name: Rahul Sharma"*), and I will update your official CRM profile right away! 😊🇦🇺`
+      );
+    }
+  }
+
   // 1d. Email Change Request (100% Supported)
   const isEmailChangeRequest =
     (lowerMsg.includes("change") && lowerMsg.includes("email")) ||
@@ -302,7 +336,7 @@ export async function generateAiResponse(params: {
 CANDIDATE LIVE CRM PROFILE & FULL DOSSIER:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 IDENTITY:
-- Candidate Name: ${session.name || "Candidate"}
+- Candidate Name: ${getSafeCandidateDisplayName(session.name) || "Not provided yet"}
 - Phone Number: +${session.phone}
 - Email Address: ${session.email || "Not shared yet"}
 - Country of Residence: ${session.countryName} (${session.timeZoneLabel})

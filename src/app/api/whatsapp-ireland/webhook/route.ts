@@ -135,8 +135,12 @@ export async function POST(req: NextRequest) {
               const l = t.toLowerCase();
               return (
                 t.length > 2 &&
-                l !== "candidate" &&
+                !l.includes("candidate") &&
+                !l.includes("whatsapp") &&
+                !l.includes("applicant") &&
+                !l.includes("client") &&
                 l !== "at" &&
+                l !== "there" &&
                 !l.includes("test") &&
                 !l.includes("@") &&
                 !/^(hi|hello|hey|namaste|sir|madam|mr|mrs|ms|ok|okay)$/i.test(l)

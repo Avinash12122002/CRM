@@ -73,7 +73,12 @@ export function getSafeCandidateDisplayName(name?: string): string {
     lower === "at" ||
     trimmed.length <= 2 ||
     lower.includes("test") ||
-    lower.includes("@")
+    lower.includes("@") ||
+    lower.includes("candidate") ||
+    lower.includes("whatsapp") ||
+    lower.includes("applicant") ||
+    lower.includes("client") ||
+    lower === "there"
   ) {
     return "";
   }
@@ -150,11 +155,19 @@ export async function getOrCreateSession(
           { $set: { leadId: lead.id, updatedAt: now } }
         );
       }
-      if (lead.name && (!existing.name || existing.name === "Candidate" || existing.name.toLowerCase().includes("test"))) {
-        existing.name = lead.name;
+      const safeLeadName = getSafeCandidateDisplayName(lead.name);
+      const safeExistingName = getSafeCandidateDisplayName(existing.name);
+      if (safeLeadName && !safeExistingName) {
+        existing.name = safeLeadName;
         await db.collection(SESSIONS_COLLECTION).updateOne(
           { phone: cleanPhone },
-          { $set: { name: lead.name, updatedAt: now } }
+          { $set: { name: safeLeadName, updatedAt: now } }
+        );
+      } else if (!safeExistingName && existing.name) {
+        existing.name = undefined;
+        await db.collection(SESSIONS_COLLECTION).updateOne(
+          { phone: cleanPhone },
+          { $unset: { name: "" }, $set: { updatedAt: now } }
         );
       }
 

@@ -90,7 +90,12 @@ export function getSafeCandidateDisplayName(name?: string): string {
     lower === "at" ||
     trimmed.length <= 2 ||
     lower.includes("test") ||
-    lower.includes("@")
+    lower.includes("@") ||
+    lower.includes("candidate") ||
+    lower.includes("whatsapp") ||
+    lower.includes("applicant") ||
+    lower.includes("client") ||
+    lower === "there"
   ) {
     return "";
   }
@@ -151,9 +156,14 @@ export async function getOrCreateSession(
 
     if (lead) {
       if (!existing.leadId) existing.leadId = lead.id;
-      if (lead.name && (!existing.name || existing.name === "Candidate" || existing.name === "at" || existing.name.trim().length <= 2 || existing.name.toLowerCase().includes("test"))) {
-        existing.name = lead.name;
-        await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: lead.name } });
+      const safeLeadName = getSafeCandidateDisplayName(lead.name);
+      const safeExistingName = getSafeCandidateDisplayName(existing.name);
+      if (safeLeadName && !safeExistingName) {
+        existing.name = safeLeadName;
+        await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $set: { name: safeLeadName } });
+      } else if (!safeExistingName && existing.name) {
+        existing.name = undefined;
+        await db.collection(SESSIONS_COLLECTION).updateOne({ phone: cleanPhone }, { $unset: { name: "" } });
       }
       if (lead.country && (!existing.countryName || existing.countryName === "International")) {
         const matchCountry = findCountryByNameOrCode(lead.country);
