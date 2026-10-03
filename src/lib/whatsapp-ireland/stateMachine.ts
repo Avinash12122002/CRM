@@ -1088,7 +1088,11 @@ export async function processIncomingWhatsAppMessage(params: {
     (lowerText.includes("new") && lowerText.includes("email"));
 
   const directEmailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  if (directEmailMatch && (wantsEmailChange || lowerText.includes("email") || lowerText.includes("mail"))) {
+  if (
+    directEmailMatch &&
+    session.currentStep !== "AWAITING_EMAIL" &&
+    (wantsEmailChange || lowerText.startsWith("my email is") || lowerText.startsWith("new email is") || session.currentStep === "AWAITING_EMAIL_UPDATE")
+  ) {
     const newEmail = directEmailMatch[0].toLowerCase();
     session.email = newEmail;
     await updateSession(db, cleanPhone, { email: newEmail });
@@ -1246,7 +1250,19 @@ export async function processIncomingWhatsAppMessage(params: {
     lowerText === "reschedule my meeting" ||
     lowerText === "change slot" ||
     (lowerText.includes("reschedule") &&
-      (lowerText.includes("meeting") || lowerText.includes("consultation") || lowerText.includes("slot") || lowerText.includes("call")));
+      (lowerText.includes("meeting") || lowerText.includes("consultation") || lowerText.includes("slot") || lowerText.includes("call"))) ||
+    (lowerText.includes("change") &&
+      (lowerText.includes("date") ||
+        lowerText.includes("time") ||
+        lowerText.includes("slot") ||
+        lowerText.includes("meeting") ||
+        lowerText.includes("day"))) ||
+    (lowerText.includes("different") &&
+      (lowerText.includes("date") ||
+        lowerText.includes("time") ||
+        lowerText.includes("slot") ||
+        lowerText.includes("meeting") ||
+        lowerText.includes("day")));
 
   if (isRescheduleIntent) {
     await sendWeekdayDateList(cleanPhone);
@@ -1530,6 +1546,13 @@ export async function processIncomingWhatsAppMessage(params: {
       email: extractedEmail,
       status: "new-lead",
     });
+
+    if (leadId) {
+      await db.collection("leads").updateOne(
+        { id: leadId },
+        { $set: { email: extractedEmail, updatedAt: new Date() } }
+      );
+    }
 
     // 1. Instant WhatsApp confirmation message
     const emailSentNotice = `We have sent an email about the whole process to your email address (**${extractedEmail}**)! Please check your inbox (and spam/junk folder) as well. 📩`;
@@ -1820,7 +1843,9 @@ export async function processIncomingWhatsAppMessage(params: {
         lowerText.includes("when will team call") ||
         lowerText.includes("what time will you call")) &&
       !lowerText.includes("book") &&
-      !lowerText.includes("reschedule");
+      !lowerText.includes("reschedule") &&
+      !lowerText.includes("change") &&
+      !lowerText.includes("different");
 
     if (isAskingMeetingSchedule) {
       if (session.bookedSlot) {

@@ -1494,7 +1494,11 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 3a. If candidate explicitly provided an email during an email change request or email inquiry
   const directEmailMatch = cleanText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  if (directEmailMatch && (wantsEmailChange || cleanText.toLowerCase().includes("email") || cleanText.toLowerCase().includes("mail") || session.currentStep === "AWAITING_EMAIL_UPDATE")) {
+  if (
+    directEmailMatch &&
+    (session.currentStep as string) !== "AWAITING_EMAIL" &&
+    (wantsEmailChange || cleanText.toLowerCase().startsWith("my email is") || cleanText.toLowerCase().startsWith("new email is") || session.currentStep === "AWAITING_EMAIL_UPDATE")
+  ) {
     const newEmail = directEmailMatch[0].toLowerCase();
     session.email = newEmail;
     await updateSession(db, session.phone, { email: newEmail });
