@@ -186,6 +186,7 @@ export async function POST(req: NextRequest) {
           { phone: cleanLeadPhone },
           { phone: `+${cleanLeadPhone}` },
           ...(last10.length === 10 ? [{ phone: { $regex: `${last10}$` } }] : []),
+          ...(lead.id ? [{ leadId: lead.id }, { leadId: String(lead.id) }, { leadId: Number(lead.id) }] : []),
         ],
       };
 
@@ -208,8 +209,8 @@ export async function POST(req: NextRequest) {
 
       if (waSession) {
         const candidateTz = (waSession.timeZone as string) || "Asia/Kolkata";
-        await db.collection("whatsapp_sessions").updateOne(
-          { _id: waSession._id },
+        await db.collection("whatsapp_sessions").updateMany(
+          waPhoneFilter,
           {
             $set: {
               crmStatus: "follow-up",
@@ -221,14 +222,17 @@ export async function POST(req: NextRequest) {
               nextFollowupAt: hasSharedCv ? null : getNext10AmInTimezone(candidateTz),
               updatedAt: now,
             },
+            $unset: {
+              bookedSlot: 1,
+            },
           }
         );
       }
 
       if (waIrelandSession) {
         const candidateTz = (waIrelandSession.timeZone as string) || "Asia/Kolkata";
-        await db.collection("whatsapp_ireland_sessions").updateOne(
-          { _id: waIrelandSession._id },
+        await db.collection("whatsapp_ireland_sessions").updateMany(
+          waPhoneFilter,
           {
             $set: {
               crmStatus: "follow-up",
@@ -239,6 +243,9 @@ export async function POST(req: NextRequest) {
               followupCount: 0,
               nextFollowupAt: hasSharedCv ? null : getNext10AmInTimezone(candidateTz),
               updatedAt: now,
+            },
+            $unset: {
+              bookedSlot: 1,
             },
           }
         );

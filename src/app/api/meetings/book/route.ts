@@ -71,6 +71,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (
+      lead.meetingStatus === "completed" ||
+      lead.meetingDetails?.status === "completed" ||
+      lead.status === "follow-up" ||
+      lead.meetingCompletedAt
+    ) {
+      return NextResponse.json(
+        {
+          message: "This meeting has already been completed.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
     const numMeetingUserId = Number(meetingUserId);
     const meetingUserMatchIds = [meetingUserId, String(meetingUserId), numMeetingUserId].filter(
       (x) => x !== undefined && x !== null && !isNaN(Number(x))

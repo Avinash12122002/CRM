@@ -66,6 +66,9 @@ export async function sendMeetingCompletedNotification(params: {
           nextFollowupAt,
           updatedAt: now,
         },
+        $unset: {
+          bookedSlot: 1,
+        },
         $push: {
           meetingHistory: {
             action: "completed",

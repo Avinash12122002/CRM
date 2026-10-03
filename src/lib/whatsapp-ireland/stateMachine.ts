@@ -889,6 +889,37 @@ export async function processIncomingWhatsAppMessage(params: {
       );
     }
 
+    const isLeadMeetingCompleted = Boolean(
+      existingCrmLead.meetingStatus === "completed" ||
+      existingCrmLead.status === "follow-up" ||
+      existingCrmLead.meetingDetails?.status === "completed" ||
+      existingCrmLead.meetingCompletedAt
+    );
+
+    if (isLeadMeetingCompleted && (!session.meetingCompleted || session.meetingStatus !== "completed" || session.bookedSlot)) {
+      session.meetingCompleted = true;
+      session.meetingStatus = "completed";
+      session.crmStatus = existingCrmLead.status || "follow-up";
+      session.bookedSlot = undefined;
+      if (session.currentStep !== "AWAITING_CV") {
+        session.currentStep = "MEETING_COMPLETED";
+      }
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanPhone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: existingCrmLead.status || "follow-up",
+            meetingCompletedAt: existingCrmLead.meetingCompletedAt || new Date(),
+            currentStep: session.currentStep,
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+    }
+
     // Only trigger pre-existing lead notification for pre-existing CRM leads who just messaged in WELCOME
     // Do NOT block leads created by this WhatsApp automation funnel itself!
     const isSelfAutomationLead =
@@ -1269,6 +1300,32 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // --- Reschedule Intent Check ---
+  const isMeetingDoneOverall = Boolean(
+    session.meetingCompleted === true ||
+    session.meetingStatus === "completed" ||
+    session.currentStep === "MEETING_COMPLETED" ||
+    session.crmStatus === "follow-up" ||
+    Boolean(session.meetingCompletedAt) ||
+    existingCrmLead?.meetingStatus === "completed" ||
+    existingCrmLead?.meetingDetails?.status === "completed" ||
+    existingCrmLead?.status === "follow-up" ||
+    Boolean(existingCrmLead?.meetingCompletedAt)
+  );
+
+  const getCompletedMessageText = () => {
+    const candName =
+      getSafeCandidateDisplayName(session.name) ||
+      (existingCrmLead?.name ? getSafeCandidateDisplayName(existingCrmLead.name) : "") ||
+      "there";
+    return (
+      `Hello ${candName}! 👋\n\n` +
+      `Your 1-on-1 Ireland Work Visa Consultation with our senior expert has already been completed! ✅\n\n` +
+      `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Irish Employers! 🇮🇪\n\n` +
+      `📄 Please ensure your latest CV / Resume is uploaded here in PDF or Word document format.\n\n` +
+      `If you have any questions regarding your application or next steps, feel free to reply right here!`
+    );
+  };
+
   const isRescheduleIntent =
     cleanActionId === "BTN_RESCHEDULE" ||
     cleanActionId === "BTN_RESCHEDULE_MEETING" ||
@@ -1300,6 +1357,24 @@ export async function processIncomingWhatsAppMessage(params: {
         lowerText.includes("day")));
 
   if (isRescheduleIntent) {
+    if (isMeetingDoneOverall) {
+      const completedMsg = getCompletedMessageText();
+      await sendTextMessage(cleanPhone, completedMsg);
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanPhone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: session.crmStatus || "follow-up",
+            currentStep: "MEETING_COMPLETED",
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+      return;
+    }
     await sendWeekdayDateList(cleanPhone);
     return;
   }
@@ -1393,8 +1468,26 @@ export async function processIncomingWhatsAppMessage(params: {
   const isBookingRequest = BOOKING_ACTION_IDS.includes(cleanActionId) || hasExplicitBookingPhrase;
 
   if (isBookingRequest) {
+    if (isMeetingDoneOverall) {
+      const completedMsg = getCompletedMessageText();
+      await sendTextMessage(cleanPhone, completedMsg);
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanPhone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: session.crmStatus || "follow-up",
+            currentStep: "MEETING_COMPLETED",
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+      return;
+    }
+
     const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled");
-    const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.currentStep === "MEETING_COMPLETED");
 
     if (hasActiveBooking && session.bookedSlot) {
       const meetLink = getStaticGoogleMeetLink();
@@ -1413,18 +1506,6 @@ export async function processIncomingWhatsAppMessage(params: {
       await sendQuickReplyButtons(cleanPhone, bookedMsg, [
         { id: "BTN_RESCHEDULE", title: "Reschedule Meeting" },
       ]);
-      return;
-    }
-
-    if (isMeetingCompleted) {
-      const candName = getSafeCandidateDisplayName(session.name) || "there";
-      const completedMsg =
-        `Hello ${candName}! 👋\n\n` +
-        `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-        `Our review team is currently matching your profile with Irish employers.\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format so we can proceed with employer marketing! 📄🇮🇪`;
-
-      await sendTextMessage(cleanPhone, completedMsg);
       return;
     }
 
@@ -1509,23 +1590,51 @@ export async function processIncomingWhatsAppMessage(params: {
     return;
   }
 
-  // Guard 7.4: Re-booking guard for completed meetings
-  if (
-    (session.meetingCompleted || session.currentStep === "MEETING_COMPLETED") &&
-    (cleanActionId === "BTN_CONSULT_YES" ||
+  // Guard 7.4: Re-booking and Reschedule guard for completed meetings
+  if (isMeetingDoneOverall) {
+    const isTryingToBookOrReschedule =
+      cleanActionId === "BTN_CONSULT_YES" ||
       cleanActionId === "BTN_BOOK_MEETING" ||
+      cleanActionId === "BTN_BOOK_CONSULTATION" ||
+      cleanActionId === "BTN_RESCHEDULE" ||
+      cleanActionId === "BTN_RESCHEDULE_MEETING" ||
+      cleanActionId === "BTN_SELECT_SLOT" ||
+      cleanActionId.startsWith("SELECT_DAY_") ||
+      cleanActionId.startsWith("RESCHEDULE_DAY_") ||
+      cleanActionId.startsWith("DAY_DATE_") ||
+      cleanActionId.startsWith("SLOT_") ||
+      session.currentStep === "SELECTING_DAY" ||
+      session.currentStep === "SELECTING_SLOT" ||
+      lowerText.includes("reschedule") ||
+      lowerText.includes("change date") ||
+      lowerText.includes("change time") ||
+      lowerText.includes("change slot") ||
+      lowerText.includes("change meeting") ||
+      lowerText.includes("different date") ||
+      lowerText.includes("different slot") ||
+      lowerText.includes("different time") ||
       lowerText === "book" ||
       lowerText.includes("book consultation") ||
-      lowerText.includes("book meeting"))
-  ) {
-    const candidateDisplayName = getSafeCandidateDisplayName(session.name) || "there";
-    const guardMsg =
-      `Hello ${candidateDisplayName}! 👋\n\n` +
-      `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-      `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation and agreement.\n\n` +
-      `If you have any questions about your Ireland Employer Sponsored Work Visa file or payment, feel free to reply right here! 🇮🇪`;
-    await sendTextMessage(cleanPhone, guardMsg);
-    return;
+      lowerText.includes("book meeting");
+
+    if (isTryingToBookOrReschedule) {
+      const guardMsg = getCompletedMessageText();
+      await sendTextMessage(cleanPhone, guardMsg);
+      await db.collection("whatsapp_ireland_sessions").updateOne(
+        { phone: cleanPhone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: session.crmStatus || "follow-up",
+            currentStep: "MEETING_COMPLETED",
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+      return;
+    }
   }
 
   // 2. STEP 2: Email Intake & Information Delivery (AWAITING_EMAIL or direct email shared)
@@ -2124,6 +2233,10 @@ export async function processIncomingWhatsAppMessage(params: {
     lowerText.includes("book meeting") ||
     lowerText === "select date"
   ) {
+    if (isMeetingDoneOverall) {
+      await sendTextMessage(cleanPhone, getCompletedMessageText());
+      return;
+    }
     await sendWeekdayDateList(cleanPhone);
     return;
   }
@@ -2134,6 +2247,11 @@ export async function processIncomingWhatsAppMessage(params: {
     cleanActionId.startsWith("RESCHEDULE_DAY_") ||
     cleanActionId.startsWith("DAY_DATE_")
   ) {
+    if (isMeetingDoneOverall) {
+      await sendTextMessage(cleanPhone, getCompletedMessageText());
+      return;
+    }
+
     const dateStr = cleanActionId
       .replace("SELECT_DAY_", "")
       .replace("RESCHEDULE_DAY_", "")
@@ -2205,6 +2323,11 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 3. Slot Selection (SLOT_date_istStart_candStart)
   if (cleanActionId.startsWith("SLOT_")) {
+    if (isMeetingDoneOverall) {
+      await sendTextMessage(cleanPhone, getCompletedMessageText());
+      return;
+    }
+
     const parts = cleanActionId.split("_");
     const meetingDate = parts[1];
     const istStart = parts[2];

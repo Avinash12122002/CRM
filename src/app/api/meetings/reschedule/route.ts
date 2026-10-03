@@ -61,6 +61,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Lead not found" }, { status: 404 });
     }
 
+    if (
+      lead.meetingStatus === "completed" ||
+      lead.meetingDetails?.status === "completed" ||
+      lead.status === "follow-up" ||
+      lead.meetingCompletedAt
+    ) {
+      return NextResponse.json(
+        { message: "This meeting has already been completed and cannot be rescheduled." },
+        { status: 400 }
+      );
+    }
+
     const isOwner = String(lead.assignedTo) === String(payload.id);
     const isMeetingUser = String(lead.meetingDetails?.meetingUserId) === String(payload.id);
     const isBooker = String(lead.meetingDetails?.bookedBy) === String(payload.id);

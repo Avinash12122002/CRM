@@ -1042,6 +1042,37 @@ export async function processIncomingWhatsAppMessage(params: {
       );
     }
 
+    const isLeadMeetingCompleted = Boolean(
+      existingLead.meetingStatus === "completed" ||
+      existingLead.status === "follow-up" ||
+      existingLead.meetingDetails?.status === "completed" ||
+      existingLead.meetingCompletedAt
+    );
+
+    if (isLeadMeetingCompleted && (!session.meetingCompleted || session.meetingStatus !== "completed" || session.bookedSlot)) {
+      session.meetingCompleted = true;
+      session.meetingStatus = "completed";
+      session.crmStatus = existingLead.status || "follow-up";
+      session.bookedSlot = undefined;
+      if (session.currentStep !== "AWAITING_CV") {
+        session.currentStep = "MEETING_COMPLETED";
+      }
+      await db.collection(SESSIONS_COLLECTION).updateOne(
+        { phone: session.phone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: existingLead.status || "follow-up",
+            meetingCompletedAt: existingLead.meetingCompletedAt || new Date(),
+            currentStep: session.currentStep,
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+    }
+
     // Only trigger pre-existing lead notification for pre-existing CRM leads who just messaged in WELCOME
     // Do NOT block leads created by this WhatsApp automation funnel itself!
     const isSelfAutomationLead =
@@ -1853,10 +1884,15 @@ export async function processIncomingWhatsAppMessage(params: {
     (existingLead && existingLead.status && ACTIVE_CRM_STATUSES.includes(existingLead.status.toLowerCase().trim())) ||
     session.meetingCompleted === true ||
     session.meetingStatus === "completed" ||
+    session.crmStatus === "follow-up" ||
+    Boolean(session.meetingCompletedAt) ||
+    existingLead?.meetingStatus === "completed" ||
+    existingLead?.status === "follow-up" ||
+    Boolean(existingLead?.meetingCompletedAt) ||
     session.currentStep === "MEETING_COMPLETED";
 
   if (isCrmCandidate) {
-    const candidateDisplayName = getSafeCandidateDisplayName(session.name) || "there";
+    const candidateDisplayName = getSafeCandidateDisplayName(session.name) || (existingLead?.name ? getSafeCandidateDisplayName(existingLead.name) : "") || "there";
 
     const isRescheduleAction =
       actionId === "BTN_RESCHEDULE" ||
@@ -1865,25 +1901,71 @@ export async function processIncomingWhatsAppMessage(params: {
       session.currentStep === "RESCHEDULING_DATE" ||
       session.currentStep === "RESCHEDULING_SLOT";
 
-    // 1. If candidate attempts to re-book after consultation is already completed (Guard)
-    const isMeetingDone =
+    // 1. If candidate attempts to re-book or reschedule after consultation is already completed (Guard)
+    const isMeetingDone = Boolean(
       session.meetingCompleted === true ||
       session.meetingStatus === "completed" ||
       session.currentStep === "MEETING_COMPLETED" ||
       session.crmStatus === "sales" ||
       session.crmStatus === "payment-pending" ||
-      session.crmStatus === "document-pending";
+      session.crmStatus === "document-pending" ||
+      session.crmStatus === "follow-up" ||
+      Boolean(session.meetingCompletedAt) ||
+      existingLead?.meetingStatus === "completed" ||
+      existingLead?.meetingDetails?.status === "completed" ||
+      existingLead?.status === "follow-up" ||
+      Boolean(existingLead?.meetingCompletedAt)
+    );
+
+    const isDateOrSlotAction =
+      actionId.startsWith("DAY_DATE_") ||
+      actionId.startsWith("DAY_SELECT_") ||
+      actionId.startsWith("DAY_MORNING_") ||
+      actionId.startsWith("DAY_EVENING_") ||
+      actionId.startsWith("SELECT_DAY_") ||
+      actionId.startsWith("RESCHEDULE_DAY_") ||
+      actionId.startsWith("BTN_SLOTS_PART1_") ||
+      actionId.startsWith("BTN_SLOTS_PART2_") ||
+      actionId.startsWith("SHOW_MORNING_SLOTS_") ||
+      actionId.startsWith("SHOW_AFTERNOON_SLOTS_") ||
+      actionId.startsWith("SLOT_") ||
+      session.currentStep === "SELECTING_DAY" ||
+      session.currentStep === "SELECTING_SLOT" ||
+      session.currentStep === "RESCHEDULING_DATE" ||
+      session.currentStep === "RESCHEDULING_SLOT";
+
+    const isRescheduleAttempt =
+      isRescheduleAction ||
+      lowerClean.includes("reschedule") ||
+      lowerClean.includes("wrong time") ||
+      lowerClean.includes("wrong date") ||
+      lowerClean.includes("wrong slot") ||
+      (lowerClean.includes("change") &&
+        (lowerClean.includes("date") ||
+          lowerClean.includes("time") ||
+          lowerClean.includes("slot") ||
+          lowerClean.includes("meeting") ||
+          lowerClean.includes("day"))) ||
+      (lowerClean.includes("different") &&
+        (lowerClean.includes("date") ||
+          lowerClean.includes("time") ||
+          lowerClean.includes("slot") ||
+          lowerClean.includes("meeting") ||
+          lowerClean.includes("day")));
 
     const triesToBookAgain =
-      !isRescheduleAction &&
-      (actionId === "BTN_CONSULT_YES" ||
-        actionId === "BTN_YES_AUSTRALIA" ||
-        actionId === "BTN_EMAIL_CONFIRM" ||
-        (!session.bookedSlot && actionId.startsWith("DAY_DATE_")) ||
-        lowerText === "book" ||
-        lowerText === "book meeting" ||
-        lowerText === "book consultation" ||
-        (isMeetingDone && (lowerText === "schedule" || lowerText === "reschedule")));
+      (isMeetingDone && (isRescheduleAttempt || isDateOrSlotAction)) ||
+      actionId === "BTN_CONSULT_YES" ||
+      actionId === "BTN_YES_AUSTRALIA" ||
+      actionId === "BTN_EMAIL_CONFIRM" ||
+      actionId === "BTN_SELECT_SLOT" ||
+      actionId === "BTN_BOOK_MEETING" ||
+      actionId === "BTN_BOOK_CONSULTATION" ||
+      (!session.bookedSlot && actionId.startsWith("DAY_DATE_")) ||
+      lowerText === "book" ||
+      lowerText === "book meeting" ||
+      lowerText === "book consultation" ||
+      (isMeetingDone && (lowerText === "schedule" || lowerText === "reschedule" || lowerText.includes("meeting")));
 
     if (triesToBookAgain) {
       let alreadyDoneMsg = "";
@@ -1920,12 +2002,26 @@ export async function processIncomingWhatsAppMessage(params: {
         alreadyDoneMsg =
           `Hello ${candidateDisplayName}! 👋\n\n` +
           `Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-          `Your profile is now in the onboarding and documentation phase. Our team is preparing your official evaluation and agreement.\n\n` +
-          `If you have any questions about your Australia Employer Sponsored Work Visa file or payment, feel free to reply right here! 🇦🇺`;
+          `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Australian Employers! 🇦🇺\n\n` +
+          `📄 Please ensure your latest CV / Resume is uploaded here in PDF or Word document format.\n\n` +
+          `If you have any questions regarding your Australia Employer Sponsored Work Visa file or next steps, feel free to reply right here!`;
       }
 
       await sendTextMessage(session.phone, alreadyDoneMsg);
-      return { replyText: alreadyDoneMsg, step: session.currentStep };
+      await db.collection(SESSIONS_COLLECTION).updateOne(
+        { phone: session.phone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: session.crmStatus || "follow-up",
+            currentStep: "MEETING_COMPLETED",
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+      return { replyText: alreadyDoneMsg, step: "MEETING_COMPLETED" };
     }
 
     // 2. If candidate is awaiting CV submission and sending an acknowledgment or CV-related message
@@ -2639,8 +2735,47 @@ export async function processIncomingWhatsAppMessage(params: {
   const isGlobalBookingRequest = BOOKING_ACTION_IDS_GLOBAL.includes(actionId) || hasExplicitBookingPhraseGlobal;
 
   if (isGlobalBookingRequest) {
+    const isMeetingCompleted = Boolean(
+      session.meetingCompleted ||
+      session.meetingStatus === "completed" ||
+      session.crmStatus === "follow-up" ||
+      Boolean(session.meetingCompletedAt) ||
+      existingLead?.meetingStatus === "completed" ||
+      existingLead?.status === "follow-up" ||
+      existingLead?.meetingDetails?.status === "completed" ||
+      Boolean(existingLead?.meetingCompletedAt) ||
+      session.currentStep === "MEETING_COMPLETED"
+    );
+
+    if (isMeetingCompleted) {
+      const candidateDisplayName =
+        session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
+          ? session.name
+          : (existingLead?.name ? getSafeCandidateDisplayName(existingLead.name) : "");
+      const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
+      const completedMsg =
+        `Hello${nameGreeting}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+        `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Australian Employers! 🇦🇺\n\n` +
+        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄\n\n` +
+        `If you have any questions regarding your application or next steps, feel free to reply right here!`;
+      await sendTextMessage(session.phone, completedMsg);
+      await db.collection(SESSIONS_COLLECTION).updateOne(
+        { phone: session.phone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: session.crmStatus || "follow-up",
+            currentStep: "MEETING_COMPLETED",
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
+    }
+
     const hasActiveBooking = Boolean(session.bookedSlot || session.meetingStatus === "booked" || session.meetingStatus === "rescheduled" || session.crmStatus === "meeting-scheduled");
-    const isMeetingCompleted = Boolean(session.meetingCompleted || session.meetingStatus === "completed" || session.crmStatus === "follow-up" || session.currentStep === "MEETING_COMPLETED");
 
     if (hasActiveBooking && session.bookedSlot) {
       const meetLink = getStaticGoogleMeetLink();
@@ -2664,20 +2799,6 @@ export async function processIncomingWhatsAppMessage(params: {
       return { replyText: bookedReminder, step: "BOOKED" };
     }
 
-    if (isMeetingCompleted) {
-      const candidateDisplayName =
-        session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
-          ? session.name
-          : "";
-      const nameGreeting = candidateDisplayName ? ` ${candidateDisplayName}` : "";
-      const completedMsg =
-        `Hello${nameGreeting}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-        `Our review team is currently evaluating your profile to match the requirements of Australian Employers.\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄🇦🇺`;
-      await sendTextMessage(session.phone, completedMsg);
-      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
-    }
-
     // Candidate has NOT booked a meeting -> Immediately send the Interactive 8-Weekend Selection List ("Select Date")!
     return sendConsultationDateSelection({ db, session });
   }
@@ -2694,7 +2815,7 @@ export async function processIncomingWhatsAppMessage(params: {
     !session.email;
 
   // 1a. If candidate already has a booked consultation and sends a greeting ("hi", "hello", etc.)
-  if (isGreeting && (session.currentStep === "BOOKED" || session.bookedSlot)) {
+  if (isGreeting && (session.currentStep === "BOOKED" || session.bookedSlot) && !session.meetingCompleted && session.meetingStatus !== "completed" && session.crmStatus !== "follow-up") {
     const meetLink = getStaticGoogleMeetLink();
     const candidateDisplayName =
       session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
@@ -2972,7 +3093,80 @@ export async function processIncomingWhatsAppMessage(params: {
     `Please select your preferred upcoming weekend date from the menu below:`;
 
   // 5a. If candidate already has an active confirmed consultation
-  if (session.bookedSlot) {
+  const isMeetingDoneOverall = Boolean(
+    session.meetingCompleted === true ||
+    session.meetingStatus === "completed" ||
+    session.currentStep === "MEETING_COMPLETED" ||
+    session.crmStatus === "follow-up" ||
+    Boolean(session.meetingCompletedAt) ||
+    existingLead?.meetingStatus === "completed" ||
+    existingLead?.meetingDetails?.status === "completed" ||
+    existingLead?.status === "follow-up" ||
+    Boolean(existingLead?.meetingCompletedAt)
+  );
+
+  const getCompletedMessageText = () => {
+    const candName =
+      session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test") && !session.name.includes("@")
+        ? session.name
+        : (existingLead?.name ? getSafeCandidateDisplayName(existingLead.name) : "");
+    const nameGreeting = candName ? ` ${candName}` : "";
+    return (
+      `Hello${nameGreeting}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
+      `Since your consultation is already complete, you cannot reschedule or book another meeting. Our review team is currently evaluating your profile to match the requirements of Australian Employers! 🇦🇺\n\n` +
+      `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄\n\n` +
+      `If you have any questions regarding your application or next steps, feel free to reply right here!`
+    );
+  };
+
+  // 5b. If candidate already completed their consultation
+  if (isMeetingDoneOverall) {
+    const isTryingToBookOrReschedule =
+      isRescheduleIntent ||
+      hasBookingKeyword ||
+      actionId.startsWith("DAY_DATE_") ||
+      actionId.startsWith("DAY_SELECT_") ||
+      actionId.startsWith("DAY_MORNING_") ||
+      actionId.startsWith("DAY_EVENING_") ||
+      actionId.startsWith("SLOT_") ||
+      actionId.startsWith("BTN_SLOTS_PART1_") ||
+      actionId.startsWith("BTN_SLOTS_PART2_") ||
+      actionId.startsWith("SHOW_MORNING_SLOTS_") ||
+      actionId.startsWith("SHOW_AFTERNOON_SLOTS_") ||
+      session.currentStep === "SELECTING_DAY" ||
+      session.currentStep === "SELECTING_SLOT" ||
+      session.currentStep === "RESCHEDULING_DATE" ||
+      session.currentStep === "RESCHEDULING_SLOT" ||
+      actionId === "BTN_CONSULT_YES" ||
+      actionId === "BTN_SELECT_SLOT" ||
+      actionId === "BTN_RESCHEDULE" ||
+      actionId === "BTN_RESCHEDULE_MEETING" ||
+      actionId === "BTN_CHANGE_DAY" ||
+      isWeekdayMention ||
+      isWeekendMention ||
+      Boolean(matchedWeekendDate);
+
+    if (isTryingToBookOrReschedule) {
+      const completedMsg = getCompletedMessageText();
+      await sendTextMessage(session.phone, completedMsg);
+      await db.collection(SESSIONS_COLLECTION).updateOne(
+        { phone: session.phone },
+        {
+          $set: {
+            meetingCompleted: true,
+            meetingStatus: "completed",
+            crmStatus: session.crmStatus || "follow-up",
+            currentStep: "MEETING_COMPLETED",
+            updatedAt: new Date(),
+          },
+          $unset: { bookedSlot: 1 },
+        }
+      );
+      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
+    }
+  }
+
+  if (session.bookedSlot && !isMeetingDoneOverall) {
     if (isRescheduleIntent) {
       return sendConsultationDateSelection({ db, session });
     }
@@ -2991,18 +3185,6 @@ export async function processIncomingWhatsAppMessage(params: {
         { id: "BTN_ASK_VIDEO", title: "Watch Visa Video" },
       ]);
       return { replyText: bookedReminder, step: "BOOKED" };
-    }
-  }
-
-  // 5b. If candidate already completed their consultation
-  if (session.meetingCompleted || session.meetingStatus === "completed" || session.currentStep === "MEETING_COMPLETED") {
-    if (hasBookingKeyword) {
-      const completedMsg =
-        `Hello${nameSalutation}! 👋 Your 1-on-1 consultation session with our senior visa expert has already been completed! ✅\n\n` +
-        `Our review team is currently evaluating your profile to match the requirements of Australian Employers.\n\n` +
-        `Please ensure your latest CV / Resume is uploaded here in PDF or Word document format! 📄🇦🇺`;
-      await sendTextMessage(session.phone, completedMsg);
-      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
     }
   }
 
@@ -3051,7 +3233,7 @@ export async function processIncomingWhatsAppMessage(params: {
       Boolean(matchedWeekendDate)
     );
 
-  if (wantsConsultation && !session.bookedSlot) {
+  if (wantsConsultation && !session.bookedSlot && !isMeetingDoneOverall) {
     if (matchedWeekendDate) {
       return renderSlotSelectionForDate({ db, session, meetingDate: matchedWeekendDate });
     }
@@ -3068,6 +3250,12 @@ export async function processIncomingWhatsAppMessage(params: {
     actionId.startsWith("DAY_MORNING_") ||
     actionId.startsWith("DAY_EVENING_")
   ) {
+    if (isMeetingDoneOverall) {
+      const completedMsg = getCompletedMessageText();
+      await sendTextMessage(session.phone, completedMsg);
+      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
+    }
+
     let meetingDate = "";
 
     if (actionId.startsWith("DAY_MORNING_")) {
@@ -3090,6 +3278,12 @@ export async function processIncomingWhatsAppMessage(params: {
     actionId.startsWith("SHOW_MORNING_SLOTS_") ||
     actionId.startsWith("SHOW_AFTERNOON_SLOTS_")
   ) {
+    if (isMeetingDoneOverall) {
+      const completedMsg = getCompletedMessageText();
+      await sendTextMessage(session.phone, completedMsg);
+      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
+    }
+
     const isPart2 =
       actionId.startsWith("BTN_SLOTS_PART2_") ||
       actionId.startsWith("SHOW_AFTERNOON_SLOTS_");
@@ -3221,6 +3415,12 @@ export async function processIncomingWhatsAppMessage(params: {
 
   // 7. Candidate selected slot -> Lock slot in CRM, Assign to Abhay, Send Meet Link, Replace previous slot if rescheduling
   if (actionId.startsWith("SLOT_")) {
+    if (isMeetingDoneOverall) {
+      const completedMsg = getCompletedMessageText();
+      await sendTextMessage(session.phone, completedMsg);
+      return { replyText: completedMsg, step: "MEETING_COMPLETED" };
+    }
+
     // Format: SLOT_{meetingDate}_{istStart}_{candidateStart}
     const parts = actionId.split("_");
     const meetingDate = parts[1];

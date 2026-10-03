@@ -1950,6 +1950,8 @@ export default function TriloknathLeadDetailPage() {
                   {canManageMeeting && (
                     <div className="flex gap-2 flex-wrap">
                       {lead.meetingDetails!.status !== "completed" &&
+                        lead.meetingStatus !== "completed" &&
+                        lead.status !== "follow-up" &&
                         lead.meetingDetails!.status !== "cancelled" && (
                           <button
                             onClick={() => {
