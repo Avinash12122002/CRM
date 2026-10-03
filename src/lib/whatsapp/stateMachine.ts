@@ -681,6 +681,11 @@ export function matchWeekendDateFromText(
 ): string | null {
   const clean = text.toLowerCase().trim();
 
+  // If text looks like a time or slot choice (e.g. "07:00 PM - 08:00 PM", "slot #8"), do NOT match as a date!
+  if (/^\d{1,2}:\d{2}\s*(?:am|pm)?/i.test(clean) || /^slot\s*#?\d+/i.test(clean)) {
+    return null;
+  }
+
   // 1. Direct ISO match (e.g. "2026-09-27")
   for (const w of upcomingWeekends) {
     if (clean.includes(w.date)) return w.date;
@@ -714,7 +719,12 @@ export function matchWeekendDateFromText(
 
   // 3. If candidate is actively in SELECTING_DAY step and typed just the day of month (e.g. "27" or "28")
   if (isSelectingDayStep) {
-    const dayOnlyMatch = clean.match(/\b(0?[1-9]|[12][0-9]|3[01])(?:st|nd|rd|th)?\b/);
+    // Strip out times and slot tokens before matching day number so "07:00 PM" or "Slot #8" is never matched as the 7th or 8th!
+    const cleanedOfTimes = clean
+      .replace(/\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]m)?/gi, "")
+      .replace(/\b(?:slot|no|#)\s*\d+\b/gi, "")
+      .replace(/\b\d+\s*(?:am|pm)\b/gi, "");
+    const dayOnlyMatch = cleanedOfTimes.match(/\b(0?[1-9]|[12][0-9]|3[01])(?:st|nd|rd|th)?\b/);
     if (dayOnlyMatch) {
       const dayVal = parseInt(dayOnlyMatch[1], 10);
       const matched = upcomingWeekends.find((w) => {
@@ -2849,11 +2859,14 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   const weekends = getUpcomingWeekendDays(10);
-  const matchedWeekendDate = matchWeekendDateFromText(
-    cleanText,
-    weekends,
-    session.currentStep === "SELECTING_DAY"
-  );
+  const matchedWeekendDate =
+    !actionId || actionId === "BTN_SELECT_SLOT"
+      ? matchWeekendDateFromText(
+          cleanText,
+          weekends,
+          session.currentStep === "SELECTING_DAY"
+        )
+      : null;
 
   const WEEKDAY_REGEX = /\b(monday|tuesday|wednesday|thursday|friday|mon|tue|wed|thu|fri|weekdays?)\b/i;
   const isWeekdayMention = WEEKDAY_REGEX.test(lowerText);
@@ -2980,14 +2993,26 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // 5d. Candidate wants Consultation, mentions Day/Date/Slots, or clicked Book Consultation -> Send Interactive Date List directly!
+  const isExplicitSlotOrDayAction =
+    actionId.startsWith("SLOT_") ||
+    actionId.startsWith("DAY_DATE_") ||
+    actionId.startsWith("DAY_SELECT_") ||
+    actionId.startsWith("DAY_MORNING_") ||
+    actionId.startsWith("DAY_EVENING_") ||
+    actionId.startsWith("BTN_SLOTS_PART1_") ||
+    actionId.startsWith("BTN_SLOTS_PART2_");
+
   const wantsConsultation =
-    actionId === "BTN_CONSULT_YES" ||
-    actionId === "BTN_SELECT_SLOT" ||
-    isRescheduleIntent ||
-    hasBookingKeyword ||
-    isWeekdayMention ||
-    isWeekendMention ||
-    Boolean(matchedWeekendDate);
+    !isExplicitSlotOrDayAction &&
+    (
+      actionId === "BTN_CONSULT_YES" ||
+      actionId === "BTN_SELECT_SLOT" ||
+      isRescheduleIntent ||
+      hasBookingKeyword ||
+      isWeekdayMention ||
+      isWeekendMention ||
+      Boolean(matchedWeekendDate)
+    );
 
   if (wantsConsultation && !session.bookedSlot) {
     if (matchedWeekendDate) {

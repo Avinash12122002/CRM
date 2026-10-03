@@ -479,6 +479,11 @@ export function matchWeekendDateFromText(
 ): string | null {
   const clean = text.toLowerCase().trim();
 
+  // If text looks like a time or slot choice (e.g. "07:00 PM - 08:00 PM", "slot #8"), do NOT match as a date!
+  if (/^\d{1,2}:\d{2}\s*(?:am|pm)?/i.test(clean) || /^slot\s*#?\d+/i.test(clean)) {
+    return null;
+  }
+
   // 1. Direct ISO match (e.g. "2026-09-27")
   for (const w of upcomingWeekends) {
     if (clean.includes(w.date)) return w.date;
@@ -524,7 +529,12 @@ export function matchWeekendDateFromText(
 
   // 4. If candidate is actively in SELECTING_DAY step and typed just the day of month (e.g. "27" or "28")
   if (isSelectingDayStep) {
-    const dayOnlyMatch = clean.match(/\b(0?[1-9]|[12][0-9]|3[01])(?:st|nd|rd|th)?\b/);
+    // Strip out times and slot tokens before matching day number so "07:00 PM" or "Slot #8" is never matched as the 7th or 8th!
+    const cleanedOfTimes = clean
+      .replace(/\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]m)?/gi, "")
+      .replace(/\b(?:slot|no|#)\s*\d+\b/gi, "")
+      .replace(/\b\d+\s*(?:am|pm)\b/gi, "");
+    const dayOnlyMatch = cleanedOfTimes.match(/\b(0?[1-9]|[12][0-9]|3[01])(?:st|nd|rd|th)?\b/);
     if (dayOnlyMatch) {
       const dayVal = parseInt(dayOnlyMatch[1], 10);
       const matched = upcomingWeekends.find((w) => {
@@ -1375,13 +1385,17 @@ export async function processIncomingWhatsAppMessage(params: {
   }
 
   // --- Text Weekday Date Matching ---
+  // Only match text dates if NO explicit actionId (like SLOT_ or SELECT_DAY_ or BTN_) was provided
   const upcomingWeekdays = getUpcomingWeekdays(5);
-  const matchedWeekendDate = matchWeekendDateFromText(
-    rawText,
-    upcomingWeekdays,
-    session.currentStep === "SELECTING_DAY" || session.currentStep === "SELECTING_SLOT"
-  );
-  if (matchedWeekendDate) {
+  const matchedWeekendDate =
+    !cleanActionId
+      ? matchWeekendDateFromText(
+          rawText,
+          upcomingWeekdays,
+          session.currentStep === "SELECTING_DAY"
+        )
+      : null;
+  if (matchedWeekendDate && !cleanActionId) {
     cleanActionId = `SELECT_DAY_${matchedWeekendDate}`;
   }
 
@@ -1661,7 +1675,17 @@ export async function processIncomingWhatsAppMessage(params: {
     session.meetingStatus === "completed" ||
     session.currentStep === "MEETING_COMPLETED";
 
-  if (isCrmCandidate) {
+  // Allow slot booking, date selection, or reschedule to proceed even if candidate is an existing CRM lead
+  const isBookingAction =
+    cleanActionId.startsWith("SLOT_") ||
+    cleanActionId.startsWith("SELECT_DAY_") ||
+    cleanActionId.startsWith("RESCHEDULE_DAY_") ||
+    cleanActionId.startsWith("DAY_DATE_") ||
+    cleanActionId === "BTN_SELECT_SLOT" ||
+    cleanActionId === "BTN_RESCHEDULE" ||
+    cleanActionId === "BTN_RESCHEDULE_MEETING";
+
+  if (isCrmCandidate && !isBookingAction) {
     const safeDisplayName = getSafeCandidateDisplayName(session.name);
     const salutation = safeDisplayName ? `Hi ${safeDisplayName}! 👋` : "Hi! 👋";
 
@@ -2094,6 +2118,28 @@ export async function processIncomingWhatsAppMessage(params: {
       activeSlotsDate: dateStr,
     });
     return;
+  }
+
+  // If candidate is actively in SELECTING_SLOT step and typed a slot number (e.g. "1" to "8", "slot #8")
+  if (
+    session.currentStep === "SELECTING_SLOT" &&
+    session.activeSlotsDate &&
+    !cleanActionId.startsWith("SLOT_")
+  ) {
+    const availableSlots = await getAvailableWeekdaySlots({
+      db,
+      meetingDate: session.activeSlotsDate,
+      candidateTimeZone: session.timeZone,
+      candidateTimeLabel: session.timeZoneLabel,
+    });
+    const numMatch = rawText.match(/\b(?:slot\s*#?)?([1-8])\b/i);
+    if (numMatch) {
+      const idx = parseInt(numMatch[1], 10) - 1;
+      if (idx >= 0 && idx < availableSlots.length) {
+        const s = availableSlots[idx];
+        cleanActionId = `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`;
+      }
+    }
   }
 
   // 3. Slot Selection (SLOT_date_istStart_candStart)
