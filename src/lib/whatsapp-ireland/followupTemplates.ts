@@ -133,11 +133,11 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 1,
       message:
-        `Did you get a chance to watch our Ireland Work Visa explainer video? 🎬\n\n` +
-        `It explains the employer sponsorship, DETE work permit, and Stamp 4 PR pathway in under 2 minutes!`,
+        `This is a direct employer-sponsored work visa where approved Irish employers cover work permit and flight charges! 🇮🇪\n\n` +
+        `Book a free 1-on-1 consultation with our Ireland expert to learn more about the Ireland Employer Sponsored Work Visa:`,
       buttons: [
-        { id: "BTN_IRELAND_YES", title: "Watched It!" },
-        { id: "BTN_IRELAND_NO", title: "Send Link Again" },
+        { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+        { id: "BTN_CONSULT_NO", title: "Maybe Later" },
       ],
     },
     {
@@ -307,53 +307,50 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     },
   ],
 
-  // Step 6: Payment Pending (€300 Initial Fee)
-  STEP_6_PAYMENT: [
+  // Step 7: Cancelled Meeting Rescheduling
+  STEP_7_RESCHEDULE: [
     {
       day: 1,
       message:
-        `Your Ireland consultation was completed successfully! 🎉\n\n` +
-        `To proceed, your initial milestone of **€300** is due. This covers:\n` +
-        `• Dedicated TMS Case Manager from Day 1\n` +
-        `• European/Irish-standard professional CV makeover\n` +
-        `• FREE weekly English communication coaching\n` +
-        `• FREE Interview Preparation coaching\n` +
-        `• TMS books your interviews with Irish employers\n\n` +
-        `Pay the remaining €700 ONLY after visa approval & flight tickets are in hand! 🇮🇪`,
+        `Unfortunately your consultation meeting could not take place today.\n\n` +
+        `Please reschedule your consultation with our Ireland expert by choosing a date below:`,
+      buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {
       day: 2,
       message:
-        `Your 1-Year Professional Services Agreement is ready! 📋\n\n` +
-        `Complete your €300 initial milestone to activate your Case Manager, Irish CV makeover, free English coaching & Interview Preparation — all starting this week.\n\n` +
-        `Remember: €700 balance only after your Irish visa and flight tickets are confirmed!`,
+        `We missed you! 🤝 Please reschedule your free 1-on-1 consultation so our team can evaluate your Ireland Employer Sponsored Work Visa profile:`,
+      buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {
       day: 3,
       message:
-        `Our Ireland service is backed by a **100% Money-Back Guarantee**. 🛡️\n\n` +
-        `If your visa is rejected for ANY reason, we refund ALL your payments immediately — no questions asked.\n\n` +
-        `You only pay the €700 balance once your visa and flights are confirmed in hand! ✈️`,
+        `Don't lose your spot: Irish employers are actively hiring under Critical Skills & General Employment permits. Tap below to pick a new consultation date on an upcoming weekday! 🇮🇪`,
+      buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {
       day: 4,
       message:
-        `Our recruitment team has active openings in Ireland for your occupation. Clear your €300 initial fee to submit your profile to hiring managers. 🇮🇪`,
+        `Weekday slots are open: Reschedule your 1-on-1 meeting (Monday to Friday) to reconnect with our Ireland advisor:`,
+      buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {
       day: 5,
       message:
-        `Have any questions about the agreement or payment methods? Reply here to speak with our billing coordinator.`,
+        `Free eligibility review: Reschedule your meeting today to find out which Irish employers can sponsor your visa and cover your permit! ✈️`,
+      buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {
       day: 6,
       message:
-        `Your reserved employer marketing queue for Ireland expires soon. Complete your €300 initial enrollment to secure your spot.`,
+        `Consultation openings are limited this week. Tap below to choose your new date and time for a 1-on-1 video call:`,
+      buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
     {
       day: 7,
       message:
-        `Final notice regarding your Ireland onboarding enrollment. Message us anytime you're ready to activate your application! 🇮🇪`,
+        `Final Rescheduling Reminder: Tap below to reschedule your consultation with our Ireland migration team whenever you are ready. 🇮🇪`,
+      buttons: [{ id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" }],
     },
   ],
 };

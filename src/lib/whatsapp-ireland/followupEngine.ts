@@ -151,10 +151,14 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
         }
 
         const isAwaitingCvFollowup = session.currentStep === "AWAITING_CV" && !hasSharedCv;
+        const isRescheduleFollowup =
+          session.currentStep === "RESCHEDULING_DATE" ||
+          session.currentStep === "RESCHEDULING_SLOT" ||
+          (session.currentStep === "AWAITING_REENGAGEMENT" && session.meetingStatus === "canceled");
 
         const effectiveCrmStatus = (lead?.status || session.crmStatus || "").toLowerCase().trim();
         if (effectiveCrmStatus && EXCLUDED_CRM_FOLLOWUP_STATUSES.includes(effectiveCrmStatus)) {
-          if (!isAwaitingCvFollowup) {
+          if (!isAwaitingCvFollowup && !isRescheduleFollowup) {
             // Candidate is actively in CRM pipeline - cancel 7-day automated WhatsApp follow-ups
             await updateSession(db, session.phone, {
               nextFollowupAt: null as any,
@@ -186,13 +190,17 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
           stepKey = "STEP_3_VIDEO";
         } else if (
           session.currentStep === "SELECTING_DAY" ||
-          session.currentStep === "SELECTING_SLOT" ||
-          session.currentStep === "RESCHEDULING_DATE" ||
-          session.currentStep === "RESCHEDULING_SLOT"
+          session.currentStep === "SELECTING_SLOT"
         ) {
           stepKey = "STEP_4_CONSULTATION";
         } else if (session.currentStep === "AWAITING_CV") {
           stepKey = "STEP_5_CV";
+        } else if (
+          session.currentStep === "RESCHEDULING_DATE" ||
+          session.currentStep === "RESCHEDULING_SLOT" ||
+          (session.currentStep === "AWAITING_REENGAGEMENT" && session.meetingStatus === "canceled")
+        ) {
+          stepKey = "STEP_7_RESCHEDULE";
         }
 
         const messagesForStep = STEP_FOLLOWUP_MESSAGES[stepKey] || STEP_FOLLOWUP_MESSAGES.STEP_1_WELCOME;

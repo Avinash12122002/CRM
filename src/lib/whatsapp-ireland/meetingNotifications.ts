@@ -130,13 +130,21 @@ export async function sendMeetingCancelledNotification(params: {
     );
 
     const now = new Date();
+    const { getNext10AmInTimezone } = await import("./timezone");
+    const session = await db.collection("whatsapp_ireland_sessions").findOne({ phone: cleanPhone });
+    const candidateTz = (session?.timeZone as string) || "Asia/Kolkata";
+
     await db.collection("whatsapp_ireland_sessions").updateOne(
       { phone: cleanPhone },
       {
         $set: {
           meetingStatus: "canceled",
           meetingCanceledAt: now,
+          crmStatus: "meeting-reschedule",
+          bookedSlot: null,
           currentStep: "RESCHEDULING_DATE",
+          followupCount: 0,
+          nextFollowupAt: getNext10AmInTimezone(candidateTz),
           updatedAt: now,
         },
         $push: {
