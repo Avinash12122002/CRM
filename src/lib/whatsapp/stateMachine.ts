@@ -710,8 +710,8 @@ export function matchWeekendDateFromText(
 }
 
 /**
- * Dispatches the interactive "Select Date" list for upcoming weekend consultation dates.
- * Meta list allows up to 10 rows.
+ * Dispatches the interactive "Select Date" list for 8 upcoming weekend consultation dates (Sat, Sun, Sat, Sun...).
+ * Shows all 8 dates directly in one interactive list.
  */
 export async function sendConsultationDateSelection(params: {
   db: Db;
@@ -719,22 +719,20 @@ export async function sendConsultationDateSelection(params: {
   introText?: string;
   filterDay?: "Saturday" | "Sunday";
 }): Promise<{ replyText: string; step: WhatsAppStep }> {
-  const { db, session, introText, filterDay } = params;
-  const isIndia = session.countryCode === "IN";
-  const allWeekends = getUpcomingWeekendDays(10);
-  const weekends = filterDay
-    ? allWeekends.filter((w) => w.dayName === filterDay)
-    : allWeekends;
+  const { db, session, introText } = params;
+  const weekends = getUpcomingWeekendDays(8);
 
   const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
+  const cleanTz = candWindow.tzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+  const tzSuffix = cleanTz ? ` (${cleanTz})` : "";
 
   const sections = [
     {
-      title: (filterDay ? `Upcoming ${filterDay}s` : "Select Weekend Date").slice(0, 24),
-      rows: weekends.slice(0, 10).map((w) => ({
+      title: "8 Weekend Dates".slice(0, 24),
+      rows: weekends.slice(0, 8).map((w) => ({
         id: `DAY_DATE_${w.date}`,
         title: w.displayLabel.slice(0, 24), // e.g. "Sat, 26 Sep"
-        description: `${w.dayName} · ${candWindow.displayWindow}`.slice(0, 72),
+        description: `${w.dayName} · 1-Hour Slots`.slice(0, 72),
       })),
     },
   ];
@@ -743,7 +741,6 @@ export async function sendConsultationDateSelection(params: {
     session.name && session.name !== "Candidate" && !session.name.toLowerCase().includes("test")
       ? session.name
       : "";
-  const nameSalutation = candidateDisplayName ? ` ${candidateDisplayName}` : "";
 
   const isRescheduling = Boolean(session.bookedSlot);
   let dayText = introText;
@@ -752,14 +749,13 @@ export async function sendConsultationDateSelection(params: {
     if (isRescheduling) {
       dayText =
         `📅 *Change Consultation Date & Time*\n\n` +
-        `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.istTimeLabel}**.\n\n` +
-        `Please select your new preferred weekend date from the upcoming month:`;
+        `Your current meeting is on **${session.bookedSlot?.date}** at **${session.bookedSlot?.candidateTimeLabel || session.bookedSlot?.candidateTime}**.\n\n` +
+        `Please select your new preferred date from the 8 upcoming weekend dates:`;
     } else {
-      const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
       dayText =
         `Our 1-on-1 consultations with our senior visa experts are held on **Saturdays and Sundays**.\n` +
-        `All slots run strictly between ${candWindow.displayWindow} in 1-hour intervals.\n` +
-        `Here are the 10 upcoming weekend dates across the month. Please select your preferred date:`;
+        `All 1-on-1 sessions run in 1-hour intervals between **${candWindow.displayWindow}**${tzSuffix}.\n\n` +
+        `Please select your preferred date from the 8 upcoming weekend days below:`;
     }
   }
 
@@ -855,14 +851,14 @@ export async function renderSlotSelectionForDate(params: {
         `All consultation slots for **${selectedLabel}** are currently fully booked! 🔒\n\n` +
         `Would you like to review all upcoming dates across the month?`;
       await sendQuickReplyButtons(session.phone, fullText, [
-        { id: "BTN_CHANGE_DAY", title: "View All 10 Dates" },
+        { id: "BTN_CHANGE_DAY", title: "View All 8 Dates" },
       ]);
       return { replyText: fullText, step: "SELECTING_DAY" };
     }
   }
 
   // Slots are available for this date!
-  const allWeekends = getUpcomingWeekendDays(10);
+  const allWeekends = getUpcomingWeekendDays(8);
   const dayObj = allWeekends.find((w) => w.date === meetingDate);
   const dayLabel = dayObj ? dayObj.displayLabel : meetingDate;
 
@@ -878,13 +874,17 @@ export async function renderSlotSelectionForDate(params: {
     isIndia,
   });
 
+  const rawTzShort = extractShortTimezone(session.timeZoneLabel);
+  const tzShort = rawTzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+  const tzSuffix = tzShort ? ` (${tzShort})` : "";
+
   const sections = [
     {
-      title: `Available Slots (${extractShortTimezone(session.timeZoneLabel)})`.slice(0, 24),
-      rows: availableSlots.map((s, idx) => ({
+      title: `8 Slots${tzSuffix}`.slice(0, 24),
+      rows: availableSlots.slice(0, 8).map((s, idx) => ({
         id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
         title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
-        description: `Slot #${idx + 1} (${extractShortTimezone(session.timeZoneLabel)})`.slice(0, 72),
+        description: `Slot #${idx + 1}${tzSuffix}`.slice(0, 72),
       })),
     },
   ];
@@ -2823,11 +2823,7 @@ export async function processIncomingWhatsAppMessage(params: {
       return sendConsultationDateSelection({ db, session, introText: weekdayExplanation });
     }
     if (isWeekendMention) {
-      return sendConsultationDateSelection({
-        db,
-        session,
-        filterDay: isSaturdayMention ? "Saturday" : isSundayMention ? "Sunday" : undefined,
-      });
+      return sendConsultationDateSelection({ db, session });
     }
   }
 
@@ -2849,13 +2845,6 @@ export async function processIncomingWhatsAppMessage(params: {
       }
       if (isWeekdayMention) {
         return sendConsultationDateSelection({ db, session, introText: weekdayExplanation });
-      }
-      if (isWeekendMention) {
-        return sendConsultationDateSelection({
-          db,
-          session,
-          filterDay: isSaturdayMention ? "Saturday" : isSundayMention ? "Sunday" : undefined,
-        });
       }
       return sendConsultationDateSelection({ db, session });
     } else {

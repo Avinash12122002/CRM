@@ -14,10 +14,10 @@ export interface WeekendDayOption {
 
 /**
  * Returns upcoming weekend days (Saturdays and Sundays) relative to the current IST time.
- * Defaults to 10 days (~1 full month of weekend days).
- * If today is Saturday or Sunday and it's already past 18:30 IST (the last slot), today is skipped.
+ * Defaults to 8 days (4 Saturdays and 4 Sundays).
+ * If today is Saturday or Sunday and it's already past 21:00 IST (the last slot), today is skipped.
  */
-export function getUpcomingWeekendDays(count: number = 10): WeekendDayOption[] {
+export function getUpcomingWeekendDays(count: number = 8): WeekendDayOption[] {
   const now = new Date();
   const todayISTStr = formatDateInZone(now, "Asia/Kolkata");
 
@@ -73,7 +73,7 @@ export async function findNextAvailableWeekendDay(params: {
   candidateTimeLabel: string;
 }): Promise<{ dayOption: WeekendDayOption; availableSlots: WeekendSlot[] } | null> {
   const { db, afterDate, candidateTimeZone, candidateTimeLabel } = params;
-  const allWeekends = getUpcomingWeekendDays(10);
+  const allWeekends = getUpcomingWeekendDays(8);
 
   for (const day of allWeekends) {
     if (afterDate && day.date <= afterDate) {

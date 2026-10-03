@@ -1,0 +1,290 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+import { verifyToken } from "@/lib/auth";
+import { logUserAction } from "@/lib/activity/audit";
+
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    const params = await context.params;
+    const cookie = req.headers.get("cookie") || "";
+    const matches = cookie.match(/(^|; )token=([^;]+)/);
+    const token = matches ? matches[2] : null;
+
+    if (!token) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const leadId = parseInt(params.id);
+
+    const { db } = await connectToDatabase();
+
+    // Get lead with full history and user data
+    const leads = await db
+      .collection("leads")
+      .aggregate([
+        { $match: { id: leadId } },
+        {
+          $lookup: {
+            from: "users",
+            localField: "assignedTo",
+            foreignField: "id",
+            as: "assignedUser",
+          },
+        },
+        {
+          $unwind: {
+            path: "$assignedUser",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "createdBy",
+            foreignField: "id",
+            as: "creator",
+          },
+        },
+        {
+          $unwind: {
+            path: "$creator",
+            preserveNullAndEmptyArrays: true,
+          },
+        },
+        {
+          $project: {
+            id: 1,
+            name: 1,
+            email: 1,
+            phone: 1,
+            company: 1,
+            state: 1,
+            city: 1,
+            country: 1,
+            age: 1,
+            passportType: 1,
+            leadSource: 1,
+            jobApplied: 1,
+            interestedCountry: 1,
+            status: 1,
+            isAgent: 1,
+            callbackDate: 1,
+            callbackSeen: 1,
+            dueDate: 1,
+            assignedTo: 1,
+            assignedToName: "$assignedUser.name",
+            assignedToEmail: "$assignedUser.email",
+            assignedToUsername: "$assignedUser.username",
+            assignedToRole: "$assignedUser.role",
+            assignedBy: 1,
+            assignedByName: 1,
+            assignedByRole: 1,
+            participants: 1,
+            visibleTo: 1,
+            createdBy: 1,
+            createdByName: "$creator.name",
+            createdAt: 1,
+            updatedAt: 1,
+            history: 1,
+            meetingDetails: 1,
+            meetingStatus: 1,
+            meetingCompletedAt: 1,
+            meetingCancelledAt: 1,
+            notes: 1,
+            salesDocument: 1,
+            occupations: 1,
+            caseManagerAssignedAt: 1,
+            caseManagerId: 1,
+            caseManagerName: 1,
+            caseManagerEmail: 1,
+            caseManagerPassword: 1,
+            followUpWorkflow: 1,
+            saleCompletedAt: 1,
+            introMailSent: 1,
+            introMailSentAt: 1,
+          },
+        },
+      ])
+      .toArray();
+
+    if (!leads || leads.length === 0) {
+      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    }
+
+    const lead = leads[0];
+    const isFollowUpCompleted =
+      lead.followUpWorkflow?.currentStage === "completed" ||
+      lead.followUpWorkflow?.status === "completed" ||
+      !!lead.followUpWorkflow?.stages?.case_manager;
+
+    lead.isReadOnly =
+      payload.role !== "admin" &&
+      payload.role === "follow_up" &&
+      isFollowUpCompleted;
+
+    lead.isOwner =
+      payload.role === "admin"
+        ? true
+        : lead.isReadOnly
+        ? false
+        : String(lead.assignedTo) === String(payload.id) ||
+          (payload.role === "trainee" && lead.status === "sales");
+
+    if (
+      (payload.role === "telecaller" ||
+        payload.role === "employee" ||
+        payload.role === "meeting" ||
+        payload.role === "case_manager" ||
+        payload.role === "wtc" ||
+        payload.role === "wm" ||
+        payload.role === "wcm" ||
+        payload.role === "supervisor" ||
+        payload.role === "follow_up" ||
+        payload.role === "trainee") &&
+      String(lead.assignedTo) !== String(payload.id) &&
+      String(lead.caseManagerId) !== String(payload.id) &&
+      !lead.visibleTo?.some((v: unknown) => String(v) === String(payload.id)) &&
+      !(payload.role === "trainee" && lead.status === "sales")
+    ) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    if (lead.status === "call-back" && lead.callbackSeen === false) {
+      await db.collection("leads").updateOne(
+        { id: leadId },
+        {
+          $set: {
+            callbackSeen: true,
+          },
+        },
+      );
+
+      lead.callbackSeen = true;
+    }
+    return NextResponse.json({ lead });
+  } catch (err) {
+    console.error(err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { message: "Server error", error: errorMessage },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  try {
+    const params = await context.params;
+    const cookie = req.headers.get("cookie") || "";
+    const matches = cookie.match(/(^|; )token=([^;]+)/);
+    const token = matches ? matches[2] : null;
+
+    if (!token) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = verifyToken(token);
+    if (!payload) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const leadId = parseInt(params.id);
+    const body = await req.json();
+    const { note } = body;
+
+    if (!note?.trim()) {
+      return NextResponse.json(
+        { message: "Note is required" },
+        { status: 400 },
+      );
+    }
+
+    const { db } = await connectToDatabase();
+
+    const lead = await db.collection("leads").findOne({ id: leadId });
+    if (!lead) {
+      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    }
+
+    // Check permissions — Case Managers are read-only and can never add
+    // notes or otherwise modify a lead, regardless of assignment.
+    if (payload.role === "case_manager" || payload.role === "wcm") {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+    if (
+      (payload.role === "telecaller" ||
+        payload.role === "employee" ||
+        payload.role === "meeting" ||
+        payload.role === "wtc" ||
+        payload.role === "wm" ||
+        payload.role === "supervisor" ||
+        payload.role === "follow_up" ||
+        payload.role === "trainee") &&
+      String(lead.assignedTo) !== String(payload.id) &&
+      !lead.visibleTo?.some((v: unknown) => String(v) === String(payload.id)) &&
+      !(payload.role === "trainee" && lead.status === "sales")
+    ) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    const now = new Date();
+    const historyEntry = {
+      action: "note_added",
+      performedBy: payload.id,
+      performedByName: payload.name,
+      timestamp: now,
+      details: note.trim(),
+    };
+
+    await db.collection("leads").updateOne(
+      { id: leadId },
+      {
+        $set: {
+          updatedAt: now,
+        },
+        $push: {
+          history: historyEntry,
+
+          notes: {
+            text: note.trim(),
+            createdAt: now,
+            createdBy: payload.id,
+            createdByName: payload.name,
+          },
+        },
+      },
+    );
+
+    await logUserAction(db, {
+      userId: payload.id,
+      userName: payload.name,
+      userRole: payload.role,
+      actionType: "lead_note_added",
+      entityType: "lead",
+      entityId: leadId,
+      summary: `Added note on lead #${leadId} (${lead.name || "Candidate"}): "${note.trim().slice(0, 50)}${note.trim().length > 50 ? "..." : ""}"`,
+      metadata: { leadName: lead.name, notePreview: note.trim().slice(0, 100) },
+    });
+
+    return NextResponse.json({ message: "Note added successfully" });
+  } catch (err) {
+    console.error(err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { message: "Server error", error: errorMessage },
+      { status: 500 },
+    );
+  }
+}

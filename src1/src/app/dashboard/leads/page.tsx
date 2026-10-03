@@ -1,0 +1,1473 @@
+"use client";
+
+import React, { useEffect, useState, useRef } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import DashboardNavbar from "@/components/DashboardNavbar";
+import CreateLeadModal from "@/components/CreateLeadModal";
+import AssignLeadModal from "@/components/AssignLeadModal";
+
+interface User {
+  id: number;
+  name: string;
+  email?: string;
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
+}
+
+interface Lead {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  status: string;
+  isAgent?: boolean;
+  dueDate?: string;
+  callbackDate?: string;
+  callbackSeen?: boolean;
+  isDueToday?: boolean;
+  isFollowUpDue?: boolean;
+  followUpDueStage?: string;
+  assignedTo: number | null;
+  assignedToName?: string;
+  assignedToEmail?: string;
+  assignedToRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
+  assignedBy?: number;
+  assignedByName?: string;
+  assignedByRole?: "admin" | "telecaller" | "employee" | "meeting" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
+  participants?: number[];
+  createdBy: number;
+  createdByName?: string;
+  createdAt: string;
+  updatedAt: string;
+  lastNoteAddedByAdmin?: boolean;
+  isOwner: boolean;
+  followUpWorkflow?: {
+    currentStage?: string;
+    status?: string;
+  };
+  lastNote?: {
+    note: string;
+    timestamp: string;
+    performedByName: string;
+  };
+  introMailSent?: boolean;
+  interestedCountry?: string | null;
+}
+
+interface Pagination {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+const FILTER_STORAGE_KEY = "leads_filters";
+
+interface StoredFilters {
+  searchQuery: string;
+  selectedStatus: string;
+  statusSearchQuery: string;
+  selectedAssigned: string;
+  assignedSearchQuery: string;
+  selectedMonth: string;
+  selectedYear: string;
+  agentFilter: string;
+  selectedInterestedCountry: string;
+  page: number;
+  limit: number;
+}
+
+export default function LeadsPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [pagination, setPagination] = useState<Pagination>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0,
+  });
+  const [loading, setLoading] = useState(false);
+  const [users, setUsers] = useState<
+    { id: number; name: string; role: string }[]
+  >([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [statusSearchQuery, setStatusSearchQuery] = useState("");
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [selectedAssigned, setSelectedAssigned] = useState("");
+  const [assignedSearchQuery, setAssignedSearchQuery] = useState("");
+  const [assignedDropdownOpen, setAssignedDropdownOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [agentFilter, setAgentFilter] = useState("");
+  const [selectedInterestedCountry, setSelectedInterestedCountry] = useState("");
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
+  const [selectedLeadAssignee, setSelectedLeadAssignee] = useState<
+    number | null
+  >(null);
+  const router = useRouter();
+  const toastShownRef = useRef(false);
+  const statusDropdownRef = useRef<HTMLDivElement>(null);
+  const assignedDropdownRef = useRef<HTMLDivElement>(null);
+  const filtersLoadedRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !filtersLoadedRef.current) {
+      const savedFilters = localStorage.getItem(FILTER_STORAGE_KEY);
+      if (savedFilters) {
+        try {
+          const filters: StoredFilters = JSON.parse(savedFilters);
+          setSearchQuery(filters.searchQuery || "");
+          setSelectedStatus(filters.selectedStatus || "");
+          setStatusSearchQuery(filters.statusSearchQuery || "");
+          setSelectedAssigned(filters.selectedAssigned || "");
+          setAssignedSearchQuery(filters.assignedSearchQuery || "");
+          setSelectedMonth(filters.selectedMonth || "");
+          setSelectedYear(
+            filters.selectedYear !== undefined ? filters.selectedYear : "",
+          );
+          setAgentFilter(filters.agentFilter || "");
+          setSelectedInterestedCountry(filters.selectedInterestedCountry || "");
+          setPagination((prev) => ({
+            ...prev,
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+          }));
+        } catch (error) {
+          console.error("Error loading filters from localStorage:", error);
+        }
+      }
+      filtersLoadedRef.current = true;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && filtersLoadedRef.current) {
+      const filters: StoredFilters = {
+        searchQuery,
+        selectedStatus,
+        statusSearchQuery,
+        selectedAssigned,
+        assignedSearchQuery,
+        selectedMonth,
+        selectedYear,
+        agentFilter,
+        selectedInterestedCountry,
+        page: pagination.page,
+        limit: pagination.limit,
+      };
+      localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(filters));
+    }
+  }, [
+    searchQuery,
+    selectedStatus,
+    statusSearchQuery,
+    selectedAssigned,
+    assignedSearchQuery,
+    selectedMonth,
+    selectedYear,
+    agentFilter,
+    selectedInterestedCountry,
+    pagination.page,
+    pagination.limit,
+  ]);
+
+  useEffect(() => {
+    checkAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (user && filtersLoadedRef.current) {
+      fetchLeads();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    user,
+    pagination.page,
+    pagination.limit,
+    searchQuery,
+    selectedStatus,
+    selectedAssigned,
+    selectedMonth,
+    selectedYear,
+    agentFilter,
+    selectedInterestedCountry,
+  ]);
+
+  useEffect(() => {
+    if (user && user.role === "admin") {
+      fetchUsers();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(event.target as Node)
+      ) {
+        setStatusDropdownOpen(false);
+      }
+      if (
+        assignedDropdownRef.current &&
+        !assignedDropdownRef.current.contains(event.target as Node)
+      ) {
+        setAssignedDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (!res.ok) {
+        if (!toastShownRef.current) {
+          toast.error("Please login first");
+          toastShownRef.current = true;
+        }
+        router.push("/");
+        return;
+      }
+      const data = await res.json();
+      setUser(data);
+    } catch (err) {
+      console.error(err);
+      if (!toastShownRef.current) {
+        toast.error("Something went wrong");
+        toastShownRef.current = true;
+      }
+      router.push("/");
+    }
+  };
+
+  const fetchLeads = async (pageArg?: number, limitArg?: number) => {
+    setLoading(true);
+    try {
+      const pageToUse = pageArg || pagination.page;
+      const limitToUse = limitArg || pagination.limit;
+      let url = `/api/leads/list?page=${pageToUse}&limit=${limitToUse}`;
+      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
+      if (selectedStatus)
+        url += `&status=${encodeURIComponent(selectedStatus)}`;
+      if (selectedAssigned)
+        url += `&assignedTo=${encodeURIComponent(selectedAssigned)}`;
+      if (selectedMonth) url += `&month=${selectedMonth}`;
+      if (selectedYear) url += `&year=${selectedYear}`;
+      if (agentFilter) url += `&isAgent=${agentFilter}`;
+      if (selectedInterestedCountry) url += `&interestedCountry=${encodeURIComponent(selectedInterestedCountry)}`;
+
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        setLeads(data.leads);
+        const selectedLeadId = sessionStorage.getItem("selectedLeadId");
+
+        if (selectedLeadId) {
+          setTimeout(() => {
+            const row = document.getElementById(`lead-${selectedLeadId}`);
+
+            if (row) {
+              row.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              });
+
+              // Highlight the row
+              row.classList.add(
+                "bg-yellow-200",
+                "dark:bg-yellow-700",
+                "transition-colors",
+                "duration-700",
+              );
+
+              // Remove highlight after 2 seconds
+              setTimeout(() => {
+                row.classList.remove("bg-yellow-200", "dark:bg-yellow-700");
+
+                sessionStorage.removeItem("selectedLeadId");
+              }, 2000);
+            }
+          }, 100);
+        }
+        setPagination({ ...data.pagination, page: pageToUse });
+        if (
+          data.pagination.page > data.pagination.totalPages &&
+          data.pagination.totalPages > 0
+        ) {
+          setPagination((prev) => ({
+            ...prev,
+            page: data.pagination.totalPages,
+          }));
+        }
+      } else {
+        toast.error("Failed to fetch leads");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > pagination.totalPages) return;
+    setPagination((prev) => ({ ...prev, page: newPage }));
+    fetchLeads(newPage);
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("/api/auth/users");
+      if (res.ok) {
+        const data = await res.json();
+        const allUsers = (data.users || []).filter((u: { role: string }) =>
+          ["admin", "telecaller", "employee", "meeting", "wtc", "wm", "supervisor", "follow_up", "trainee"].includes(u.role),
+        );
+        setUsers(allUsers);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleAssign = (leadId: number, currentAssigneeId: number | null) => {
+    setSelectedLeadId(leadId);
+    setSelectedLeadAssignee(currentAssigneeId);
+    setAssignModalOpen(true);
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status) {
+      case "new-lead":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100";
+      case "call-back":
+        return "bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-300 border border-amber-300/70 dark:border-amber-500/30";
+      case "not-answering":
+        return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100";
+      case "meeting-scheduled":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100";
+      case "meeting-reschedule":
+        return "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-100";
+      case "not-interested":
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100";
+      case "wrong-number":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100";
+      case "incorrect-number":
+        return "bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100";
+      case "document-pending":
+        return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100";
+      case "payment-pending":
+        return "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-100";
+      case "sales":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100";
+      case "follow-up":
+        return "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-100";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100";
+    }
+  };
+
+  // Restrained row styling: a thin left accent border communicates priority/role
+  // without washing the whole row in a loud background color.
+  const getRowAccentClasses = (lead: Lead) => {
+    // Not visible to this viewer (telecaller/meeting looking at someone else's lead)
+    if (user && user.role !== "admin" && !lead.isOwner) {
+      return "border-l-4 border-l-transparent bg-gray-50/70 dark:bg-gray-900/30 opacity-60";
+    }
+
+    // Agent-flagged leads get top visual priority
+    if (lead.isAgent) {
+      return "border-l-4 border-l-amber-400 bg-amber-50/60 dark:bg-amber-900/10 hover:bg-amber-50 dark:hover:bg-amber-900/20";
+    }
+
+    // Callback due today is the next priority signal
+    if (lead.status === "call-back") {
+      if (lead.isDueToday) {
+        return "border-l-4 border-l-emerald-500 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      const isOverdue =
+        lead.callbackDate &&
+        new Date(lead.callbackDate).setHours(0, 0, 0, 0) <
+          new Date().setHours(0, 0, 0, 0);
+      if (isOverdue) {
+        return "border-l-4 border-l-rose-500 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      return "border-l-4 border-l-amber-400 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+    }
+
+    // Otherwise, a subtle role accent for admins scanning the queue
+    if (user && user.role === "admin") {
+      if (lead.assignedToRole === "admin") {
+        return "border-l-4 border-l-red-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "meeting" || lead.assignedToRole === "wm") {
+        return "border-l-4 border-l-purple-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "telecaller" || lead.assignedToRole === "employee" || lead.assignedToRole === "wtc" || lead.assignedToRole === "supervisor") {
+        return "border-l-4 border-l-blue-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "case_manager" || lead.assignedToRole === "wcm") {
+        return "border-l-4 border-l-teal-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "follow_up") {
+        return "border-l-4 border-l-orange-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+      if (lead.assignedToRole === "trainee") {
+        return "border-l-4 border-l-violet-300 hover:bg-gray-50 dark:hover:bg-gray-700/50";
+      }
+    }
+
+    return "border-l-4 border-l-transparent hover:bg-gray-50 dark:hover:bg-gray-700/50";
+  };
+
+  // Shared label/color mapping for role badges (Assigned To / Assigned By /
+  // legend) so admin, meeting, telecaller, and case_manager all render
+  // consistently instead of each spot hardcoding its own set of roles.
+  const getRoleBadgeLabel = (role?: string) => {
+    switch (role) {
+      case "admin":
+        return "Admin";
+      case "meeting":
+        return "Meeting";
+      case "telecaller":
+        return "Telecaller";
+      case "employee":
+        return "Employee";
+      case "case_manager":
+        return "Case Manager";
+      case "wm":
+        return "WM";
+      case "wcm":
+        return "WCM";
+      case "wtc":
+        return "WTC";
+      case "supervisor":
+        return "Supervisor";
+      case "follow_up":
+        return "Follow-Up";
+      case "trainee":
+        return "Trainee";
+      default:
+        return role || "";
+    }
+  };
+
+  const getRoleBadgeClasses = (role?: string) => {
+    switch (role) {
+      case "admin":
+        return "bg-red-100 text-red-700";
+      case "meeting":
+      case "wm":
+        return "bg-purple-100 text-purple-700";
+      case "telecaller":
+      case "wtc":
+      case "supervisor":
+        return "bg-blue-100 text-blue-700";
+      case "employee":
+        return "bg-indigo-100 text-indigo-700";
+      case "case_manager":
+      case "wcm":
+        return "bg-teal-100 text-teal-700";
+      case "follow_up":
+        return "bg-orange-100 text-orange-700";
+      case "trainee":
+        return "bg-violet-100 text-violet-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const formatStatusText = (status: string) => {
+    switch (status) {
+      case "new-lead":
+        return "New Lead";
+      case "call-back":
+        return "Call Back";
+      case "not-answering":
+        return "Not Answering";
+      case "meeting-scheduled":
+        return "Meeting Scheduled";
+      case "meeting-reschedule":
+        return "Meeting Reschedule";
+      case "not-interested":
+        return "Not Interested";
+      case "wrong-number":
+        return "Wrong Number";
+      case "incorrect-number":
+        return "Incorrect Number";
+      case "document-pending":
+        return "Doc Pending";
+      case "payment-pending":
+        return "Pay Pending";
+      case "sales":
+        return "Sales";
+      case "follow-up":
+        return "Follow Up";
+      default:
+        return status;
+    }
+  };
+
+  const handleDeleteLead = async (leadId: number) => {
+    if (
+      !window.confirm(
+        "Are you sure you want to delete this lead? This action cannot be undone.",
+      )
+    )
+      return;
+    try {
+      const res = await fetch(`/api/leads/${leadId}/delete`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success("Lead deleted successfully");
+        fetchLeads(pagination.page, pagination.limit);
+      } else {
+        const data = await res.json();
+        toast.error(data.message || "Failed to delete lead");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Something went wrong");
+    }
+  };
+
+  const renderPagination = () => {
+    if (pagination.totalPages === 0) return null;
+    return (
+      <div className="bg-zinc-50 dark:bg-zinc-800 px-4 py-3 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-700">
+        <div className="flex-1 flex justify-between sm:hidden">
+          <button
+            onClick={() => handlePageChange(pagination.page - 1)}
+            disabled={pagination.page === 1}
+            className="relative inline-flex items-center px-3 py-1.5 border border-zinc-300 dark:border-zinc-700 text-xs font-medium rounded-md text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Previous
+          </button>
+          <button
+            onClick={() => handlePageChange(pagination.page + 1)}
+            disabled={pagination.page === pagination.totalPages}
+            className="ml-3 relative inline-flex items-center px-3 py-1.5 border border-zinc-300 dark:border-zinc-700 text-xs font-medium rounded-md text-zinc-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next
+          </button>
+        </div>
+        <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+          <p className="text-xs text-zinc-700 dark:text-zinc-300">
+            Showing{" "}
+            <span className="font-medium">
+              {pagination.total === 0
+                ? 0
+                : (pagination.page - 1) * pagination.limit + 1}
+            </span>{" "}
+            to{" "}
+            <span className="font-medium">
+              {Math.min(pagination.page * pagination.limit, pagination.total)}
+            </span>{" "}
+            of <span className="font-medium">{pagination.total}</span> results
+          </p>
+          <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+            <button
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page === 1}
+              className="relative inline-flex items-center px-2 py-1.5 rounded-l-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="sr-only">Previous</span>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+
+            {Array.from({ length: pagination.totalPages }, (_, i) => i + 1)
+              .filter(
+                (page) =>
+                  page === 1 ||
+                  page === pagination.totalPages ||
+                  (page >= pagination.page - 1 && page <= pagination.page + 1),
+              )
+              .flatMap((page, idx, arr) => {
+                const elements: React.ReactNode[] = [];
+                if (idx > 0 && page - arr[idx - 1] > 1) {
+                  elements.push(
+                    <span
+                      key={`ellipsis-before-${page}`}
+                      className="relative inline-flex items-center px-3 py-1.5 border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-700 dark:text-zinc-300"
+                    >
+                      ...
+                    </span>,
+                  );
+                }
+                elements.push(
+                  <button
+                    key={`page-${page}`}
+                    onClick={() => handlePageChange(page)}
+                    className={`relative inline-flex items-center px-3 py-1.5 border text-xs font-medium ${
+                      page === pagination.page
+                        ? "z-10 bg-foreground border-foreground text-background"
+                        : "bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    }`}
+                  >
+                    {page}
+                  </button>,
+                );
+                return elements;
+              })}
+
+            <button
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages}
+              className="relative inline-flex items-center px-2 py-1.5 rounded-r-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="sr-only">Next</span>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+          </nav>
+        </div>
+      </div>
+    );
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  const statusOptions = [
+    { value: "new-lead", label: "New Lead" },
+    { value: "call-back", label: "Call Back" },
+    { value: "not-answering", label: "Not Answering" },
+    { value: "meeting-scheduled", label: "Meeting Scheduled" },
+    { value: "meeting-reschedule", label: "Meeting Reschedule" },
+    { value: "not-interested", label: "Not Interested" },
+    { value: "wrong-number", label: "Wrong Number" },
+    { value: "incorrect-number", label: "Incorrect Number" },
+    { value: "document-pending", label: "Document Pending" },
+    { value: "payment-pending", label: "Payment Pending" },
+    { value: "sales", label: "Sales" },
+    { value: "follow-up", label: "Follow Up" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <DashboardNavbar user={user} />
+      <div className="max-w-7xl mx-auto py-4 sm:px-4 lg:px-6">
+        <div className="px-3 py-4 sm:px-0">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-3">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Leads
+            </h1>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                Rows per page
+              </label>
+              <select
+                value={pagination.limit}
+                onChange={(e) =>
+                  setPagination((prev) => ({
+                    ...prev,
+                    limit: Number(e.target.value),
+                    page: 1,
+                  }))
+                }
+                className="px-2 py-1 border rounded bg-white dark:bg-gray-700 text-xs"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded-md hover:bg-blue-600 transition whitespace-nowrap"
+              >
+                + Create Lead
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+            {/* Filters */}
+            <div className="px-3 py-3 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex flex-wrap gap-2">
+                {/* Search */}
+                <div className="flex-1 min-w-40">
+                  <input
+                    type="text"
+                    placeholder="Search name, phone, or email"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPagination((p) => ({ ...p, page: 1 }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  />
+                </div>
+
+                {/* Status */}
+                <div className="min-w-[140px]">
+                  <div className="relative" ref={statusDropdownRef}>
+                    <input
+                      type="text"
+                      placeholder="Search status..."
+                      value={statusSearchQuery}
+                      onChange={(e) => setStatusSearchQuery(e.target.value)}
+                      onFocus={() => setStatusDropdownOpen(true)}
+                      className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                    />
+                    {selectedStatus && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedStatus("");
+                          setStatusSearchQuery("");
+                          setPagination((p) => ({ ...p, page: 1 }));
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <svg
+                          className="w-3 h-3"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                    {statusDropdownOpen && (
+                      <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedStatus("");
+                            setStatusSearchQuery("");
+                            setStatusDropdownOpen(false);
+                            setPagination((p) => ({ ...p, page: 1 }));
+                          }}
+                          className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700"
+                        >
+                          All Statuses
+                        </button>
+                        {statusOptions
+                          .filter((s) =>
+                            s.label
+                              .toLowerCase()
+                              .includes(statusSearchQuery.toLowerCase()),
+                          )
+                          .map((status) => (
+                            <button
+                              key={status.value}
+                              type="button"
+                              onClick={() => {
+                                setSelectedStatus(status.value);
+                                setStatusSearchQuery(status.label);
+                                setStatusDropdownOpen(false);
+                                setPagination((p) => ({ ...p, page: 1 }));
+                              }}
+                              className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            >
+                              {status.label}
+                            </button>
+                          ))}
+                        {statusOptions.filter((s) =>
+                          s.label
+                            .toLowerCase()
+                            .includes(statusSearchQuery.toLowerCase()),
+                        ).length === 0 && (
+                          <div className="px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+                            No statuses found
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Assigned To (admin only) */}
+                {user?.role === "admin" && (
+                  <div className="min-w-[140px]">
+                    <div className="relative" ref={assignedDropdownRef}>
+                      <input
+                        type="text"
+                        placeholder="Search assignees..."
+                        value={assignedSearchQuery}
+                        onChange={(e) => setAssignedSearchQuery(e.target.value)}
+                        onFocus={() => setAssignedDropdownOpen(true)}
+                        className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder:text-gray-400"
+                      />
+                      {selectedAssigned && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedAssigned("");
+                            setAssignedSearchQuery("");
+                            setPagination((p) => ({ ...p, page: 1 }));
+                          }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        >
+                          <svg
+                            className="w-3 h-3"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                      {assignedDropdownOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedAssigned("");
+                              setAssignedSearchQuery("");
+                              setAssignedDropdownOpen(false);
+                              setPagination((p) => ({ ...p, page: 1 }));
+                            }}
+                            className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100 border-b border-gray-200 dark:border-gray-700"
+                          >
+                            All Assignees
+                          </button>
+                          {users
+                            .filter((emp) =>
+                              emp.name
+                                .toLowerCase()
+                                .includes(assignedSearchQuery.toLowerCase()),
+                            )
+                            .map((emp) => (
+                              <button
+                                key={emp.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAssigned(emp.id.toString());
+                                  setAssignedSearchQuery(emp.name);
+                                  setAssignedDropdownOpen(false);
+                                  setPagination((p) => ({ ...p, page: 1 }));
+                                }}
+                                className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
+                              >
+                                {emp.name}
+                              </button>
+                            ))}
+                          {users.filter((emp) =>
+                            emp.name
+                              .toLowerCase()
+                              .includes(assignedSearchQuery.toLowerCase()),
+                          ).length === 0 && (
+                            <div className="px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400">
+                              No assignees found
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Month */}
+                <div className="min-w-[110px]">
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => {
+                      setSelectedMonth(e.target.value);
+                      setPagination((p) => ({ ...p, page: 1 }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Months</option>
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                  </select>
+                </div>
+
+                {/* Year */}
+                <div className="min-w-[90px]">
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => {
+                      setSelectedYear(e.target.value);
+                      setPagination((p) => ({ ...p, page: 1 }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Years</option>
+                    {Array.from(
+                      { length: 5 },
+                      (_, i) => new Date().getFullYear() - i,
+                    ).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Interested Country filter */}
+                <div className="min-w-[140px]">
+                  <select
+                    value={selectedInterestedCountry}
+                    onChange={(e) => {
+                      setSelectedInterestedCountry(e.target.value);
+                      setPagination((p) => ({ ...p, page: 1 }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Countries</option>
+                    <option value="Australia">🇦🇺 Australia</option>
+                    <option value="Ireland">🇮🇪 Ireland</option>
+                  </select>
+                </div>
+
+                {/* Agent flag */}
+                <div className="min-w-[130px]">
+                  <select
+                    value={agentFilter}
+                    onChange={(e) => {
+                      setAgentFilter(e.target.value);
+                      setPagination((p) => ({ ...p, page: 1 }));
+                    }}
+                    className="w-full px-2.5 py-1.5 text-xs border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">All Leads</option>
+                    <option value="true">Agents Only</option>
+                    <option value="false">Exclude Agents</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-gray-500 dark:text-gray-400">
+              {user.role === "admin" && (
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-red-300" />
+                    Assigned to Admin
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-purple-300" />
+                    Assigned to Meeting
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-blue-300" />
+                    Assigned to Telecaller
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-teal-300" />
+                    Assigned to Case Manager
+                  </span>
+                </>
+              )}
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-amber-400" />
+                Agent
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-emerald-400" />
+                Callback Due Today
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-sm bg-rose-400" />
+                Callback Overdue
+              </span>
+            </div>
+
+            {/* Table */}
+            {loading ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Loading leads...
+                </p>
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  No leads found
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        {[
+                          "Name",
+                          "Phone",
+                          "Email",
+                          "Target Country",
+                          "Created At",
+                          // "Due Date",
+                          "Last Worked",
+                          "Status",
+                          "Assigned To",
+                          "Assigned By",
+                          "Actions",
+                        ].map((header) => (
+                          <th
+                            key={header}
+                            className="px-3 py-2 text-left text-[11px] font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wide"
+                          >
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      {leads.map((lead) => (
+                        <tr
+                          id={`lead-${lead.id}`}
+                          key={lead.id}
+                          className={`transition-colors duration-700 ${getRowAccentClasses(lead)}`}
+                        >
+                          {/* Name */}
+                          <td className="px-3 py-2 max-w-40">
+                            <div className="flex items-center gap-1.5">
+                              {user.role === "admin" || lead.isOwner ? (
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem(
+                                      "selectedLeadId",
+                                      String(lead.id),
+                                    );
+                                    router.push(`/dashboard/leads/${lead.id}`);
+                                  }}
+                                  className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline cursor-pointer text-left truncate max-w-[110px]"
+                                >
+                                  {lead.name || "-"}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem(
+                                      "selectedLeadId",
+                                      String(lead.id),
+                                    );
+                                    router.push(`/dashboard/leads/${lead.id}`);
+                                  }}
+                                  className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:underline cursor-pointer text-left truncate max-w-[110px]"
+                                  title="View lead (Read-Only)"
+                                >
+                                  {lead.name || "-"}
+                                </button>
+                              )}
+                              {((!lead.isOwner && user.role !== "admin") ||
+                                (user.role === "follow_up" &&
+                                  (lead.followUpWorkflow?.status === "completed" ||
+                                    lead.followUpWorkflow?.currentStage === "completed" ||
+                                    lead.status === "sales"))) && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-300 dark:border-gray-600 whitespace-nowrap">
+                                  Read-Only
+                                </span>
+                              )}
+                              {lead.isAgent && (
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-200 whitespace-nowrap border border-amber-300 dark:border-amber-700">
+                                  Agent
+                                </span>
+                              )}
+                              {lead.lastNoteAddedByAdmin && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100 whitespace-nowrap">
+                                  Admin
+                                </span>
+                              )}
+                              {lead.lastNote && (
+                                <div className="relative group">
+                                  <svg
+                                    className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400 cursor-help shrink-0"
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                  <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block z-50 min-w-[250px] max-w-[600px] w-max p-3 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg shadow-lg">
+                                    <div className="font-semibold mb-1">
+                                      Last Note by{" "}
+                                      {lead.lastNote.performedByName}
+                                      <span className="text-gray-300 dark:text-gray-400">
+                                        {" "}
+                                        (
+                                        {new Date(
+                                          lead.lastNote.timestamp,
+                                        ).toLocaleString("en-US", {
+                                          year: "numeric",
+                                          month: "short",
+                                          day: "numeric",
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                        })}
+                                        )
+                                      </span>
+                                    </div>
+
+                                    <div className="text-white wrap-break-word whitespace-pre-wrap">
+                                      Note — {lead.lastNote.note}
+                                    </div>
+
+                                    <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-700"></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Phone */}
+                          <td className="px-3 py-2">
+                            {user.role === "admin" || lead.isOwner ? (
+                              <button
+                                onClick={() => {
+                                  sessionStorage.setItem(
+                                    "selectedLeadId",
+                                    String(lead.id),
+                                  );
+                                  router.push(`/dashboard/leads/${lead.id}`);
+                                }}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline"
+                              >
+                                {lead.phone || "-"}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-gray-500 dark:text-gray-400 cursor-not-allowed">
+                                {lead.phone || "-"}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Email */}
+                          <td className="px-3 py-2">
+                            <span className="text-xs text-gray-600 dark:text-gray-300 truncate block max-w-40">
+                              {lead.email || "-"}
+                            </span>
+                          </td>
+
+                          {/* Target Country */}
+                          <td className="px-3 py-2">
+                            {lead.interestedCountry ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 border border-blue-200 dark:border-blue-700 whitespace-nowrap">
+                                {lead.interestedCountry === "Australia" ? "🇦🇺" : "🇮🇪"} {lead.interestedCountry}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-gray-400 dark:text-gray-500">-</span>
+                            )}
+                          </td>
+
+                          {/* Created At */}
+                          <td className="px-3 py-2">
+                            <div className="text-xs text-gray-900 dark:text-gray-100">
+                              {lead.createdAt
+                                ? new Date(lead.createdAt).toLocaleString(
+                                    "en-US",
+                                    {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    },
+                                  )
+                                : "-"}
+                            </div>
+                          </td>
+
+                          {/* Due Date */}
+                          {/* <td className="px-3 py-2">
+                            <div className="text-xs text-gray-900 dark:text-gray-100">
+                              {lead.dueDate
+                                ? new Date(lead.dueDate).toLocaleDateString(
+                                    "en-US",
+                                    {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    },
+                                  )
+                                : "-"}
+                            </div>
+                          </td> */}
+
+                          {/* Last Worked At */}
+                          <td className="px-3 py-2">
+                            <div className="text-xs text-gray-900 dark:text-gray-100">
+                              {lead.lastNote?.timestamp
+                                ? new Date(
+                                    lead.lastNote.timestamp,
+                                  ).toLocaleString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "-"}
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-3 py-2">
+                            {lead.status === "call-back" ? (
+                              <div className="flex flex-col items-start gap-1">
+                                <span
+                                  className={`px-2 py-0.5 inline-flex items-center gap-1 text-[11px] font-semibold rounded-full ${getStatusBadgeColor(
+                                    lead.status,
+                                  )}`}
+                                >
+                                  🔔 Call Back
+                                </span>
+
+                                {lead.callbackDate ? (() => {
+                                  const callback = new Date(lead.callbackDate);
+                                  const today = new Date();
+                                  callback.setHours(0, 0, 0, 0);
+                                  today.setHours(0, 0, 0, 0);
+
+                                  if (callback.getTime() === today.getTime() || lead.isDueToday) {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 border border-emerald-300/70 dark:border-emerald-500/30 whitespace-nowrap shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                                        Due Today
+                                      </span>
+                                    );
+                                  }
+
+                                  if (callback < today) {
+                                    return (
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-500/20 dark:text-rose-300 border border-rose-300/70 dark:border-rose-500/30 whitespace-nowrap shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                        Overdue ({callback.toLocaleDateString("en-US", { day: "2-digit", month: "short" })})
+                                      </span>
+                                    );
+                                  }
+
+                                  return (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border border-gray-200 dark:border-gray-700 whitespace-nowrap">
+                                      {callback.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" })}
+                                    </span>
+                                  );
+                                })() : (
+                                  <span className="text-[10px] text-gray-400">-</span>
+                                )}
+                              </div>
+                            ) : lead.isFollowUpDue ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span
+                                  className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
+                                    lead.status,
+                                  )}`}
+                                >
+                                  {formatStatusText(lead.status)}
+                                </span>
+                                <span className="px-1.5 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-amber-900 bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-700 rounded animate-pulse">
+                                  🔥 Due: {lead.followUpDueStage ? lead.followUpDueStage.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "Follow-Up"}
+                                </span>
+                              </div>
+                            ) : user?.role === "trainee" && lead.status === "sales" && !lead.introMailSent ? (
+                              <div className="flex flex-col gap-1 items-start">
+                                <span
+                                  className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
+                                    lead.status,
+                                  )}`}
+                                >
+                                  {formatStatusText(lead.status)}
+                                </span>
+                                <span className="px-1.5 py-0.5 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-900 bg-indigo-100 dark:bg-indigo-950/80 dark:text-indigo-200 border border-indigo-300 dark:border-indigo-700 rounded animate-pulse">
+                                  ✉ Send Intro Mail
+                                </span>
+                              </div>
+                            ) : (
+                              <span
+                                className={`px-1.5 py-0.5 inline-flex text-[11px] leading-4 font-semibold rounded-full ${getStatusBadgeColor(
+                                  lead.status,
+                                )}`}
+                              >
+                                {formatStatusText(lead.status)}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Assigned To */}
+                          <td className="px-3 py-2">
+                            <div className="text-xs text-gray-900 dark:text-gray-100">
+                              {lead.assignedToName || "Unassigned"}
+                            </div>
+                            {lead.assignedToRole && (
+                              <span
+                                className={`mt-0.5 inline-block text-[10px] px-1.5 py-0.5 rounded ${getRoleBadgeClasses(
+                                  lead.assignedToRole,
+                                )}`}
+                              >
+                                {getRoleBadgeLabel(lead.assignedToRole)}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Assigned By */}
+                          <td className="px-3 py-2">
+                            <div className="text-xs text-gray-900 dark:text-gray-100">
+                              {lead.assignedByName || "-"}
+                            </div>
+                            {lead.assignedByRole && (
+                              <span
+                                className={`mt-0.5 inline-block text-[10px] px-1.5 py-0.5 rounded ${getRoleBadgeClasses(
+                                  lead.assignedByRole,
+                                )}`}
+                              >
+                                {getRoleBadgeLabel(lead.assignedByRole)}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              {/* Reassign / Assign button: only for Admin, or Owner if NOT follow_up and NOT sales/completed */}
+                              {(user.role === "admin" ||
+                                (lead.isOwner &&
+                                  user.role !== "follow_up" &&
+                                  lead.status !== "sales" &&
+                                  lead.followUpWorkflow?.status !== "completed" &&
+                                  lead.followUpWorkflow?.currentStage !== "completed")) && (
+                                <button
+                                  onClick={() =>
+                                    handleAssign(lead.id, lead.assignedTo)
+                                  }
+                                  className="text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 hover:underline"
+                                >
+                                  {lead.assignedTo ? "Reassign" : "Assign"}
+                                </button>
+                              )}
+                              {user.role === "admin" ||
+                              (lead.isOwner &&
+                                !(
+                                  user.role === "follow_up" &&
+                                  (lead.followUpWorkflow?.status === "completed" ||
+                                    lead.followUpWorkflow?.currentStage === "completed" ||
+                                    lead.status === "sales")
+                                )) ? (
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem(
+                                      "selectedLeadId",
+                                      String(lead.id),
+                                    );
+                                    router.push(`/dashboard/leads/${lead.id}`);
+                                  }}
+                                  className="text-[11px] text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 hover:underline cursor-pointer"
+                                >
+                                  View
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.setItem(
+                                      "selectedLeadId",
+                                      String(lead.id),
+                                    );
+                                    router.push(`/dashboard/leads/${lead.id}`);
+                                  }}
+                                  className="text-[11px] text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 hover:underline cursor-pointer font-medium"
+                                  title="View lead in read-only format"
+                                >
+                                  Read Only
+                                </button>
+                              )}
+                              {user.role === "admin" && (
+                                <button
+                                  onClick={() => handleDeleteLead(lead.id)}
+                                  className="text-[11px] text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 hover:underline"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {renderPagination()}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <CreateLeadModal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSuccess={fetchLeads}
+      />
+
+      {selectedLeadId && (
+        <AssignLeadModal
+          isOpen={assignModalOpen}
+          onClose={() => {
+            setAssignModalOpen(false);
+            setSelectedLeadId(null);
+            setSelectedLeadAssignee(null);
+          }}
+          onSuccess={fetchLeads}
+          leadId={selectedLeadId}
+          currentAssigneeId={selectedLeadAssignee}
+        />
+      )}
+    </div>
+  );
+}

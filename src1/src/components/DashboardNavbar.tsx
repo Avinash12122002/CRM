@@ -1,0 +1,635 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
+import toast from "react-hot-toast";
+import { useEffect, useState } from "react";
+import CvNavbarDropdown from "@/components/CvNavbarDropdown";
+import { MessageSquare } from "lucide-react";
+
+type DashboardNavbarProps = {
+  user: {
+    id: number;
+    name: string;
+    email?: string;
+    role:
+      | "admin"
+      | "telecaller"
+      | "employee"
+      | "meeting"
+      | "business_development"
+      | "billing"
+      | "case_manager"
+      | "wm"
+      | "wcm"
+      | "wtc"
+      | "supervisor"
+      | "follow_up"
+      | "trainee";
+  };
+};
+
+export default function DashboardNavbar({ user }: DashboardNavbarProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [todoCount, setTodoCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [whatsappUnreadCount, setWhatsappUnreadCount] = useState(0);
+
+  const role = (user.role || "").trim().toLowerCase();
+
+  const loadUnreadCount = async () => {
+    try {
+      const res = await fetch("/api/chat/unread");
+      const data = await res.json();
+      setUnreadCount(data.unreadCount || 0);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    loadUnreadCount();
+
+    const interval = setInterval(() => {
+      loadUnreadCount();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Case Managers get a live count of pending CV Marketing Workspace tasks
+  useEffect(() => {
+    if (role !== "case_manager" && role !== "wcm") return;
+
+    const loadTodoCount = async () => {
+      try {
+        const res = await fetch("/api/case-marketing/todo");
+        const data = await res.json();
+        if (res.ok) {
+          const counts = data.counts || {};
+          const total =
+            (counts.followup || 0) +
+            (counts.interested || 0) +
+            (counts.interview || 0) +
+            (counts.need_cv || 0) +
+            (counts.need_info || 0);
+          setTodoCount(total);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    loadTodoCount();
+    const interval = setInterval(loadTodoCount, 15000);
+    return () => clearInterval(interval);
+  }, [role]);
+
+  // Admin WhatsApp unread candidate messages count
+  useEffect(() => {
+    if (role !== "admin") return;
+
+    const loadWhatsappUnread = async () => {
+      try {
+        const res = await fetch("/api/whatsapp/conversations/unread");
+        if (res.ok) {
+          const data = await res.json();
+          setWhatsappUnreadCount(data.unreadCount || 0);
+        }
+      } catch (err) {
+        // Silently ignore polling error
+      }
+    };
+
+    loadWhatsappUnread();
+    const interval = setInterval(loadWhatsappUnread, 8000);
+    return () => clearInterval(interval);
+  }, [role]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  const handleSignOut = async () => {
+    const loadingToast = toast.loading("Signing out...");
+
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+      });
+
+      toast.dismiss(loadingToast);
+
+      if (res.ok) {
+        toast.success("Signed out successfully");
+        router.push("/");
+      } else {
+        toast.error("Failed to sign out");
+      }
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      console.error(error);
+      toast.error("Failed to sign out");
+    }
+  };
+
+  const isActive = (path: string) => pathname === path;
+
+  const navLinkClass = (active: boolean) =>
+    `block px-4 py-3 text-sm font-medium border-l-2 transition-colors ${
+      active
+        ? "border-foreground text-foreground bg-zinc-50 dark:bg-zinc-800"
+        : "border-transparent text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+    }`;
+
+  // Desktop nav link class helper (compact)
+  const deskLinkClass = (active: boolean) =>
+    `${
+      active
+        ? "border-b-2 border-foreground"
+        : "border-transparent hover:border-zinc-300 border-b-2"
+    } inline-flex items-center px-1 py-1 text-[12px] font-medium whitespace-nowrap ${
+      active
+        ? ""
+        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+    }`;
+
+  return (
+    <nav className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="max-w-[1700px] w-full mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-14">
+          {/* Logo */}
+          <div className="flex items-center min-w-0">
+            <div className="shrink-0 flex items-center">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 bg-linear-to-br rounded-lg flex items-center justify-center">
+                  <Image src="/logo.png" alt="Logo" width={24} height={24} />
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop nav links */}
+            <div className="hidden md:flex md:items-center md:space-x-1 lg:space-x-1.5 ml-2 lg:ml-3">
+              <Link href="/dashboard" className={deskLinkClass(isActive("/dashboard"))}>
+                Dashboard
+              </Link>
+              {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
+                <Link href="/dashboard/leads" className={deskLinkClass(isActive("/dashboard/leads"))}>
+                  Leads
+                </Link>
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/dashboard/triloknath-leads"
+                  className={deskLinkClass(
+                    isActive("/dashboard/triloknath-leads") || pathname.startsWith("/dashboard/triloknath-leads/")
+                  )}
+                >
+                  Triloknath Leads
+                </Link>
+              )}
+              <Link href="/dashboard/activity" className={deskLinkClass(isActive("/dashboard/activity"))}>
+                Activity
+              </Link>
+              {/* Attendance — non-admin roles */}
+              {role !== "admin" && (
+                <Link href="/dashboard/attendance" className={deskLinkClass(isActive("/dashboard/attendance"))}>
+                  Attendance
+                </Link>
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/dashboard/vacancies"
+                  className={deskLinkClass(
+                    isActive("/dashboard/vacancies") || pathname.startsWith("/dashboard/vacancies/")
+                  )}
+                >
+                  Vacancies
+                </Link>
+              )}
+
+              {(role === "admin" || role === "billing" || role === "telecaller") && (
+                <Link href="/dashboard/billing" className={deskLinkClass(isActive("/dashboard/billing"))}>
+                  Billing
+                </Link>
+              )}
+              {(role === "meeting" || role === "wm") && (
+                <Link href="/dashboard/meetings" className={deskLinkClass(isActive("/dashboard/meetings"))}>
+                  Meetings
+                </Link>
+              )}
+              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
+                <Link href="/dashboard/data-entry" className={deskLinkClass(isActive("/dashboard/data-entry"))}>
+                  Data Entry
+                </Link>
+              )}
+              {role === "business_development" && (
+                <Link
+                  href="/dashboard/bd-pipeline"
+                  className={deskLinkClass(
+                    isActive("/dashboard/bd-pipeline") || pathname.startsWith("/dashboard/bd-pipeline/")
+                  )}
+                >
+                  BD Pipeline
+                </Link>
+              )}
+              {(role === "case_manager" || role === "wcm" || role === "admin") && (
+                <Link
+                  href="/dashboard/case-leads"
+                  className={deskLinkClass(
+                    isActive("/dashboard/case-leads") || pathname.startsWith("/dashboard/case-leads/")
+                  )}
+                >
+                  Case Leads
+                </Link>
+              )}
+              {(role === "case_manager" || role === "wcm") && (
+                <Link
+                  href="/dashboard/todo"
+                  className={`${deskLinkClass(isActive("/dashboard/todo"))} relative`}
+                >
+                  To-Do
+                  {todoCount > 0 && (
+                    <span className="ml-1 bg-red-500 text-white text-[10px] min-w-4 h-4 px-1 rounded-full flex items-center justify-center">
+                      {todoCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/dashboard/bd-leads"
+                  className={deskLinkClass(
+                    isActive("/dashboard/bd-leads") || pathname.startsWith("/dashboard/bd-leads/")
+                  )}
+                >
+                  BD Leads
+                </Link>
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/dashboard/email"
+                  className={deskLinkClass(isActive("/dashboard/email") || pathname.startsWith("/dashboard/email/"))}
+                >
+                  Email
+                </Link>
+              )}
+
+              {role === "admin" && (
+                <Link href="/dashboard/users" className={deskLinkClass(isActive("/dashboard/users"))}>
+                  Users
+                </Link>
+              )}
+              {role === "admin" && (
+                <CvNavbarDropdown isActive={isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")} />
+              )}
+              {role === "admin" && (
+                <Link
+                  href="/dashboard/whatsapp"
+                  className={`${deskLinkClass(
+                    isActive("/dashboard/whatsapp") || pathname.startsWith("/dashboard/whatsapp")
+                  )} relative inline-flex items-center gap-1.5`}
+                  title="WhatsApp Candidate Live Chat"
+                >
+                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>WhatsApp</span>
+                  {whatsappUnreadCount > 0 && (
+                    <span className="bg-emerald-500 text-white text-[10px] font-bold min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center leading-none">
+                      {whatsappUnreadCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+
+              {/* All Attendance — admin only */}
+              {role === "admin" && (
+                <Link href="/dashboard/attendance-admin" className={deskLinkClass(isActive("/dashboard/attendance-admin"))}>
+                  All Attendance
+                </Link>
+              )}
+              {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
+                <Link href="/dashboard/my-analytics" className={deskLinkClass(isActive("/dashboard/my-analytics"))}>
+                  My Analytics
+                </Link>
+              )}
+            </div>
+          </div>
+
+          {/* Right side: notification + user + sign out + hamburger */}
+          <div className="flex items-center gap-3 shrink-0">
+
+            <span className="hidden sm:block text-sm text-zinc-600 dark:text-zinc-400">
+              {user.name}{" "}
+              <span className="text-xs font-semibold">
+                (
+                {role === "wm"
+                  ? "WM"
+                  : role === "wcm"
+                  ? "WCM"
+                  : role === "wtc"
+                  ? "WTC"
+                  : role === "supervisor"
+                  ? "Supervisor"
+                  : role === "follow_up"
+                  ? "Follow-Up"
+                  : role === "trainee"
+                  ? "Trainee"
+                  : user.role.replace(/_/g, " ")}
+                )
+              </span>
+            </span>
+            <button
+              onClick={handleSignOut}
+              className="hidden sm:block rounded bg-foreground px-4 py-2 text-sm text-background hover:opacity-90"
+            >
+              Sign out
+            </button>
+
+            {/* Hamburger button — mobile only */}
+            <button
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="sm:hidden p-2 rounded-md text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              aria-label="Toggle menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? (
+                /* X icon */
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              ) : (
+                /* Hamburger icon with optional unread dot */
+                <span className="relative">
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div className="sm:hidden border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          {/* User info */}
+          <div className="px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
+            <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              {user.name}
+            </p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 capitalize font-medium">
+              {role === "wm"
+                ? "WM"
+                : role === "wcm"
+                ? "WCM"
+                : role === "wtc"
+                ? "WTC"
+                : role === "supervisor"
+                ? "Supervisor"
+                : role === "follow_up"
+                ? "Follow-Up"
+                : role === "trainee"
+                ? "Trainee"
+                : user.role.replace(/_/g, " ")}
+            </p>
+          </div>
+
+          {/* Nav links */}
+          <div className="py-1">
+            <Link href="/dashboard" className={navLinkClass(isActive("/dashboard"))}>
+              Dashboard
+            </Link>
+            {(role === "admin" || role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
+              <Link href="/dashboard/leads" className={navLinkClass(isActive("/dashboard/leads"))}>
+                Leads
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/triloknath-leads"
+                className={navLinkClass(
+                  isActive("/dashboard/triloknath-leads") ||
+                    pathname.startsWith("/dashboard/triloknath-leads/")
+                )}
+              >
+                Triloknath Leads
+              </Link>
+            )}
+            <Link href="/dashboard/activity" className={navLinkClass(isActive("/dashboard/activity"))}>
+              Activity
+            </Link>
+            {/* Attendance — non-admin roles */}
+            {role !== "admin" && (
+              <Link href="/dashboard/attendance" className={navLinkClass(isActive("/dashboard/attendance"))}>
+                Attendance
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/vacancies"
+                className={navLinkClass(
+                  isActive("/dashboard/vacancies") ||
+                    pathname.startsWith("/dashboard/vacancies/")
+                )}
+              >
+                Vacancies
+              </Link>
+            )}
+
+            {(role === "admin" || role === "billing" || role === "telecaller") && (
+              <Link
+                href="/dashboard/billing"
+                className={navLinkClass(isActive("/dashboard/billing"))}
+              >
+                Billing
+              </Link>
+            )}
+            {(role === "meeting" || role === "wm") && (
+              <Link
+                href="/dashboard/meetings"
+                className={navLinkClass(isActive("/dashboard/meetings"))}
+              >
+                Meetings
+              </Link>
+            )}
+            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "wtc" || role === "wm" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
+              <Link
+                href="/dashboard/data-entry"
+                className={navLinkClass(isActive("/dashboard/data-entry"))}
+              >
+                Data Entry
+              </Link>
+            )}
+            {role === "business_development" && (
+              <Link
+                href="/dashboard/bd-pipeline"
+                className={navLinkClass(
+                  isActive("/dashboard/bd-pipeline") ||
+                    pathname.startsWith("/dashboard/bd-pipeline/")
+                )}
+              >
+                BD Pipeline
+              </Link>
+            )}
+            {(role === "case_manager" || role === "wcm" || role === "admin") && (
+              <Link
+                href="/dashboard/case-leads"
+                className={navLinkClass(
+                  isActive("/dashboard/case-leads") ||
+                    pathname.startsWith("/dashboard/case-leads/")
+                )}
+              >
+                Case Leads
+              </Link>
+            )}
+            {(role === "case_manager" || role === "wcm") && (
+              <Link
+                href="/dashboard/todo"
+                className={`${navLinkClass(isActive("/dashboard/todo"))} flex items-center justify-between pr-4`}
+              >
+                <span>To-Do</span>
+                {todoCount > 0 && (
+                  <span className="bg-red-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                    {todoCount}
+                  </span>
+                )}
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/bd-leads"
+                className={navLinkClass(
+                  isActive("/dashboard/bd-leads") ||
+                    pathname.startsWith("/dashboard/bd-leads/")
+                )}
+              >
+                BD Leads
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/email"
+                className={navLinkClass(
+                  isActive("/dashboard/email") ||
+                    pathname.startsWith("/dashboard/email")
+                )}
+              >
+                Email
+              </Link>
+            )}
+
+            {role === "admin" && (
+              <Link
+                href="/dashboard/users"
+                className={navLinkClass(isActive("/dashboard/users"))}
+              >
+                Users
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/cv"
+                className={navLinkClass(
+                  isActive("/dashboard/cv") || pathname.startsWith("/dashboard/cv")
+                )}
+              >
+                CV
+              </Link>
+            )}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/whatsapp"
+                className={`${navLinkClass(
+                  isActive("/dashboard/whatsapp") || pathname.startsWith("/dashboard/whatsapp")
+                )} flex items-center justify-between pr-4`}
+              >
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-emerald-500" />
+                  <span>WhatsApp Chat</span>
+                </div>
+                {whatsappUnreadCount > 0 && (
+                  <span className="bg-emerald-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                    {whatsappUnreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
+            {/* All Attendance — admin only */}
+            {role === "admin" && (
+              <Link
+                href="/dashboard/attendance-admin"
+                className={navLinkClass(isActive("/dashboard/attendance-admin"))}
+              >
+                All Attendance
+              </Link>
+            )}
+            {(role === "telecaller" || role === "employee" || role === "meeting" || role === "case_manager" || role === "business_development" || role === "billing" || role === "wtc" || role === "wm" || role === "wcm" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
+              <Link
+                href="/dashboard/my-analytics"
+                className={navLinkClass(isActive("/dashboard/my-analytics"))}
+              >
+                My Analytics
+              </Link>
+            )}
+
+            <Link
+              href="/dashboard/chat"
+              className={`${navLinkClass(
+                isActive("/dashboard/chat") ||
+                  pathname.startsWith("/dashboard/chat/")
+              )} flex items-center justify-between pr-4`}
+            >
+              <span>Chat</span>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs min-w-[18px] h-[18px] rounded-full flex items-center justify-center">
+                  {unreadCount}
+                </span>
+              )}
+            </Link>
+          </div>
+
+          {/* Sign out */}
+          <div className="px-4 py-3 border-t border-zinc-100 dark:border-zinc-800">
+            <button
+              onClick={handleSignOut}
+              className="w-full rounded bg-foreground px-4 py-2 text-sm text-background hover:opacity-90"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      )}
+
+
+    </nav>
+  );
+}

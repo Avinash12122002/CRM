@@ -1,0 +1,204 @@
+import type { NextRequest } from "next/server";
+import type { Db } from "mongodb";
+import { verifyToken, getNextId } from "@/lib/auth";
+import { BD_COLLECTIONS, BD_ROLE } from "./constants";
+import { logUserAction } from "@/lib/activity/audit";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function getAuthPayload(req: NextRequest): Record<string, any> | null {
+  const cookie = req.headers.get("cookie") || "";
+  const matches = cookie.match(/(^|; )token=([^;]+)/);
+  const token = matches ? matches[2] : null;
+  if (!token) return null;
+  return verifyToken(token);
+}
+
+/**
+ * Round-robin picker for Business Development users.
+ *
+ * Keeps a single pointer document in bdconfig so distribution is even and
+ * survives restarts/deploys. The pointer is advanced with an atomic
+ * findOneAndUpdate $inc (same pattern as getNextId) so two leads submitted at
+ * the exact same instant each read a distinct sequence value and land on
+ * different BD users instead of colliding on the same one.
+ */
+export async function pickNextBDUser(db: Db) {
+  const bdUsers = await db
+    .collection("users")
+    .find({ role: BD_ROLE })
+    .project({ id: 1, name: 1 })
+    .sort({ id: 1 })
+    .toArray();
+
+  if (!bdUsers.length) return null;
+
+  // Atomically claim the next sequence number. Concurrent callers can never
+  // observe the same value, which closes the previous read-then-write race.
+  const result = await db.collection(BD_COLLECTIONS.config).findOneAndUpdate(
+    { _id: "bd_round_robin" } as never,
+    { $inc: { assignSeq: 1 }, $set: { updatedAt: new Date() } },
+    { upsert: true, returnDocument: "after" }
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const doc = (result?.value ?? result) as any;
+  const seq: number = doc?.assignSeq ?? 1;
+  const index = (seq - 1) % bdUsers.length;
+  const nextUser = bdUsers[index];
+
+  // Keep lastAssignedUserId around purely for observability/debugging.
+  await db.collection(BD_COLLECTIONS.config).updateOne(
+    { _id: "bd_round_robin" } as never,
+    { $set: { lastAssignedUserId: nextUser.id } }
+  );
+
+  return nextUser as { id: number; name: string };
+}
+
+/**
+ * Resolve a real Admin account to receive ownership of a lead once it closes
+ * (Deal Done / Lead Lost). Returns the lowest-id admin so ownership transfer
+ * is deterministic, or null if no admin exists (caller then leaves the lead
+ * with its current owner rather than pointing assignedTo at a missing user).
+ */
+export async function getAdminUser(
+  db: Db,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _payload?: unknown
+): Promise<{ id: number; name: string } | null> {
+  const admin = await db
+    .collection("users")
+    .find({ role: "admin" })
+    .project({ id: 1, name: 1 })
+    .sort({ id: 1 })
+    .limit(1)
+    .toArray();
+
+  if (!admin.length) return null;
+  return { id: admin[0].id, name: admin[0].name };
+}
+
+/**
+ * Every admin account (used to fan out notifications so a newly created BD
+ * lead is visible to all admins, not just one).
+ */
+export async function getAllAdmins(db: Db) {
+  return db
+    .collection("users")
+    .find({ role: "admin" })
+    .project({ id: 1, name: 1 })
+    .toArray() as Promise<{ id: number; name: string }[]>;
+}
+
+interface LogActivityParams {
+  db: Db;
+  leadId: number;
+  action: string;
+  userId: number;
+  userName: string;
+  userRole?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  previousValue?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  newValue?: any;
+  skipUserAction?: boolean;
+}
+
+export async function logBDActivity({
+  db,
+  leadId,
+  action,
+  userId,
+  userName,
+  userRole,
+  previousValue = null,
+  newValue = null,
+  skipUserAction = false,
+}: LogActivityParams) {
+  const id = await getNextId(db, BD_COLLECTIONS.activityLogs);
+  await db.collection(BD_COLLECTIONS.activityLogs).insertOne({
+    id,
+    leadId,
+    action,
+    userId,
+    userName,
+    previousValue,
+    newValue,
+    createdAt: new Date(),
+  });
+
+  if (skipUserAction) {
+    return;
+  }
+
+  let resolvedRole: string = userRole || "";
+  if (!resolvedRole) {
+    const userDoc = await db.collection("users").findOne({ id: userId }, { projection: { role: 1 } });
+    resolvedRole = (userDoc?.role as string) || BD_ROLE;
+  }
+
+  const actionLower = action.toLowerCase();
+  const actionType = actionLower === "lead created"
+    ? "bd_lead_created"
+    : actionLower.includes("note")
+    ? "bd_note_added"
+    : "bd_stage_updated";
+
+  await logUserAction(db, {
+    userId,
+    userName,
+    userRole: resolvedRole,
+    actionType,
+    entityType: "bd_lead",
+    entityId: leadId,
+    summary: `BD Lead #${leadId}: ${action}`,
+    metadata: { leadId, action, previousValue, newValue },
+  });
+}
+
+// Date-only string in Asia/Kolkata, e.g. "2026-07-22"
+export function todayDateStr() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+}
+
+// Escapes regex special characters so a raw user-typed value can be safely
+// dropped into a RegExp source string.
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Case-insensitive "is this the same company name" match, trimmed on both
+ * sides. Used to block duplicate leads from being created for a company
+ * that's already in the pipeline under a differently-cased/spaced name.
+ */
+export function companyNameMatchRegex(value: string) {
+  const trimmed = value.trim();
+  return new RegExp(`^\\s*${escapeRegExp(trimmed)}\\s*$`, "i");
+}
+
+/**
+ * Case-insensitive "is this the same country" match, trimmed on both sides.
+ * Used by the Country filter so "india", "India" and " India " all match the
+ * same stored value regardless of how it was originally typed in.
+ */
+export function countryMatchRegex(value: string) {
+  const trimmed = value.trim();
+  return new RegExp(`^\\s*${escapeRegExp(trimmed)}\\s*$`, "i");
+}
+
+/**
+ * Case-insensitive "is this the same website" match that ignores the
+ * differences that don't actually change the domain: http vs https, a
+ * leading "www.", and a trailing slash. So "acme.com", "www.acme.com" and
+ * "https://acme.com/" are all treated as the same website.
+ */
+export function websiteMatchRegex(value: string) {
+  const trimmed = value
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/\/+$/, "");
+  const escaped = escapeRegExp(trimmed);
+  return new RegExp(`^(https?:\\/\\/)?(www\\.)?${escaped}\\/?$`, "i");
+}

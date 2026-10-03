@@ -105,28 +105,40 @@ export async function sendMeetingCancelledNotification(params: {
   try {
     const { getUpcomingWeekdays } = await import("./slots");
     const { sendInteractiveList } = await import("./client");
-    const { detectCountryFromPhone, getCandidateConsultationWindow } = await import("./timezone");
+    const { detectCountryFromPhone, extractShortTimezone } = await import("./timezone");
     const weekdays = getUpcomingWeekdays(5);
     const countryInfo = detectCountryFromPhone(cleanPhone);
-    const candWindow = getCandidateConsultationWindow(countryInfo.timeZone, countryInfo.label);
+    const rawTzShort = extractShortTimezone(countryInfo.label);
+    const tzShort = rawTzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+    const tzSuffix = tzShort ? ` (${tzShort})` : "";
+
     const sections = [
       {
-        title: "Available Dates",
+        title: "5 Weekday Dates",
         rows: weekdays.slice(0, 5).map((w) => ({
           id: `RESCHEDULE_DAY_${w.date}`,
           title: w.displayLabel.slice(0, 24),
-          description: `Window: ${candWindow.displayWindow}`.slice(0, 72),
+          description: `${w.dayName} · 1-Hour Slots`.slice(0, 72),
         })),
       },
     ];
 
-    await sendInteractiveList(
+    const listRes = await sendInteractiveList(
       cleanPhone,
-      "Reschedule Ireland Consultation",
+      "Reschedule Consultation",
       messageText,
-      "Choose Date 📅",
+      "Select Date",
       sections
     );
+    if (!listRes.success) {
+      const { sendQuickReplyButtons } = await import("./client");
+      const btnRes = await sendQuickReplyButtons(cleanPhone, messageText, [
+        { id: "BTN_RESCHEDULE_MEETING", title: "Reschedule Meeting" },
+      ]);
+      if (!btnRes.success) {
+        await sendTextMessage(cleanPhone, messageText);
+      }
+    }
 
     const now = new Date();
     const { getNext10AmInTimezone } = await import("./timezone");

@@ -1,0 +1,1488 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import DashboardNavbar from "@/components/DashboardNavbar";
+import CheckInOutCard from "@/components/CheckInOutCard";
+import AttendanceStatusCard from "@/components/attendance/AttendanceStatusCard";
+import AnnouncementBanner from "@/components/chat/AnnouncementBanner";
+// import BroadcastPanel from "@/components/chat/BroadcastPanel";
+// import OnlineUsers from "@/components/chat/OnlineUsers";
+
+type MeResponse = {
+  id: number;
+  name: string;
+  email: string;
+  role: "admin" | "telecaller" | "employee" | "meeting" | "business_development" | "billing" | "case_manager" | "wm" | "wcm" | "wtc" | "supervisor" | "follow_up" | "trainee";
+};
+
+type LeadStats = {
+  dueToday: number;
+  newAssigned: number;
+};
+
+type BDStats = {
+  totalAssigned: number;
+  newLead: number;
+  researchStarted: number;
+  initialContact: number;
+  meetingScheduled: number;
+  followUp: number;
+  dealDone: number;
+  lost: number;
+  target: number;
+  totalCreated: number;
+  remaining: number;
+  targetCompleted: boolean;
+};
+
+type MeetingStats = {
+  todayMeetingSlots: number;
+  completedMeetings: number;
+  cancelledMeetings: number;
+};
+
+type TelecallerPerformance = {
+  telecallerId: number;
+  telecallerName: string;
+  telecallerUsername: string;
+  userRole: string;
+  // Active (non-sales) leads currently assigned to this user
+  totalLeads: number;
+  // Status breakdown of active leads
+  newLeads: number;
+  callBack: number;
+  notAnswering: number;
+  meetingScheduled: number;
+  meetingReschedule: number;
+  scheduledMeetings: number; // FIX: was missing from type
+  notInterested: number;
+  wrongNumber: number;
+  incorrectNumber: number;
+  documentPending: number;
+  paymentPending: number;
+  // Sales credited via meetingDetails or history — never includes totalLeads
+  sales: number;
+  followUp: number;
+};
+
+type AdminStats = {
+  telecallersOnline: number;
+  ghostCheckInsToday: number;
+  leadsCreatedToday: number;
+  leadsWorkedToday: number;
+  assignedLeads: number;
+  unassignedLeads: number;
+  totalMeetings: number;   // FIX: was missing from type
+  todayMeetings: number;   // FIX: was missing from type
+  telecallerPerformance: TelecallerPerformance[];
+  statusBreakdown: {
+    "new-lead": number;
+    "call-back": number;
+    "not-answering": number;
+    "meeting-scheduled": number;
+    "meeting-reschedule": number;
+    "not-interested": number;
+    "wrong-number": number;
+    "incorrect-number": number;
+    "document-pending": number;
+    "payment-pending": number;
+    sales: number;
+    "follow-up": number;
+  };
+};
+
+type BillingSummary = {
+  totalBills: number;
+  totalAmount: number;
+  paidCount: number;
+  paidAmount: number;
+  unpaidCount: number;
+  unpaidAmount: number;
+};
+
+type CaseManagerStats = {
+  totalAssigned: number;
+  newAssigned: number;
+  withDocument: number;
+  missingDocument: number;
+};
+
+export default function DashboardPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<MeResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [leadStats, setLeadStats] = useState<LeadStats>({
+    dueToday: 0,
+    newAssigned: 0,
+  });
+  const [meetingStats, setMeetingStats] = useState<MeetingStats>({
+    todayMeetingSlots: 0,
+    completedMeetings: 0,
+    cancelledMeetings: 0,
+  });
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [loadingMeetingStats, setLoadingMeetingStats] = useState(false);
+  const [workHours, setWorkHours] = useState({
+    today: 0,
+    thisWeek: 0,
+    thisMonth: 0,
+    workingDays: 0,
+  });
+  const [adminStats, setAdminStats] = useState<AdminStats>({
+    telecallersOnline: 0,
+    ghostCheckInsToday: 0,
+    leadsCreatedToday: 0,
+    leadsWorkedToday: 0,
+    assignedLeads: 0,
+    unassignedLeads: 0,
+    totalMeetings: 0,
+    todayMeetings: 0,
+    telecallerPerformance: [],
+    statusBreakdown: {
+      "new-lead": 0,
+      "call-back": 0,
+      "not-answering": 0,
+      "meeting-scheduled": 0,
+      "meeting-reschedule": 0,
+      "not-interested": 0,
+      "wrong-number": 0,
+      "incorrect-number": 0,
+      "document-pending": 0,
+      "payment-pending": 0,
+      sales: 0,
+      "follow-up": 0,
+    },
+  });
+  const [loadingAdminStats, setLoadingAdminStats] = useState(false);
+  const [bdStats, setBdStats] = useState<BDStats | null>(null);
+  const [loadingBdStats, setLoadingBdStats] = useState(false);
+  const [billingSummary, setBillingSummary] = useState<BillingSummary | null>(null);
+  const [loadingBillingSummary, setLoadingBillingSummary] = useState(false);
+  const [caseManagerStats, setCaseManagerStats] = useState<CaseManagerStats | null>(null);
+  const [loadingCaseManagerStats, setLoadingCaseManagerStats] = useState(false);
+
+  const [showCleanupPrompt, setShowCleanupPrompt] = useState(false);
+  const [cleanupCount, setCleanupCount] = useState(0);
+  const [cleanupDownloading, setCleanupDownloading] = useState(false);
+
+  const fetchBDStats = async () => {
+    setLoadingBdStats(true);
+    try {
+      const [leadsRes, targetRes] = await Promise.all([
+        fetch("/api/bd/leads/list"),
+        fetch("/api/bd/targets/today"),
+      ]);
+
+      const counts = {
+        totalAssigned: 0,
+        newLead: 0,
+        researchStarted: 0,
+        initialContact: 0,
+        meetingScheduled: 0,
+        followUp: 0,
+        dealDone: 0,
+        lost: 0,
+      };
+
+      if (leadsRes.ok) {
+        const data = await leadsRes.json();
+        type BDLeadRow = { status: string; pipelineStage: string };
+        const leads: BDLeadRow[] = data.leads || [];
+        counts.totalAssigned = leads.length;
+        for (const l of leads) {
+          if (l.status === "lost") counts.lost++;
+          else if (l.status === "deal_done") counts.dealDone++;
+          else if (l.pipelineStage === "New Lead") counts.newLead++;
+          else if (l.pipelineStage === "Research Started" || l.pipelineStage === "Priority Set")
+            counts.researchStarted++;
+          else if (l.pipelineStage === "Initial Contact" || l.pipelineStage === "Response Received")
+            counts.initialContact++;
+          else if (l.pipelineStage === "Meeting Scheduled") counts.meetingScheduled++;
+          else if (l.pipelineStage === "Follow Up") counts.followUp++;
+        }
+      }
+
+      let target = 25;
+      let totalCreated = 0;
+      let remaining = 25;
+      let targetCompleted = false;
+      if (targetRes.ok) {
+        const t = await targetRes.json();
+        target = t.target;
+        totalCreated = t.totalCreated;
+        remaining = t.remaining;
+        targetCompleted = t.targetCompleted;
+      }
+
+      setBdStats({ ...counts, target, totalCreated, remaining, targetCompleted });
+    } catch (err) {
+      console.error("Failed to fetch BD stats:", err);
+    } finally {
+      setLoadingBdStats(false);
+    }
+  };
+
+  const fetchAdminStats = async () => {
+    setLoadingAdminStats(true);
+    try {
+      const statsRes = await fetch("/api/dashboard/admin-stats");
+      if (statsRes.ok) {
+        const statsData: AdminStats = await statsRes.json();
+        setAdminStats(statsData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch admin stats:", err);
+    } finally {
+      setLoadingAdminStats(false);
+    }
+  };
+
+  const fetchUserStats = async () => {
+    setLoadingStats(true);
+    try {
+      const statsRes = await fetch("/api/dashboard/telecaller-stats");
+      if (statsRes.ok) {
+        const statsData: LeadStats = await statsRes.json();
+        setLeadStats(statsData);
+      }
+    } catch (err) {
+      console.error("Failed to fetch user stats:", err);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
+  const fetchMeetingStats = async () => {
+    setLoadingMeetingStats(true);
+    try {
+      const res = await fetch("/api/dashboard/meeting-stats");
+      if (res.ok) {
+        const data = await res.json();
+        setMeetingStats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch meeting stats:", err);
+    } finally {
+      setLoadingMeetingStats(false);
+    }
+  };
+
+  const fetchBillingSummary = async () => {
+    setLoadingBillingSummary(true);
+    try {
+      const res = await fetch("/api/billing/summary");
+      if (res.ok) {
+        const data: BillingSummary = await res.json();
+        setBillingSummary(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch billing summary:", err);
+    } finally {
+      setLoadingBillingSummary(false);
+    }
+  };
+
+  const fetchCaseManagerStats = async () => {
+    setLoadingCaseManagerStats(true);
+    try {
+      const res = await fetch("/api/dashboard/case-manager-stats");
+      if (res.ok) {
+        const data: CaseManagerStats = await res.json();
+        setCaseManagerStats(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch case manager stats:", err);
+    } finally {
+      setLoadingCaseManagerStats(false);
+    }
+  };
+
+  type ActivityHours = {
+    date: string;
+    workHours: number;
+    trainingHours: number;
+  };
+
+  const fetchWorkHours = async () => {
+    try {
+      const res = await fetch("/api/activity/list?limit=1000");
+      if (!res.ok) return;
+      const data = await res.json();
+      const activities: ActivityHours[] = data.activities || [];
+      const now = new Date();
+      // Activity dates are stored in IST — match them with an IST "today" string
+      const todayString = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+      // Build IST-based week start string for reliable comparison
+      // en-CA gives YYYY-MM-DD which matches the activity date format
+      const dayOfWeek = new Date(
+        now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+      ).getDay();
+      const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      const startOfWeekDate = new Date(now);
+      startOfWeekDate.setDate(startOfWeekDate.getDate() - daysToMonday);
+      const startOfWeekString = startOfWeekDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+      const currentMonth = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata", month: "numeric" });
+      const currentYear = now.toLocaleString("en-US", { timeZone: "Asia/Kolkata", year: "numeric" });
+
+      const todayHours = activities
+        .filter((a) => a.date === todayString)
+        .reduce((sum, a) => sum + ((a.workHours || 0) + (a.trainingHours || 0)), 0);
+
+      const weekHours = activities
+        .filter((a) => a.date >= startOfWeekString && a.date <= todayString)
+        .reduce((sum, a) => sum + ((a.workHours || 0) + (a.trainingHours || 0)), 0);
+
+      const monthActivities = activities.filter((a) => {
+        // a.date is "YYYY-MM-DD" — extract month & year directly
+        const [y, m] = a.date.split("-");
+        return m === currentMonth.padStart(2, "0") && y === currentYear;
+      });
+
+      const monthHours = monthActivities.reduce(
+        (sum, a) => sum + ((a.workHours || 0) + (a.trainingHours || 0)),
+        0,
+      );
+
+      const workingDays = new Set(
+        monthActivities
+          .filter((a) => (a.workHours || 0) + (a.trainingHours || 0) > 0)
+          .map((a) => a.date),
+      ).size;
+
+      setWorkHours({
+        today:       Number(todayHours.toFixed(2)),
+        thisWeek:    Number(weekHours.toFixed(2)),
+        thisMonth:   Number(monthHours.toFixed(2)),
+        workingDays,
+      });
+    } catch (err) {
+      console.error("Failed to fetch work hours:", err);
+    }
+  };
+
+  const fetchAdminCleanup = async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const dismissed = localStorage.getItem(`dismissedCleanup_${today}`);
+      if (dismissed === "true") return;
+
+      const res = await fetch("/api/admin/cleanup");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.promptNotInterested) {
+          setShowCleanupPrompt(true);
+          setCleanupCount(data.notInterestedCount);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch cleanup status:", err);
+    }
+  };
+
+  const handleDownloadAndCleanup = async () => {
+    setCleanupDownloading(true);
+    try {
+      const res = await fetch("/api/admin/cleanup", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.csvData) {
+          const blob = new Blob([data.csvData], { type: "text/csv" });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `not_interested_leads_${new Date().toISOString().split("T")[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+
+          setShowCleanupPrompt(false);
+          alert(`Successfully downloaded and deleted ${data.count} leads.`);
+        }
+      } else {
+        alert("Failed to process cleanup");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error processing cleanup");
+    } finally {
+      setCleanupDownloading(false);
+    }
+  };
+
+  const handleDismissCleanup = () => {
+    const today = new Date().toISOString().split("T")[0];
+    localStorage.setItem(`dismissedCleanup_${today}`, "true");
+    setShowCleanupPrompt(false);
+  };
+
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) { router.push("/"); return; }
+        const data: MeResponse = await res.json();
+        setUser(data);
+        if (data.role === "telecaller" || data.role === "employee" || data.role === "wtc" || data.role === "supervisor" || data.role === "follow_up" || data.role === "trainee") {
+          fetchUserStats();
+          fetchWorkHours();
+        }
+        if (data.role === "meeting" || data.role === "wm") {
+          fetchUserStats();
+          fetchMeetingStats();
+          fetchWorkHours();
+        }
+        if (data.role === "admin") {
+          fetchAdminStats();
+          fetchAdminCleanup();
+        }
+        if (data.role === "business_development") {
+          fetchBDStats();
+          // FIX: BD users had no time tracking despite having a check-in/out flow —
+          // now pulls the same work-hours summary telecallers/meeting users get.
+          fetchWorkHours();
+        }
+        if (data.role === "billing") {
+          fetchBillingSummary();
+          fetchWorkHours();
+        }
+        if (data.role === "case_manager" || data.role === "wcm") {
+          fetchCaseManagerStats();
+          fetchWorkHours();
+        }
+      } catch (err) {
+        console.error(err);
+        router.push("/");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchUser();
+  }, [router]);
+
+  if (loading) return <div className="p-8">Loading...</div>;
+  if (!user) return null;
+
+  const role = (user.role || "").trim().toLowerCase();
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <DashboardNavbar user={user} />
+      <AnnouncementBanner />
+
+      {showCleanupPrompt && (
+        <div className="bg-red-500/10 border-l-4 border-red-500 p-4 max-w-7xl mx-auto sm:px-6 lg:px-8 mt-4 rounded-r-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h3 className="text-red-800 dark:text-red-200 font-bold text-sm">Action Required: Lead Cleanup</h3>
+            <p className="text-red-700 dark:text-red-300 text-sm mt-1">
+              There are {cleanupCount} &quot;Not Interested&quot; leads and ALL of them have a last worked date of more than one month old. Please download them as a CSV and delete them from the database to keep the system clean.
+            </p>
+          </div>
+          <div className="flex gap-2 whitespace-nowrap">
+            <button 
+              onClick={handleDismissCleanup}
+              className="px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-300 bg-red-100 dark:bg-red-900/30 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+            >
+              Not Now (Remind Tomorrow)
+            </button>
+            <button 
+              onClick={handleDownloadAndCleanup}
+              disabled={cleanupDownloading}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {cleanupDownloading ? "Processing..." : "Download CSV & Delete"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                Welcome back, {user.name}!
+              </h2>
+              <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+                Here&apos;s what&apos;s happening with your account today.
+              </p>
+            </div>
+            {role === "admin" && (
+              <button
+                onClick={fetchAdminStats}
+                disabled={loadingAdminStats}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              >
+                <svg
+                  className={`w-5 h-5 ${loadingAdminStats ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>{loadingAdminStats ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            )}
+            {role === "business_development" && (
+              <button
+                onClick={() => { fetchBDStats(); fetchWorkHours(); }}
+                disabled={loadingBdStats}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              >
+                <svg
+                  className={`w-5 h-5 ${loadingBdStats ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>{loadingBdStats ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            )}
+            {role === "billing" && (
+              <button
+                onClick={() => { fetchBillingSummary(); fetchWorkHours(); }}
+                disabled={loadingBillingSummary}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              >
+                <svg
+                  className={`w-5 h-5 ${loadingBillingSummary ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>{loadingBillingSummary ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            )}
+            {(role === "case_manager" || role === "wcm") && (
+              <button
+                onClick={() => { fetchCaseManagerStats(); fetchWorkHours(); }}
+                disabled={loadingCaseManagerStats}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors shadow-sm"
+              >
+                <svg
+                  className={`w-5 h-5 ${loadingCaseManagerStats ? "animate-spin" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <span>{loadingCaseManagerStats ? "Refreshing..." : "Refresh"}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ══════════════════════════════════════════════════
+            ADMIN DASHBOARD
+        ══════════════════════════════════════════════════ */}
+        {role === "admin" ? (
+          <div className="space-y-6">
+            {loadingAdminStats ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              </div>
+            ) : (
+              <>
+                {/* ── Analytics Hub & Module Selector ── */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-xs space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Analytics Hub
+                      </h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Select an analytics page from the dropdown or click a module below to inspect reports
+                      </p>
+                    </div>
+
+                    {/* Analytics Dropdown Selector */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <select
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) router.push(e.target.value);
+                        }}
+                        className="w-full sm:w-64 px-3.5 py-2 text-sm font-semibold border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
+                      >
+                        <option value="" disabled>
+                          📊 Select Analytics Page...
+                        </option>
+                        <option value="/dashboard/lead-analytics">📊 Lead Analytics</option>
+                        <option value="/dashboard/case-lead-analytics">💼 Case Analytics</option>
+                        <option value="/dashboard/bd-analytics">📈 BD Analytics</option>
+                        <option value="/dashboard/billing-analytics">💳 Billing Analysis</option>
+                        <option value="/dashboard/email-analytics">✉️ Email Analytics</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Analytics Quick Access Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard/lead-analytics")}
+                      className="flex flex-col items-start p-3 rounded-lg border border-blue-200 dark:border-blue-800/60 bg-blue-50/60 dark:bg-blue-900/20 hover:bg-blue-100/70 dark:hover:bg-blue-900/40 text-left transition-colors cursor-pointer group"
+                    >
+                      <span className="text-xs font-semibold text-blue-800 dark:text-blue-300 group-hover:underline flex items-center gap-1">
+                        📊 Lead Analytics
+                      </span>
+                      <span className="text-[11px] text-blue-600/80 dark:text-blue-400/80 mt-0.5">
+                        Funnel & conversion
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard/case-lead-analytics")}
+                      className="flex flex-col items-start p-3 rounded-lg border border-purple-200 dark:border-purple-800/60 bg-purple-50/60 dark:bg-purple-900/20 hover:bg-purple-100/70 dark:hover:bg-purple-900/40 text-left transition-colors cursor-pointer group"
+                    >
+                      <span className="text-xs font-semibold text-purple-800 dark:text-purple-300 group-hover:underline flex items-center gap-1">
+                        💼 Case Analytics
+                      </span>
+                      <span className="text-[11px] text-purple-600/80 dark:text-purple-400/80 mt-0.5">
+                        CV marketing & sources
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard/bd-analytics")}
+                      className="flex flex-col items-start p-3 rounded-lg border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/60 dark:bg-emerald-900/20 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40 text-left transition-colors cursor-pointer group"
+                    >
+                      <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 group-hover:underline flex items-center gap-1">
+                        📈 BD Analytics
+                      </span>
+                      <span className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
+                        Targets & deal status
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard/billing-analytics")}
+                      className="flex flex-col items-start p-3 rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50/60 dark:bg-amber-900/20 hover:bg-amber-100/70 dark:hover:bg-amber-900/40 text-left transition-colors cursor-pointer group"
+                    >
+                      <span className="text-xs font-semibold text-amber-800 dark:text-amber-300 group-hover:underline flex items-center gap-1">
+                        💳 Billing Analysis
+                      </span>
+                      <span className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5">
+                        Invoices & payments
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push("/dashboard/email-analytics")}
+                      className="flex flex-col items-start p-3 rounded-lg border border-rose-200 dark:border-rose-800/60 bg-rose-50/60 dark:bg-rose-900/20 hover:bg-rose-100/70 dark:hover:bg-rose-900/40 text-left transition-colors cursor-pointer group text-nowrap"
+                    >
+                      <span className="text-xs font-semibold text-rose-800 dark:text-rose-300 group-hover:underline flex items-center gap-1">
+                        ✉️ Email Analytics
+                      </span>
+                      <span className="text-[11px] text-rose-600/80 dark:text-rose-400/80 mt-0.5">
+                        Delivery & opens
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Ghost Check-In Alert Banner for Management ── */}
+                {adminStats.ghostCheckInsToday > 0 && (
+                  <div
+                    onClick={() => router.push("/dashboard/activity")}
+                    className="p-4 rounded-xl bg-red-50 dark:bg-red-950/50 border border-red-300 dark:border-red-800 text-red-800 dark:text-red-200 flex items-center justify-between cursor-pointer hover:bg-red-100/70 dark:hover:bg-red-900/40 transition shadow-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-red-200 dark:bg-red-900 flex items-center justify-center text-red-700 dark:text-red-300 font-bold text-lg animate-pulse">
+                        ⚠️
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-sm">
+                          {adminStats.ghostCheckInsToday} Ghost Check-In Alert{adminStats.ghostCheckInsToday > 1 ? "s" : ""} Detected Today
+                        </h4>
+                        <p className="text-xs text-red-600 dark:text-red-300/80 mt-0.5">
+                          Employees checked in for hours with zero recorded work actions. Click to view the Live WFH Monitor.
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-red-700 dark:text-red-300 underline shrink-0">
+                      Open WFH Monitor →
+                    </span>
+                  </div>
+                )}
+
+                {/* ── Quick Stats Grid ── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+
+                  {/* Telecallers Online */}
+                  {/* FIX: bg-linear-to-br → bg-gradient-to-br (was invalid Tailwind class) */}
+                  <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-green-100 dark:bg-green-900/40 rounded-full p-3">
+                        <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <span className="text-3xl font-bold text-green-600 dark:text-green-400">
+                        {adminStats.telecallersOnline}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-green-900 dark:text-green-200">Telecallers/Meeting Online</h4>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Currently checked in</p>
+                  </div>
+
+                  {/* Leads Created Today */}
+                  <div className="bg-linear-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-3">
+                        <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                      </div>
+                      <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        {adminStats.leadsCreatedToday}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">Leads Created Today</h4>
+                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">New opportunities</p>
+                  </div>
+
+                  {/* Leads Worked Today */}
+                  <div className="bg-linear-to-br from-cyan-50 to-teal-50 dark:from-cyan-900/20 dark:to-teal-900/20 border border-cyan-200 dark:border-cyan-800 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-cyan-100 dark:bg-cyan-900/40 rounded-full p-3">
+                        <svg className="w-6 h-6 text-cyan-600 dark:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                      </div>
+                      <span className="text-3xl font-bold text-cyan-600 dark:text-cyan-400">
+                        {adminStats.leadsWorkedToday}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-cyan-900 dark:text-cyan-200">Leads Worked Today</h4>
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400 mt-1">With notes added</p>
+                  </div>
+
+                  {/* Assigned Leads */}
+                  <div className="bg-linear-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-purple-100 dark:bg-purple-900/40 rounded-full p-3">
+                        <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <span className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+                        {adminStats.assignedLeads}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-200">Assigned Leads</h4>
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">Being handled</p>
+                  </div>
+
+                  {/* Unassigned Leads */}
+                  <div className="bg-linear-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-orange-100 dark:bg-orange-900/40 rounded-full p-3">
+                        <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                      </div>
+                      <span className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                        {adminStats.unassignedLeads}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-orange-900 dark:text-orange-200">Unassigned Leads</h4>
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Needs assignment</p>
+                  </div>
+
+                  {/* Today's Meetings — FIX: was fetched but never displayed */}
+                  <div className="bg-linear-to-br from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="bg-violet-100 dark:bg-violet-900/40 rounded-full p-3">
+                        <svg className="w-6 h-6 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <span className="text-3xl font-bold text-violet-600 dark:text-violet-400">
+                        {adminStats.todayMeetings}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-semibold text-violet-900 dark:text-violet-200">Today&apos;s Meetings</h4>
+                    <p className="text-xs text-violet-600 dark:text-violet-400 mt-1">
+                      {adminStats.totalMeetings} total scheduled
+                    </p>
+                  </div>
+                </div>
+
+                {/* ── Status Breakdown + Telecaller Performance ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                  {/* Lead Status Breakdown */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+                      Lead Status Breakdown
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { key: "new-lead",          label: "New Lead",          color: "bg-blue-500"   },
+                        { key: "call-back",          label: "Call Back",         color: "bg-yellow-500" },
+                        { key: "not-answering",      label: "Not Answering",     color: "bg-purple-500" },
+                        { key: "meeting-scheduled",  label: "Meeting Scheduled", color: "bg-green-500"  },
+                        { key: "meeting-reschedule", label: "Meeting Reschedule", color: "bg-rose-500"  },
+                        { key: "not-interested",     label: "Not Interested",    color: "bg-red-500"    },
+                        { key: "wrong-number",       label: "Wrong Number",      color: "bg-orange-500" },
+                        { key: "incorrect-number",   label: "Incorrect Number",  color: "bg-amber-600"  },
+                        { key: "document-pending",   label: "Document Pending",  color: "bg-indigo-500" },
+                        { key: "payment-pending",    label: "Payment Pending",   color: "bg-pink-500"   },
+                        { key: "sales",              label: "Sales",             color: "bg-emerald-500"},
+                        { key: "follow-up",          label: "Follow Up",         color: "bg-teal-500"   },
+                      ].map(({ key, label, color }) => (
+                        <div key={key} className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-3 h-3 rounded-full ${color}`} />
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</span>
+                          </div>
+                          <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            {adminStats.statusBreakdown[key as keyof typeof adminStats.statusBreakdown]}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Telecaller & Meeting Performance */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+                      Telecaller & Meeting Performance
+                    </h3>
+                    <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                      {adminStats.telecallerPerformance.length === 0 ? (
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 text-center py-4">
+                          No performance data available
+                        </p>
+                      ) : (
+                        adminStats.telecallerPerformance.map((emp) => {
+                          // FIX: totalLeads from API = active non-sales leads only.
+                          // Show active + sales as the combined "Total" so the number
+                          // reflects their full contribution, not just current pipeline.
+                          const combinedTotal = emp.totalLeads + emp.sales;
+
+                          return (
+                            <div
+                              key={emp.telecallerId}
+                              className="border border-zinc-200 dark:border-zinc-700 rounded-lg p-3 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors"
+                            >
+                              {/* Name + role badge + combined total */}
+                              <div className="flex items-start justify-between mb-2 gap-2">
+                                <div className="min-w-0">
+                                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                                    {emp.telecallerName}
+                                  </h4>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    @{emp.telecallerUsername}
+                                  </p>
+                                  <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded font-medium ${
+                                    emp.userRole === "meeting"
+                                      ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                                      : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                                  }`}>
+                                    {emp.userRole === "meeting" ? "Meeting" : "Telecaller"}
+                                  </span>
+                                </div>
+                                {/* FIX: show active leads + sales combined, labelled clearly */}
+                                <div className="text-right shrink-0">
+                                  <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                                    {combinedTotal}
+                                  </span>
+                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">total</p>
+                                </div>
+                              </div>
+
+                              {/* Active leads count */}
+                              <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+                                Active leads: <span className="font-semibold text-gray-700 dark:text-gray-300">{emp.totalLeads}</span>
+                              </p>
+
+                              {/* Status badges — FIX: added newLeads, notInterested, wrongNumber (were missing) */}
+                              <div className="flex items-center flex-wrap gap-1 text-xs">
+                                {emp.sales > 0 && (
+                                  <span className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded font-medium">
+                                    💰 {emp.sales} sales
+                                  </span>
+                                )}
+                                {emp.newLeads > 0 && (
+                                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                                    🆕 {emp.newLeads}
+                                  </span>
+                                )}
+                                {emp.callBack > 0 && (
+                                  <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 rounded">
+                                    📞 {emp.callBack}
+                                  </span>
+                                )}
+                                {emp.notAnswering > 0 && (
+                                  <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded">
+                                    🔄 {emp.notAnswering}
+                                  </span>
+                                )}
+                                {emp.meetingScheduled > 0 && (
+                                  <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
+                                    📅 {emp.meetingScheduled}
+                                  </span>
+                                )}
+                                {emp.meetingReschedule > 0 && (
+                                  <span className="px-2 py-1 bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 rounded">
+                                    🗓️ {emp.meetingReschedule} Reschedule
+                                  </span>
+                                )}
+                                {emp.documentPending > 0 && (
+                                  <span className="px-2 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded">
+                                    📄 {emp.documentPending}
+                                  </span>
+                                )}
+                                {emp.paymentPending > 0 && (
+                                  <span className="px-2 py-1 bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300 rounded">
+                                    💳 {emp.paymentPending}
+                                  </span>
+                                )}
+                                {emp.notInterested > 0 && (
+                                  <span className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded">
+                                    ❌ {emp.notInterested}
+                                  </span>
+                                )}
+                                {emp.wrongNumber > 0 && (
+                                  <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
+                                    📵 {emp.wrongNumber}
+                                  </span>
+                                )}
+                                {emp.incorrectNumber > 0 && (
+                                  <span className="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">
+                                    ⚠️ {emp.incorrectNumber}
+                                  </span>
+                                )}
+                                {emp.followUp > 0 && (
+                                  <span className="px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded">
+                                    🔄 {emp.followUp}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+               
+              </>
+            )}
+          </div>
+        ) : user.role === "business_development" ? (
+          /* ══════════════════════════════════════════════════
+              BUSINESS DEVELOPMENT DASHBOARD
+          ══════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            {loadingBdStats ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <button
+                      onClick={() => router.push("/dashboard/bd-pipeline")}
+                      className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                    >
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <span className="text-2xl">🧭</span>
+                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {bdStats?.totalAssigned ?? 0}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-blue-900 dark:text-blue-200">My Pipeline</p>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Total leads assigned</p>
+                    </button>
+
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <span className="text-2xl">✅</span>
+                        <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                          {bdStats?.dealDone ?? 0}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">Deals Done</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Closed successfully</p>
+                    </div>
+
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <span className="text-2xl">❌</span>
+                        <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                          {bdStats?.lost ?? 0}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-red-900 dark:text-red-200">Lost</p>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">Did not convert</p>
+                    </div>
+
+                    <div className="bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800 rounded-lg p-4">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <span className="text-2xl">📈</span>
+                        <span className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+                          {bdStats && bdStats.totalAssigned > 0
+                            ? `${Math.round((bdStats.dealDone / bdStats.totalAssigned) * 100)}%`
+                            : "0%"}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-violet-900 dark:text-violet-200">Conversion Rate</p>
+                      <p className="text-xs text-violet-600 dark:text-violet-400 mt-1">Deals / total assigned</p>
+                    </div>
+                  </div>
+
+                  {/* Pipeline stage breakdown */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+                      Pipeline Breakdown
+                    </h3>
+                    <div className="space-y-3">
+                      {[
+                        { key: "newLead",          label: "New Lead",             emoji: "🆕", color: "bg-blue-500"    },
+                        { key: "researchStarted",  label: "Research / Priority",  emoji: "🔎", color: "bg-indigo-500"  },
+                        { key: "initialContact",   label: "Contact / Response",   emoji: "📞", color: "bg-cyan-500"    },
+                        { key: "meetingScheduled", label: "Meeting Scheduled",    emoji: "📅", color: "bg-purple-500"  },
+                        { key: "followUp",         label: "Follow Up",            emoji: "🔁", color: "bg-yellow-500"  },
+                        { key: "dealDone",         label: "Deal Done",            emoji: "✅", color: "bg-emerald-500" },
+                        { key: "lost",             label: "Lead Lost",            emoji: "❌", color: "bg-red-500"     },
+                      ].map(({ key, label, emoji, color }) => {
+                        const value = (bdStats?.[key as keyof BDStats] as number) ?? 0;
+                        const total = bdStats?.totalAssigned || 1;
+                        const pct = Math.round((value / total) * 100);
+                        return (
+                          <div key={key}>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                {emoji} {label}
+                              </span>
+                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                                {value} <span className="text-xs text-zinc-400">({pct}%)</span>
+                              </span>
+                            </div>
+                            <div className="w-full h-2 bg-zinc-100 dark:bg-zinc-700 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Work Hours — FIX: BD users had no time tracking summary, added to match telecaller/meeting dashboards */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
+                    <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                      Track your work hours and manage your daily activities.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Today's Hours",  value: `${workHours.today}h`       },
+                        { label: "This Week",      value: `${workHours.thisWeek}h`    },
+                        { label: "This Month",     value: `${workHours.thisMonth}h`   },
+                        { label: "Working Days",   value: String(workHours.workingDays) },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Check-in/Check-out & Attendance mark card */}
+                <div className="space-y-4">
+                  <CheckInOutCard />
+                  <AttendanceStatusCard />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : user.role === "billing" ? (
+          /* ══════════════════════════════════════════════════
+              BILLING DASHBOARD
+          ══════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            {loadingBillingSummary && !billingSummary ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-linear-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {billingSummary ? billingSummary.totalBills : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200">Total Bills</h4>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                        {billingSummary ? `Rs.${billingSummary.totalAmount.toLocaleString("en-IN")}` : "Loading…"}
+                      </p>
+                    </div>
+
+                    <div className="bg-linear-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-green-100 dark:bg-green-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {billingSummary ? billingSummary.paidCount : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-green-900 dark:text-green-200">Paid</h4>
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        {billingSummary ? `Rs.${billingSummary.paidAmount.toLocaleString("en-IN")}` : "Loading…"}
+                      </p>
+                    </div>
+
+                    <div className="bg-linear-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border border-red-200 dark:border-red-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-red-100 dark:bg-red-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                          {billingSummary ? billingSummary.unpaidCount : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-red-900 dark:text-red-200">Unpaid</h4>
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                        {billingSummary ? `Rs.${billingSummary.unpaidAmount.toLocaleString("en-IN")}` : "Loading…"}
+                      </p>
+                    </div>
+
+                    <div className="bg-linear-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-5">
+                      <div className="flex flex-col items-start gap-3 mb-2">
+                        <div className="bg-purple-100 dark:bg-purple-900/40 rounded-full p-2.5">
+                          <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a4 4 0 00-8 0v2M5 9h14l1 11H4L5 9z" />
+                          </svg>
+                        </div>
+                        <span className="text-lg lg:text-xl font-bold text-purple-600 dark:text-purple-400 wrap-break-word">
+                          {billingSummary ? `Rs.${billingSummary.totalAmount.toLocaleString("en-IN")}` : "—"}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-200">Total Amount</h4>
+                      <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                        {billingSummary ? `${billingSummary.totalBills} bill${billingSummary.totalBills === 1 ? "" : "s"}` : "Loading…"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Work Hours */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
+                    <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                      Track your work hours and manage your daily activities.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Today's Hours",  value: `${workHours.today}h`       },
+                        { label: "This Week",      value: `${workHours.thisWeek}h`    },
+                        { label: "This Month",     value: `${workHours.thisMonth}h`   },
+                        { label: "Working Days",   value: String(workHours.workingDays) },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Check-in/Check-out */}
+                <div>
+                  <CheckInOutCard />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (role === "case_manager" || role === "wcm") ? (
+          /* ══════════════════════════════════════════════════
+              CASE MANAGER DASHBOARD
+          ══════════════════════════════════════════════════ */
+          <div className="space-y-6">
+            {loadingCaseManagerStats && !caseManagerStats ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+
+                  {/* Case Lead Overview */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+                      Case Lead Overview
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <button
+                        onClick={() => router.push("/dashboard/case-leads")}
+                        className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                      >
+                        <div className="flex flex-col items-start gap-3 mb-2">
+                          <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2">
+                            <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 100-8 4 4 0 000 8zm6 5v-2a4 4 0 00-3-3.87M9 20v-2a4 4 0 013-3.87" />
+                            </svg>
+                          </div>
+                          <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                            {caseManagerStats?.totalAssigned ?? 0}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-200">Total Case Leads</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Currently assigned to you</p>
+                      </button>
+
+                      <button
+                        onClick={() => router.push("/dashboard/case-leads")}
+                        className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                      >
+                        <div className="flex flex-col items-start gap-3 mb-2">
+                          <div className="bg-emerald-100 dark:bg-emerald-900/40 rounded-full p-2">
+                            <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                          </div>
+                          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                            {caseManagerStats?.newAssigned ?? 0}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-emerald-900 dark:text-emerald-200">New This Week</p>
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">Handed to you in the last 7 days</p>
+                      </button>
+
+                      <button
+                        onClick={() => router.push("/dashboard/case-leads")}
+                        className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                      >
+                        <div className="flex flex-col items-start gap-3 mb-2">
+                          <div className="bg-amber-100 dark:bg-amber-900/40 rounded-full p-2">
+                            <svg className="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                            {caseManagerStats?.withDocument ?? 0}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-amber-900 dark:text-amber-200">With Signed Document</p>
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Sales document on file</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Work Hours */}
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                    <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
+                    <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                      Track your work hours and manage your daily activities.
+                    </p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Today's Hours",  value: `${workHours.today}h`       },
+                        { label: "This Week",      value: `${workHours.thisWeek}h`    },
+                        { label: "This Month",     value: `${workHours.thisMonth}h`   },
+                        { label: "Working Days",   value: String(workHours.workingDays) },
+                      ].map(({ label, value }) => (
+                        <div key={label} className="bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4">
+                          <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Check-in/Check-out & Attendance mark card */}
+                <div className="space-y-4">
+                  <CheckInOutCard />
+                  <AttendanceStatusCard />
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ══════════════════════════════════════════════════
+              TELECALLER / MEETING DASHBOARD
+          ══════════════════════════════════════════════════ */
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+
+              {/* Lead / Meeting Overview */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                <h3 className="font-semibold text-lg mb-4 text-gray-900 dark:text-gray-100">
+                  {role === "meeting" || role === "wm" ? "Meeting Overview" : "Lead Overview"}
+                </h3>
+
+                {loadingStats || loadingMeetingStats ? (
+                  <div className="flex justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Telecaller, Follow-Up & Trainee cards */}
+                    {(role === "telecaller" || role === "employee" || role === "wtc" || role === "supervisor" || role === "follow_up" || role === "trainee") && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button
+                          onClick={() => router.push("/dashboard/leads")}
+                          className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                        >
+                          <div className="flex flex-col items-start gap-3 mb-2">
+                            <div className="bg-red-100 dark:bg-red-900/40 rounded-full p-2">
+                              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <span className="text-2xl font-bold text-red-600 dark:text-red-400">{leadStats.dueToday}</span>
+                          </div>
+                          <p className="text-sm font-medium text-red-900 dark:text-red-200">
+                            {role === "follow_up" ? "Follow-Ups Due" : "Leads Due Today"}
+                          </p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1">Requires immediate attention</p>
+                        </button>
+
+                        <button
+                          onClick={() => router.push("/dashboard/leads")}
+                          className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left"
+                        >
+                          <div className="flex flex-col items-start gap-3 mb-2">
+                            <div className="bg-blue-100 dark:bg-blue-900/40 rounded-full p-2">
+                              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                              </svg>
+                            </div>
+                            <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{leadStats.newAssigned}</span>
+                          </div>
+                          <p className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                            {role === "follow_up"
+                              ? "Follow-Up Leads Assigned"
+                              : role === "trainee"
+                                ? "Sales Leads Assigned"
+                                : "New Leads Assigned"}
+                          </p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            {role === "follow_up"
+                              ? "Active follow-ups"
+                              : role === "trainee"
+                                ? "Active sales leads"
+                                : "Last 7 days"}
+                          </p>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Meeting user cards */}
+                    {(role === "meeting" || role === "wm") && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <button onClick={() => router.push("/dashboard/meetings")} className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left">
+                          <div className="flex flex-col items-start gap-3 mb-2">
+                            <span className="text-2xl">📅</span>
+                            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">{meetingStats.todayMeetingSlots}</span>
+                          </div>
+                          <p className="text-sm font-medium text-purple-900 dark:text-purple-200">Today&apos;s Meetings</p>
+                          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">Scheduled for today</p>
+                        </button>
+
+                        <button onClick={() => router.push("/dashboard/meetings")} className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left">
+                          <div className="flex flex-col items-start gap-3 mb-2">
+                            <span className="text-2xl">✅</span>
+                            <span className="text-2xl font-bold text-green-600 dark:text-green-400">{meetingStats.completedMeetings}</span>
+                          </div>
+                          <p className="text-sm font-medium text-green-900 dark:text-green-200">Completed Meetings</p>
+                          <p className="text-xs text-green-600 dark:text-green-400 mt-1">Successfully completed</p>
+                        </button>
+
+                        <button onClick={() => router.push("/dashboard/meetings")} className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 hover:shadow-md transition-shadow text-left">
+                          <div className="flex flex-col items-start gap-3 mb-2">
+                            <span className="text-2xl">❌</span>
+                            <span className="text-2xl font-bold text-red-600 dark:text-red-400">{meetingStats.cancelledMeetings}</span>
+                          </div>
+                          <p className="text-sm font-medium text-red-900 dark:text-red-200">Cancelled Meetings</p>
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1">Cancelled or rejected</p>
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Work Hours */}
+              <div className="bg-white dark:bg-gray-800 rounded-lg border border-zinc-200 dark:border-zinc-700 p-6">
+                <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-gray-100">Work Hours</h3>
+                <p className="text-zinc-600 dark:text-zinc-400 mb-4">
+                  Track your work hours and manage your daily activities.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: "Today's Hours",  value: `${workHours.today}h`       },
+                    { label: "This Week",      value: `${workHours.thisWeek}h`    },
+                    { label: "This Month",     value: `${workHours.thisMonth}h`   },
+                    { label: "Working Days",   value: String(workHours.workingDays) },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="bg-zinc-50 dark:bg-zinc-700 rounded-lg p-4">
+                      <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-1">{label}</p>
+                      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Check-in/Check-out */}
+            <div className="space-y-4">
+              <CheckInOutCard />
+              {/* Attendance mark card */}
+              <AttendanceStatusCard />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

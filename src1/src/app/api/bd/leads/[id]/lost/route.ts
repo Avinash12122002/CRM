@@ -1,0 +1,119 @@
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { connectToDatabase } from "@/lib/mongodb";
+import { getNextId } from "@/lib/auth";
+import { getAuthPayload, logBDActivity, getAdminUser } from "@/lib/bd/helpers";
+import { BD_COLLECTIONS, BD_ROLE } from "@/lib/bd/constants";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const payload = getAuthPayload(req);
+    if (!payload) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await params;
+    const leadId = parseInt(id);
+    const body = await req.json();
+    const reason: string | undefined = body?.reason?.trim();
+
+    if (!reason) {
+      return NextResponse.json(
+        { message: "A reason is required to mark this lead as lost" },
+        { status: 400 }
+      );
+    }
+
+    const { db } = await connectToDatabase();
+    const lead = await db.collection(BD_COLLECTIONS.leads).findOne({ id: leadId });
+
+    if (!lead) {
+      return NextResponse.json({ message: "Lead not found" }, { status: 404 });
+    }
+
+    const isOwnerBD = payload.role === BD_ROLE && lead.assignedTo === payload.id;
+    const isAdmin = payload.role === "admin";
+
+    if (!isOwnerBD && !isAdmin) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    if (lead.status !== "active" || lead.locked) {
+      return NextResponse.json(
+        { message: "This lead is already closed" },
+        { status: 400 }
+      );
+    }
+
+    const now = new Date();
+
+    // Ownership transfers to Admin once a lead is closed out as lost —
+    // actually move assignedTo (not just log a claim that it happened).
+    const newOwner = await getAdminUser(db);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const setFields: Record<string, any> = {
+      status: "lost",
+      lostDate: now,
+      locked: true,
+      updatedAt: now,
+    };
+    if (newOwner) {
+      setFields.assignedTo = newOwner.id;
+      setFields.assignedToName = newOwner.name;
+    }
+
+    await db.collection(BD_COLLECTIONS.leads).updateOne(
+      { id: leadId },
+      { $set: setFields }
+    );
+
+    const historyId = await getNextId(db, BD_COLLECTIONS.pipelineHistory);
+    await db.collection(BD_COLLECTIONS.pipelineHistory).insertOne({
+      id: historyId,
+      leadId,
+      fromStage: lead.pipelineStage,
+      toStage: "Lead Lost",
+      note: reason,
+      changedBy: payload.id,
+      changedByName: payload.name,
+      changedAt: now,
+    });
+
+    await logBDActivity({
+      db,
+      leadId,
+      action: "Lead Lost",
+      userId: payload.id,
+      userName: payload.name,
+      previousValue: lead.pipelineStage,
+      newValue: "Lead Lost",
+    });
+    if (newOwner) {
+      await logBDActivity({
+        db,
+        leadId,
+        action: "Ownership Changed",
+        userId: payload.id,
+        userName: payload.name,
+        previousValue: lead.assignedToName,
+        newValue: newOwner.name,
+        skipUserAction: true,
+      });
+    }
+
+    const updatedLead = await db.collection(BD_COLLECTIONS.leads).findOne({ id: leadId });
+
+    return NextResponse.json({ message: "Lead marked as lost", lead: updatedLead });
+  } catch (err) {
+    console.error(err);
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { message: "Server error", error: errorMessage },
+      { status: 500 }
+    );
+  }
+}

@@ -11,9 +11,9 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
       day: 1,
       message:
         `Ireland is actively hiring international talent! 🇮🇪 The Ireland Employer Sponsored Work Visa (Critical Skills & General Employment) allows you to live and work in Ireland with your family.\n\n` +
-        `• Your Irish employer covers your €1,000 Work Permit fee + €60 Visa fee + flight tickets! ✈️\n` +
+        `• Direct employer sponsorship with vetted Irish employers 💼\n` +
         `• FREE English communication coaching & Interview Preparation included with TMS enrollment.\n` +
-        `• 100% Money-Back Guarantee if rejected for any reason.\n\n` +
+        `• 100% full legal compliance and dedicated visa roadmap.\n\n` +
         `Tap below to learn how you can qualify:`,
       buttons: [
         { id: "BTN_IRELAND_YES", title: "Yes, Interested" },
@@ -23,7 +23,7 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 2,
       message:
-        `Did you know? Under the Ireland Employer Sponsored Work Visa, your sponsoring Irish employer covers your €1,000 Work Permit fee + €60 Visa Processing fee + flight tickets! 💼✈️\n\n` +
+        `Did you know? Under the Ireland Employer Sponsored Work Visa, your sponsoring Irish employer covers your official work permit processing and flight tickets! 💼✈️\n\n` +
         `And TMS provides FREE Interview Preparation & English communication coaching from your very first week.\n\n` +
         `Don't miss this opportunity to advance your international career in Europe:`,
       buttons: [
@@ -64,9 +64,9 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 6,
       message:
-        `Transparent 2-Stage Fee Structure: Only €300 upon agreement signing (covers CV makeover, Case Manager, FREE English coaching & FREE Interview Preparation), and the remaining €700 ONLY after your visa and flight tickets are in hand! ✅\n\n` +
-        `100% Money-Back Guarantee — if rejected for any reason, full refund immediately. No questions asked.\n\n` +
-        `Tap below to check eligibility:`,
+        `TMS Visa provides complete end-to-end guidance: employer outreach, CV makeover, dedicated Case Manager, and comprehensive Interview Preparation! 🇮🇪\n\n` +
+        `Get evaluated by our senior specialists before upcoming employer sponsorship quotas fill up.\n\n` +
+        `Tap below to check your eligibility:`,
       buttons: [
         { id: "BTN_IRELAND_YES", title: "Yes, Interested" },
         { id: "BTN_IRELAND_NO", title: "Not Right Now" },
@@ -89,52 +89,50 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 1,
       message:
-        `We are waiting to share all the Ireland visa details with you! 📩\n\n` +
-        `Please reply with your email address so our migration team can send you the complete Ireland Work Visa information pack.`,
+        `We are waiting to share all the visa details with you! 📩\n\n` +
+        `Please reply with your email address so our migration team can send you the complete Ireland Employer Sponsored Work Visa information pack.`,
     },
     {
       day: 2,
       message:
-        `Irish employers are actively seeking profiles like yours! 🇮🇪\n\n` +
-        `This is a direct employer-sponsored visa. Please reply with your email address to review the eligibility requirements and occupation list.`,
+        `Irish employers are waiting for profiles like yours! 🇮🇪\n\n` +
+        `This is a fully employer-sponsored work visa. Please reply with your email address to review the eligibility requirements.`,
     },
     {
       day: 3,
       message:
-        `Employer covers your €1,000 permit and flights — you don't need to pay upfront recruitment fees! 💼\n\n` +
-        `Send us your email address to receive the full step-by-step breakdown.`,
+        `Employer covers your sponsorship charges — you don't need to pay upfront recruitment fees! 💼\n\n` +
+        `Send us your email address to receive the full step-by-step visa breakdown.`,
     },
     {
       day: 4,
       message:
-        `Have questions about Ireland salaries or Stamp 4 PR? 🌍\n\n` +
-        `Drop your email address here so we can send you our detailed guide and schedule your free assessment.`,
+        `It only takes 5 seconds: Simply drop your email address below (e.g. yourname@gmail.com) so we can send the official Ireland work visa guide to your inbox. 📩`,
     },
     {
       day: 5,
       message:
-        `Your European career is just one step away! ✈️\n\n` +
-        `Reply with your email address to access our complete documentation guide for Ireland.`,
+        `Irish sponsor employers have priority openings this quarter. Please provide your email address right here so our evaluation desk can forward the occupation list to you!`,
     },
     {
       day: 6,
       message:
-        `Quick reminder: Share your email address to receive the Ireland Work Visa guide & Occupation lists (Critical Skills & General Employment) directly in your inbox. 📧`,
+        `Candidate shortlisting is in progress for Irish employers. Please reply with your email address so your profile can be considered for direct sponsorship. 🇮🇪`,
     },
     {
       day: 7,
       message:
-        `Final reminder to receive the Ireland Work Visa pack. Reply with your email address anytime to restart. 🇮🇪`,
+        `Final Reminder: Share your email address today to receive the Ireland Employer Sponsored Work Visa information pack. This is our last reminder! 📩`,
     },
   ],
 
-  // Step 3: Consultation Decision
+  // Step 3: Book Consultation Meeting
   STEP_3_CONSULTATION: [
     {
       day: 1,
       message:
-        `This is a direct employer-sponsored work visa where approved Irish employers cover work permit and flight charges! 🇮🇪\n\n` +
-        `Book a free 1-on-1 consultation with our Ireland expert to learn more about the Ireland Employer Sponsored Work Visa:`,
+        `This is a fully employer-sponsored work visa where the Irish employer pays major charges! 🇮🇪\n\n` +
+        `Book a free 1-on-1 meeting with us to know more about the Ireland Employer Sponsored Work Visa:`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
         { id: "BTN_CONSULT_NO", title: "Maybe Later" },
@@ -143,8 +141,8 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 2,
       message:
-        `Quick recap from the Ireland video: Your employer covers your €1,000 work permit and flight tickets to Dublin! ✈️\n\n` +
-        `Ready to discuss your eligibility with our Ireland expert?`,
+        `You don't need to pay anything upfront for employer nomination — Irish employers cover the sponsorship! 💼\n\n` +
+        `Book your free 1-on-1 consultation to speak with our migration expert:`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
         { id: "BTN_CONSULT_NO", title: "Maybe Later" },
@@ -153,48 +151,46 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     {
       day: 3,
       message:
-        `Ireland offers both Critical Skills (CSEP) and General Employment Permits (GEP). With a minimum of 2 years' experience, our team checks which pathway best fits your occupation! 🇮🇪\n\n` +
-        `Would you like to book a free 1-on-1 consultation slot?`,
+        `Irish employers pay the amount for your sponsorship. Book a free 1-on-1 video meeting with our senior advisor this week to verify your job eligibility! ✈️`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-        { id: "BTN_CONSULT_NO", title: "Not Now" },
+        { id: "BTN_CONSULT_NO", title: "Maybe Later" },
       ],
     },
     {
       day: 4,
       message:
-        `Our Senior Ireland Migration Expert is holding free virtual sessions this week. Slots are limited! 📅`,
+        `Weekday Consultations Open: Our senior Ireland visa consultants have limited free 1-on-1 video slots Monday to Friday. Tap below to reserve your free call:`,
       buttons: [
-        { id: "BTN_CONSULT_YES", title: "View Available Slots" },
+        { id: "BTN_CONSULT_YES", title: "Book Consultation" },
         { id: "BTN_CONSULT_NO", title: "Maybe Later" },
       ],
     },
     {
       day: 5,
       message:
-        `Still thinking about moving to Ireland? 🇪🇺 Fast-track to Stamp 4 PR in 2 years awaits you.\n\n` +
-        `Book a quick 1-on-1 session to get all your doubts answered.`,
+        `Verify your occupation and discover how Irish employers sponsor overseas skilled candidates on the Ireland Employer Sponsored Work Visa. Book your free consultation today! 🇮🇪`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-        { id: "BTN_CONSULT_NO", title: "Not Interested" },
+        { id: "BTN_CONSULT_NO", title: "Maybe Later" },
       ],
     },
     {
       day: 6,
       message:
-        `Don't let another hiring quarter pass! Take 15 minutes this week to speak with our Ireland specialist.`,
+        `Direct employer sponsorship opportunities are limited this month. Don't miss out on having your career history evaluated by our team. Tap below to book your free call!`,
       buttons: [
-        { id: "BTN_CONSULT_YES", title: "Schedule Session" },
-        { id: "BTN_CONSULT_NO", title: "Not Now" },
+        { id: "BTN_CONSULT_YES", title: "Book Consultation" },
+        { id: "BTN_CONSULT_NO", title: "Maybe Later" },
       ],
     },
     {
       day: 7,
       message:
-        `This is our final check-in regarding your Ireland consultation. Tap below if you'd like to book, or message us anytime you're ready! 🇮🇪`,
+        `Last Reminder: Book your free 1-on-1 Ireland visa strategy session before weekday slots close. Tap below to schedule, or reply whenever you are ready!`,
       buttons: [
         { id: "BTN_CONSULT_YES", title: "Book Consultation" },
-        { id: "BTN_CONSULT_NO", title: "Close File" },
+        { id: "BTN_CONSULT_NO", title: "Maybe Later" },
       ],
     },
   ],
@@ -294,43 +290,44 @@ export const STEP_FOLLOWUP_MESSAGES: Record<string, FollowUpItem[]> = {
     },
   ],
 
-  // Step 5: Awaiting CV / Resume
+  // Step 5 / Step 6: Post-Meeting CV Intake
   STEP_5_CV: [
     {
       day: 1,
       message:
-        `Hi! 📄 Please send your updated CV / Resume here on WhatsApp in PDF or Word format.\n\n` +
-        `Our recruitment team is ready to review your qualifications against Ireland's Critical Skills (CSEP) & General Employment (GEP) lists (minimum 2 years of experience required)! 🇮🇪`,
+        `Please share your CV / Resume with us! 📄\n\n` +
+        `Our compliance and employer matching team is waiting to verify your Ireland Employer Sponsored Work Visa eligibility.`,
     },
     {
       day: 2,
       message:
-        `Quick reminder: Uploading your CV allows our team to match you directly with sponsoring Irish employers. Send it as an attachment here! 📎`,
+        `This visa is fully sponsored by your employer, so please share your CV to move forward! 🇮🇪\n\n` +
+        `Send it in PDF or Word document format right here.`,
     },
     {
       day: 3,
       message:
-        `We're reviewing candidate profiles for this month's Irish employer submissions. Please share your CV here so you don't miss out! 📄`,
+        `Our Irish employer matching team is waiting for your CV. Upload your resume here on WhatsApp so we can prepare your file! 📄`,
     },
     {
       day: 4,
       message:
-        `Need help formatting your CV? Don't worry — send your current CV as-is, and our team will provide a European/Irish-standard makeover! ✍️`,
+        `We need your updated CV to match your experience with active Irish sponsoring companies. Please attach it here.`,
     },
     {
       day: 5,
       message:
-        `Irish employers evaluate candidates based on structured European CV standards. Send us your resume so we can begin your assessment. 📄`,
+        `Fast-track your employer sponsorship application: Simply send your CV here in PDF or Word format so our evaluators can review. 💼`,
     },
     {
       day: 6,
       message:
-        `Friendly check-in: We haven't received your CV yet. Tap the attachment icon 📎 on WhatsApp and send your PDF or Word document!`,
+        `Don't delay your Ireland Employer Sponsored Work Visa file! Send your CV today so our senior review team can assess your job eligibility. 🇮🇪`,
     },
     {
       day: 7,
       message:
-        `Final reminder for CV submission for Ireland. You can send your resume here anytime you're ready to proceed! 🇮🇪`,
+        `Final Reminder: Please share your CV with us today to proceed with your Ireland Employer Sponsored Work Visa application. 📄`,
     },
   ],
 

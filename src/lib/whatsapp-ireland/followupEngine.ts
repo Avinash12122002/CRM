@@ -206,20 +206,118 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
         const followupItem = messagesForStep.find((m) => m.day === nextDay) || messagesForStep[0];
 
         if (followupItem) {
-          if (followupItem.buttons && followupItem.buttons.length > 0) {
-            await sendQuickReplyButtons(session.phone, followupItem.message, followupItem.buttons, { skipLog: true });
+          const isDateNotSelected =
+            session.currentStep === "SELECTING_DAY" ||
+            session.currentStep === "AWAITING_CONSULTATION_DECISION" ||
+            session.currentStep === "VIDEO_SENT_AWAITING_INTEREST" ||
+            session.currentStep === "AWAITING_REENGAGEMENT" ||
+            session.currentStep === "RESCHEDULING_DATE";
+
+          const isSlotNotSelected =
+            session.currentStep === "SELECTING_SLOT" ||
+            session.currentStep === "RESCHEDULING_SLOT";
+
+          let sentMsgType = "text";
+          let sentButtons = followupItem.buttons;
+
+          if (isDateNotSelected) {
+            // Candidate has NOT selected a date -> Attach 5-day weekday selection interactive list
+            const { getUpcomingWeekdays } = await import("./slots");
+            const { sendInteractiveList } = await import("./client");
+            const weekdays = getUpcomingWeekdays(5);
+            const sections = [
+              {
+                title: "5 Weekdays (Mon-Fri)",
+                rows: weekdays.slice(0, 5).map((w) => ({
+                  id: `SELECT_DAY_${w.date}`,
+                  title: w.displayLabel.slice(0, 24),
+                  description: `${w.dayName} · 1-Hour Slots`.slice(0, 72),
+                })),
+              },
+            ];
+            const listRes = await sendInteractiveList(
+              session.phone,
+              "Select Consultation Date",
+              followupItem.message,
+              "Select Date",
+              sections,
+              { skipLog: true }
+            );
+            if (listRes.success) {
+              sentMsgType = "interactive_list";
+              sentButtons = undefined;
+            } else {
+              const btnRes = await sendQuickReplyButtons(session.phone, followupItem.message, [{ id: "BTN_RESCHEDULE", title: "Select Date" }], { skipLog: true });
+              sentMsgType = "interactive_button";
+            }
+          } else if (isSlotNotSelected) {
+            // Candidate has selected date, but NOT selected a slot -> Attach 8-slot selection interactive list
+            const { getAvailableWeekdaySlots, getUpcomingWeekdays } = await import("./slots");
+            const { sendInteractiveList } = await import("./client");
+            const { extractShortTimezone } = await import("./timezone");
+            const allWeekdays = getUpcomingWeekdays(5);
+            const meetingDate = session.activeSlotsDate || allWeekdays[0]?.date;
+            if (meetingDate) {
+              const slots = await getAvailableWeekdaySlots({
+                db,
+                meetingDate,
+                candidateTimeZone: session.timeZone,
+                candidateTimeLabel: session.timeZoneLabel,
+              });
+              const availableSlots = slots.filter((s) => s.available);
+              const rawTzShort = extractShortTimezone(session.timeZoneLabel);
+              const tzShort = rawTzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+              const tzSuffix = tzShort ? ` (${tzShort})` : "";
+              const sections = [
+                {
+                  title: `8 Slots${tzSuffix}`.slice(0, 24),
+                  rows: availableSlots.slice(0, 8).map((s, idx) => ({
+                    id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
+                    title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
+                    description: `Slot #${idx + 1}${tzSuffix}`.slice(0, 72),
+                  })),
+                },
+              ];
+              const listRes = await sendInteractiveList(
+                session.phone,
+                "Choose Your Slot",
+                followupItem.message,
+                "Select Slot",
+                sections,
+                { skipLog: true }
+              );
+              if (listRes.success) {
+                sentMsgType = "interactive_list";
+                sentButtons = undefined;
+              } else {
+                const btnRes = await sendQuickReplyButtons(session.phone, followupItem.message, [{ id: "BTN_SELECT_SLOT", title: "Select Time Slot" }], { skipLog: true });
+                sentMsgType = "interactive_button";
+              }
+            } else {
+              const btnRes = await sendQuickReplyButtons(session.phone, followupItem.message, [{ id: "BTN_RESCHEDULE", title: "Select Date" }], { skipLog: true });
+              sentMsgType = "interactive_button";
+            }
+          } else if (followupItem.buttons && followupItem.buttons.length > 0) {
+            const btnRes = await sendQuickReplyButtons(session.phone, followupItem.message, followupItem.buttons, { skipLog: true });
+            if (btnRes.success) {
+              sentMsgType = "interactive_button";
+            } else {
+              await sendTextMessage(session.phone, followupItem.message, { skipLog: true });
+              sentMsgType = "text";
+            }
           } else {
             await sendTextMessage(session.phone, followupItem.message, { skipLog: true });
+            sentMsgType = "text";
           }
 
           await logWhatsAppIrelandMessage({
             db,
             phone: session.phone,
             sender: "bot",
-            senderName: "Aria (TMS Visa - Ireland)",
+            senderName: "Pearl (TMS Visa)",
             text: followupItem.message,
-            msgType: followupItem.buttons ? "interactive_button" : "text",
-            buttons: followupItem.buttons,
+            msgType: sentMsgType as any,
+            buttons: sentButtons,
             createdAt: now,
           });
 
@@ -233,7 +331,7 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
           results.push({
             phone: session.phone,
             type: `ireland_followup_day_${nextDay}`,
-            details: { stepKey },
+            details: { stepKey, sentMsgType },
           });
         }
       } catch (itemErr) {
@@ -247,14 +345,6 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
   // 3. 1-Hour Pre-Meeting Reminder
   try {
     const todayIST = formatDateInZone(now, "Asia/Kolkata");
-    const currentHourIST = parseInt(
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Kolkata",
-        hour: "numeric",
-        hour12: false,
-      }).format(now),
-      10
-    );
 
     const bookedSessions = (await db
       .collection("whatsapp_ireland_sessions")
@@ -305,6 +395,15 @@ export async function runWhatsAppIrelandFollowupEngine(db: Db): Promise<Followup
               updatedAt: now,
             },
           }
+        );
+
+        await db.collection("meetingSlots").updateMany(
+          {
+            phone: session.phone,
+            channel: "WhatsApp Ireland",
+            meetingDate: session.bookedSlot.date,
+          },
+          { $set: { reminderSent: true, reminderSentAt: now } }
         );
 
         results.push({ phone: session.phone, type: "ireland_pre_meeting_reminder_1hr" });

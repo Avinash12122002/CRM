@@ -50,11 +50,13 @@ function buildSlotRows(
   _meetingDate: string,
   timeZoneLabel: string,
 ) {
-  const tzShort = extractShortTimezone(timeZoneLabel);
-  return availableSlots.slice(0, 10).map((s, idx) => ({
+  const rawTzShort = extractShortTimezone(timeZoneLabel);
+  const tzShort = rawTzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+  const tzSuffix = tzShort ? ` (${tzShort})` : "";
+  return availableSlots.slice(0, 8).map((s, idx) => ({
     id: `SLOT_${s.date}_${s.istStartTime}_${s.candidateStartTime}`,
     title: `${s.candidateDisplayLabel.split(" (")[0]}`.slice(0, 24),
-    description: `Slot #${idx + 1} (${tzShort})`.slice(0, 72),
+    description: `Slot #${idx + 1}${tzSuffix}`.slice(0, 72),
   }));
 }
 
@@ -645,25 +647,28 @@ export async function sendWeekdayDateList(phone: string): Promise<void> {
 
   const weekdays = getUpcomingWeekdays(5);
   const candWindow = getCandidateConsultationWindow(session.timeZone, session.timeZoneLabel);
+  const rawTzShort = extractShortTimezone(session.timeZoneLabel);
+  const tzShort = rawTzShort.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+  const tzSuffix = tzShort ? ` (${tzShort})` : "";
 
   const sections = [
     {
-      title: "Available Consultation Dates",
+      title: "5 Weekday Dates",
       rows: weekdays.slice(0, 5).map((w) => ({
         id: `SELECT_DAY_${w.date}`,
         title: w.displayLabel.slice(0, 24),
-        description: `Window: ${candWindow.displayWindow}`.slice(0, 72),
+        description: `${w.dayName} · 1-Hour Slots`.slice(0, 72),
       })),
     },
   ];
 
   await sendInteractiveList(
     cleanPhone,
-    "Ireland 1-on-1 Consultation",
-    `Speak directly with our **Senior Ireland Migration Expert** to assess your eligibility for Irish employer sponsorship! 🇮🇪\n\n` +
-    `All sessions are 100% free and conducted via Google Meet in your local timezone (${candWindow.tzShort}).\n\n` +
-    `Please select a convenient weekday (Mon–Fri) below:`,
-    "Choose Date 📅",
+    "Select Consultation Date",
+    `Our 1-on-1 consultations with our senior visa experts are held on **Monday to Friday**.\n` +
+    `All 1-on-1 sessions run in 1-hour intervals between **${candWindow.displayWindow}**${tzSuffix}.\n\n` +
+    `Please select your preferred date from the 5 upcoming weekdays below:`,
+    "Select Date",
     sections
   );
 
@@ -1413,7 +1418,9 @@ export async function processIncomingWhatsAppMessage(params: {
     cleanActionId === "BTN_IRELAND_YES" ||
     (session.currentStep === "WELCOME" && isAffirmative && !isDirectEmail)
   ) {
-    const emailPrompt = `Great! Now we will  Share All The Details over your email , *please reply with your Email Address:*`;
+    const emailPrompt =
+      `Great! To send you our complete **Ireland Employer Sponsored Work Visa Process Guide**, please share your **Email Address**: 📩\n\n` +
+      `*(Type your email below)*`;
 
     const nextFollowup = getNext10AmInTimezone(session.timeZone);
     await updateSession(db, cleanPhone, {
@@ -1919,11 +1926,15 @@ export async function processIncomingWhatsAppMessage(params: {
       },
     ];
 
+    const rawTz = extractShortTimezone(session.timeZoneLabel);
+    const cleanTz = rawTz.replace(/\bIST\b/g, "").replace(/\(|\)/g, "").trim();
+    const tzLabel = cleanTz ? ` (${cleanTz})` : "";
+
     await sendInteractiveList(
       cleanPhone,
       "Choose Consultation Slot",
-      `Available times on **${availableSlots[0].dayLabel}** in your local timezone (${session.timeZoneLabel}):`,
-      "Select Time ⏰",
+      `Available times on **${availableSlots[0].dayLabel}** in your local timezone${tzLabel}:`,
+      "Select Slot",
       sections
     );
 
